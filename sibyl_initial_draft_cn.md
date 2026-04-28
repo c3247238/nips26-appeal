@@ -111,3 +111,52 @@ Autonomous research 不应该被当成"能不能写出一篇 paper"的问题。P
 我们把这个能力叫做 trial-to-behavior conversion，提出了 Scientific Trial-and-Error Harness 作为设计目标，用 Sibyl 做了一个实例。不是 benchmark，不是 comparison，是一个 existence proof：这些东西是可以被观察到、被审计的。
 
 下一代自主科研系统，应该比的不是谁的 paper 更流畅，而是谁的 trial history 更诚实地改变了后来的行为。
+
+
+## 别人都做了什么
+
+现在有几条线，分开看一下。
+
+端到端 AI scientist：Lu et al. AI Scientist、Yamada v2 — 从 idea 跑到 paper。能跑通，但 paper completion 本身变成了奖励信号。paper 写完了就算成功，evidence 可能还是烂的。
+
+metric-driven：Karpathy autoresearch loop、Analemma FARS — 给一个可见的 score 反复 optimize。score 可信的时候很好，但科研里很多 score 本身就是坏的 proxy，越 optimize 越偏。
+
+研究助手：Agent Laboratory、co-scientist — hypothesis generation、literature synthesis、candidate ranking。有价值，但设计出发点是辅助人做判断，不是让 agent 自己积累 trial-to-trial 的经验。
+
+AlphaEvolve：在有强 verifier 的 domain 可行，比如算法搜索。PaperBench：测 agent 能不能复现已有研究。这些跟我们要做的是互补的。
+
+工程 harness：Anthropic 和 OpenAI 都在推。但我们想说 harness 不应该只为了 uptime——它应该成为 research method 的一部分，把失败转成行为变化。
+
+## 现在系统缺什么：六类反复出现的失效模式
+
+1. paper 写完了但证据跟不上。pipeline 把 draft 写出来了，看着流畅，底下数据可能是脏的、缺的、没验证的。"这个 evidence 还不够硬"这个信号没有传回 planning 或 validation 阶段。
+
+2. pilot 信号被当成 full claim。跑了个 cheap pilot，一个 seed、小 sample、短训练，有个方向感。然后直接写进 abstract 当 claim。没有人标记"这是 pilot signal 不是 paper-ready evidence"。
+
+3. 坏 metric 被反复 optimize。某个 metric 本身有问题，但系统不会质疑 metric——它只会继续 optimize 同一个 metric。需要 metric validity check 作为前置 gate。
+
+4. reflection 写了没人看。反思文件写得很对，但 planner 还是原来的 plan，critic 的反对意见 writer 不理，supervisor 的降级建议没人执行。不是没记住，是没路由到能行动的人。
+
+5. 每次跑都一样贵。上次有个实验跑了 8 小时结果没用，这次还是同样的顺序。不会先跑个 cheap sanity check。需要 resource-aware reordering。
+
+6. 基础设施的坑一直重复。每次都缺 figure、telemetry 不全、paper 和 result 不同步。这是 harness 的问题，不是单个 project 的问题，但 harness 没有被修。需要 harness-level 的修正机制。
+
+## 怎么评估
+
+评估不应该是看 paper 好不好看。应该看几个东西：能不能从 trial 里找到行为变化的证据、能不能把 claim 追溯到原始 artifact、能不能测出来系统会在哪里过拟合 score。
+
+还有 governance 的问题——harness 本身也会被 hack。用 paper quality 做 metric → 系统 optimize paper quality 而不是 evidence quality。用 reflection score 做 metric → reflection 会变成套路。需要 hidden injected failures、independent audit、不能只给一个总分。
+
+## 实现细节
+
+Sibyl 有六个 plane：
+- control：决策门控（REFINE / GO / NO_GO / PIVOT / ADVANCE），跨 iteration 的信号路由
+- evidence：workspace artifacts + trace chain（claim → table → script → log）
+- memory：reflection → normalize 成 issue → 按 role 路由注入 prompt
+- role：planner / experimenter / critic / supervisor / skeptic / methodologist / writer / editor
+- compute：GPU 调度 / lease / 监控 / 恢复 / repair task
+- evolution：全局记忆 + harness 级修正
+
+实验是异步跑的。有依赖图、lease、自动重试。重试失败 → repair task。
+所有 artifact 都落盘。workspace 目录结构是 iter_NNN/role/artifact convention。
+Self-heal 模块：错误收集 → 分类 → 路由 → fix（prompt overlay 或 harness checkpoint）。
