@@ -216,3 +216,23 @@ Harness self-evolution: 基础设施坑 → harness 级 gate、prompt overlay、
 角色分离：planner, experimenter, critic, supervisor, skeptic, methodologist, writer, editor。writer 不能把 pilot 升级成 full claim。
 Evolution memory: reflection → issue category / severity / affected roles / suggestions → prompt loader 注入到对应 prompt。
 GPU 调度: 异步，依赖图，lease，监控，恢复。挂了自动重试 → 还不行 → repair task。
+
+
+## Workspace 证据整理
+
+dynamic-wd: controller 不稳 → budget 问题 → control 缺失 → 修好 controller → 9/9 stability test → claim 收窄。REFINE → ADVANCE 链路清晰。
+
+dlm-acceleration: unsupported statistics → p-value 编造 → alpha 和 accept rate 对不上 → M1 是 no-op。整条线从"加速"转成"interference taxonomy"，加了 null ablation + full-scale replication prerequisite。
+
+sae-absorption: 11 个迭代。中间 polish 阶段 evidence 没跟上 → 强制转 experiment-first。probe degradation R²=0.777 有进展，但同时 CI inversion、stale headline、三个 incompatible rate 一起爆 → 下一轮变成 data integrity iteration。
+
+sae-absorption-kimi: 最有意思的一个。writing score 8/10，supervisor 给 4.5，critic 给 5。原因：4/5 replicate 是 byte-identical，feature count 1024 vs 16384 对不上，explained variance 全负，TopK 81.6% dead latents。写作质量高但证据塌了——paper completion hides evidence immaturity。
+
+augmentation-order: CIFAR-10 + ResNet18 pilot。pilot 给 GO，reflection 打 4.0/10（Tier-1 experiment 都没跑）。cheap pilot ≠ full claim。
+
+lewm-generalization: 真实自研 → 快速暴露 scheduling 和 recovery 瓶颈。resource policy 是 research loop 的一部分，不是 engineering detail。
+
+消融诊断：
+- no-debate: 去掉 skeptic → pilot GO 过了但 coarse measurement 漏检。
+- mem-negative: 质量 gate 直接 hard-block 了一个 review 缺失的 iteration。
+- no-revision: 长期停滞，issue 积压，没人强制 action。
