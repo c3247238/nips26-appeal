@@ -160,3 +160,32 @@ Sibyl 有六个 plane：
 实验是异步跑的。有依赖图、lease、自动重试。重试失败 → repair task。
 所有 artifact 都落盘。workspace 目录结构是 iter_NNN/role/artifact convention。
 Self-heal 模块：错误收集 → 分类 → 路由 → fix（prompt overlay 或 harness checkpoint）。
+
+
+## 相关文献（继续补）
+
+端到端 AI scientist: Lu et al., Yamada v2。idea → paper 全链跑通。问题在于 paper completion 自身变成 reward signal，evidence 质量不 check。pipeline 能产出流畅 draft 但底下数据可能没验证。
+
+metric-driven loop: Karpathy autoresearch, Analemma FARS。score 可信时 ok。坏 proxy → 越 optimize 越偏。科研里很多 score 本身就是坏的 proxy，需要 metric validity check 前置。
+
+研究助手: Agent Lab, co-scientist。hypothesis generation, literature synthesis, candidate ranking。设计初衷是辅助人做判断，不是让 agent 自己积累 trial-to-trial 的经验。
+
+AlphaEvolve: 强 verifier domain 可行。PaperBench: 测复现能力。两条跟我们的互补。
+
+工程 harness: Anthropic, OpenAI 都在推。核心观点：harness 不应该只为 uptime，应该成为 research method 的一部分——把失败转成行为变化。
+
+## 失效模式再梳理
+
+把最近碰到的六类问题整理得更清楚：
+
+1. paper 写完 → evidence 脏/缺/未验证。没有 evidence → planning 的回传路径。写完不等于做完了，draft completeness ≠ evidence maturity。
+
+2. pilot signal → 当 full claim。单 seed、小 sample → abstract 里当结论写。缺标记：pilot 还是 paper-ready，需要 evidence maturity tag。
+
+3. 坏 metric → 反复 optimize。系统不质疑 metric 本身。需要 metric validity check 作为前置 gate，不能 blind optimize。
+
+4. reflection → 写了但未路由到执行角色。planner 旧 plan 不动，critic 反对 writer 忽略，supervisor 降级无执行。不是没记住，是没送到能行动的人手里。
+
+5. 实验 → 同样顺序、同样贵。上次 8h 白跑 → 不改 sanity check 优先级。需要 resource-aware reordering，让 cheap sanity check 先跑。
+
+6. 基础设施坑 → 重复出现。缺 figure、telemetry 不全、paper/result 不同步。harness 自身未被修。需要 harness-level 的修正机制，不是 project-level 的规避。
