@@ -280,3 +280,56 @@ evolution plane: 全局记忆 + harness 级 checkpoint。
 
 实验异步，依赖图 + lease + 自动重试。重试失败 → repair task。
 全落盘。self-heal 模块: 错误收集 → 分类 → 路由 → fix（prompt overlay 或 harness checkpoint）。
+
+
+## 论文框架展开：每段论述的中文对应
+
+马上要把上面的中文笔记整理成正式的 LaTeX 稿件。目前的结构还是零散的——各个段落散落在不同笔记里，现在要按正式论文的结构重新组织。以下是从中文论述到英文 section 的段落级对应。
+
+### Introduction 段落展开
+
+第一段（现状）：AI Scientist、Agent Laboratory、co-scientist 这些系统的共性——它们证明了 agent 能参与科研 loop，但 pipeline completion 不等于研究能力的积累。对应中文笔记里"pipeline 能跑通但坑还会再踩"那一段。英文里要把这个 gap 说清楚：不是这些系统不好，是它们暴露了一个更深的设计问题——做完研究阶段 ≠ 积累研究判断。
+
+第二段（六类失败模式）：从六个角度展开 trial completion 和 behavior change 之间的脱节。pilot 发现 metric 有问题 → 下次计划还用它。reviewer 提了反对意见 → writer 只润色不改论据。GPU 跑挂了 → scheduler 还按原来的顺序。每个失败模式要有具体的 observed signal + missing update path。这些对应中文笔记里的六类失效模式，但要写成正式的 failure-mode 描述。
+
+第三段（trial-to-behavior conversion）：这是论文的核心概念。定义要精确：一个 signal 在 iteration t 出现，在 iteration t+k 必须能观察到行为改变——plan 改了、validation 提前了、claim 收窄了、branch 停了、scheduler 换顺序了。要有可观测的 artifact 链。
+
+第四段（为什么这跟 prior work 不同）：对比现有系统——现有系统展示的是 agent 能不能完成研究阶段。我们问的是 trial history 能不能改变后续行为。两个不同的问题。
+
+### Related Work 的结构
+
+要拆成几条线。端到端 AI scientist（Lu et al., Yamada v2）：做到了 idea→paper，贡献在于证明了可行性。metric-driven（Karpathy, Analemma）：score 优化 loop，在 score 可信时有效。研究助手（Agent Lab, co-scientist）：辅助人做判断，人不参与时缺乏自主积累。AlphaEvolve / PaperBench：互补。工程 harness（Anthropic, OpenAI）：现有重点在 uptime 和 safety，我们想论证 harness 应该是 research method 的一部分。
+
+每条线最后都要回到同一个问题：这些系统有没有从 trial 里积累可观测的行为变化？如果没有，那就不是记忆的问题，是更新路径缺失。
+
+### Scientific Trial-and-Error Harness 七个函数
+
+要把中文笔记里的七条从"功能列表"升级成"可审计的设计承诺"。每条原则都要有三个要素：这个函数做什么、需要什么基础设施支持、可观测的行为承诺是什么。
+
+H1 Trial orchestration: 每个 trial 要有 question + expected evidence + dependencies → 上一轮的结果改变下一轮的 plan 或 task dependency。
+H2 Evidence maturity: pilot / analysis-grade / paper-ready / audited claim → 不同状态不能混淆。claim 升级需要 validation + scope control + artifact links。
+H3 Traceability: behavior update → 对应到具体 artifact（plan, config, log, table, review, writing change）。
+H4 Routed memory: reflection → normalize → route to specific role → 对应 prompt injection。
+H5 Perspective separation: innovator/skeptic/methodologist → 不同权限。critic 的反对 → validation task 或 claim downgrade。
+H6 Resource-aware trial policy: 贵实验失败 → sanity check 顺序调整。
+H7 Harness self-evolution: process failure → harness-level gate/prompt/contract change。
+
+### 评估不要性能指标，要审计指标
+
+我们的论证不需要"比 baseline 强 X%"。需要的是：能不能在 workspace trace 里找到从 trial signal 到 behavior change 的证据链。所以 Table 里的数字不是"accuracy 多少"，而是 iteration 数、task 数、decision marker 数、evolution issue 数。这些数字的意义是"这些信号存在，可以被审计"，不是"这些数字表示系统更好"。
+
+### Governance 需要内建对抗
+
+harness 本身也会被 hack。如果用 paper quality 做 metric，系统会 optimize paper quality 而不是 evidence quality。解决方案：hidden injected failures、negative evidence requirement、multi-perspective audit（不能一个分数定生死）。
+
+### 整体段落布局
+
+Section 1 Introduction（三段式 + failure modes）
+Section 2 Related Work（四条线 → 同一问）
+Section 3 Scientific Trial-and-Error Harness（七个函数，每个含行为承诺）
+Section 4 Operationalizing in Sibyl（六个 plane 对应七个函数）
+Section 5 Evidence from Workspaces（七个 workspace + ablation 的 trial-level 分析）
+Section 6 Auditing（用 conversion lens 审计）
+Section 7 Discussion & Limitations
+
+这个结构是下面英文稿件重构（~515 行新增）的中文对应。每一段都能在笔记里找到源头。
