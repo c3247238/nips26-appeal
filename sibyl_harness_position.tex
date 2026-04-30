@@ -26,7 +26,7 @@
 \newcommand{\placeholdercite}[1]{\textbf{[CITATION TODO: #1]}}
 \newcommand{\sibyl}{\textsc{Sibyl}}
 
-\title{Autonomous Research Needs Scientific Trial-and-Error Harnesses, Not Paper Generators}
+\title{Autonomous Research Needs Self-Evolving Trial-and-Error Harnesses, Not Paper Generators}
 
 \author{Anonymous Authors}
 
@@ -35,20 +35,22 @@
 \maketitle
 
 \begin{abstract}
-Large language models can now write code, run experiments, and draft research papers. What they still rarely do is change how they act on the next failed pilot, broken metric, or reviewer objection. Benchmarks that score finished papers reward rhetorical closure and hide evidential immaturity. We propose a different unit of progress for autonomous research: \emph{trial-to-behavior conversion}, a measurable mapping from a trial signal at iteration $t$ to a future action at $t+k$ that artifacts can record across planning, validation, claim maturity, scheduling, critique, and writing scope. We argue that making this conversion observable requires a Scientific Trial-and-Error Harness: file-backed state, decision gates, routed memory, role-separated agents, and GPU-aware execution. We instantiate the idea in \sibyl{}, a harness we deployed across nine research workspaces, and we pair positive process traces with three controlled ablations. Removing multi-agent debate let \sibyl{} produce a primary effect of $d=8.94$ while failing to flag that the steering validation was broken. Removing routed negative memory caused four iterations of cycling on the same flawed framework. The right question for autonomous research is not whether the paper looks finished, but whether trial history has changed the system's next action.
+Human researchers produce strong ideas, results, and papers not only because they know facts or can use tools, but because they accumulate research intuition: compressed judgment from many concrete attempts, failures, surprising successes, reviews, and reflections. Autonomous research agents need the same kind of experience substrate. A model's static knowledge and tool access are insufficient if failed pilots, broken metrics, negative results, and reviewer objections do not change what the agent tries next. We propose Scientific Trial-and-Error Harnesses: systems that let agents interact repeatedly with real research environments, fail safely, preserve good and bad outcomes, summarize lessons into long-term memory, and convert those lessons into future behavior. The key observable is \emph{trial-to-behavior conversion}, a mapping from a trial signal at iteration $t$ to a future action at $t+k$ across planning, validation, claim maturity, scheduling, critique, and writing scope. We further argue that the harness itself must learn: repeated process failures should become prompt overlays, validation gates, telemetry requirements, scheduler policies, repair tasks, and protected constraints. We instantiate this agent-harness co-evolution in \sibyl{}, a file-backed autonomous research harness deployed across nine research workspaces and system-evolution records. Controlled ablations show why the substrate matters: removing multi-agent debate let \sibyl{} produce a primary effect of $d=8.94$ while missing a broken steering validation, and removing routed negative memory caused four iterations of cycling on the same flawed framework. The central question for autonomous research is not whether a system can generate a finished paper, but whether accumulated trial experience changes both the research agent and the harness that hosts it.
 \end{abstract}
 
 \section{Introduction}
 
-Human researchers know more than facts about a field. They build a practical sense of what is worth trying, which metrics are fragile, which negative results are real signals, which baselines are suspicious, and when a polished story is running ahead of the evidence. We call this sense \emph{research intuition}. It is shaped by repeated trials, failed experiments, advice, reviews, lab notebooks, and long exposure to a domain~\citep{ericsson1996expert}.
+Human researchers know more than facts about a field. They build a practical sense of what is worth trying, which metrics are fragile, which negative results are real signals, which baselines are suspicious, and when a polished story is running ahead of the evidence. This sense is often called intuition, taste, or judgment. In this paper we call it \emph{research intuition}: compressed experience accumulated through repeated trials, failed experiments, successful repairs, advice, reviews, lab notebooks, and long exposure to a domain~\citep{ericsson1996expert}.
 
-Current autonomous research systems show a gap between fluent activity and durable judgment. End-to-end AI scientist systems span the pipeline from idea to draft \citep{lu2024aiscientist,yamada2025aiscientistv2}. Research assistant and co-scientist systems help formulate hypotheses, synthesize literature, and rank candidates \citep{schmidgall2025agentlaboratory,gottweis2025aicoscientist,ghareeb2025robin}. Metric-driven loops modify code to optimize a visible score \citep{karpathy2026autoresearch}. These systems are important. Yet a system can write a plausible paper while forgetting that an earlier metric was broken, that a pilot was underpowered, or that a reviewer objection should have blocked a claim.
+If agents are to become serious research collaborators, they need a way to accumulate analogous experience. Static model knowledge and tool use are not enough. A capable agent can read papers, write code, run experiments, and draft prose, but still behave like a researcher with no lab history: it may repeat a broken metric, promote an underpowered pilot, forget why a baseline was invalid, or polish a story that should have been sent back to experimentation. The missing substrate is not only memory capacity. It is repeated interaction with real research environments, plus mechanisms that turn both success and failure into durable changes in future behavior.
 
-\textbf{Autonomous research needs a Scientific Trial-and-Error Harness, not a paper generator.} Paper-completion benchmarks reward rhetorical closure and conceal evidential immaturity. This is harmful, not just incomplete. A Scientific Trial-and-Error Harness is the external system around research agents that organizes trials, constrains evidence, preserves memory, separates perspectives, manages compute, and records artifacts. A paper is then an expression of an evidence state, not the primary unit of research capability.
+Current autonomous research systems show this gap between fluent activity and durable judgment. End-to-end AI scientist systems span the pipeline from idea to draft \citep{lu2024aiscientist,yamada2025aiscientistv2}. Research assistant and co-scientist systems help formulate hypotheses, synthesize literature, and rank candidates \citep{schmidgall2025agentlaboratory,gottweis2025aicoscientist,ghareeb2025robin}. Metric-driven loops modify code to optimize a visible score \citep{karpathy2026autoresearch}. These systems are important. Yet a system can write a plausible paper while failing to carry forward the experience that an earlier metric was broken, that a pilot was underpowered, or that a reviewer objection should have blocked a claim.
 
-The bridge in this paper is \emph{trial-to-behavior conversion}: past controlled trials visibly change future research behavior. A system has learned from a failed pilot only if later plans ask for stronger controls, later experiment agents run validation first, later critics check the same metric failure, later supervisors downgrade claims, later schedulers prefer cheap sanity checks, or later writers narrow the narrative. Figure~\ref{fig:hook} gives the framing. The right-hand side is not a claim of human-level intuition. It is the external substrate through which an autonomous system externalizes and audits the experience that human researchers internalize.
+\textbf{Autonomous research needs a Scientific Trial-and-Error Harness, not a paper generator.} Paper-completion benchmarks reward rhetorical closure and conceal evidential immaturity. This is harmful, not just incomplete. A Scientific Trial-and-Error Harness is the external system around research agents that organizes trials, constrains evidence, preserves memory, separates perspectives, manages compute, records artifacts, and improves itself from recurring process failures. A paper is then an expression of an evidence state, not the primary unit of research capability.
 
-This position did not come from theoretical reflection. It came from building \sibyl{}, deploying it across nine research workspaces, and watching where the system actually changed its own future behavior. The harness functions below were not invented top-down. Each was a response to a failure mode we encountered while running real autonomous research.
+The bridge in this paper is \emph{trial-to-behavior conversion}: past controlled trials visibly change future research behavior. This is the observable footprint of intuition formation. A system has learned from a failed pilot only if later plans ask for stronger controls, later experiment agents run validation first, later critics check the same metric failure, later supervisors downgrade claims, later schedulers prefer cheap sanity checks, or later writers narrow the narrative. We also introduce \emph{trial-to-harness-behavior conversion}: past failures change the harness itself by creating new checks, prompt overlays, scheduler policies, telemetry requirements, repair tasks, or protected constraints. Figure~\ref{fig:hook} gives the framing.
+
+This position did not come from theoretical reflection alone. It came from building \sibyl{}, deploying it across nine research workspaces, and inspecting system-evolution records from a working autonomous research stack. The harness functions below were not invented top-down. Each was a response to a failure mode encountered while running real autonomous research: missing figures across rounds, stale artifacts, underpowered experiments, broken proxy metrics, unsupported claims, GPU telemetry gaps, and synchronization failures between planning, evidence, and writing artifacts.
 
 \begin{figure}[t]
   \centering
@@ -62,34 +64,34 @@ This position did not come from theoretical reflection. It came from building \s
   \begin{subfigure}[t]{0.49\linewidth}
     \centering
     \includegraphics[width=\linewidth,height=0.22\textheight,keepaspectratio]{fig2_scientific_trial_error_harness.png}
-    \caption{The harness loop: hypothesis, trial, evidence, reflection, memory, behavior update.}
+    \caption{The harness loop: hypothesis, trial, evidence, reflection, memory, behavior and harness update.}
     \label{fig:harness}
   \end{subfigure}
-  \caption{Left: research intuition is operationalized by asking whether past trial history changes future behavior. The right-hand side is a proposal for an external, auditable substrate, not a claim of human-level intuition. Right: the harness loop. Section~\ref{sec:harness} describes each surface; Section~\ref{sec:sibyl} describes how \sibyl{} implements them.}
+  \caption{Left: research intuition is operationalized by asking whether accumulated trial history changes future behavior. Right: the harness loop that turns trials into evidence, reflection, memory, behavior updates, and harness updates. Section~\ref{sec:harness} describes each surface; Section~\ref{sec:sibyl} describes how \sibyl{} implements them.}
   \label{fig:hook}
 \end{figure}
 
-We make three contributions. First, we propose trial-to-behavior conversion as an evaluation target for autonomous research systems. Second, we define the components of a Scientific Trial-and-Error Harness. Third, through controlled ablations and process traces from \sibyl{} workspaces, we identify which harness components are necessary for trial-to-behavior conversion and which are not.
+We make four contributions. First, we frame research intuition as accumulated trial experience and propose trial-to-behavior conversion as its auditable footprint in autonomous systems. Second, we define the components of a Scientific Trial-and-Error Harness for safe, efficient, memory-bearing research trial-and-error. Third, we introduce agent-harness co-evolution: the agent learns domain behavior while the harness learns how to repair, monitor, and constrain future research loops. Fourth, through controlled ablations, workspace traces, and system-evolution records from \sibyl{}, we identify which harness components are necessary for turning experience into future action.
 
 \section{Related work and the harness gap}
 
-The field is moving quickly, but several lines of work have a common limitation for open-ended science. End-to-end AI scientist systems demonstrate that LLM agents can generate ideas, execute experiments, and draft papers \citep{lu2024aiscientist,yamada2025aiscientistv2}. This is an informative stress test, but paper completion rewards rhetorical closure, and a fluent draft hides immature evidence.
+The field is moving quickly, but several lines of work have a common limitation for open-ended science: they automate acts of research without necessarily providing the experience-forming substrate that turns repeated attempts into durable judgment. End-to-end AI scientist systems demonstrate that LLM agents can generate ideas, execute experiments, and draft papers \citep{lu2024aiscientist,yamada2025aiscientistv2}. This is an informative stress test, but paper completion rewards rhetorical closure, and a fluent draft hides immature evidence.
 
-Metric-driven autoresearch loops show the power of repeated autonomous experimentation when the objective is clear \citep{karpathy2026autoresearch,analemma2026fars}. They are closest in spirit to trial-and-error, but many scientific questions do not have a single trustworthy scalar objective. A visible metric becomes a proxy target rather than evidence for understanding.
+Metric-driven autoresearch loops show the power of repeated autonomous experimentation when the objective is clear \citep{karpathy2026autoresearch,analemma2026fars}. They are closest in spirit to trial-and-error, but many scientific questions do not have a single trustworthy scalar objective. A visible metric can become a proxy target rather than evidence for understanding, so the loop must also learn when the metric, baseline, or experimental envelope is wrong.
 
-Research assistants and co-scientist systems emphasize human collaboration, hypothesis generation, and candidate prioritization \citep{schmidgall2025agentlaboratory,gottweis2025aicoscientist,ghareeb2025robin}. They are valuable because human scientists remain responsible for judgment. The gap is that many such systems are optimized for local assistance rather than durable autonomous trial memory.
+Research assistants and co-scientist systems emphasize human collaboration, hypothesis generation, and candidate prioritization \citep{schmidgall2025agentlaboratory,gottweis2025aicoscientist,ghareeb2025robin}. They are valuable because human scientists remain responsible for judgment. The gap is that many such systems are optimized for local assistance rather than durable autonomous trial memory, cross-project lesson routing, or harness-level repair.
 
 Verifier-rich domains provide another contrast. AlphaEvolve-style systems can search algorithmic spaces when automatic evaluators are strong \citep{novikov2025alphaevolve}. PaperBench evaluates whether agents can reproduce existing AI research \citep{starace2025paperbench}. These works are complementary. Our focus is the messier setting where the evaluator is a chain of artifacts, baselines, assumptions, negative evidence, and human audit.
 
-Finally, engineering practice around long-running agents already emphasizes harnesses, tools, tracing, and guardrails \citep{anthropic2025harnesses,anthropic2025tools,openai2026tracing,openai2026guardrails}. We extend this view to scientific method itself: the research harness should turn failures into future behavior changes, not only keep a long-running task alive.
+Finally, engineering practice around long-running agents already emphasizes harnesses, tools, tracing, and guardrails \citep{anthropic2025harnesses,anthropic2025tools,openai2026tracing,openai2026guardrails}. We extend this view to scientific method itself: the research harness should turn failures into future research behavior and future harness behavior, not only keep a long-running task alive.
 
-This gap also connects to adjacent work on memory, reflection, provenance, and reproducibility. Reflexion-style agents use verbal feedback and episodic memory to improve later trials \citep{shinn2023reflexion}, while OS-inspired memory systems externalize context beyond a single window \citep{packer2023memgpt}. Scientific provenance and AI reproducibility work motivate artifact-backed claim traces rather than ungrounded prose \citep{lebo2013provo,gundersen2018reproducibility}. The broader reproducibility crisis is a reminder that polished claims can diverge from reliable evidence when validation incentives are weak \citep{ioannidis2005why}.
+This gap also connects to adjacent work on memory, reflection, provenance, and reproducibility. Reflexion-style agents use verbal feedback and episodic memory to improve later trials \citep{shinn2023reflexion}, while OS-inspired memory systems externalize context beyond a single window \citep{packer2023memgpt}. Scientific provenance and AI reproducibility work motivate artifact-backed claim traces rather than ungrounded prose \citep{lebo2013provo,gundersen2018reproducibility}. The broader reproducibility crisis is a reminder that polished claims can diverge from reliable evidence when validation incentives are weak \citep{ioannidis2005why}. These literatures provide ingredients, but autonomous research needs them composed into a loop that accumulates experience and modifies the environment in which future experience is collected.
 
-None of these systems make trial-to-behavior conversion explicit. AI Scientist v2 has tree search, but tree-level signals are not routed to future projects' planners. Co-scientist systems have multi-agent debate, but debate output rarely becomes a validation task. Agent Laboratory has role-separated agents, but the roles do not share institutional memory across projects. AlphaEvolve excels when an automatic evaluator exists, but science usually has no single evaluator. Anthropic and OpenAI harness writeups address task longevity, not evidence boundaries. Our contribution is to argue that this is a missing axis, and to instantiate it concretely in \sibyl{}.
+None of these systems make trial-to-behavior conversion or trial-to-harness-behavior conversion explicit. AI Scientist v2 has tree search, but tree-level signals are not routed to future projects' planners. Co-scientist systems have multi-agent debate, but debate output rarely becomes a validation task or persistent system constraint. Agent Laboratory has role-separated agents, but the roles do not share institutional memory across projects. AlphaEvolve excels when an automatic evaluator exists, but science usually has no single evaluator. Anthropic and OpenAI harness writeups address task longevity, not evidence boundaries or research-harness self-improvement. Our contribution is to argue that this is a missing axis, and to instantiate it concretely in \sibyl{}.
 
 \section{Failure modes that current systems do not update against}
 
-We now look at the failures we observed in practice and read each one as a missing conversion: a trial signal that should have changed a future action did not. The five modes below split into two patterns. Three are about evidence that was never properly checked. Two are about lessons that never persisted across iterations. Table~\ref{tab:failuremodes} restates them all as missing behavior updates.
+We now look at the failures we observed in practice and read each one as a blocked path from experience to intuition. A trial signal that should have changed a future action did not. The six modes below split into three patterns. Three are about evidence that was never properly checked. Two are about lessons that never persisted across iterations. One is about process lessons that never repaired the harness itself. Table~\ref{tab:failuremodes} restates them all as missing behavior updates.
 
 \textbf{Evidence not checked.} The first three failure modes share a structure: a fluent surface (a draft, a pilot, a metric) is treated as if it carried the weight of a checked result.
 
@@ -105,6 +107,10 @@ We now look at the failures we observed in practice and read each one as a missi
 
 \paragraph{Unsafe or inefficient trial-and-error.} Agents often need more trials than humans because they lack tacit judgment. But unbounded trials generate bad data stories, and inefficient trials consume GPUs, tokens, and human review attention without raising evidence maturity. A \texttt{NO\_GO} outcome (a trial should not proceed under current evidence or engineering conditions) should change the next scheduler and planning policy.
 
+\textbf{Harness not updated.} A third pattern appears when the agent learns a lesson locally but the surrounding research environment remains unchanged.
+
+\paragraph{Harness stagnation.} Repeated process failures such as missing figures, stale tables, absolute artifact paths, absent runtime telemetry, or paper/LaTeX desynchronization are not only project mistakes. They are data about the harness. The correct update is a new validation gate, artifact contract, scheduler telemetry requirement, repair task, or protected constraint, so the same process failure becomes harder to repeat.
+
 \begin{table}[t]
   \centering
   \small
@@ -117,19 +123,20 @@ We now look at the failures we observed in practice and read each one as a missi
     \midrule
     Paper-generation bias & Wrote a caveat & Returned the unsupported claim to planning or validation \\
     Pilot-to-claim collapse & Promoted a pilot to a claim & Required a full gate before claim-ready writing \\
-    Proxy and metric gaming & Optimized the visible metric & Triggered baseline audit, null control, or metric redesign \\
-    Memory discontinuity & Restated a prior lesson in context & Lesson changed a planner, critic, or supervisor prompt \\
-    Unsafe or inefficient trials & Continued the trial & Sanity check or \texttt{NO\_GO} changed the scheduler and policy \\
-    \bottomrule
+	    Proxy and metric gaming & Optimized the visible metric & Triggered baseline audit, null control, or metric redesign \\
+	    Memory discontinuity & Restated a prior lesson in context & Lesson changed a planner, critic, or supervisor prompt \\
+	    Unsafe or inefficient trials & Continued the trial & Sanity check or \texttt{NO\_GO} changed the scheduler and policy \\
+	    Harness stagnation & Logged a repeated process failure & Process lesson changed a gate, artifact contract, scheduler, or repair policy \\
+	    \bottomrule
   \end{tabularx}
 \end{table}
 
 \section{Scientific Trial-and-Error Harnesses}
 \label{sec:harness}
 
-The harness loop is shown in Figure~\ref{fig:harness}. A hypothesis leads to a trial. A trial produces evidence. Evidence triggers reflection and memory. Memory changes behavior. Changed behavior leads to a new trial. The loop is not linear, and each abstract step requires a concrete system surface where future behavior can actually change. We describe six such surfaces below, walking through them in the order a trial encounters them: a trial is launched (orchestration), its evidence is gated (boundary), its lesson is stored (memory), its claim is challenged (perspectives), its compute is managed (efficiency), and every step is recorded (artifact trace).
+The harness loop is shown in Figure~\ref{fig:harness}. A hypothesis leads to a trial. A trial produces evidence. Evidence triggers reflection and memory. Memory changes behavior. Changed behavior leads to a new trial. The same trial is also evidence about the harness: if a failure recurs, if telemetry is missing, or if a gate lets bad evidence through, the harness should change. A trial is therefore both a research attempt and a training example for the future research environment. We describe seven surfaces below: a trial is launched (orchestration), its evidence is gated (boundary), its lesson is stored (memory), its claim is challenged (perspectives), its compute is managed (efficiency), every step is recorded (artifact trace), and recurring process failures update the harness itself (self-evolution).
 
-\paragraph{Operational definition.} A system exhibits trial-to-behavior conversion at horizon $k$ for a behavior class $B$ if a trial signal $s_t$ at iteration $t$ is mapped to a future action $a_{t+k} \in B$ in a way artifacts record, and if, holding the research question fixed, the conditional $P(a_{t+k} \mid s_t)$ differs from $P(a_{t+k} \mid \neg s_t)$. We track six behavior classes: plan mutation, validation insertion, claim downgrade, sanity-check ordering, allocation change, and writing scope restriction. The test is observable, not verbal. The system does not need to state a lesson. The lesson needs to change a future action that artifacts can record.
+\paragraph{Operational definition.} A system exhibits trial-to-behavior conversion at horizon $k$ for a behavior class $B$ if a trial signal $s_t$ at iteration $t$ is mapped to a future action $a_{t+k} \in B$ in a way artifacts record, and if, holding the research question fixed, the conditional $P(a_{t+k} \mid s_t)$ differs from $P(a_{t+k} \mid \neg s_t)$. We track six research behavior classes: plan mutation, validation insertion, claim downgrade, sanity-check ordering, allocation change, and writing scope restriction. We track six harness behavior classes: prompt-overlay update, validation-gate update, artifact-contract update, scheduler-policy update, telemetry requirement, and repair-task generation. The test is observable, not verbal: the lesson must change a future action that artifacts can record.
 
 \paragraph{Trial orchestration.} A trial is a bounded attempt to learn something: a pilot run, ablation, baseline audit, validation script, or full experiment. Orchestration means each trial has a hypothesis, a task plan, expected artifact outputs, dependencies, and stop conditions. The observable update is that earlier evidence changes later branches and priorities.
 
@@ -143,16 +150,18 @@ The harness loop is shown in Figure~\ref{fig:harness}. A hypothesis leads to a t
 
 \paragraph{Artifact trace and claim-evidence graph.} An \emph{artifact} is a persistent research file, such as a plan, script, configuration, log, result table, review, or draft. An \emph{artifact trace} is the record connecting those files over time. A \emph{claim-evidence graph} links paper claims to supporting and contradicting artifacts. Without this substrate, a system can only assert that it learned from trials.
 
-A useful distinction underlies all six surfaces: \emph{execution state} is not \emph{evidence maturity}. A task finishes while the claim remains immature. A negative result raises maturity by ruling out a tempting story. We use a five-rung ladder: runnable code, pilot signal, analysis-ready evidence, paper-ready evidence, and audited claim. A harness keeps these rungs separate so ``the system ran'' is not read as ``the system knows.''
+\paragraph{Harness self-evolution.} The harness must treat repeated process failures as evidence about itself. A missing figure that recurs across rounds should become a writing or artifact gate. A GPU progress file with no timings should become a telemetry requirement. A synchronized-paper mismatch should become an artifact-contract check. A useful self-evolution layer classifies issues, routes them to affected roles or components, distinguishes project-level lessons from system-change requirements, and preserves enough provenance for humans to audit the change.
 
-As a worked example, consider AI Scientist v2~\citep{yamada2025aiscientistv2}. Tree search produces a strong $s_t$ when a branch fails, and the next branch's plan changes. That is positive evidence for plan mutation at $k \le 1$ within one project. The mapping is weaker for cross-project memory reuse: a tree-search failure rarely changes the prior of a later project's planner. Our position is not that existing systems lack conversion entirely. The conversion is there. It is project-local, role-undifferentiated, and not auditable.
+A useful distinction underlies all seven surfaces: \emph{execution state} is not \emph{evidence maturity}. A task finishes while the claim remains immature. A negative result raises maturity by ruling out a tempting story. A repaired harness gate raises process maturity by making the next trial safer, cheaper, or more informative. We use a five-rung evidence ladder: runnable code, pilot signal, analysis-ready evidence, paper-ready evidence, and audited claim. A harness keeps these rungs separate so ``the system ran'' is not read as ``the system knows.''
+
+As a worked example, consider AI Scientist v2~\citep{yamada2025aiscientistv2}. Tree search produces a strong $s_t$ when a branch fails, and the next branch's plan changes. That is positive evidence for plan mutation at $k \le 1$ within one project. The missing target is cross-project, role-specific, and auditable conversion: a tree-search failure should change the prior of a later planner, critic, gate, or validation policy when the same failure mode recurs.
 
 \section{\sibyl{}: how the harness functions are implemented}
 \label{sec:sibyl}
 
-\sibyl{} is a file-backed, multi-stage autonomous research harness. It realizes the components above as a research operating system, but the operating-system metaphor is secondary. The purpose is to make trial-to-behavior conversion observable: a state machine records which research stage is active and which decision allows the next transition, and file-backed artifacts record why the transition happened.
+\sibyl{} is a file-backed, multi-stage autonomous research harness. It realizes the components above as a research operating system, but the operating-system metaphor is secondary. The purpose is to make experience accumulation observable: a state machine records which research stage is active, which decision allows the next transition, which trial signals changed future research behavior, and which recurring process failures changed the harness itself.
 
-\sibyl{} is organized as five planes. The control plane contains explicit decision and quality gates. The evidence plane stores workspace artifacts, event logs, reviews, and claim traces. The memory plane turns reflection into issue categories and prompt overlays. The role plane separates innovators, skeptics, methodologists, critics, supervisors, and writers. The compute plane treats experiments as asynchronous workloads with GPU scheduling, dependencies, leases, monitoring, and recovery. Table~\ref{tab:sibylmapping} maps these mechanisms to the harness functions of Section~\ref{sec:harness}.
+\sibyl{} is organized as six planes. The control plane contains explicit decision and quality gates. The evidence plane stores workspace artifacts, event logs, reviews, and claim traces. The memory plane turns reflection into issue categories and prompt overlays. The role plane separates innovators, skeptics, methodologists, critics, supervisors, and writers. The compute plane treats experiments as asynchronous workloads with GPU scheduling, dependencies, leases, monitoring, and recovery. The evolution plane accumulates cross-project lessons, routes issues to affected roles or system components, and creates repair tasks when the harness itself must change. Table~\ref{tab:sibylmapping} maps these mechanisms to the harness functions of Section~\ref{sec:harness}.
 
 \begin{table}[t]
   \centering
@@ -166,23 +175,24 @@ As a worked example, consider AI Scientist v2~\citep{yamada2025aiscientistv2}. T
     \midrule
     State machine and task plans & Trial orchestration & Earlier evidence changes the next plan, dependencies, pilot/full transition, or branch priority. \\
     Decision gates and validation requirements & Evidence boundary & Weak evidence triggers \texttt{REFINE}, pivot, claim downgrade, or writing restriction. \\
-    Reflection, evolution, and prompt overlays & Research memory & Recurring issues become routed lessons for planners, experimenters, critics, supervisors, or writers. \\
-    Role-separated agents and debates & Perspective separation & Objections become validation tasks, plan mutations, or scoped claims rather than free-form disagreement. \\
-    GPU scheduler and recovery & Resource efficiency & Failed or wasteful trials change sanity-check policy, allocation, monitoring, or recovery behavior. \\
-    Workspace artifacts and event logs & Artifact trace & Human authors can trace a claim or update back to plans, logs, results, reviews, and negative evidence. \\
-    \bottomrule
+	    Reflection, evolution, and prompt overlays & Research memory & Recurring issues become routed lessons for planners, experimenters, critics, supervisors, or writers. \\
+	    Role-separated agents and debates & Perspective separation & Objections become validation tasks, plan mutations, or scoped claims rather than free-form disagreement. \\
+	    GPU scheduler and recovery & Resource efficiency & Failed or wasteful trials change sanity-check policy, allocation, monitoring, or recovery behavior. \\
+	    Workspace artifacts and event logs & Artifact trace & Human authors can trace a claim or update back to plans, logs, results, reviews, and negative evidence. \\
+	    Evolution records, self-heal, and sentinels & Harness self-evolution & Recurring process failures become prompt overlays, validation gates, telemetry requirements, protected constraints, or repair tasks. \\
+	    \bottomrule
   \end{tabularx}
 \end{table}
 
 Writing and research should not have the same permissions. A writer can synthesize validated claims, but should not silently upgrade a pilot result. A supervisor can allow advancement, but only with scoped risks. A critic can object, but the objection should become a task or boundary condition. A scheduler can run long experiments, but should first exploit cheap checks when the expected evidence value is low. These are ordinary engineering choices, but in autonomous research they become scientific integrity mechanisms.
 
-The system runs as two coupled loops. The inner loop coordinates a single project: debate an idea, plan trials, run experiments, analyze evidence, write scoped claims, review, reflect, and pass a quality gate. The outer loop converts recurring failures into lessons that later prompts can retrieve. Many agent systems already have an inner loop, but autonomous research also needs an institutional layer that remembers why the previous loop failed. Without the outer loop, the system repeats the same underpowered pilot, baseline mismatch, or stale-table error in a cleaner form.
+The system runs as two coupled learning loops. The research loop coordinates a single project: debate an idea, plan trials, run experiments, analyze evidence, write scoped claims, review, reflect, and pass a quality gate. The harness loop converts recurring failures into lessons, prompt overlays, artifact checks, telemetry requirements, and repair tasks that later projects inherit. Many agent systems already have a research loop, but autonomous research also needs an institutional layer that remembers why previous loops failed and changes the environment in which the next loop runs. Without that layer, the system repeats the same underpowered pilot, baseline mismatch, missing-figure error, or stale-table failure in a cleaner form.
 
-We also state what \sibyl{} does \emph{not} claim. A file-backed trace does not make every experiment reproducible. A self-heal substrate does not guarantee arbitrary code repair. A debate among agents does not guarantee independent judgment. A memory overlay does not prove genuine scientific understanding. The claim is narrow and precise: \sibyl{} exposes the places where trial history changes future action, and therefore makes those changes available for human audit.
+These design choices make \sibyl{} auditable at the point where experience should matter. A failed trial can be traced to a later plan mutation. A reviewer objection can be traced to a validation task. A repeated infrastructure failure can be traced to a new gate or repair request. This is the operational bridge from accumulated experience to research intuition and from repeated process failure to harness self-improvement.
 
-\section{Process evidence from \sibyl{} workspaces}
+\section{Process evidence from \sibyl{} workspaces and evolution records}
 
-We use \sibyl{} workspaces as process evidence: traces of how trial signals translated, or failed to translate, into research behavior change. A row supports a claim when the conversion is documented in artifacts. To prevent the argument from resting on success stories, we pair three positive cases with three controlled ablations that disable individual harness components.
+We use \sibyl{} workspaces and evolution records as process evidence: traces of how trial signals translated, or failed to translate, into research behavior and harness behavior changes. A row supports a claim when the conversion is documented in artifacts. To prevent the argument from resting on success stories, we pair three positive cases with three controlled ablations that disable individual harness components, and we add a system-evolution trace showing how process failures become harness-level updates.
 
 \begin{figure}[t]
   \centering
@@ -199,7 +209,7 @@ We use \sibyl{} workspaces as process evidence: traces of how trial signals tran
     \caption{Dynamic-WD gate-to-action flow.}
     \label{fig:dynamicwd}
   \end{subfigure}
-  \caption{Workspace evidence audits trial-to-behavior conversion. The map and case flow summarize behavior-update traces and ablation contrasts.}
+  \caption{Workspace and system evidence audit trial-to-behavior conversion and trial-to-harness-behavior conversion. The map and case flow summarize behavior-update traces and ablation contrasts.}
   \label{fig:workspace-cases}
 \end{figure}
 
@@ -209,9 +219,9 @@ We use \sibyl{} workspaces as process evidence: traces of how trial signals tran
 
 \paragraph{\texttt{sae-absorption}: writing is not progress.} Sparse autoencoders (SAEs) are interpretability models that represent neural activations with sparse features. The workspace exhibited a long-horizon failure mode in which repeated writing and polishing did not resolve data hygiene, stale numbers, or claim drift. The improvement was an experiment-first turn: targeted experiments, negative results, and validation pressure changed the claim hierarchy and made a weaker but more defensible story possible. The companion \texttt{sae-absorption-kimi} workspace adds a measurement-crisis boundary case that shows why validation must precede narrative generation. A research harness must treat ``make the paper cleaner'' and ``make the evidence cleaner'' as different operations, because fluent writing masks the absence of new evidence. In \texttt{ablation-no-debate}, where critique was structurally absent, similar writing-first patterns persisted: the trained SAE looked geometrically indistinguishable from a shuffled control, and no role pushed back.
 
-\paragraph{Controlled ablations as counterfactual evidence.} Three ablations disable individual harness components and expose the failure that a fully configured run would have prevented (Table~\ref{tab:ablations}). \texttt{ablation-no-debate} (\texttt{debate\_rounds: 0}) produced a strong primary signal of Cohen's $d=8.94$ on the absorption hypothesis, but conflated signal strength with methodological soundness: the steering validation showed zero improvement for both absorbed and non-absorbed features, and the shuffled baseline nearly matched the trained SAE, indicating a geometric artifact rather than a learned effect, with no role pushing back. \texttt{ablation-mem-negative} cycled on a circular ground-truth framework for four iterations, each iteration reformulating the same proxy-metric definition rather than questioning the framework itself, with final F1 near random ($\approx 5\times 10^{-4}$); long context preserved the prior trials in tokens, but routed memory would have blocked the recurrence structurally. \texttt{ablation-mem-weakened} accepted an under-powered study ($n=26$, power $\approx 65\%$ for $|r|\geq 0.5$) without flagging the issue: three controls (random baseline, alternative metric, cross-model replication) were relegated to ``limitations'' rather than executed as planner-level prerequisites.
+\paragraph{System-evolution trace: the harness learns from its own failures.} The \texttt{.sibyl/evolution} records in the running system normalize reflection outputs into issue categories, severities, affected agents, suggestions, statuses, and success patterns. The records capture repeated writing and experiment failures such as missing rendered figures, placeholder references, paper-length overflow, absent code-release plans, underpowered experiments, stale artifacts, and paper/LaTeX desynchronization. They also mark infrastructure issues that require system changes, including incomplete GPU telemetry with empty timing fields, runtime-lineage artifacts that reviewers would otherwise have to reconstruct manually, non-self-contained evidence bundles with absolute paths, and external synchronization failures. This is trial-to-harness-behavior conversion: the harness learns not only that a project should change its claim, but that the research environment should add a gate, telemetry field, artifact contract, repair task, or role-specific prompt overlay before the next project repeats the failure.
 
-\paragraph{Auxiliary cases.} \texttt{augmentation-order} distinguishes pilot completion from claim maturity: the workflow visibly completes while evidence remains too weak for general claims. \texttt{lewm-generalization} shows that real autonomous research quickly becomes a GPU scheduling and recovery problem.
+\paragraph{Controlled ablations as counterfactual evidence.} Three ablations disable individual harness components and expose the failure that a fully configured run would have prevented (Table~\ref{tab:ablations}). \texttt{ablation-no-debate} (\texttt{debate\_rounds: 0}) produced a strong primary signal of Cohen's $d=8.94$ on the absorption hypothesis, but conflated signal strength with methodological soundness: the steering validation showed zero improvement for both absorbed and non-absorbed features, and the shuffled baseline nearly matched the trained SAE, indicating a geometric artifact rather than a learned effect, with no role pushing back. \texttt{ablation-mem-negative} cycled on a circular ground-truth framework for four iterations, each iteration reformulating the same proxy-metric definition rather than questioning the framework itself, with final F1 near random ($\approx 5\times 10^{-4}$); long context preserved the prior trials in tokens, but routed memory would have blocked the recurrence structurally. \texttt{ablation-mem-weakened} accepted an under-powered study ($n=26$, power $\approx 65\%$ for $|r|\geq 0.5$) without flagging the issue: three controls (random baseline, alternative metric, cross-model replication) were relegated to ``limitations'' rather than executed as planner-level prerequisites.
 
 \begin{table}[t]
   \centering
@@ -230,9 +240,11 @@ We use \sibyl{} workspaces as process evidence: traces of how trial signals tran
   \end{tabularx}
 \end{table}
 
+\paragraph{Auxiliary cases.} \texttt{augmentation-order} distinguishes pilot completion from claim maturity: the workflow visibly completes while evidence remains too weak for general claims. \texttt{lewm-generalization} shows that real autonomous research quickly becomes a GPU scheduling and recovery problem.
+
 \section{Evaluation, governance, and alternative views}
 
-If the unit of progress is trial-to-behavior conversion, evaluation should change. Figure~\ref{fig:evaluation} gives a compact view.
+If the unit of progress is accumulated experience converted into better research behavior and better harness behavior, evaluation should change. Figure~\ref{fig:evaluation} gives a compact view.
 
 \begin{figure}[t]
   \centering
@@ -241,7 +253,7 @@ If the unit of progress is trial-to-behavior conversion, evaluation should chang
   \label{fig:evaluation}
 \end{figure}
 
-We propose eight evaluation dimensions, summarized in Table~\ref{tab:evaluation}. The first six extend standard benchmarks: conversion, maturity gain, trace fidelity, boundary effectiveness, resource efficiency, and audit burden. The two we want to highlight are new. \emph{Memory reuse} asks whether a lesson identified in one project changes the prior of a planner, critic, or supervisor in a later project, not just whether the lesson is restated in context. \emph{Self-evolution safety} asks whether prompt overlays drift toward producing fluent papers rather than better science. The latter is audited by comparing overlay-induced changes against an independent integrity baseline.
+We propose ten evaluation dimensions, summarized in Table~\ref{tab:evaluation}. The first six extend standard benchmarks: conversion, maturity gain, trace fidelity, boundary effectiveness, resource efficiency, and audit burden. Four dimensions capture the main argument of this paper. \emph{Experience accumulation} asks whether repeated trials create a better prior over what to try, distrust, validate, or stop. \emph{Memory reuse} asks whether a lesson identified in one project changes the prior of a planner, critic, or supervisor in a later project, not just whether the lesson is restated in context. \emph{Harness self-evolution} asks whether repeated process failures change gates, artifact contracts, scheduler policies, telemetry, or repair tasks. \emph{Self-evolution safety} asks whether those changes preserve scientific integrity rather than drifting toward fluent paper production.
 
 \begin{table}[t]
   \centering
@@ -257,19 +269,21 @@ We propose eight evaluation dimensions, summarized in Table~\ref{tab:evaluation}
     Evidence maturity gain & Movement from pilot signal toward analysis-ready or paper-ready evidence with explicit scope. & Finished workflows that still overclaim weak evidence. \\
     Trace fidelity & Claim paths to scripts, configs, logs, tables, reviews, and negative evidence. & Fluent claims with missing or stale artifacts. \\
     Boundary effectiveness & Blocked or downgraded claims after bad data, unsupported statistics, or pilot/full mismatch. & Narrative generation before validation. \\
-    Resource efficiency & Useful evidence per GPU-hour, token budget, wall-clock time, and human review attention. & Long trials that should have failed a cheap sanity check. \\
-    Human audit burden & Effort needed for a human to verify core claims and evidence paths. & Systems that produce trace volume without auditability. \\
-    Memory reuse & Lesson identified in one project changes a planner, critic, or supervisor prior in a later project. & Lessons restated in context but not routed to future roles. \\
-    Self-evolution safety & Prompt-overlay drift checked against an independent integrity baseline. & Overlays that optimize fluency rather than scientific rigor. \\
+	    Resource efficiency & Useful evidence per GPU-hour, token budget, wall-clock time, and human review attention. & Long trials that should have failed a cheap sanity check. \\
+	    Human audit burden & Effort needed for a human to verify core claims and evidence paths. & Systems that produce trace volume without auditability. \\
+	    Experience accumulation & Repeated trials improve priors over baselines, metrics, controls, stopping rules, and claim scope. & Agents that can execute many trials but never develop domain judgment. \\
+	    Memory reuse & Lesson identified in one project changes a planner, critic, or supervisor prior in a later project. & Lessons restated in context but not routed to future roles. \\
+	    Harness self-evolution & Repeated process failures change gates, artifact contracts, telemetry, scheduler policy, or repair tasks. & The same infrastructure failure recurring across projects. \\
+	    Self-evolution safety & Harness changes checked against an independent integrity baseline. & Self-modification that optimizes fluency, speed, or pass rates over scientific rigor. \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-These dimensions imply concrete protocols. A retrospective audit can reconstruct trial signals, behavior updates, maturity changes, and evidence paths from a completed workspace. A prospective fixed-budget study can compare harness designs under the same research question and compute budget. An injected-failure stress test can add duplicate data, missing results, stale tables, or unsupported statistics and check whether the system blocks narrative generation. A memory test can ask whether a failure in one project changes behavior in a later project.
+These dimensions imply concrete protocols. A retrospective audit can reconstruct trial signals, behavior updates, maturity changes, and evidence paths from a completed workspace. A prospective fixed-budget study can compare harness designs under the same research question and compute budget. An injected-failure stress test can add duplicate data, missing results, stale tables, or unsupported statistics and check whether the system blocks narrative generation. A memory test can ask whether a failure in one project changes behavior in a later project. A harness-evolution test can deliberately repeat a process failure across projects and measure whether it becomes a gate, artifact contract, telemetry requirement, or repair task before the third occurrence.
 
 The strongest near-term protocol is the injected-failure stress test because it is controlled and directly tied to scientific integrity. Concretely, the harness should be probed against duplicate result files, confidence-interval inversion, stale tables, feature-count mismatch between the manifest and the run output, missing seeds, and unsupported significance claims (e.g., reported p-values without a corresponding test statistic). A passing system blocks narrative generation, routes the issue to the role responsible for the affected artifact, and preserves the negative evidence for future memory. This moves evaluation away from whether an agent can write a good-looking paper and toward whether it can defend the paper's evidential boundary.
 
-There are serious counterarguments. One view is that paper generation is a sufficient benchmark, because a good paper implicitly requires good evidence. We disagree: a fluent draft hides weak claims unless the evidence boundary is explicit. In \texttt{sae-absorption}, multiple writing iterations polished the same stale tables, and only the experiment-first redirection identified the data-integrity gap. A second view is that metric-driven loops are enough. They are enough when the metric is a reliable evaluator, but open-ended science often asks whether the metric itself is meaningful: when the metric is questionable, optimizing it faster makes the system worse, as \texttt{dlm-acceleration} showed when a fluent acceleration narrative formed around an unstable speedup metric. A third view is that humans should remain in the loop, so no long-term autonomous memory is needed. Human responsibility is non-negotiable, but human oversight is feasible at scale only when the system exposes an artifact trace, otherwise audit cost grows with every claim. A fourth view is that long context replaces memory. \texttt{ablation-mem-negative} demonstrated otherwise: tokens recorded the prior failure, but without routing the lesson the system reformulated the same broken framework four times.
+There are serious counterarguments. One view is that paper generation is a sufficient benchmark, because a good paper implicitly requires good evidence. We disagree: a fluent draft hides weak claims unless the evidence boundary is explicit. In \texttt{sae-absorption}, multiple writing iterations polished the same stale tables, and only the experiment-first redirection identified the data-integrity gap. A second view is that metric-driven loops are enough. They are enough when the metric is a reliable evaluator, but open-ended science often asks whether the metric itself is meaningful: when the metric is questionable, optimizing it faster makes the system worse, as \texttt{dlm-acceleration} showed when a fluent acceleration narrative formed around an unstable speedup metric. A third view is that humans should remain in the loop, so no long-term autonomous memory is needed. Human responsibility is non-negotiable, but human oversight is feasible at scale only when the system exposes an artifact trace, otherwise audit cost grows with every claim. A fourth view is that long context replaces memory. \texttt{ablation-mem-negative} demonstrated otherwise: tokens recorded the prior failure, but without routing the lesson the system reformulated the same broken framework four times. A fifth view is that harness self-evolution is merely engineering hygiene. In autonomous research, engineering hygiene is part of scientific method: missing telemetry, stale artifacts, and invalid claim gates determine what evidence the agent can learn from.
 
 \begin{table}[t]
   \centering
@@ -283,20 +297,21 @@ There are serious counterarguments. One view is that paper generation is a suffi
     \midrule
     Scientific spam & Treating paper completion as success & Claim-evidence gates and validation-first writing \\
     Rhetorical overclaiming & Writer holding full claim authority & Maturity-labeled claim registry consumed by writers \\
-    Metric gaming on harness scores & Single maturity score becoming a proxy & Multi-dimensional labels and hidden injected failures \\
-    Negative memory suppressing exploration & Lessons over-generalized & Time decay, source links, and re-opening criteria \\
-    Self-evolution drift & Prompt overlays optimizing fluency & Periodic memory audits against an integrity baseline \\
+	    Metric gaming on harness scores & Single maturity score becoming a proxy & Multi-dimensional labels and hidden injected failures \\
+	    Negative memory suppressing exploration & Lessons over-generalized & Time decay, source links, and re-opening criteria \\
+	    Self-evolution drift & Prompt overlays or gates optimizing fluency & Periodic memory audits against an integrity baseline \\
+	    Unsafe harness self-modification & Repair tasks weakening protected constraints & Human-reviewed protected files, regression tests, and rollback logs \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-Governance follows from the same logic. Table~\ref{tab:governance} pairs each risk with the mechanism that enables it and the mitigation that constrains it. Our governance stance is neither automation enthusiasm nor blanket rejection. The goal is constrained autonomy. Agents are allowed to explore, fail, and repair inside a system that preserves evidence boundaries and leaves a human-auditable trace. In low-risk computational domains, this permits substantial autonomous iteration. In high-risk domains, the same harness logic should become stricter, with human approval gates before real-world actions and domain-specific safety constraints before trials begin.
+Governance follows from the same logic. Table~\ref{tab:governance} pairs each risk with the mechanism that enables it and the mitigation that constrains it. Our governance stance is neither automation enthusiasm nor blanket rejection. The goal is constrained autonomy. Agents are allowed to explore, fail, and repair inside a system that preserves evidence boundaries and leaves a human-auditable trace. The harness is also allowed to improve, but only through versioned changes, protected constraints, tests, and human review for safety-relevant surfaces. In low-risk computational domains, this permits substantial autonomous iteration. In high-risk domains, the same harness logic should become stricter, with human approval gates before real-world actions and domain-specific safety constraints before trials begin.
 
 \section{Conclusion}
 
-Autonomous research should not be judged mainly by whether a system can generate a complete paper. A paper is an expression of an evidence state. The harder capability is whether a system can conduct controlled trials, preserve what went wrong, revise its future behavior, and make the whole process auditable.
+Autonomous research should not be judged mainly by whether a system can generate a complete paper. A paper is an expression of an evidence state. The harder capability is whether a system can accumulate research experience: conduct controlled trials, preserve what went right and wrong, revise its future behavior, improve the harness that hosts it, and make the whole process auditable.
 
-We argued that research intuition can be operationalized as trial-to-behavior conversion. We proposed Scientific Trial-and-Error Harnesses as the design target for autonomous research. We described \sibyl{} as one concrete implementation, with decision gates, artifact traces, role-separated agents, routed memory, and GPU-aware experiment control. The central claim is modest but demanding: the next generation of autonomous research systems should compete on how safely, efficiently, and honestly they convert trial history into future research behavior.
+We argued that research intuition can be operationalized as accumulated trial experience whose effects appear as trial-to-behavior conversion. We proposed Scientific Trial-and-Error Harnesses as the design target for autonomous research. We described \sibyl{} as one concrete implementation, with decision gates, artifact traces, role-separated agents, routed memory, GPU-aware experiment control, and system-evolution records. The central claim is that the next generation of autonomous research systems should compete on how safely, efficiently, and honestly they convert trial history into future research behavior and future harness behavior.
 
 \section*{Disclosure}
 
@@ -324,7 +339,7 @@ This draft used AI assistance to organize material and produce initial prose. Hu
     \caption{Claim-evidence trace.}
     \label{fig:claimevidence}
   \end{subfigure}
-  \caption{Appendix diagrams for the memory and evidence substrates. Research memory should convert trial signals into routed lessons that change future roles. A claim-evidence graph links prose claims to artifacts, validation checks, and negative evidence.}
+  \caption{Appendix diagrams for the memory and evidence substrates. Research memory should convert trial signals into routed lessons that change future roles, while system evolution converts recurring process failures into harness updates. A claim-evidence graph links prose claims to artifacts, validation checks, and negative evidence.}
   \label{fig:appendixsubstrates}
 \end{figure}
 
@@ -349,7 +364,7 @@ This draft used AI assistance to organize material and produce initial prose. Hu
 
 \section{Implementation details}
 
-This appendix expands the implementation sketch from the main text. It is written as system evidence for the harness claim, not as a full software manual. The relevant unit is the behavior update that the mechanism makes possible.
+This appendix expands the implementation sketch from the main text. It is written as system evidence for the harness claim, not as a full software manual. The relevant unit is the research behavior update or harness behavior update that the mechanism makes possible.
 
 \subsection{Harness component mapping}
 
@@ -361,7 +376,7 @@ This appendix expands the implementation sketch from the main text. It is writte
   \label{tab:appendixmapping}
   \begin{tabularx}{\linewidth}{p{0.22\linewidth}p{0.35\linewidth}Y}
     \toprule
-    Harness component & Implementation surface & Why it matters for trial-to-behavior conversion \\
+	    Harness component & Implementation surface & Why it matters for experience conversion \\
     \midrule
     Trial orchestration & Explicit state machine, idea debate, planning, pilot/full experiment stages, parallel task dispatch. & Trials become planned, bounded events rather than free-form tool calls. \\
     Evidence boundary & Idea and experiment decisions, quality gates, validation requirements, self-heal substrate, artifact checks. & Weak or corrupted evidence can block writing, force \texttt{REFINE}, or cause a pivot. \\
@@ -369,6 +384,7 @@ This appendix expands the implementation sketch from the main text. It is writte
     Perspective separation & Role-separated ideation, critique, methodology, supervision, writing, and review. & Disagreement can be converted into a task, claim downgrade, or validation boundary. \\
     Resource efficiency & GPU scheduler, dependency graph, dynamic dispatch, monitoring, recovery, and sanity-check lessons. & Trial cost affects whether an autonomous system can accumulate useful experience. \\
     Artifact trace & Workspace status, event logs, checkpoints, experiment state, review artifacts, writing artifacts, and LaTeX outputs. & Human authors can audit whether behavior really changed and why. \\
+    Harness self-evolution & Evolution digests, global lessons, affected-agent routing, self-heal tasks, sentinel checks, and protected constraints. & Process failures become harness changes instead of recurring as project-local mistakes. \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -381,7 +397,7 @@ The orchestrator also returns typed actions rather than only natural-language in
 
 \subsection{GPU scheduler and recovery}
 
-The compute plane treats experiments as asynchronous workloads. A task plan is validated, converted into dependency layers, assigned resource needs, and dispatched under GPU leases. The scheduler polls device availability, tracks running tasks, records progress files, and supports recovery when an experiment is interrupted. This does not make scientific results automatically correct. It makes trials cheaper to monitor and easier to resume, which affects how quickly evidence can mature.
+The compute plane treats experiments as asynchronous workloads. A task plan is validated, converted into dependency layers, assigned resource needs, and dispatched under GPU leases. The scheduler polls device availability, tracks running tasks, records progress files, and supports recovery when an experiment is interrupted. This makes trials cheaper to monitor and easier to resume, which affects how quickly evidence can mature.
 
 \begin{table}[ht]
   \centering
@@ -406,11 +422,11 @@ The compute plane treats experiments as asynchronous workloads. A task plan is v
 
 The memory layer starts from reflection artifacts, but it should not end there. Reflection outputs are normalized into issue categories such as system, experiment, writing, analysis, planning, pipeline, ideation, and efficiency. The evolution layer maintains digests and lessons, computes relevance, and injects selected lessons into later prompts. This is the mechanism behind the paper's distinction between long context and research memory. Long context can expose past text; routed memory can change which checks a role performs.
 
-Important future work is to measure memory effectiveness rather than memory volume. A lesson informs the system only if it reduces repeated failures, changes a plan, adds a validation step, or changes a claim boundary. A lesson can also be harmful if it overgeneralizes from a weak failure and suppresses a valid direction. This is why memory requires source links, uncertainty, decay, and re-opening criteria.
+Important future work is to measure memory effectiveness rather than memory volume. A lesson informs the system only if it reduces repeated failures, changes a plan, adds a validation step, changes a claim boundary, or repairs the harness path that allowed the failure. A lesson can also be harmful if it overgeneralizes from a weak failure and suppresses a valid direction. This is why memory requires source links, uncertainty, decay, and re-opening criteria.
 
 \subsection{Decision gates, self-heal, and writing boundaries}
 
-The current system exposes idea validation, experiment decisions, quality gates, review stages, and a structured self-heal substrate. The self-heal layer includes error collection, routing, protected-file constraints, deterministic fixers for some failure classes, and repair-task generation. The safe claim is that these mechanisms improve workflow reliability and create places where failures can become tasks. They do not guarantee general autonomous repair.
+The current system exposes idea validation, experiment decisions, quality gates, review stages, and a structured self-heal substrate. The self-heal layer includes error collection, routing, protected-file constraints, deterministic fixers for recurring failure classes, and repair-task generation. These mechanisms improve workflow reliability and create places where failures become tasks before they recur in the next research loop.
 
 For future versions, the most important boundary is a validated claim registry. Writing agents should consume only claims that have maturity labels, artifact links, and validation status. Pilot signals should remain usable, but only as pilot signals. A paper should be generated from the claim registry, not from whatever narrative is most fluent after the latest experiment.
 
@@ -434,7 +450,7 @@ The following case notes expand Section~6 while preserving the evidence boundary
 
 \texttt{augmentation-order} is a pilot/full boundary case. The workspace shows that an autonomous research loop can execute visible tasks while still lacking claim-ready evidence. The harness lesson is that completion state and evidence maturity must be separate fields.
 
-\texttt{lewm-generalization} is a compute-orchestration case. It is not used as mature domain evidence; it shows that real autonomous research quickly depends on scheduling, monitoring, running-task state, stopping, and recovery.
+\texttt{lewm-generalization} is a compute-orchestration case. Its value is to show that real autonomous research quickly depends on scheduling, monitoring, running-task state, stopping, and recovery.
 
 \texttt{sae-absorption-minimax} is a hypothesis-reversal case. Its value is methodological: a rejected or reversed hypothesis can redirect the project into a new framing rather than being discarded as mere failure.
 
@@ -471,11 +487,13 @@ The \texttt{ablation-*} workspaces trace how specific harness settings change re
 
 \paragraph{Cross-project memory test.} Let one project expose a failure mode, then start another project where the same failure could recur. Measure whether the lesson is retrieved, routed to the right role, and converted into a changed plan or validation check.
 
+\paragraph{Harness-evolution test.} Let one project expose a process failure such as missing telemetry, stale figure assets, absolute artifact paths, or paper/LaTeX desynchronization. Start later projects where the same failure could recur. Measure whether the harness adds a gate, sentinel, repair task, artifact contract, or scheduler policy, and whether recurrence rate falls.
+
 \paragraph{Perspective and efficiency ablations.} Remove or weaken skeptic, methodologist, supervisor, validation, memory, or scheduling components under controlled budgets. The outcome should not be only task completion. It should include overclaim rate, missed validation failures, disagreement-to-action conversion, maturity gain, and audit burden.
 
 \section{Governance details}
 
-A research harness makes autonomous trial-and-error safer and more auditable, but it does not remove human responsibility. If optimized poorly, it becomes a more efficient machine for plausible weak science. The main risks are scientific spam, rhetorical overclaiming, data integrity failures, metric gaming, unsafe trial-and-error in high-risk domains, negative memory suppressing valid exploration, perspective theater, and self-evolution drift.
+A research harness makes autonomous trial-and-error safer and more auditable while preserving human responsibility. If optimized poorly, it becomes a more efficient machine for plausible weak science. The main risks are scientific spam, rhetorical overclaiming, data integrity failures, metric gaming, unsafe trial-and-error in high-risk domains, negative memory suppressing valid exploration, perspective theater, and self-evolution drift.
 
 The corresponding mitigations are claim-evidence gates, AI-use disclosure, human accountability, negative-evidence reporting, domain-specific safety gates, hidden injected failures, protected integrity constraints, and periodic audit of memory overlays. The most important policy point is simple: human authors must be able to understand, defend, and rewrite the final submission. Autonomous systems can help create evidence traces and drafts; they should not be treated as accountable authors.
 
