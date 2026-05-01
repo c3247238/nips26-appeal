@@ -333,3 +333,57 @@ Section 6 Auditing（用 conversion lens 审计）
 Section 7 Discussion & Limitations
 
 这个结构是下面英文稿件重构（~515 行新增）的中文对应。每一段都能在笔记里找到源头。
+
+
+## 主线论证和证据链细化
+
+框架已经铺开了。现在要解决第二个问题：怎么让主线论证更密实，让每个 claim 都挂在具体的 workspace 证据上。下面的笔记是把主线和 evidence chain 再走一遍，为接下来的英文稿件大幅展开做铺垫。
+
+### 核心论证链条（从 abstract 到 conclusion 贯通）
+
+链 1：自主科研系统的评价标准错了。不该看"能不能产出一篇完整的 paper"，应该看"trial history 有没有改变后续行为"。paper 只是证据状态的 snapshot，不是能力的度量。
+
+链 2：现有系统缺六类 update path。pilot→plan 回传断了、evidence→claim 升级缺门控、reflection→role action 没有路由、bad metric 被 blind optimize、resource waste 不改 scheduler、harness bugs 不被修正。
+
+链 3：Solution 不是换一个更强的 model，是设计一个 harness 让 update path 成为基础设施。七个函数（H1-H7）就是这些 update path 的具象化。
+
+链 4：Sibyl 实现了这七个函数。六个 plane（control/evidence/memory/role/compute/evolution）对应到七个 H。不是 engineering showcase，是 existence proof。
+
+链 5：Workspace traces 展示了 trial-to-behavior 和 trial-to-harness-behavior 两类 conversion 的存在证据。不是 claim Sibyl 完胜，是 claim 这些信号可以被观测、被审计。
+
+链 6：Discussion 退一步讨论可用性、局限、governance 和 broader impact。申明 scope：一个 harness builder 的自我审计，不是横跨科学的验证。
+
+这个链条贯穿整篇论文，每个 claim 都要挂到具体 workspace 证据上。
+
+### 关键 claims 和对应证据
+
+Claim: "Paper completion hides evidence immaturity"
+证据: sae-absorption-kimi workspace。writing score 8/10，supervisor 4.5/10，critic 5/10。4/5 replicate byte-identical，feature count 1024≠16384，所有 trained variant explained variance 为负，TopK 81.6% dead latents。Table in Section 5 直接放这些数字。
+
+Claim: "Bad metric repeated optimization without validity check"
+证据: dlm-acceleration workspace。一开始 unsupported statistics，p-value 编造，alpha vs accept rate 对不上，M1 no-op。系统继续 optimize 同一个 metric。后来的 PIVOT 转向 interference taxonomy + null ablation + full-scale replication prerequisite。Decision trace 从 REFINE → PIVOT → ADVANCE。
+
+Claim: "Routed memory changes planner/critic/supervisor behavior"
+证据: Evolution memory central digest。416 个 recurring issue patterns，按 category + severity + affected roles 分类后注入对应 prompt。Table 里的数字不是性能分数，是可审计的 issue 数量。
+
+Claim: "Resource-aware reordering after failed expensive experiments"
+证据: lewm-generalization workspace。真实自研 → scheduling 和 recovery 变成瓶颈 → resource policy 调整。不是 engineering detail，是 research loop 的一部分。
+
+Claim: "Harness self-evolution corrects recurring process failures"
+证据: 诊断 ablation（no-debate / mem-negative / no-revision）。去掉某个功能 → 可观测的失败。然后 harness-level 的修正（gate、prompt overlay、artifact contract）出现。
+
+### 对反方观点的回应（论证层面）
+
+"论文质量是终极指标" → writing 8/10 but evidence fails。如果只 optimize prose，系统会在写作上进步但证据上退化。需要 multi-dimensional audit。
+
+"metric-driven loop 就够了" → dlm-acceleration 反例。system 需要先质疑 metric validity，再 optimize。gate 必须在 loop 之前。
+
+"人在 loop 里就行" → 411 tasks 的 trace 人类不可能逐个审计。需要系统的 routed memory 把信号送到能行动的 role。
+
+"long context 就是 memory" → 记住文字 ≠ 检查教训、用到决策、调整策略。需要 explicit update path 和 observable behavior change。
+
+### 数据完整性论述
+
+Sibyl 的数据不是 benchmark results。是 process counts——iteration 数、task 数、decision marker 数、issue pattern 数。这些数字的意义是"这些信号被记录了下来，并且可以在 trace 里被检索到"。不是"我们的数字比别人好"。
+
+后面要做的英文稿件展开（~726 行新增）就是把上面的每一条论证链和对应证据写进正式论文里。英文里的每个 claim 都能在中文章节里找到前置论述。
