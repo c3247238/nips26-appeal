@@ -1,5 +1,6 @@
 \documentclass{article}
 
+\PassOptionsToPackage{numbers,compress}{natbib}
 \usepackage[position]{neurips_2026}
 
 \usepackage[utf8]{inputenc}
@@ -44,7 +45,7 @@ Autonomous research is becoming a concrete systems problem. LLM-driven agents ca
 
 Human researchers improve this way. A researcher who has spent months with a benchmark often knows which metric is brittle, which baseline result is suspicious, which negative result is useful, and which pilot result is not ready for a paper. This ability is often called intuition or taste. We call it \emph{research judgment}: experience-backed behavior that changes what the researcher does next. The important point is not that judgment is mysterious. The important point is that judgment is produced by many concrete trials, mistakes, repairs, and reviews.
 
-Recent autonomous research systems automate many parts of the research loop. End-to-end AI scientist systems move from idea generation to draft papers \citep{lu2024aiscientist,yamada2025aiscientistv2}. Research assistant and co-scientist systems help form hypotheses, synthesize literature, and rank candidates \citep{schmidgall2025agentlaboratory,gottweis2025aicoscientist,ghareeb2025robin}. Metric-driven loops can search over code or methods when the score is visible \citep{karpathy2026autoresearch}. These systems show that agents can participate in scientific work. They also make a deeper design gap visible: completing research stages is not the same as accumulating research judgment.
+Recent autonomous research systems automate many parts of the research loop. End-to-end AI scientist systems move from idea generation to draft papers \citep{lu2024aiscientistfullyautomated,yamada2025aiscientistv2workshoplevelautomated}. Research assistant and co-scientist systems help form hypotheses, synthesize literature, and rank candidates \citep{schmidgall2025agentlaboratoryusingllm,gottweis2025aicoscientist,ghareeb2025robinmultiagentautomatingscientific}. Metric-driven loops can search over code or methods when the score is visible \citep{karpathy2026autoresearch}. These systems show that agents can participate in scientific work. They also make a deeper design gap visible: completing research stages is not the same as accumulating research judgment.
 
 The gap appears when a system observes a useful signal but fails to change future behavior. A pilot exposes a broken metric, yet the next plan keeps the metric. A reviewer objection identifies an unsupported claim, yet the writer keeps the claim polished. A failed GPU run reveals a wasteful experiment order, yet the scheduler repeats the order. A reflection file states the right lesson, yet the planner, critic, or supervisor never sees it. These are not just bugs. They are missing update paths from trial history to later action.
 
@@ -69,19 +70,19 @@ We make three contributions:
 \section{Related work}
 
 \paragraph{End-to-end autonomous research systems.}
-AI scientist systems show that LLM agents can generate ideas, run experiments, interpret results, and draft manuscripts \citep{lu2024aiscientist,yamada2025aiscientistv2}. Agent laboratory and co-scientist systems emphasize human collaboration, literature synthesis, hypothesis generation, and candidate ranking \citep{schmidgall2025agentlaboratory,gottweis2025aicoscientist,ghareeb2025robin}. These systems make more of the scientific workflow executable. Our focus is different. We ask whether trial history changes later research behavior and whether repeated process failures change the harness that hosts later trials.
+AI scientist systems show that LLM agents can generate ideas, run experiments, interpret results, and draft manuscripts \citep{lu2024aiscientistfullyautomated,yamada2025aiscientistv2workshoplevelautomated}. Agent laboratory and co-scientist systems emphasize human collaboration, literature synthesis, hypothesis generation, and candidate ranking \citep{schmidgall2025agentlaboratoryusingllm,gottweis2025aicoscientist,ghareeb2025robinmultiagentautomatingscientific}. These systems make more of the scientific workflow executable. Our focus is different. We ask whether trial history changes later research behavior and whether repeated process failures change the harness that hosts later trials.
 
 \paragraph{Metric-driven search and verifier-rich discovery.}
-Autoresearch loops, FARS-style systems, AlphaEvolve-style systems, and PaperBench-like evaluations show the value of repeated trials when feedback is clear \citep{karpathy2026autoresearch,analemma2026fars,novikov2025alphaevolve,starace2025paperbench}. This line of work is closest to classical AutoML, neural architecture search, and black-box optimization: the system searches over candidates under an explicit objective \citep{hutter2019automl,zoph2017nas}. The difference is that open-ended research often lacks a single trusted objective. A harness must therefore route measurement failures and negative results into revised metrics, controls, and claim boundaries, not only into another search step.
+Autoresearch loops, FARS-style systems, AlphaEvolve-style systems, and PaperBench-like evaluations show the value of repeated trials when feedback is clear \citep{karpathy2026autoresearch,analemma2026fars,novikov2025alphaevolvecodingagentscientific,starace2025paperbenchevaluatingaisability}. This line of work is closest to classical AutoML, neural architecture search, and black-box optimization: the system searches over candidates under an explicit objective \citep{hutter2019automated,zoph2017neuralarchitecturesearchreinforcement}. The difference is that open-ended research often lacks a single trusted objective. A harness must therefore route measurement failures and negative results into revised metrics, controls, and claim boundaries, not only into another search step.
 
 \paragraph{Agent memory and reflection.}
-Reflection systems show that verbal lessons from failed trials can improve later agent behavior \citep{shinn2023reflexion}. Memory systems show how agents can store and retrieve information across long interactions \citep{packer2023memgpt}. Self-Refine, Voyager, and Generative Agents also show how critique, skill libraries, and memory can shape future actions \citep{madaan2023selfrefine,wang2023voyager,park2023generativeagents}. Trial-to-behavior conversion is more specific than memory reuse. A lesson counts only when it reaches the role that must act on it and appears in a later plan, validation, claim boundary, schedule, critique, or writing restriction.
+Reflection systems show that verbal lessons from failed trials can improve later agent behavior \citep{shinn2023reflexionlanguageagentsverbal}. Memory systems show how agents can store and retrieve information across long interactions \citep{packer2024memgptllmsoperatingsystems}. Self-Refine, Voyager, and Generative Agents also show how critique, skill libraries, and memory can shape future actions \citep{madaan2023selfrefineiterativerefinementselffeedback,wang2023voyageropenendedembodiedagent,park2023generativeagentsinteractivesimulacra}. Trial-to-behavior conversion is more specific than memory reuse. A lesson counts only when it reaches the role that must act on it and appears in a later plan, validation, claim boundary, schedule, critique, or writing restriction.
 
 \paragraph{Harnesses, tools, provenance, and reproducibility.}
-Long-running agents require harnesses, tools, tracing, and guardrails to make progress inspectable and safe \citep{anthropic2025harnesses,anthropic2025tools,openai2026tracing,openai2026guardrails}. Scientific provenance and reproducibility work gives complementary tools for connecting claims to artifacts \citep{lebo2013provo,gundersen2018reproducibility}. Work on weak evidence and publication incentives warns that polished claims can outrun the evidence base \citep{ioannidis2005why}. We connect these threads by treating a harness as a memory-bearing research environment with explicit evidence boundaries.
+Long-running agents require harnesses, tools, tracing, and guardrails to make progress inspectable and safe \citep{anthropic2025harnesses,anthropic2025tools,openai2026tracing,openai2026guardrails}. Scientific provenance and reproducibility work gives complementary tools for connecting claims to artifacts \citep{733f89c65e4844f9aabcae1c276a5602,Gundersen_2018}. Work on weak evidence and publication incentives warns that polished claims can outrun the evidence base \citep{Ioannidis_2005}. We connect these threads by treating a harness as a memory-bearing research environment with explicit evidence boundaries.
 
 \paragraph{Expertise and research judgment.}
-The idea that expertise grows from repeated, feedback-rich experience is old \citep{ericsson1996expert}. Research judgment in this paper is the system-level analogue of that process. We do not claim that agents acquire human expertise in the psychological sense. We make a narrower systems claim: if an autonomous research system has learned from a trial, later behavior should expose that learning.
+The idea that expertise grows from repeated, feedback-rich experience is old \citep{Ericsson_1996}. Research judgment in this paper is the system-level analogue of that process. We do not claim that agents acquire human expertise in the psychological sense. We make a narrower systems claim: if an autonomous research system has learned from a trial, later behavior should expose that learning.
 
 \section{Failure modes: where autonomous research loses experience}
 
@@ -308,9 +309,8 @@ A research harness can make autonomous trial-and-error safer, but it can also ma
 
 Autonomous research should not be judged mainly by whether a system can generate a complete paper. A paper is an expression of an evidence state. The harder capability is whether a system can turn trial history into research judgment: better plans, stronger validation, narrower claims, safer resource policy, and a harness that becomes harder to fool over time. Scientific Trial-and-Error Harnesses make this capability auditable by linking trial signals to later behavior updates and harness updates.
 
-\section*{Disclosure}
 
-This draft used AI assistance for outline organization, prose drafting, evidence-index synthesis, and revision suggestions. Human authors remain responsible for citation verification, artifact audit, claim scope, final prose, and submission integrity.
+\clearpage
 \bibliographystyle{plainnat}
 \bibliography{references}
 
@@ -803,7 +803,7 @@ The corresponding mitigations are claim-evidence gates, AI-use disclosure, human
 \section{Citation verification notes}
 \label{sec:appendix-citation-verification}
 
-The current draft includes verified references for expertise acquisition \citep{ericsson1996expert}, reproducibility and provenance \citep{gundersen2018reproducibility,lebo2013provo}, publication bias and weak evidence incentives \citep{ioannidis2005why}, and agent memory/reflection \citep{packer2023memgpt,shinn2023reflexion}. The citation set anchors the argument around research judgment, evidence provenance, weak-evidence incentives, and memory-backed agent behavior.
+The current draft includes verified references for expertise acquisition \citep{Ericsson_1996}, reproducibility and provenance \citep{Gundersen_2018,733f89c65e4844f9aabcae1c276a5602}, publication bias and weak evidence incentives \citep{Ioannidis_2005}, and agent memory/reflection \citep{packer2024memgptllmsoperatingsystems,shinn2023reflexionlanguageagentsverbal}. The citation set anchors the argument around research judgment, evidence provenance, weak-evidence incentives, and memory-backed agent behavior.
 
 The \texttt{dynamic-wd}, \texttt{dlm-acceleration}, \texttt{sae-absorption}, and \texttt{sae-absorption-kimi} cases are used because their traces show behavior updates: refinement, metric calibration, validation-first policy, experiment-first recovery, and claim narrowing.
 
