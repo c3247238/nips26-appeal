@@ -387,3 +387,24 @@ Claim: "Harness self-evolution corrects recurring process failures"
 Sibyl 的数据不是 benchmark results。是 process counts——iteration 数、task 数、decision marker 数、issue pattern 数。这些数字的意义是"这些信号被记录了下来，并且可以在 trace 里被检索到"。不是"我们的数字比别人好"。
 
 后面要做的英文稿件展开（~726 行新增）就是把上面的每一条论证链和对应证据写进正式论文里。英文里的每个 claim 都能在中文章节里找到前置论述。
+
+
+## 数据和验证
+
+跨 7 个 primary workspace + 6 个 ablation：
+66 个 iteration 目录
+411 个 tracked experiment tasks: 382 completed / 9 failed / 15 running
+225 个 REFINE marker
+69 GO / 58 NO_GO
+155 PIVOT / 112 ADVANCE
+
+Evolution central digest: 416 个 recurring patterns（212 experiment / 89 writing / 84 analysis / 20 system）。每个 issue 路由到了对应 role。
+
+## 结论方向
+
+Autonomous research ≠ "能写 paper"。
+Paper 是 evidence 的表达式。
+真问题：系统能不能在反复试错中变得更会做研究。
+
+Trial-to-behavior conversion, Scientific Trial-and-Error Harness, Sibyl 实例。
+不是 benchmark，不是 comparison——是 existence proof。
