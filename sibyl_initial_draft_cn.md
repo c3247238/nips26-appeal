@@ -408,3 +408,20 @@ Paper 是 evidence 的表达式。
 
 Trial-to-behavior conversion, Scientific Trial-and-Error Harness, Sibyl 实例。
 不是 benchmark，不是 comparison——是 existence proof。
+
+
+## co-evolution 概念整合
+
+之前散落在 introduction / S4 / S5 / conclusion 各处，不统一。重新安排：
+
+1. Introduction 末尾 → 一句话定义 co-evolution
+2. S4 → 正式定义 trial-to-behavior conversion 和 trial-to-harness-behavior conversion，两个 table（signal → action mapping）
+   Trial-to-behavior: planning, validation, claim scope, scheduling, critique, writing scope
+   Trial-to-harness-behavior: prompt overlay, validation gate, telemetry req, scheduler policy, repair task, protected constraint
+3. S5 → workspace trace 展示两个 conversion
+4. S6 → conversion lens 审计 Sibyl 记录
+
+概念区分：
+- Routed memory: 具体教训 → 具体 role
+- Evolution memory: 反复出现的 pattern → harness 级修正
+S4 table 对齐: trial-to-behavior ↔ routed memory, trial-to-harness-behavior ↔ evolution memory
