@@ -1,0 +1,365 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "description": "Install SAELens, TransformerLens, and verify GPU access. Verify pre-trained SAE loading for GPT-2 Small, Gemma-2B, and Pythia-2.8B.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "plan/setup_complete.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [],
+      "visualizations": []
+    },
+    {
+      "id": "p1_uad_gpt2",
+      "name": "Pilot P1: UAD on GPT-2 Small",
+      "description": "Run UAD on GPT-2 Small layer 8 with 1k tokens. Validate against Chanin-style first-letter labels. Target: F1 >= 0.5, runtime < 15 min.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/pilots/p1_uad_gpt2_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "F1 >= 0.5 and runtime < 15 minutes"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Feature co-occurrence correlation matrix (top 100 features)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "p2_dfda_gpt2",
+      "name": "Pilot P2: DFDA on GPT-2 Small",
+      "description": "Train tiny MLP compensation on 4 known absorbed pairs from GPT-2 Small. Measure per-pair residual MSE improvement. Target: mean improvement > 5%, runtime < 15 min.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/pilots/p2_dfda_gpt2_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Mean per-pair residual MSE improvement > 5% and runtime < 15 minutes"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Per-pair MSE improvement",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "p3_uad_gemma",
+      "name": "Pilot P3: UAD on Gemma-2B",
+      "description": "Run UAD on Gemma-2B with pre-trained SAE. Validate against first-letter labels if available. Target: F1 >= 0.45 (lower threshold for pilot), runtime < 15 min.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/pilots/p3_uad_gemma_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "F1 >= 0.45 and runtime < 15 minutes"
+      },
+      "visualizations": [],
+      "notes": "If Gemma-2B SAE loading fails, skip to Pythia-2.8B pilot."
+    },
+    {
+      "id": "f1_uad_gpt2_full",
+      "name": "Full E1: UAD on GPT-2 Small (Full Scale)",
+      "description": "Scale UAD to 10k tokens, 500 top features, 50 clusters on GPT-2 Small layer 8. Validate against all first-letter collisions. Target: F1 >= 0.6.",
+      "type": "experiment",
+      "depends_on": ["p1_uad_gpt2"],
+      "expected_output": "exp/full/f1_uad_gpt2_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "UAD precision-recall curve across threshold values",
+          "x": "recall",
+          "y": "precision",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f2_uad_multiseed",
+      "name": "Full E2: UAD Multi-Seed Robustness",
+      "description": "Run UAD on GPT-2 Small with 3 seeds (42, 123, 456). Each seed uses different token sampling. Report mean F1, std, 95% CI. Target: mean F1 >= 0.6, std <= 0.1.",
+      "type": "experiment",
+      "depends_on": ["f1_uad_gpt2_full"],
+      "expected_output": "exp/full/f2_uad_multiseed_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "F1 scores across 3 seeds with error bars",
+          "x": "seed",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f3_uad_gemma",
+      "name": "Full E3: UAD on Gemma-2B",
+      "description": "Run full UAD on Gemma-2B with pre-trained SAE (10k tokens, 500 features, 50 clusters). Validate against first-letter labels. Target: F1 >= 0.55. GO/NO-GO gate.",
+      "type": "experiment",
+      "depends_on": ["p3_uad_gemma", "f1_uad_gpt2_full"],
+      "expected_output": "exp/full/f3_uad_gemma_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-2b-sae",
+          "path": "shared/checkpoints/gemma-2b-sae"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Cross-model F1 comparison",
+          "x": "model",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        }
+      ],
+      "notes": "GO/NO-GO: If F1 < 0.5, trigger pivot to backup candidates."
+    },
+    {
+      "id": "f4_uad_pythia",
+      "name": "Full E4: UAD on Pythia-2.8B",
+      "description": "Run full UAD on Pythia-2.8B with pre-trained SAE. Target: F1 >= 0.55. Secondary cross-validation.",
+      "type": "experiment",
+      "depends_on": ["f3_uad_gemma"],
+      "expected_output": "exp/full/f4_uad_pythia_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "pythia-2.8b-sae",
+          "path": "shared/checkpoints/pythia-2.8b-sae"
+        }
+      ],
+      "visualizations": [],
+      "notes": "Can run in parallel with f3_uad_gemma if 2 GPUs available."
+    },
+    {
+      "id": "f5_dfda_scale",
+      "name": "Full E5: DFDA Scaling (8+ Pairs, 2 Models)",
+      "description": "Scale DFDA to >=8 absorbed pairs across GPT-2 Small and Gemma-2B. Train MLP compensation per pair. Measure mean MSE improvement, reconstruction change. Target: mean improvement >= 10%, >=60% pairs positive.",
+      "type": "experiment",
+      "depends_on": ["f1_uad_gpt2_full", "f3_uad_gemma"],
+      "expected_output": "exp/full/f5_dfda_scale_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "DFDA recovery rate per pair",
+          "x": "pair_id",
+          "y": "mse_improvement_pct",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "DFDA per-pair results",
+          "columns": ["pair", "baseline_mse", "compensated_mse", "improvement_pct", "n_params"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f6_end_to_end",
+      "name": "Full E6: End-to-End Pipeline Validation",
+      "description": "UAD detects absorbed concepts -> DFDA compensates -> sparse probing accuracy measured before/after. Target: >=5pp improvement on absorbed concepts; non-absorbed stable.",
+      "type": "experiment",
+      "depends_on": ["f5_dfda_scale"],
+      "expected_output": "exp/full/f6_end_to_end_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "Probe accuracy before/after DFDA on absorbed vs non-absorbed concepts",
+          "x": "concept_type",
+          "y": "probe_accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f7_uad_ablations",
+      "name": "Full E7: UAD Ablation Studies",
+      "description": "Test UAD variants: no clustering, no phi coefficient, no dead feature filtering, single-link clustering. Measure F1 degradation per ablation.",
+      "type": "ablation",
+      "depends_on": ["f1_uad_gpt2_full"],
+      "expected_output": "exp/full/f7_uad_ablations_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "UAD ablation results",
+          "x": "ablation_variant",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f8_dfda_ablations",
+      "name": "Full E8: DFDA Ablation Studies",
+      "description": "Test DFDA variants: linear only, larger MLP (256 hidden), no residual connection. Measure MSE improvement per variant.",
+      "type": "ablation",
+      "depends_on": ["f5_dfda_scale"],
+      "expected_output": "exp/full/f8_dfda_ablations_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "DFDA ablation results",
+          "x": "ablation_variant",
+          "y": "mean_improvement_pct",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f9_true_absorption",
+      "name": "Full E9: True Absorption Validation (Supplementary)",
+      "description": "Implement Chanin et al. absorption detection on vowel hierarchy. Correlate true absorption rate with collision rate. Target: r > 0.3.",
+      "type": "experiment",
+      "depends_on": ["f1_uad_gpt2_full"],
+      "expected_output": "exp/full/f9_true_absorption_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Collision rate vs true absorption rate",
+          "x": "collision_rate",
+          "y": "true_absorption_rate",
+          "paper_section": "appendix"
+        }
+      ],
+      "notes": "Supplementary experiment. If time-constrained, can be skipped."
+    },
+    {
+      "id": "baseline_random",
+      "name": "Baseline: Random Pair Selection",
+      "description": "Compute F1 of random feature pair selection as null model for UAD. Run 100 random selections, report mean F1.",
+      "type": "baseline",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/baselines/random_pair_results.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": []
+    },
+    {
+      "id": "baseline_random_residual",
+      "name": "Baseline: Random Residual Injection",
+      "description": "Inject random residuals (instead of MLP-predicted) into parent features. Measure MSE change as control for DFDA.",
+      "type": "baseline",
+      "depends_on": ["f5_dfda_scale"],
+      "expected_output": "exp/baselines/random_residual_results.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": []
+    },
+    {
+      "id": "analysis_main",
+      "name": "Main Results Analysis",
+      "description": "Aggregate all UAD and DFDA results. Compute bootstrap 95% CI, statistical tests, generate main result tables and figures.",
+      "type": "analysis",
+      "depends_on": ["f2_uad_multiseed", "f3_uad_gemma", "f4_uad_pythia", "f5_dfda_scale", "f6_end_to_end"],
+      "expected_output": "exp/results/main_analysis.json",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main results comparison table",
+          "columns": ["Model", "UAD_F1", "UAD_Precision", "UAD_Recall", "DFDA_Mean_Improvement", "DFDA_Positive_Ratio"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_ablations",
+      "name": "Ablation Results Analysis",
+      "description": "Aggregate ablation study results. Generate ablation tables and figures.",
+      "type": "analysis",
+      "depends_on": ["f7_uad_ablations", "f8_dfda_ablations"],
+      "expected_output": "exp/results/ablation_analysis.json",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": []
+    }
+  ]
+}

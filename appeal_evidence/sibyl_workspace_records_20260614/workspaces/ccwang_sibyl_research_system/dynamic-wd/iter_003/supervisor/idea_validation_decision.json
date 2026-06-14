@@ -1,0 +1,110 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_unified_framework",
+  "confidence": 0.82,
+  "candidate_scores": {
+    "cand_unified_framework": {
+      "weighted_score": 4.2,
+      "verdict": "ADVANCE",
+      "scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 4, "evidence": "Budget equivalence confirmed (0.21% spread across 4 methods). BEM differentiates WD budgets (0.00-0.90). CWD does NOT beat baseline, supporting core thesis."},
+        "hypothesis_survival": {"weight": 0.25, "score": 4, "evidence": "H3 strongly supported, H4 preliminary support, H1 noisy but WD convergence clean, H5 metrics computable and differentiating. H2/H6/H7 not yet tested, no contradictions."},
+        "path_to_full_result": {"weight": 0.20, "score": 5, "evidence": "Clear phased plan. Codebase functional. All methods implemented. 117 GPU-hours feasible. Infrastructure validated."},
+        "novelty": {"weight": 0.15, "score": 4, "evidence": "Novelty score 7/10 from report. Phi-framework, WD Stability Condition, standardized metrics, compute-controlled benchmark all novel."},
+        "resource_efficiency": {"weight": 0.10, "score": 4, "evidence": "117 GPU-hours moderate for NeurIPS. Phased approach allows early termination. Pilot cost ~2 GPU-hours."}
+      }
+    },
+    "cand_contrarian_mechanism": {
+      "weighted_score": 3.85,
+      "verdict": "ADVANCE",
+      "scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 4, "evidence": "Same pilot data supports contrarian thesis."},
+        "hypothesis_survival": {"weight": 0.25, "score": 4, "evidence": "Budget equivalence and CWD mechanism hypothesis have preliminary support."},
+        "path_to_full_result": {"weight": 0.20, "score": 4, "evidence": "Simpler scope but still needs ImageNet for credibility."},
+        "novelty": {"weight": 0.15, "score": 3, "evidence": "D'Angelo et al. NeurIPS 2024 already establishes WD-as-effective-LR narrative. Risks incremental label."},
+        "resource_efficiency": {"weight": 0.10, "score": 4, "evidence": "Potentially lower GPU cost."}
+      }
+    },
+    "cand_allostatic_wd": {
+      "weighted_score": 2.15,
+      "verdict": "DROP",
+      "scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1, "evidence": "Not tested. Pilot shows WD variation has minimal effect, undermining premise of complex WD controller."},
+        "hypothesis_survival": {"weight": 0.25, "score": 2, "evidence": "Budget equivalence finding is actively hostile: if WD schedule doesn't matter, why build 3-level controller?"},
+        "path_to_full_result": {"weight": 0.20, "score": 2, "evidence": "Requires complete redesign, many hyperparameters, >200 GPU-hours with high null-result risk."},
+        "novelty": {"weight": 0.15, "score": 5, "evidence": "Novelty 9/10. Zero arXiv results. Genuinely novel framing."},
+        "resource_efficiency": {"weight": 0.10, "score": 2, "evidence": "High cost for uncertain payoff. Many hyperparameters to tune."}
+      }
+    }
+  },
+  "pilot_evidence": {
+    "methods_tested": ["constant", "cwd_hard", "swd", "cosine_schedule", "cwd_soft_beta10", "cwd_soft_beta50", "cwd_soft_beta100", "cwd_soft_beta1000"],
+    "dataset": "CIFAR-10",
+    "architecture": "ResNet-20",
+    "epochs": 100,
+    "seeds": [42],
+    "accuracy_range": {"min": 88.95, "max": 89.75, "spread": 0.80},
+    "core_methods_accuracy_range": {"min": 89.29, "max": 89.50, "spread": 0.21},
+    "budget_equivalence_confirmed": true,
+    "cwd_beats_baseline": false,
+    "metrics_computable": true,
+    "csi_range": [0.853, 0.897],
+    "ais_range": [0.296, 0.402],
+    "bem_range": [0.0, 0.9]
+  },
+  "hypothesis_status": {
+    "H1_proximal_unification": {
+      "status": "partially_tested",
+      "evidence": "Soft CWD effective WD converges across beta values (0.000239-0.000247). Accuracy gap between soft(beta=100) and hard CWD is -0.17%, within noise. Non-monotonic beta-accuracy relationship needs multi-seed resolution.",
+      "concern": "Soft CWD accuracy convergence is noisy, not clean monotonic."
+    },
+    "H2_stability_condition": {
+      "status": "not_tested",
+      "evidence": "No warmup sweep conducted in pilot. Scheduled for stability_experiment task."
+    },
+    "H3_budget_equivalence": {
+      "status": "strongly_supported",
+      "evidence": "4 methods with 10x WD budget differences (BEM 0.0-0.9) achieve 89.29-89.50% accuracy. 0.21% spread on single seed."
+    },
+    "H4_cwd_mechanism": {
+      "status": "preliminary_support",
+      "evidence": "CWD (89.29%) does not outperform baseline (89.48%). CWD's mean_wd_actual (2.47e-4) is ~50% of nominal, confirming budget reduction mechanism. Falsification battery not yet run."
+    },
+    "H5_metric_predictiveness": {
+      "status": "partially_tested",
+      "evidence": "CSI differentiates methods (CV ~2%, range 0.853-0.897). AIS ranges 0.296-0.402. BEM clearly differentiates (0.0-0.9). Cross-validation not yet possible (single benchmark)."
+    },
+    "H6_spatial_superiority": {
+      "status": "not_tested",
+      "evidence": "Requires per-layer WD experiments and VGG architecture. Scheduled for spatial_vs_temporal task."
+    },
+    "H7_composition_orthogonality": {
+      "status": "not_tested",
+      "evidence": "Requires CWD+Cosine and CWD+AdamWN experiments. Scheduled for composition_experiment task."
+    }
+  },
+  "reasons": [
+    "Budget equivalence strongly confirmed: 0.21% accuracy spread across 4 methods with 10x WD budget differences",
+    "CWD does NOT outperform AdamW constant baseline (89.29% vs 89.48%), supporting the framework's prediction",
+    "All three proposed metrics (CSI, AIS, BEM) are computable and differentiating -- BEM is especially informative",
+    "Codebase fully functional with all WD methods implemented and diagnostic logging validated",
+    "No core hypothesis falsified; H3 and H4 have positive preliminary evidence",
+    "Contrarian backup is strictly dominated (lower novelty, same empirical base)",
+    "Allostatic backup is actively contradicted by pilot evidence (WD variation has near-zero effect)"
+  ],
+  "next_actions": [
+    "Proceed to cifar10_resnet20_full: 7 primary methods + CWD ablations, 3 seeds, 200 epochs",
+    "Prioritize CWD falsification battery (effective-lambda-matched, random-mask, inverted-mask)",
+    "Run stability_experiment (H2 warmup sweep) in parallel with CIFAR full",
+    "Cross-validate metrics on CIFAR-100 before committing to ImageNet (72 GPU-hours)",
+    "Include both hard and soft (beta=100) CWD in full benchmark for multi-seed proximal approximation test"
+  ],
+  "concerns": [
+    "Soft CWD convergence is noisy (non-monotonic beta-accuracy). Multi-seed runs should resolve.",
+    "CSI has narrow spread (CV ~2%). May need refinement if it remains non-predictive across benchmarks.",
+    "AIS values are moderate (0.30-0.40), not low (<0.10) as hypothesized. Full CWD battery needed to disambiguate.",
+    "Single seed (42) only. Multi-seed experiments are critical for statistical confidence."
+  ],
+  "dropped_candidates": ["cand_allostatic_wd"],
+  "retained_backup": "cand_contrarian_mechanism"
+}

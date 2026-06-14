@@ -1,0 +1,26 @@
+{
+  "task_id": "confound_decomposition_multi_l0",
+  "overall_recommendation": "GO",
+  "candidate_id": "cand_cross_domain_ratedistortion",
+  "go_no_go": "GO",
+  "confidence": 0.85,
+  "key_findings": {
+    "absorption_rate_trend": "Absorption rate decreases monotonically with L0: 42.9% (L0=22) -> 37.5% (L0=41) -> 14.4% (L0=82) -> 0.8% (L0=176)",
+    "persistent_fn_count": 9,
+    "persistent_fn_pct": "0.75% of total prompts",
+    "hedging_dominates_low_l0": "At L0=22, 98.6% of FNs are hedging (recoverable at higher L0)",
+    "hierarchy_driven_dominates_high_l0": "At L0=176, 90% of FNs are hierarchy-driven (persistent)",
+    "reconstruction_error_zero": "Zero reconstruction-error FNs at all L0 values",
+    "probe_quality": "Perfect probe F1=1.0 for all 25 letters at all L0 configs",
+    "trend_direction": "INVERTED vs task plan prediction: hierarchy-driven fraction INCREASES with L0 (rho=1.0)"
+  },
+  "interpretation": "The decomposition reveals a clean and unexpected pattern: at low L0 (high sparsity), most false negatives are hedging-type (the parent feature fires at a different L0 operating point). Only 9 words are persistent FNs across ALL 4 L0 values -- these are the truly hierarchy-driven absorption cases. At L0=176 (low sparsity), almost all remaining FNs are hierarchy-driven because hedging is resolved. This overturns the pilot's 96.9% hierarchy-driven finding, which was measured at a SINGLE L0 (L0=22) without cross-L0 comparison. The multi-L0 analysis reveals that most L0=22 FNs were misclassified as hierarchy-driven because the cross-L0 hedging check was not applied. Zero reconstruction error component suggests Gemma Scope SAEs have excellent reconstruction quality.",
+  "revision_to_hypothesis": "H2 needs reframing: the 96.9% pilot figure was based on single-L0 analysis without hedging detection. With proper multi-L0 decomposition, only 1.4% of L0=22 FNs are truly hierarchy-driven. However, the clean trend (hedging -> hierarchy-driven as L0 increases) is itself a novel finding. The paper should frame this as: \"Most absorption at sparse operating points is recoverable hedging; truly irreducible absorption affects only ~0.75% of tokens.\"",
+  "pass_criteria_met": {
+    "all_4_l0_computed": true,
+    "hierarchy_driven_gt_80_at_l0_22": false,
+    "clear_trend": true,
+    "sufficient_fn_at_all_l0": false
+  },
+  "notes": "The L0=176 config has only 10 FNs, limiting statistical power. Full run should use more words per letter."
+}

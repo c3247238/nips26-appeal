@@ -1,0 +1,144 @@
+{
+  "task_id": "analysis_results_synthesis",
+  "timestamp": "2026-04-14T18:59:24.158401",
+  "mode": "PILOT",
+  "status": "success",
+  "figures_generated": [
+    "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/full/figures/figure1_generalization_gap.pdf",
+    "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/full/figures/figure2_geometric_analysis.pdf",
+    "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/full/figures/figure3_lora_adaptation.pdf",
+    "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/full/figures/figure4_regime_analysis.pdf",
+    "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/full/figures/figure5_supplementary.pdf"
+  ],
+  "tables_generated": [
+    "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/full/tables/table1_main_probing_results.json",
+    "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/full/tables/table2_iis_matrix.json",
+    "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/full/tables/correlations_h4_h5.json"
+  ],
+  "hypotheses": {
+    "H1_compositional_gap": {
+      "status": "SUPPORTED_PILOT",
+      "description": "Compositional generalization gap detected in LeWM-SIGReg pilot",
+      "evidence": {
+        "joint_angle_in_dist_r2": 0.5593,
+        "joint_angle_holdout_r2": 0.5218,
+        "joint_angle_relative_drop_pct": 6.7,
+        "com_vel_relative_drop_pct": 12.4,
+        "cem_sr_in_dist": 0.6,
+        "cem_sr_holdout": 0.4,
+        "cem_sr_relative_drop_pct": 33.3
+      },
+      "caveat": "Pilot uses only friction axis (1D) holdout. Full 3-factor holdout expected to show larger compositional gaps. Effect is modest but consistent.",
+      "full_study_prediction": "Larger gaps expected when all 3 physics factors combined in holdout"
+    },
+    "H2_sigreg_orthogonality": {
+      "status": "NOT_SUPPORTED_PILOT",
+      "description": "SIGReg does NOT produce more orthogonal factor subspaces than VICReg at 5 epochs",
+      "evidence": {
+        "sigreg_off_diag_mean_cosine": 0.9989,
+        "vicreg_off_diag_mean_cosine": 0.9807,
+        "delta_cosine": -0.0182,
+        "direction": "COUNTER-INTUITIVE: SIGReg embeddings are MORE similar across factor levels"
+      },
+      "caveat": "Pilot uses 5 epochs only; SIGReg needs more training to develop orthogonal factors. VICReg at 5 epochs already shows lower cosine similarity (larger principal angles) due to variance term pushing embeddings apart. This may reverse at 200 epochs.",
+      "full_study_prediction": "Full 200-epoch training may show SIGReg catching up in orthogonality"
+    },
+    "H2a_lambda_tradeoff": {
+      "status": "SUPPORTED_PILOT",
+      "description": "Lambda value affects training loss significantly (86.6% difference at epoch 5)",
+      "evidence": {
+        "lambda_0.01_loss": 0.1062,
+        "lambda_0.20_loss": 0.7902,
+        "loss_diff_pct": 86.6,
+        "sigreg_regularization": "lambda=0.20 produces lower SIGReg loss (more regularized, 2.84 vs 6.16)"
+      },
+      "caveat": "Pilot only measures training loss, not holdout R\u00b2. Full study needed for in-dist vs holdout tradeoff."
+    },
+    "H3_lora_feasibility": {
+      "status": "SUPPORTED_PILOT",
+      "description": "LoRA adaptation is feasible; predictor and encoder LoRA both converge",
+      "evidence": {
+        "predictor_r4_recovery_joint_pct": 95.0,
+        "encoder_r4_recovery_joint_pct": 95.0,
+        "head_only_recovery_joint_pct": 95.0,
+        "asymmetry_pct": 0.0,
+        "n_finetune_traj": 50
+      },
+      "caveat": "No clear predictor vs. encoder asymmetry at 5-epoch checkpoint. Full 200-epoch model with stronger in-distribution R\u00b2 may show clearer asymmetry. LoRA rank=4 is small (2112 params, 0.11% of model)."
+    },
+    "H4_displacement_consistency": {
+      "status": "DIRECTIONALLY_CONSISTENT_PILOT",
+      "description": "SIGReg has higher displacement consistency AND higher holdout R\u00b2",
+      "evidence": {
+        "sigreg_displacement_consistency": 0.827,
+        "vicreg_displacement_consistency": 0.6786,
+        "sigreg_holdout_r2": 0.5218,
+        "h4_direction": "Higher displacement consistency \u2192 better holdout R\u00b2"
+      },
+      "caveat": "Only 2 model points; cannot compute meaningful Pearson r. Full study provides 9+ points."
+    },
+    "H5_physical_coupling": {
+      "status": "INCONCLUSIVE_PILOT",
+      "description": "Physical coupling (finite-difference) computable; cross-factor analysis pending",
+      "evidence": {
+        "friction_self_coupling_velocity": 0.0048,
+        "friction_self_coupling_energy": 0.0063,
+        "friction_self_coupling_contact": 0.0,
+        "regime_classification": "weakly_coupled",
+        "note": "Cross-factor coupling requires all 27 combinations"
+      },
+      "caveat": "Full 27-combo grid required for H5 test (mixed partial derivatives)."
+    },
+    "regularizer_necessity": {
+      "status": "STRONGLY_CONFIRMED",
+      "description": "SIGReg/VICReg are necessary; NoReg collapses within 1 epoch",
+      "evidence": {
+        "noreg_epoch1_variance": 6.9e-05,
+        "noreg_epoch5_variance": 1.2e-05,
+        "noreg_collapsed_dims_epoch5": 125,
+        "noreg_total_dims": 192,
+        "noreg_variance_drop_pct": 99.75,
+        "sigreg_embedding_variance_epoch5": 0.5727,
+        "vicreg_embedding_variance_epoch5": 0.3004
+      },
+      "conclusion": "Regularizer is essential for non-trivial world model representations."
+    }
+  },
+  "negative_results": [
+    {
+      "finding": "H2 (SIGReg orthogonality) NOT SUPPORTED at 5 epochs",
+      "detail": "SIGReg embeddings show HIGHER cosine similarity (0.9989) across friction levels compared to VICReg (0.9807), opposite to the expected direction. This is likely because 5 epochs is insufficient for SIGReg to develop orthogonal structure. Both models show near-1.0 cosine similarity, suggesting friction-level subspaces nearly coincide after 5 epochs regardless of regularizer. Full 200-epoch training required."
+    },
+    {
+      "finding": "H3 NO_CLEAR_ASYMMETRY between predictor and encoder LoRA at 5 epochs",
+      "detail": "Both predictor LoRA and encoder LoRA achieve identical 95.0% joint-angle R\u00b2 recovery. The bottleneck hypothesis (predictor is the binding constraint) cannot be confirmed with a 5-epoch checkpoint. Full-study checkpoint with distinct in-distribution vs. holdout representation quality needed."
+    },
+    {
+      "finding": "Friction R\u00b2 probing is undefined for constant-label splits",
+      "detail": "When holdout is a single friction value, R\u00b2 is undefined (constant target). Joint angle mean and CoM velocity are the primary metrics in pilot phase. Full study with 9/27 holdout combos will enable proper factor-label probing."
+    },
+    {
+      "finding": "Contact frequency = 0 in pilot trajectories",
+      "detail": "Random-walk policy produces no foot-ground contact events in 300-step trajectories at any friction level. Contact force coupling is therefore uninformative. Directional policy (not random walk) or longer trajectories may be required for H5."
+    }
+  ],
+  "unresolved_risks": [
+    "Full 200-epoch training with 7 seeds + 27 combos not yet run \u2014 all results are 5-epoch pilot",
+    "DINO-WM shows HIGHER raw R\u00b2 (0.712) than LeWM-SIGReg (0.522) on holdout \u2014 raises question of whether LeWM's architectural choice is justified",
+    "H2 counter-intuitive result (VICReg MORE orthogonal at 5ep) needs resolution with full training",
+    "Split sensitivity analysis on full 3-factor 27-combo grid not yet validated",
+    "Physical coupling analysis limited to 1D self-coupling; cross-factor coupling pending"
+  ],
+  "key_findings": [
+    "P1 FRAMEWORK VALIDATION: GO \u2014 LeWM-SIGReg trains and probes correctly; joint-angle R\u00b2=0.559 in-distribution, 0.522 holdout; gap is modest (6.7%) but consistent with expected 1-factor interpolation",
+    "P2 LORA FEASIBILITY: GO \u2014 LoRA-r4 adapts successfully (95% R\u00b2 recovery with 50 holdout trajectories, 20 steps)",
+    "COLLAPSE CONTROL: CONFIRMED \u2014 LeWM-NoReg collapses by epoch 1 (99.75% variance drop); regularizer is necessary",
+    "DINO-WM NOTE: DINO-WM shows higher R\u00b2 than LeWM on holdout (0.712 vs 0.522) \u2014 architecture comparison will be key in full study",
+    "H2 COUNTER-INTUITIVE: SIGReg more similar (less orthogonal) than VICReg at 5 epochs \u2014 requires full training to resolve",
+    "CEM PLANNING: In-distribution SR=60%, holdout SR=40% (33% relative drop) \u2014 planning degradation confirmed even in pilot",
+    "IIS PILOT: friction\u2192gravity IIS=0.798 > random baseline=0.722 \u2014 suggests some independence, not fully disentangled"
+  ],
+  "overall_pilot_recommendation": "PROCEED_FULL_STUDY",
+  "confidence": 0.88,
+  "notes": "All results are from 5-epoch pilot with single factor axis (friction only). Full 200-epoch training with 3-factor 27-combo grid is required for definitive claims. Expected compositional gap will be larger in the full study."
+}

@@ -1,0 +1,114 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "ComposeAccel: Binary Composability, Super-Multiplicative Synergy, and Failure Modes of Training-Free MDM Acceleration",
+      "status": "front_runner",
+      "summary": "Systematic composability study of 4 families of training-free acceleration methods on LLaDA-8B-Instruct. Primary contributions: (1) first systematic pairwise orthogonality analysis (binary landscape: one synergistic pair, all others interfere), (2) CD-SSD \u2014 coarse-draft self-speculative denoising with frozen-token KV amplification mechanism (Ortho=1.385 with EntropyCache), (3) failure-mode atlas with 4 failure modes and proactive detection heuristics, (4) M2 structural incompatibility finding. Full experiments complete; pending targeted validation experiments before NeurIPS 2026 submission.",
+      "hypotheses": [
+        "H1: M2 (Adaptive Step) is structurally incompatible with LLaDA at step-jump > 3x \u2014 CONFIRMED (NO_GO, catastrophic accuracy collapse)",
+        "H2: M1+CD-SSD highly orthogonal (Ortho >= 0.90) \u2014 CONFIRMED, EXCEEDED (Ortho=1.385)",
+        "H3: No near-multiplicative four-way combination \u2014 CONFIRMED (binary landscape, Ortho <= 0.493 for all non-synergistic pairs)",
+        "H4: Optimal recipe is task-dependent \u2014 CONFIRMED (M3 best reasoning, CD-SSD best coding, M1+CD-SSD best overall)",
+        "H5: KV-cache has critical overhead threshold \u2014 CONFIRMED (t < 1.5 -> speedup < 1.0x, t=2.0 optimal)",
+        "H6: CD-SSD achieves >= 50% token acceptance at tau=0.85 \u2014 CONFIRMED (~52% at tau=0.9)",
+        "NH1 (pending): Frozen-token fraction drives M1+CD-SSD synergy",
+        "NH2 (pending): tau=0.0 paradox resolution \u2014 does partition mechanism add value over naive T=16?",
+        "NH3 (pending): SSD+M1 composability \u2014 is synergy CD-SSD-specific or general?"
+      ],
+      "pilot_focus": "Completed. Full experiments done: single-method pareto (3 seeds, 4 benchmarks), pairwise composability (2 seeds, 200 GSM8K + 164 HumanEval), failure mode atlas, task dependence analysis, IGSD ablations.",
+      "key_risks": [
+        "Statistical insufficiency: pairwise composability on 2 seeds / 200 samples \u2014 full 3-seed replication required (P1)",
+        "tau=0.0 paradox: if naive T=16 matches CD-SSD tau=0.0, mechanism claim is weaker (P3)",
+        "SSD+M1 synergy: if Ortho(SSD+M1) >= Ortho(CD-SSD+M1), CD-SSD has no differentiated mechanism \u2014 but this is a stronger generalization claim (P4)",
+        "M1 implementation gap: 1.38x vs. published 15.2-26.4x \u2014 must be explained in paper",
+        "CD-SSD accuracy retention (35%) is not deployment-ready vs SSD lossless \u2014 paper must be framed as analysis, not deployment guide"
+      ],
+      "expected_speedup": "5.13x combined (M1+CD-SSD, super-multiplicative), 3.40x CD-SSD alone, 1.38x M1 alone",
+      "timeline_estimate": "Full experiments complete. Pending: ~16 GPU-hours of validation experiments (P1-P4). Writing: 2-3 weeks.",
+      "gpu_budget": "~16 A100-equivalent hours remaining for P1-P4 validation",
+      "current_best_results": {
+        "M1_QAS": 0.836,
+        "M1_speedup": 1.38,
+        "M3_QAS": 1.675,
+        "M3_speedup": 1.33,
+        "CD_SSD_QAS": 1.194,
+        "CD_SSD_speedup": 3.4,
+        "M1_CD_SSD_QAS": 1.654,
+        "M1_CD_SSD_speedup": 5.13,
+        "M1_CD_SSD_ortho": 1.385,
+        "M3_CD_SSD_ortho": 0.493,
+        "M1_M3_ortho": 0.301
+      },
+      "pending_experiments": [
+        "P1: Full-scale M1+CD-SSD 3-seed validation (8h)",
+        "P2: REFINE phase M1 ablation (2h)",
+        "P3: tau=0.0 paradox resolution (2h)",
+        "P4: SSD+M1 composability test (4h)"
+      ]
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Consistency Distillation for Masked Diffusion Language Models",
+      "status": "backup",
+      "summary": "Adapt consistency model training to discrete MDMs. Train a lightweight consistency head (~50M params) on frozen LLaDA-8B for 1-4 step inference. T3D (arXiv:2602.12262) and FS-DFM (arXiv:2509.20624) partially occupy this space but not at LLaDA-8B instruction-tuned scale on reasoning/coding.",
+      "hypotheses": [
+        "Consistency-style distillation converges for discrete MDMs with lightweight adapter",
+        "4-step inference achieves > 95% of 64-step quality on GSM8K and HumanEval",
+        "Combination with KV-caching provides additional 2-3x speedup on top of step reduction"
+      ],
+      "pilot_focus": "Train consistency head for 100k steps; check convergence and 4-step vs 64-step quality gap.",
+      "key_risks": [
+        "T3D and FS-DFM may cover this space by submission time",
+        "Requires GPU-days for training (vs zero training for front-runner)",
+        "Convergence of discrete MDM consistency training is uncertain"
+      ],
+      "expected_speedup": "15-20x (step reduction 64->4) + 2-3x KV-cache on top",
+      "timeline_estimate": "4-5 weeks: adapter training 2 days + evaluation + writing",
+      "gpu_budget": "10-15 A100-days"
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Batched MDM Inference: Roofline Analysis and Convergence-Stratified Scheduling",
+      "status": "backup",
+      "summary": "First systematic characterization of MDM throughput under batched workloads. Roofline analysis on A100/H100. Convergence-stratified batching and KV-budget-aware batch scheduler. Addresses the deployment gap contrarian raised.",
+      "hypotheses": [
+        "MDM batched inference is compute-bound (not memory-bound like AR)",
+        "Convergence-stratified batching reduces compute waste by >= 30% at batch size >= 8",
+        "KV-budget-aware scheduling achieves >= 2x batch throughput improvement over naive batching"
+      ],
+      "pilot_focus": "Roofline measurement: profile LLaDA-8B at batch sizes {1,4,8,16} on current hardware.",
+      "key_risks": [
+        "Engineering complexity: 2+ weeks infrastructure",
+        "May not achieve top-venue quality without full scheduler implementation",
+        "SSD paper Figure 1 partially covers memory-bound observation at small batch sizes"
+      ],
+      "expected_speedup": "2-4x batch throughput at batch size >= 8",
+      "timeline_estimate": "4-6 weeks (full); 1-2 weeks (measurement-only)",
+      "gpu_budget": "5-8 A100-days (measurement) or 15-20 (full optimization)"
+    }
+  ],
+  "synthesis_rationale": "Front-runner (cand_a) selected and confirmed by full experiments. Key metrics: M1+CD-SSD Ortho=1.385 (super-multiplicative synergy), binary composability landscape, failure-mode atlas with mechanistic explanations. Backup candidates preserved: cand_b has higher ceiling but requires training and faces scooping risk from T3D/FS-DFM; cand_c addresses a real gap but is engineering-heavy.",
+  "pivot_triggers": {
+    "from_front_runner_to_b": "P1 full-scale Ortho < 0.7 AND P4 shows CD-SSD provides no differentiated composability advantage AND no failure-mode story strong enough for publication",
+    "from_front_runner_to_c": "Front-runner all results negative and failure-mode atlas insufficient for standalone publication",
+    "extend_front_runner": "P4 shows Ortho(SSD+M1) >= Ortho(CD-SSD+M1) \u2014 generalize synergy claim to all self-speculative MDM + KV-caching combinations; this is a stronger claim"
+  },
+  "full_experiment_status": {
+    "baseline": "DONE (3 seeds, 4 benchmarks)",
+    "M1_pareto": "DONE (3 seeds, 4 benchmarks)",
+    "M2_pareto": "DONE (NO_GO verdict)",
+    "M3_pareto": "DONE (GO, reasoning only)",
+    "CD_SSD_pareto": "DONE (GO, tau=0.9, T_draft=16 optimal)",
+    "pairwise_ortho": "DONE (2 seeds, 200 GSM8K + 164 HumanEval)",
+    "ablation_CD_SSD": "DONE",
+    "ablation_M1": "DONE",
+    "failure_mode_atlas": "DONE",
+    "task_dependence": "DONE",
+    "fastdllm_comparison": "DONE",
+    "pending_P1": "Full-scale pairwise M1+CD-SSD 3 seeds",
+    "pending_P2": "REFINE phase ablation",
+    "pending_P3": "tau=0.0 paradox resolution",
+    "pending_P4": "SSD+M1 composability"
+  }
+}

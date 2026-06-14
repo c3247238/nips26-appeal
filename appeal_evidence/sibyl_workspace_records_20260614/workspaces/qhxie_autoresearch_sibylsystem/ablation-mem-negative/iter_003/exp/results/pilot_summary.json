@@ -1,0 +1,81 @@
+{
+  "overall_recommendation": "PIVOT",
+  "selected_candidate_id": null,
+  "candidates": [
+    {
+      "candidate_id": "uad_cooccurrence",
+      "go_no_go": "NO_GO",
+      "confidence": 0.95,
+      "supported_hypotheses": [],
+      "failed_assumptions": [
+        "H1: UAD can detect absorption via co-occurrence clustering",
+        "H2: Absorption features co-occur in natural text",
+        "H3: UAD significantly outperforms random baseline"
+      ],
+      "key_metrics": {
+        "precision": 0.0,
+        "recall": 0.143,
+        "f1": 0.0,
+        "true_positives": 1,
+        "false_positives": 4154,
+        "ground_truth_pairs": 7
+      },
+      "notes": "UAD fails because absorption features are mutually exclusive at the token level. They fire on different tokens representing different child concepts and never co-occur. P3 confirms UAD is statistically indistinguishable from same-cluster random baseline (F1=0.00048 vs 0.00048). This is a fundamental limitation of co-occurrence-based approaches for hierarchical absorption detection."
+    }
+  ],
+  "pilot_results": {
+    "p1_collision_proxy": {
+      "status": "PASS",
+      "spearman_r": 0.711,
+      "pearson_r": 0.733,
+      "bootstrap_ci": [0.219, 0.887],
+      "gt_pairs_detected": "10/10"
+    },
+    "p2_uad_reproduce": {
+      "status": "FAIL",
+      "precision": 0.0,
+      "recall": 0.143,
+      "f1": 0.0,
+      "true_positives": 1,
+      "false_positives": 4154,
+      "false_negatives": 6,
+      "ground_truth_pairs": 7
+    },
+    "p3_random_baseline": {
+      "status": "FAIL",
+      "uad_f1": 0.00048,
+      "global_random_f1": 0.00011,
+      "same_cluster_random_f1": 0.00048,
+      "uad_minus_global_random": 0.00037,
+      "uad_better_than_global": true,
+      "uad_better_than_same_cluster": false,
+      "pass_criteria_global_f1_lt_0.05": true,
+      "pass_criteria_uad_minus_random_ge_0.3": false,
+      "notes": "UAD F1 is identical to same-cluster random baseline. The clustering step provides zero value. UAD has no actual contribution for hierarchical absorption detection."
+    }
+  },
+  "analysis": {
+    "finding": "UAD fails to detect hierarchical absorption in pre-trained SAE",
+    "root_cause": "Absorption features are mutually exclusive at the token level - they fire on different tokens representing different child concepts. UAD's co-occurrence clustering cannot detect features that never co-occur.",
+    "evidence": {
+      "token_level_mutual_exclusivity": "Feature 11513 fires only on 'three', feature 24189 only on 'four'-'eight'. They never activate on the same token.",
+      "cooccurrence_phi": "Phi coefficient between absorption features is near zero or negative on general text (OpenWebText).",
+      "uad_clustering": "With 50 clusters on 504 features, GT absorption features are placed in different clusters.",
+      "true_positives": 1,
+      "false_positives": 4154,
+      "same_cluster_random_equivalence": "UAD F1 (0.00048) == Same-cluster random F1 (0.00048)"
+    },
+    "implications": [
+      "UAD detects features that fire TOGETHER (co-occurring), not features that fire on mutually exclusive instances of a parent concept.",
+      "This is a fundamental limitation of co-occurrence-based approaches for hierarchical absorption detection.",
+      "UAD may work for detecting synonym features or contextually related features that co-occur frequently.",
+      "For hierarchical absorption, a different approach is needed - one that measures semantic similarity or causal dependence rather than co-occurrence."
+    ]
+  },
+  "recommendations": [
+    "Report this as a negative result in the paper",
+    "Discuss the limitation of co-occurrence-based approaches",
+    "Consider alternative approaches: semantic similarity of decoder weights, causal intervention, activation patching",
+    "Pivot paper focus to 'Why co-occurrence clustering cannot detect feature absorption'"
+  ]
+}

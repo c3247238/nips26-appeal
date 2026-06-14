@@ -1,0 +1,86 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_aadwd",
+  "confidence": 0.72,
+  "candidate_scores": {
+    "cand_aadwd": {
+      "weighted_score": 3.60,
+      "verdict": "ADVANCE",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 3, "evidence": "AADWD-Aggressive 85.09% passes pilot threshold (>85%); trails best fixed WD by -4.26% but LR milestones never triggered in 20-epoch pilot; beats Random-Dynamic by +4.75%"},
+        "hypothesis_survival": {"weight": 0.25, "score": 4, "evidence": "H1 convergence CONFIRMED (all 12+ runs converge); H3 proxy r=0.849 PARTIAL FAIL (correctable by beta adjustment); H5 robustness CONFIRMED (c varies 0.65% across 2 OoM); H2 alignment advantage AMBIGUOUS (beats random but ties norm-matched); no hypothesis falsified"},
+        "path_to_full_result": {"weight": 0.20, "score": 4, "evidence": "Clear path: LR milestones [100,150] will activate in 200 epochs; 3-seed runs planned; full infrastructure (Tier 0-2 scripts) operational; exact configurations specified"},
+        "novelty": {"weight": 0.15, "score": 4, "evidence": "Novelty score 8/10; three-layer theoretical contribution (time-varying SGDW convergence, cumulative contraction stability, stochastic proxy transfer) is genuinely novel; recommendation: proceed"},
+        "resource_efficiency": {"weight": 0.10, "score": 3, "evidence": "AADWD ~10x slower than fixed WD per epoch; full P0 suite ~8h on 1 GPU; feasible within project constraints"}
+      }
+    },
+    "cand_empirical": {
+      "weighted_score": 2.80,
+      "verdict": "HOLD_AS_BACKUP",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 2, "evidence": "No dedicated pilot; incidental Tier 0 evidence shows weak phase-dependent structure (delta_hat std=0.000753)"},
+        "hypothesis_survival": {"weight": 0.25, "score": 3, "evidence": "Phase-dependent alignment confirmed but amplitude small; no falsification; moderate novelty ceiling for purely empirical work"},
+        "path_to_full_result": {"weight": 0.20, "score": 3, "evidence": "Straightforward but lacks algorithmic contribution; needs extensive multi-architecture experiments"},
+        "novelty": {"weight": 0.15, "score": 3, "evidence": "Novelty score 6/10; descriptive study; moderate impact ceiling"},
+        "resource_efficiency": {"weight": 0.10, "score": 4, "evidence": "Standard training with alignment logging; no computational overhead"}
+      }
+    },
+    "cand_llm": {
+      "weighted_score": 1.70,
+      "verdict": "DROP",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1, "evidence": "Zero empirical evidence; no pilot conducted"},
+        "hypothesis_survival": {"weight": 0.25, "score": 2, "evidence": "AdamW preconditioning may wash out alignment signal; CWD and AlphaDecay already target LLM WD"},
+        "path_to_full_result": {"weight": 0.20, "score": 2, "evidence": "Requires NanoGPT setup, 2-4h/run, no convergence theory; high execution risk"},
+        "novelty": {"weight": 0.15, "score": 2, "evidence": "Novelty score 5/10; crowded competitive landscape; novelty report recommends 'modify'"},
+        "resource_efficiency": {"weight": 0.10, "score": 2, "evidence": "2-4h per run at 60M-350M scale; high GPU cost for uncertain return"}
+      }
+    }
+  },
+  "reasons": [
+    "AADWD-Aggressive passes pilot threshold (85.09% > 85%) with correct dynamic behavior (lambda drops 187x early-to-late)",
+    "No hypothesis falsified: H1 convergence confirmed, H3 proxy r=0.849 near threshold and correctable, H5 robustness confirmed across 2 OoM",
+    "20-epoch pilot systematically disadvantages AADWD (LR milestones never triggered); 200-epoch runs expected to close gap with fixed WD",
+    "AADWD beats Random-Dynamic-WD by +4.75% best_test_acc and +11.7% final_test_acc, confirming alignment signal value over random time-variation",
+    "Theoretical contribution (novelty 8/10) is independently valuable: first convergence theory for time-varying SGDW, cumulative contraction stability, stochastic proxy transfer",
+    "Hyperparameter robustness excellent: c varies only 0.65% across [0.001, 0.05]; beta stable in [0.9, 0.999]",
+    "Cross-architecture signal positive: AADWD outperforms fixed WD by +11.55% on VGG16/CIFAR-100 (pilot caveat: fixed WD underfits at 20 epochs)",
+    "Research focus=4 (FOCUSED) directs preference for REFINE/ADVANCE over PIVOT"
+  ],
+  "risks": [
+    {
+      "risk_id": "H2_margin",
+      "description": "Norm-matched-WD (85.44%) nearly matches AADWD (85.09%) at 20-epoch scale; alignment-awareness marginal gain may remain small at 200 epochs",
+      "severity": "medium",
+      "mitigation": "Include norm-matched-WD as P0 ablation in full experiment; design LR-transition-phase ablation if margin remains < 0.3%"
+    },
+    {
+      "risk_id": "H3_proxy_reliability",
+      "description": "Pearson r=0.849 is below 0.85 threshold; may not improve sufficiently at 200 epochs even with beta=0.999",
+      "severity": "medium",
+      "mitigation": "Record proxy diagnostics every 10 epochs; fallback to beta=0.9995 or epoch-level full-batch alignment; ultimate fallback: pivot to cand_empirical"
+    },
+    {
+      "risk_id": "pilot_gap_persistence",
+      "description": "AADWD may continue trailing fixed WD (5e-4) at 200 epochs if the pilot gap is not explained by LR milestone timing",
+      "severity": "medium-low",
+      "mitigation": "Paper framing can emphasize theory + robustness + alignment characterization even without accuracy superiority; AADWD's hyperparameter robustness (0.65% variation vs fixed WD's sensitivity to lambda choice) is a valid practical contribution"
+    },
+    {
+      "risk_id": "conservative_variant_unfixable",
+      "description": "AADWD-Conservative (74.06%) failed severely; even with c=0.001 it may remain problematic",
+      "severity": "low",
+      "mitigation": "Drop Conservative as P2 priority; focus paper on Aggressive variant which embodies the correct theoretical prediction"
+    }
+  ],
+  "next_actions": [
+    "Run 200-epoch full experiment: Fixed-WD (5e-4, 1e-3) x 3 seeds + AADWD-Aggressive x 3 seeds + Norm-Matched-WD x 3 seeds",
+    "Adjust LR schedule: milestones=[100,150], lr_gamma=0.1 for all 200-epoch runs",
+    "Record alignment proxy Pearson r every 10 epochs to resolve H3",
+    "Add P1 methods if GPU allows: No-WD x 1 seed, Stagewise-WD x 3 seeds",
+    "For VGG16/CIFAR-100: run fixed-WD grid (5 values) first to establish fair baseline",
+    "Post-experiment: if norm-matched-WD matches AADWD within 0.3%, design LR-transition-phase ablation"
+  ],
+  "dropped_candidates": ["cand_llm"],
+  "retained_backups": ["cand_empirical"]
+}

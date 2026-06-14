@@ -1,0 +1,162 @@
+[
+  {
+    "priority": 1,
+    "category": "data_integrity",
+    "severity": "critical",
+    "title": "Fix Table 3 CI inversion",
+    "description": "In 5 of 7 rows, the 95% CI lower bound exceeds the point estimate (e.g., 36.1% with CI [37.9%, 42.1%]). This is mathematically impossible and will be flagged by any reviewer within minutes.",
+    "action": "Recompute all bootstrap CIs using per-token aggregation (matching the point estimates). If per-word CIs are desired, present matched per-word point estimates. Never publish CIs that exclude their own point estimate.",
+    "effort": "0.5 hours CPU",
+    "blocking": true
+  },
+  {
+    "priority": 2,
+    "category": "experiment_verification",
+    "severity": "critical",
+    "title": "Verify cross-domain patching data provenance",
+    "description": "The sign reversal from d=-0.91 (FAILED pilot) to d=+1.50 (corrected FULL) for city-continent activation patching has not been independently verified. The phase0_data_integrity task was 'skipped for speed'. The paper's 'universal mechanism' claim (Contribution 2) rests entirely on this unverified correction.",
+    "action": "Run a 20-entity spot-check: randomly sample 20 city-continent entities, re-run full activation patching pipeline, verify recovery rate is consistent with 61.9%. Document the spot-check results and the original bug fix in an appendix note.",
+    "effort": "0.5 GPU-hours",
+    "blocking": true
+  },
+  {
+    "priority": 3,
+    "category": "experiment",
+    "severity": "critical",
+    "title": "Run city-continent probe degradation",
+    "description": "The probe degradation curve extrapolates from synthetic Gaussian noise on first-letter binary probes to predict RAVEL multi-class probe effects. This extrapolation is untested. The skeptic (result debate) identified this as the paper's methodological Achilles' heel.",
+    "action": "Degrade city-continent probes (F1=0.87 baseline) to 3-4 lower F1 levels via same noise injection protocol. Measure absorption at each level. If the slope matches first-letter curve (within 2x), the extrapolation is validated. If it differs, reframe Section 4.6 claims.",
+    "effort": "1 GPU-hour",
+    "blocking": false
+  },
+  {
+    "priority": 4,
+    "category": "data_integrity",
+    "severity": "critical",
+    "title": "Reconcile aggregation-dependent absorption rates",
+    "description": "Three different first-letter L24 16k absorption rates: 27.1% (per-word, paper canonical), 21.6% (per-token, probe degradation control), 34.5% (per-unique-word, earlier iterations). The 21.6% control falls below the 27.1% CI [26.3%, 34.7%]. Readers comparing Table 2 (27.1%) with Table 3 (21.6%) will find contradictory numbers.",
+    "action": "Choose per-token as canonical aggregation. Recompute ALL absorption rates (Tables 2, 3, 4) using per-token. Add a footnote explaining the aggregation choice and sensitivity analysis. If per-word rates are retained for backward compatibility, present both with explicit labels.",
+    "effort": "2 hours CPU",
+    "blocking": true
+  },
+  {
+    "priority": 5,
+    "category": "data_integrity",
+    "severity": "critical",
+    "title": "Implement validate_integration.py",
+    "description": "Automated claim-data cross-check has been recommended for 10 consecutive iterations and never implemented. 5 of 18 findings in this review are data integrity failures that it would have caught.",
+    "action": "Create validate_integration.py that: (1) reads all numerical claims from paper.md via regex, (2) checks each against a manifest JSON mapping claims to source data files, (3) reports mismatches with file:line references. Run before every paper revision.",
+    "effort": "2 hours CPU",
+    "blocking": false
+  },
+  {
+    "priority": 6,
+    "category": "writing",
+    "severity": "major",
+    "title": "Reorder contributions to lead with probe degradation",
+    "description": "The paper leads with 'cross-domain absorption characterization' but the probe degradation ablation (R^2=0.777) undermines this claim for 2 of 3 RAVEL hierarchies. The real primary contribution is the probe degradation methodology. Result debate verdict (6.5) recommended this restructuring.",
+    "action": "Restructure abstract and introduction: (1) Probe degradation methodology (the methodological advance, R^2=0.777), (2) Universal causal mechanism (the empirical advance, d=0.75-1.50), (3) Cross-domain characterization with confound decomposition (the application), (4) Quadruple correlational failure (the negative boundary).",
+    "effort": "3 hours CPU",
+    "blocking": false
+  },
+  {
+    "priority": 7,
+    "category": "writing",
+    "severity": "major",
+    "title": "Replace 4.1x headline with accurate figure",
+    "description": "45.1/11.6 = 3.89x (not 4.1x). The 4.1x used the stale city-continent value of 42.9%. Additionally, the quality-gated range (excluding city-country F1=0.73) is 2.7x (31.4/11.6). The 4.1x appears in 5+ locations.",
+    "action": "Replace all instances of '4.1x' with '3.9x' (full range) or '2.7x (quality-gated)'. Present city-country as supplementary/exploratory throughout. Clearly distinguish descriptive range from quality-gated range.",
+    "effort": "1 hour CPU",
+    "blocking": false
+  },
+  {
+    "priority": 8,
+    "category": "writing",
+    "severity": "major",
+    "title": "Fix layer multiplier inconsistency",
+    "description": "Paper says 26x (Section 4.2), 15x (Section 7.4, outline), and the data supports 11x (if L6=2.4%). Three different multipliers for the same phenomenon.",
+    "action": "Determine correct L6 first-letter absorption rate from source data. Compute L24/L6 ratio. Use ONE consistent figure throughout. If the '15x' refers to a cross-hierarchy average, state this explicitly.",
+    "effort": "0.5 hours CPU",
+    "blocking": false
+  },
+  {
+    "priority": 9,
+    "category": "writing",
+    "severity": "major",
+    "title": "Eliminate Section 7.2 verbatim repetition",
+    "description": "Section 7.2 restates Section 5.1-5.2 recovery rates, effect sizes, p-values, and interpretation near-verbatim. The activation patching results appear with full numerical detail in 4 locations (5.1, 5.2, 7.2, 8).",
+    "action": "Section 5: keep full detail. Section 7.2: discuss IMPLICATIONS only (deployment, theory constraints, future experiments), reference Section 5 for numbers. Section 8: one-sentence summary with range only.",
+    "effort": "1 hour CPU",
+    "blocking": false
+  },
+  {
+    "priority": 10,
+    "category": "experiment",
+    "severity": "major",
+    "title": "Explain city-country patching exclusion",
+    "description": "City-country (45.1% absorption, highest) is excluded from activation patching without any explanation. The paper claims 'universal' mechanism but omits the highest-absorption hierarchy from causal testing.",
+    "action": "Either (a) run city-country patching (0.5 GPU-hours) or (b) add an explicit paragraph in Section 5.2 and Section 7.6 explaining the exclusion (probe quality F1=0.73 below gate, patching results unreliable).",
+    "effort": "0-0.5 GPU-hours + 15 min CPU",
+    "blocking": false
+  },
+  {
+    "priority": 11,
+    "category": "figures",
+    "severity": "major",
+    "title": "Fix Figure 4 layer mismatch",
+    "description": "Panel 1 (first-letter) shows L12, Panels 2-3 (city-continent, city-language) show L24. Comparison across panels uses different layers.",
+    "action": "Preferred: re-run first-letter patching at L24 (or cite existing L24 data if available). Alternative: add caption note explaining the layer difference and why it does not invalidate the comparison.",
+    "effort": "0-0.5 GPU-hours",
+    "blocking": false
+  },
+  {
+    "priority": 12,
+    "category": "figures",
+    "severity": "major",
+    "title": "Fix Figure 5 caption-content mismatch and N discrepancy",
+    "description": "Caption promises overlay of first-letter (N=158) and city-continent (N=1,464) distributions. Figure appears to show only city-continent. Legend says N=1471, text says N=1,464.",
+    "action": "Re-render with both distributions (different colors or side-by-side panels). Reconcile N=1471 vs N=1464 (pre-cleaning vs post-cleaning?) and use the correct number consistently.",
+    "effort": "0.5 hours CPU",
+    "blocking": false
+  },
+  {
+    "priority": 13,
+    "category": "figures",
+    "severity": "minor",
+    "title": "Reconcile Figure 6 p-value with text",
+    "description": "Figure 6 shows 'Hier: p=0.063' at L24 but Section 6 says hierarchy p=0.041.",
+    "action": "Check if the figure and text use different statistical tests. Reconcile or explain the difference in the caption.",
+    "effort": "15 min CPU",
+    "blocking": false
+  },
+  {
+    "priority": 14,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Reduce abstract information density",
+    "description": "The abstract contains 15+ distinct quantitative results in ~290 words. Too dense for a first read.",
+    "action": "Reduce to 5-7 key numbers: the headline range, the best probe degradation statistic (R^2=0.777), the best patching effect size (d=0.75-1.50), and one summary of correlational failure. Move the rest to the introduction.",
+    "effort": "30 min CPU",
+    "blocking": false
+  },
+  {
+    "priority": 15,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Fix hype words",
+    "description": "Section 2.1: 'dominant tool' (unsupported superlative). Section 7.4: 'amplify this concern' (hype transition).",
+    "action": "'dominant' -> 'widely adopted'. 'amplify' -> 'are relevant to' or lead directly with the aspects.",
+    "effort": "10 min CPU",
+    "blocking": false
+  },
+  {
+    "priority": 16,
+    "category": "data_integrity",
+    "severity": "minor",
+    "title": "Update proposal with current data",
+    "description": "Proposal reports city-continent as 42.9% (paper says 31.4%), uses 4x range (should be 3.9x), 15x variation (inconsistent with paper).",
+    "action": "Update proposal.md to match paper.md for all numerical claims. While the proposal is a planning document, workspace consistency prevents confusion for the reflection agent.",
+    "effort": "30 min CPU",
+    "blocking": false
+  }
+]

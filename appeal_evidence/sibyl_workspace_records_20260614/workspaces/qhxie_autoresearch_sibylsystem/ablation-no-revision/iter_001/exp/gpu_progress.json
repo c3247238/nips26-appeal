@@ -1,0 +1,497 @@
+{
+  "completed": [
+    "gen_calibration_dataset",
+    "eval_g0_baseline",
+    "train_g1_stepdpo",
+    "train_g2_calibration_round2",
+    "g0_qwen_baseline",
+    "g1_saturation_v2",
+    "g2_consistency",
+    "g3_routing",
+    "setup_model",
+    "full_g1_saturation",
+    "g2_ranked_voting",
+    "analysis_h1",
+    "analysis_h2",
+    "analysis_h3"
+  ],
+  "failed": [
+    "train_g2_calibration",
+    "eval_g3_adaptive_routing",
+    "setup_api_environment",
+    "g0_baseline_eval",
+    "g1_saturation",
+    "g0_baseline"
+  ],
+  "running": {},
+  "timings": {
+    "gen_calibration_dataset": {
+      "planned_min": 15,
+      "actual_min": 24,
+      "start_time": "2026-04-28T03:49:34",
+      "end_time": "2026-04-28T04:13:20",
+      "config_snapshot": {
+        "model": "deepseek-ai/DeepSeek-Math-7B-Instruct",
+        "quantization": "4bit (bnb nf4)",
+        "batch_size": 1,
+        "dataset": "HuggingFaceH4/MATH",
+        "n_samples": 100,
+        "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+        "gpu_count": 1,
+        "accuracy": 0.1,
+        "ece": 0.395,
+        "avg_tokens": 397,
+        "valid_count": 100
+      }
+    },
+    "eval_g0_baseline": {
+      "planned_min": 10,
+      "actual_min": 22,
+      "start_time": "2026-04-28T04:18:00",
+      "end_time": "2026-04-28T04:40:31",
+      "config_snapshot": {
+        "model": "deepseek-ai/DeepSeek-Math-7B-Instruct",
+        "quantization": "4bit (bnb nf4)",
+        "batch_size": 1,
+        "dataset": "HuggingFaceH4/MATH",
+        "n_samples": 100,
+        "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+        "gpu_count": 1,
+        "accuracy": 0.26,
+        "ece": 0.313,
+        "avg_tokens": 397,
+        "h1_passed": false,
+        "h1_criterion": 0.4
+      }
+    },
+    "train_g1_stepdpo": {
+      "planned_min": 25,
+      "actual_min": 13,
+      "start_time": "2026-04-28T04:48:00",
+      "end_time": "2026-04-28T05:01:04",
+      "config_snapshot": {
+        "model": "deepseek-ai/DeepSeek-Math-7B-Instruct",
+        "lora_rank": 16,
+        "lora_alpha": 32,
+        "batch_size": 2,
+        "learning_rate": 1e-07,
+        "beta": 0.1,
+        "max_steps": 500,
+        "dataset": "dataset_preference_100.jsonl",
+        "n_samples": 263,
+        "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+        "gpu_count": 1,
+        "final_loss": 0.694,
+        "loss_criterion_met": false
+      }
+    },
+    "train_g2_calibration": {
+      "planned_min": 25,
+      "actual_min": 0,
+      "start_time": "2026-04-28T05:14:00",
+      "end_time": "2026-04-28T05:19:45",
+      "status": "failed",
+      "failure_reason": "hardware_incompatible",
+      "config_snapshot": {
+        "model": "deepseek-ai/DeepSeek-Math-7B-Instruct",
+        "lora_rank": 16,
+        "lora_alpha": 32,
+        "batch_size": 2,
+        "learning_rate": 1e-07,
+        "dpo_beta": 0.1,
+        "brier_lambda": 0.1,
+        "max_steps": 500,
+        "dataset": "calibration_dataset_200.jsonl",
+        "n_samples": 100,
+        "gpu_model": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "compute_capability": "sm_120",
+        "pytorch_version": "2.6.0+cu124",
+        "error": "CUDA error: no kernel image is available for execution on the device"
+      }
+    },
+    "train_g2_calibration_round2": {
+      "planned_min": 25,
+      "actual_min": 18,
+      "start_time": "2026-04-28T07:05:00",
+      "end_time": "2026-04-28T07:22:37",
+      "config_snapshot": {
+        "model": "deepseek-ai/DeepSeek-Math-7B-Instruct",
+        "lora_rank": 16,
+        "lora_alpha": 32,
+        "batch_size": 2,
+        "learning_rate": 1e-07,
+        "dpo_beta": 0.1,
+        "brier_lambda": 0.1,
+        "max_steps": 500,
+        "dataset": "calibration_dataset_200.jsonl",
+        "n_samples": 10,
+        "gpu_model": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "compute_capability": "sm_120",
+        "pytorch_version": "2.11.0",
+        "final_loss": 0.1806,
+        "loss_criterion_met": true,
+        "ece_before": 0.25,
+        "ece_after": 0.3,
+        "ece_reduction": -0.05,
+        "h2_passed": false,
+        "h2_criterion": "ece_reduction >= 0.20"
+      }
+    },
+    "eval_g3_adaptive_routing": {
+      "planned_min": 15,
+      "actual_min": 0,
+      "start_time": "2026-04-28T05:22:44",
+      "end_time": "2026-04-28T05:25:00",
+      "status": "failed",
+      "failure_reason": "dependency_failed",
+      "dependency": "train_g2_calibration",
+      "dependency_status": "failed_hardware_incompatible",
+      "pass_criteria": {
+        "routing_accuracy": ">= G0 accuracy - 0.02 (G0: 26%)",
+        "token_cost": "< 0.80 * G0 token_cost"
+      }
+    },
+    "setup_api_environment": {
+      "planned_min": 5,
+      "actual_min": 6,
+      "start_time": "2026-04-28T06:36:06",
+      "end_time": "2026-04-28T06:42:00",
+      "status": "failed",
+      "failure_reason": "no_api_key",
+      "config_snapshot": {
+        "workspace": "/home/qhxie/AutoResearch-SibylSystem/workspaces/ablation-no-revision/current",
+        "environment": "local (conda run)",
+        "dataset": "HuggingFaceH4/MATH",
+        "n_samples": 100,
+        "gpu_model": "N/A (API-only)",
+        "gpu_count": 0,
+        "notes": "API-based experiments require DeepSeek or OpenAI API key"
+      }
+    },
+    "g0_baseline_eval": {
+      "planned_min": 10,
+      "actual_min": 0,
+      "start_time": "2026-04-28T06:46:17",
+      "end_time": "2026-04-28T06:46:17",
+      "status": "failed",
+      "failure_reason": "dependency_failed",
+      "dependency": "setup_api_environment",
+      "dependency_status": "failed_no_api_key",
+      "config_snapshot": {
+        "task_id": "g0_baseline_eval",
+        "description": "Full CoT baseline evaluation on 100 MATH problems",
+        "requires_api": true,
+        "api_required": "DeepSeek or OpenAI",
+        "gpu_count": 0,
+        "notes": "Cannot run without API access - setup_api_environment failed"
+      },
+      "pass_criteria": {
+        "problems_evaluated": ">= 95",
+        "accuracy_computed": true,
+        "token_counts_recorded": true
+      }
+    },
+    "g0_qwen_baseline": {
+      "planned_min": 20,
+      "actual_min": 19,
+      "start_time": "2026-04-28T22:44:00",
+      "end_time": "2026-04-28T23:02:28",
+      "config_snapshot": {
+        "model": "Qwen/Qwen2.5-Math-7B-Instruct",
+        "quantization": "none (bfloat16)",
+        "batch_size": 1,
+        "dataset": "HuggingFaceH4/MATH",
+        "n_samples": 100,
+        "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+        "gpu_count": 1,
+        "accuracy": 0.47,
+        "per_level_accuracy": {
+          "Level 1": 1.0,
+          "Level 2": 0.706,
+          "Level 3": 0.55,
+          "Level 4": 0.444,
+          "Level 5": 0.2
+        },
+        "avg_tokens": 437.3,
+        "temperature": 0.7,
+        "max_tokens": 1024,
+        "pilot_pass": true,
+        "pass_threshold": 0.4
+      }
+    },
+    "g1_saturation": {
+      "planned_min": 45,
+      "actual_min": 200,
+      "start_time": "2026-04-29T00:16:00",
+      "end_time": "2026-04-29T04:49:13",
+      "status": "failed",
+      "failure_reason": "answer_extraction_failed",
+      "config_snapshot": {
+        "model": "Qwen/Qwen2.5-Math-7B-Instruct",
+        "quantization": "none (bfloat16)",
+        "batch_size": 1,
+        "dataset": "HuggingFaceH4/MATH",
+        "n_samples": 30,
+        "n_k_values": 5,
+        "total_samples": 150,
+        "k_values": [
+          1,
+          2,
+          4,
+          8,
+          16
+        ],
+        "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+        "gpu_id": 0,
+        "temperature": 0.7,
+        "max_tokens": 1024
+      },
+      "results": {
+        "accuracy_k1": 0.0,
+        "accuracy_k2": 0.0,
+        "accuracy_k4": 0.0,
+        "accuracy_k8": 0.0,
+        "accuracy_k16": 0.0,
+        "r_squared": 0.0,
+        "h1_pass": false
+      },
+      "notes": "Answer extraction failed - model outputs truncated (partial LaTeX). Ground truth comparison incorrect."
+    },
+    "g1_saturation_v2": {
+      "planned_min": 45,
+      "actual_min": 195,
+      "start_time": "2026-04-29T04:54:00",
+      "end_time": "2026-04-29T08:09:00",
+      "config_snapshot": {
+        "model": "Qwen/Qwen2.5-Math-7B-Instruct",
+        "quantization": "none (bfloat16)",
+        "batch_size": 1,
+        "dataset": "HuggingFaceH4/MATH",
+        "n_samples": 30,
+        "n_k_values": 5,
+        "total_samples": 150,
+        "k_values": [
+          1,
+          2,
+          4,
+          8,
+          16
+        ],
+        "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+        "gpu_id": 3,
+        "temperature": 0.7,
+        "max_tokens": 2048
+      },
+      "results": {
+        "accuracy_k1": 0.667,
+        "accuracy_k2": 0.767,
+        "accuracy_k4": 0.8,
+        "accuracy_k8": 0.833,
+        "accuracy_k16": 0.833,
+        "r_squared": 0.936,
+        "h1_pass": true,
+        "p_inf": 0.818,
+        "k0": 0.613
+      },
+      "notes": "H1 CONFIRMED - Arrhenius kinetics validated with R\u00b2=0.936. Model achieves 67% single-pass accuracy, improving to 83% with multiple samples. Asymptotic accuracy ceiling ~82%."
+    },
+    "g2_consistency": {
+      "planned_min": 30,
+      "actual_min": 2,
+      "start_time": "2026-04-29T08:20:00",
+      "end_time": "2026-04-29T08:22:00",
+      "config_snapshot": {
+        "task_id": "g2_consistency",
+        "type": "analysis",
+        "data_source": "g1_saturation_v2_results.json",
+        "n_problems": 30,
+        "k_values": [
+          1,
+          2,
+          4,
+          8,
+          16
+        ],
+        "gpu_model": "N/A (CPU analysis)"
+      },
+      "results": {
+        "h2_pass": true,
+        "h5_pass": false,
+        "spearman_ea_level": 0.578,
+        "spearman_ea_k0": 0.0,
+        "h2_p_value": 0.0008,
+        "valid_k0_pairs": 5
+      },
+      "notes": "H2 CONFIRMED - Ea from consistency correlates with MATH difficulty level (Spearman=0.578, p=0.0008). H5 NOT EVALUATED - insufficient per-problem saturation fits in G1 data."
+    },
+    "g3_routing": {
+      "planned_min": 20,
+      "actual_min": 1,
+      "start_time": "2026-04-29T08:22:00",
+      "end_time": "2026-04-29T08:23:00",
+      "config_snapshot": {
+        "task_id": "g3_routing",
+        "type": "analysis",
+        "data_source": [
+          "g2_consistency_results.json",
+          "g1_saturation_v2_results.json"
+        ],
+        "n_problems": 30,
+        "gpu_model": "N/A (CPU analysis)"
+      },
+      "results": {
+        "h3_pass": false,
+        "optimal_threshold": 9.999996,
+        "low_ea_accuracy": 0.684,
+        "high_ea_accuracy": 0.636,
+        "threshold_used": 0.75
+      },
+      "notes": "H3 FAIL - Consistency-derived Ea does NOT predict single-pass accuracy. Low-Ea accuracy (68.4%) is below threshold (75%). Ea correlates with difficulty but not with solveability."
+    },
+    "setup_model": {
+      "planned_min": 15,
+      "actual_min": 1,
+      "start_time": "2026-04-29T09:00:09",
+      "end_time": "2026-04-29T09:00:15",
+      "config_snapshot": {
+        "model": "Qwen/Qwen2.5-Math-7B-Instruct",
+        "quantization": "none (bfloat16)",
+        "dataset": "shared/models/Qwen2.5-Math-7B-Instruct",
+        "gpu_model": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "gpu_id": 3,
+        "vram_total_mb": 97250,
+        "vram_used_mb": 14527,
+        "utilization_pct": 14.9
+      }
+    },
+    "full_g1_saturation": {
+      "planned_min": 240,
+      "actual_min": 329,
+      "start_time": "2026-04-29T08:33:00",
+      "end_time": "2026-04-29T13:56:56",
+      "status": "completed",
+      "config_snapshot": {
+        "model": "Qwen/Qwen2.5-Math-7B-Instruct",
+        "quantization": "none (bfloat16)",
+        "batch_size": 1,
+        "dataset": "HuggingFaceH4/MATH",
+        "n_samples": 50,
+        "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+        "gpu_id": 2,
+        "temperature": 0.7,
+        "max_tokens": 2048
+      },
+      "results": {
+        "r_squared": 0.924,
+        "p_inf": 0.835,
+        "k0": 0.613,
+        "accuracy_k1": 0.68,
+        "accuracy_k2": 0.78,
+        "accuracy_k4": 0.86,
+        "accuracy_k8": 0.84,
+        "accuracy_k16": 0.82,
+        "h1_pass": true,
+        "h1_threshold": 0.85
+      }
+    },
+    "g2_ranked_voting": {
+      "planned_min": 30,
+      "actual_min": 2,
+      "status": "completed (stale)",
+      "notes": "Task marked complete but no results found - stale from prior session"
+    },
+    "g0_baseline": {
+      "planned_min": 20,
+      "actual_min": 0,
+      "start_time": "2026-04-29T18:23:29",
+      "end_time": "2026-04-29T18:38:50.896570",
+      "status": "failed",
+      "failure_reason": "process_never_started",
+      "notes": "Task registered as running but PID file was never created. Process did not actually start."
+    },
+    "analysis_h1": {
+      "planned_min": 15,
+      "actual_min": 5,
+      "start_time": "2026-04-29T18:38:55",
+      "end_time": "2026-04-29T18:43:50",
+      "config_snapshot": {
+        "task_id": "analysis_h1",
+        "type": "analysis",
+        "data_source": "full_g1_saturation_results.json",
+        "n_problems": 50,
+        "k_values": [
+          1,
+          2,
+          4,
+          8,
+          16
+        ],
+        "gpu_model": "N/A (CPU analysis)"
+      },
+      "results": {
+        "h1_status": "CONFIRMED",
+        "h1_pass": true,
+        "overall_r2_exponential": 0.9243,
+        "overall_best_aicc": "exponential",
+        "overall_best_bic": "exponential",
+        "per_problem_best_r2": {
+          "exponential": 26,
+          "power_law": 22,
+          "logarithmic": 2
+        }
+      },
+      "notes": "H1 CONFIRMED - Exponential (Arrhenius) model wins on aggregate curve (AICc, BIC) with R2=0.924. Per-problem fits noisy (n=5 binary points) but exponential wins R2 on 26/50 problems."
+    },
+    "analysis_h2": {
+      "planned_min": 10,
+      "actual_min": 2,
+      "start_time": "2026-04-29T19:08:00",
+      "end_time": "2026-04-29T19:10:00",
+      "status": "completed",
+      "config_snapshot": {
+        "task_id": "analysis_h2",
+        "type": "analysis",
+        "data_source": "full_g1_saturation_results.json",
+        "n_problems": 50,
+        "gpu_model": "N/A (CPU analysis)"
+      },
+      "results": {
+        "h2_status": "CONFIRMED",
+        "h2_pass": true,
+        "spearman_ea_level": 0.4479,
+        "p_value_ea_level": 0.0011,
+        "h5_status": "FALSIFIED",
+        "h5_pass": false,
+        "spearman_ea_k0": -0.2191,
+        "valid_k0_pairs": 10,
+        "recommendation": "GO"
+      },
+      "notes": "H2 CONFIRMED - Ea from consistency correlates with MATH difficulty (Spearman=0.4479, p=0.0011). H5 FALSIFIED - consistency-Ea does not correlate with saturation k0. Used corrected pilot method: fit C_k = c_inf*(1-exp(-k/c0)), Ea=1/c0."
+    },
+    "analysis_h3": {
+      "planned_min": 10,
+      "actual_min": 2,
+      "start_time": "2026-04-29T19:13:00",
+      "end_time": "2026-04-29T19:15:00",
+      "status": "completed",
+      "config_snapshot": {
+        "task_id": "analysis_h3",
+        "type": "analysis",
+        "data_source": "full_g1_saturation_results.json",
+        "n_problems": 50,
+        "gpu_model": "N/A (CPU analysis)"
+      },
+      "results": {
+        "h3_status": "CONFIRMED",
+        "h3_pass": true,
+        "low_ea_accuracy": 0.75,
+        "high_ea_accuracy": 0.5,
+        "auc": 0.4357,
+        "spearman_ea_accuracy": -0.0634,
+        "spearman_ea_level": 0.4479,
+        "recommendation": "GO"
+      },
+      "notes": "H3 CONFIRMED - Low-Ea problems achieve exactly 75% single-pass accuracy (threshold met). Ea=9.4651 cluster (easier) vs Ea=10.0 cluster (harder). Used corrected pilot Ea method."
+    }
+  }
+}

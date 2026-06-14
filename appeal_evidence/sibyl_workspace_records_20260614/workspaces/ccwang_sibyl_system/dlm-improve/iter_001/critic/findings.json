@@ -1,0 +1,59 @@
+{
+  "summary": "The paper has found the right pivot, but the current draft still outruns its evidence on three fronts: the honest-compute result is narrower and more implementation-confounded than the prose suggests, the promised mechanism-level taxonomy is still missing, and the task-dependence story rests on single-seed small-slice evidence.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The honest-compute claim is still partially confounded by unequal engineering stacks and a proxy baseline. `writing/paper.md` presents the result as a meaningful shift in pairwise comparisons and Pareto conclusions, but `exp/results/diag_compute_curve_gsm8k.json` records exactly one pairwise reorder (CORE-proxy vs. Entropy) with a maximum nominal-vs-actual gap of 7.81%. More importantly, the strongest point is `CORE-proxy-64`, which `exp/results/baseline_core.json` explicitly labels as a non-official proxy implementation and runs at `batch_size=1`, `compile_enabled=false`, while standard baselines run compiled and heavily batched.",
+      "suggestion": "Either reframe the contribution as a comparison of realized pipelines under transparent runtime metadata, or rerun the fairness-sensitive comparisons under matched implementation conditions with documented blockers for any unavoidable deviations."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The observer/controller claim is not yet operationalized at the level promised by the idea. The proposal asks whether entropy, instability, and calibration predict revision benefit better than they explain final accuracy, but the current audit does not provide a harmed/fixed/no-effect bucket analysis. Calibration has no deployed controller and no benefit-correlation measurement in the current asset.",
+      "suggestion": "Replace the current signal-gap story with paired harmed/fixed/no-effect bucket evidence, report benefit prediction directly, and define control effectiveness with one stable comparison rule that does not change across sections."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "The manuscript claims a failure taxonomy before the workspace actually delivers one. The abstract and contribution list name a failure taxonomy, while the paper still lists the key bucket audit as future work. That is a direct claim-evidence mismatch.",
+      "suggestion": "Remove or soften the phrase `failure taxonomy` until a real bucket artifact is added, or ship the bucket audit first and then restore the stronger wording."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The task-dependence claim is directionally plausible but still too fragile for the current prose. MATH500 is a single-seed `n=100` slice with low and tightly clustered accuracies (`0.23`, `0.21`, `0.20`, `0.19`), so the ranking flip may still reflect low-accuracy clustering rather than a stable regime difference.",
+      "suggestion": "Keep MATH500 as boundary evidence unless a minimal uncertainty check confirms that the ranking change is robust; otherwise, describe it as a suggestive transfer warning rather than a stronger task-regime conclusion."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "Asset lineage and canonical-state discipline are not yet strong enough for a paper centered on evaluation protocol. `exp/results/math500_transfer.json` says the transfer was skipped, while `exp/results/diag_math500_shortlist.json` contains the actual evidence used by the paper. `writing/paper.md` still contains a Figure 2 TODO placeholder while the LaTeX manuscript already renders the figure.",
+      "suggestion": "Publish a canonical asset manifest for every claim, retire stale files or mark them superseded, and synchronize the markdown manuscript with the final evidence state before submission review."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "The HumanEval boundary table hides method-specific evidence that the paper otherwise treats as important. The current table merges `Entropy/TIGER Ungated Revision` into one row, which blurs the controller taxonomy the paper is trying to defend.",
+      "suggestion": "Either justify the merge explicitly with provenance and equality checks, or split entropy and TIGER into separate rows so the boundary section does not blur the paper's own controller taxonomy."
+    }
+  ],
+  "metric_gaming_risks": [
+    "The code boundary result can look like a successful repair story if the reader focuses on syntax failure alone: syntax improves while runtime failure worsens and `pass@1` still trails `Standard`.",
+    "The strongest GSM8K accuracy point (`CORE-proxy-64 = 0.46`) can be mistaken for a clean method win even though it is a proxy implementation with weak deployment conditions.",
+    "The signal-gap story is sensitive to the chosen baseline: entropy looks like no gain against random revision in one asset but still looks like a positive delta against `Standard-64` in the shortlist."
+  ],
+  "novelty_risks": [
+    "The strongest novelty is evaluation framing, not method innovation. Reviewers may see the paper as a correction paper unless the protocol contribution is executed more rigorously than the current pilot-scale evidence.",
+    "The honest-compute result is currently based on one explicit reorder, which is useful but thinner than the pluralized manuscript language implies.",
+    "The observer/controller split is conceptually strong, but without bucket-level mechanism evidence it remains a framing contribution rather than a deeply established empirical result.",
+    "The advertised failure taxonomy is not yet novel because the core bucket artifact has not been produced."
+  ],
+  "reproducibility_gaps": [
+    "No multi-seed uncertainty or paired significance testing on the headline comparisons.",
+    "No `benefit_bucket_audit.json` or equivalent harmed/fixed/no-effect asset, despite being planned and repeatedly cited as necessary.",
+    "Conflicting transfer artifacts: `exp/results/math500_transfer.json` says `skipped` while `exp/results/diag_math500_shortlist.json` contains the evidence used by the paper.",
+    "The plan's own runtime rule rejects `batch_size=1` without a recorded blocker, but `exp/results/baseline_core.json` still uses `batch_size=1` and records no blocker.",
+    "The review-facing markdown manuscript still contains a Figure 2 TODO placeholder, so the canonical manuscript state is unclear."
+  ]
+}

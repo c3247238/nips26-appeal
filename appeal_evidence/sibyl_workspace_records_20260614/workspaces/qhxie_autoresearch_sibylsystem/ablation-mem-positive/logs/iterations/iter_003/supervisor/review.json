@@ -1,0 +1,83 @@
+{
+  "score": 6.5,
+  "verdict": "revise",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 6,
+    "experiments": 6,
+    "reproducibility": 6
+  },
+  "summary": "The paper makes a legitimate primary finding (CV predicts steering heterogeneity within absorbed SAE features with 1.47x effect ratio, p < 0.01 BH-corrected) and confirms genuine causal structure via activation patching (67.3% mean recovery). However, three major issues undermine the contribution: (1) cross-architecture validation is explicitly incomplete (Gemma-2-2B results labeled 'future work'), (2) the H4 'Variance Paradox' framing is circular given the CV-based classification scheme, and (3) the non-absorbed baseline comparison uses different experimental conditions (3 vs 5 prompts) making the claim of 'parity' unreliable. The mechanism interpretation (bypass vs context-sensitive routing) is hypothetical without direct evidence. Score 6.5 reflects solid core findings with significant gaps in coverage and presentation.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Cross-architecture validation (Gemma-2-2B) is incomplete. Section 4.6 explicitly states 'detailed integration of cross-architecture results remains future work.' The abstract and introduction claim generalization without providing any Gemma-2-2B quantitative results in the main paper body. This directly contradicts the contribution claim of establishing CV as a 'practical predictor'.",
+      "suggestion": "Either remove all generalization claims from the abstract/introduction, or provide the actual Gemma-2-2B results with statistics. If results are pending, clearly state this is preliminary/todo and do not present it as confirmed evidence."
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "The 'Variance Paradox' framing (H4) is circular. The paper classifies features as 'high-CV' (CV > 1.0) and 'low-CV' (CV <= 1.0) using the same CV metric, then discovers that absorbed features have higher CV than non-absorbed features. This is expected by construction, not a genuine discovery. The genuine finding is that CV predicts steering within absorbed features (H1), not that absorbed features have high CV.",
+      "suggestion": "Drop the 'paradox' framing for H4. Reframe as confirming that absorbed features have higher CV than non-absorbed features (which follows from the classification scheme). Focus the narrative on H1 as the primary discovery."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Non-absorbed baseline comparison is misleading. Section 4.5 claims absorbed high-CV features are 'approximately equal' to non-absorbed (0.097 vs 0.102). However, this comparison used different experimental conditions: non-absorbed used only 3 prompts while the main experiment used 5 prompts. More critically, at strength +5 in the main experiment, high-CV features show 0.5222 effect — 5x larger than the non-absorbed baseline of 0.102 at 3 prompts. The conditions are not comparable.",
+      "suggestion": "Run non-absorbed baseline with identical 5 prompts and +3/+5/+7 strengths. Alternatively, qualify the claim as 'comparable under pilot conditions (3 prompts, +5 strength)' and do not claim parity with the main experiment results."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The bypass vs context-sensitive routing mechanism (Section 3.2-3.3) is purely hypothetical. No direct evidence distinguishes between the two routing regimes. Activation patching confirms causal structure exists (67.3% mean recovery) but does not differentiate mediated routing from bypass routing. The mechanism section presents this as a plausible explanation without testing it.",
+      "suggestion": "Either (a) run additional experiments to differentiate the two mechanisms (e.g., activation patching timecourse, probing child feature behavior across contexts), or (b) clearly frame the mechanism as a hypothesis to be tested, not an established explanation."
+    },
+    {
+      "stage": "review",
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The paper attributes the actionability paradox to domain specificity (clinical vs non-clinical). However, no CV distribution data from Basu et al.'s clinical features is provided to support this claim. It remains a post-hoc explanation without direct evidence. The abstract claims 'the paradox may reflect domain-specific sampling' but this is not validated.",
+      "suggestion": "Either obtain Basu et al. feature CVs for comparison, or soften the claim to 'may reflect domain-specific sampling without direct evidence at this time.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "H6 (decoder orthogonality) was falsified (r=-0.136, not significant) but the paper does not discuss why orthogonality was hypothesized as the mechanism or what the falsification implies for the broader theoretical framework. The paper acknowledges H6 is NOT_SUPPORTED but does not integrate this null result.",
+      "suggestion": "Add brief discussion in Section 5.4 of why orthogonality was proposed and what the null result suggests about the routing mechanism (that it operates in activation space rather than decoder geometry)."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "The abstract claims 'absorption per se does not destroy steering potential' but the non-absorbed comparison is incomplete (different prompt counts). This claim overreaches the evidence presented.",
+      "suggestion": "Qualify as 'preliminary comparison under pilot conditions' or remove the claim until proper comparison is conducted. The primary contribution is CV as a predictor, not that absorption is harmless."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The CV threshold of 1.0 was selected post-hoc based on pilot data. The paper acknowledges this in limitations but does not explicitly state it in the main body when introducing the threshold. Readers may incorrectly assume this was a prospective design choice.",
+      "suggestion": "In Section 1.3 or 4.2, explicitly note that the CV=1.0 threshold was identified empirically from pilot experiments and requires prospective validation."
+    }
+  ],
+  "risks": [
+    "If Gemma-2-2B replication fails, the generalization claims collapse entirely since all current quantitative results are GPT-2-only",
+    "The non-absorbed comparison is so mismatched (3 vs 5 prompts) that the claimed parity could reverse under controlled comparison",
+    "The circular H4 framing could invite reviewer criticism that undermines credibility of the entire paper",
+    "Without cross-architecture validation, this is a GPT-2-only finding that may not generalize to other models"
+  ],
+  "evidence_gaps": [
+    "No Gemma-2-2B quantitative results — cross-architecture validation explicitly incomplete",
+    "Non-absorbed baseline run with different prompt set (3 vs 5) — not comparable to main experiment",
+    "No direct evidence distinguishing bypass routing from context-sensitive routing mechanism",
+    "No CV data from Basu et al. clinical features to support domain-specificity claim",
+    "No held-out validation of CV=1.0 threshold — post-hoc selection acknowledged as future work"
+  ],
+  "what_would_raise_score": "Complete Gemma-2-2B cross-architecture validation with quantitative results (would raise novelty and experiments scores); run non-absorbed baseline with identical experimental conditions (5 prompts, +3/+5/+7) to properly establish parity claim; conduct prospective held-out validation of CV=1.0 threshold; add at least one experiment that distinguishes bypass from context-sensitive routing"
+}

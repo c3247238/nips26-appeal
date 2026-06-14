@@ -1,0 +1,87 @@
+{
+  "summary": "The proposal and paper are incoherent as a single project (different titles and content). H1b is presented as both 'null supported' and 'evidence of real effect' — a contradiction. The paper's LCA framing is well-structured but claims homeostatic rebalancing as a contribution despite never executing it. Steering success criterion is too coarse. Random SAE baseline confounds architectural constraints with training state. Single-feature (n=1) evidence used to support general claims. Multiple statistical reporting inconsistencies undermine the paper's central claim of honest null-result reporting.",
+  "findings": [
+    {
+      "category": "writing",
+      "severity": "critical",
+      "description": "Proposal and paper are incoherent: proposal.md title is 'Feature Absorption as Optimal Compression' with H7-H8 framing; writing/paper.md is 'Competitive Suppression in SAEs: Connecting LCA to Absorption' with H6-H10 framing. These are different papers with different primary claims, hypotheses, and evidence.",
+      "suggestion": "Reconcile the two documents into a single coherent narrative. Decide whether the paper is about (a) metric validation (trained < random absorption) or (b) the LCA mechanism. The two framings are not obviously compatible and require very different evidence."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H1b is presented with contradictory status: proposal.md Table says 'NOT SUPPORTED after correction' but Section 4.2 of paper.md says r=-0.431 at L8 (p=0.028) as evidence of real effect. proposal.md simultaneously says 'SUPPORTED (null hypothesis)' for H1 and presents delta-corrected L8 as a significant result. This contradiction undermines the paper's core claim of honest null-result reporting.",
+      "suggestion": "Resolve the H1b ambiguity consistently across all documents. If delta-corrected L8 is evidence of a real effect, acknowledge that one test survives at uncorrected alpha=0.05 but does not survive multiple comparison correction. Do not simultaneously claim 'null supported' and 'evidence of real effect' for the same hypothesis."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Homeostatic rebalancing (Section 3.4 of paper.md) is proposed and tested nowhere — Section 4.7 explicitly says 'not executed' — yet Contribution #4 in Section 1.4 claims 'First training-free post-hoc repair for absorption' as a key contribution. The paper's abstract also does not reflect that this was not executed. This is a phantom contribution.",
+      "suggestion": "Remove the homeostatic rebalancing from the contributions list and abstract. Alternatively, execute the experiment before claiming it as a contribution."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Steering success criterion is top-5 token contains target letter — this is too coarse. Steering could reduce the probability of target letter by 80% while keeping it in top-5, masking meaningful absorption effects. The steering effectiveness metric does not measure the magnitude of steering, only directional correctness.",
+      "suggestion": "Add a finer-grained steering metric (e.g., probability mass on target letter, or rank position of target letter) to detect subtler absorption effects that do not eliminate the target from top-5."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Random SAE baseline comparison (H7) confounds two variables: (1) orthonormal decoder constraint vs. learned decoder, and (2) random vs. trained encoder. The random SAE uses a frozen orthonormal decoder, which is architecturally different from the trained SAE. This means the 8x difference in absorption could be due to the orthonormal constraint, not due to 'training reduces artifacts.'",
+      "suggestion": "Compare trained SAE against a random SAE with the same architecture (untied weights, same dictionary size) but random initialization — not an orthonormal decoder constraint. Alternatively, compare against a SAE with pretrained decoder but random encoder to isolate the encoder training effect."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "The abstract of proposal.md claims 'zero hypotheses survive multiple comparison correction (12 tests, Bonferroni alpha = 0.00417)' but H1b at L8 has uncorrected p=0.028 which is presented as evidence of a real effect in Section 4.2 of paper.md. This is contradictory — either H1b is evidence of a real effect or it is not.",
+      "suggestion": "The abstract should clarify: 'At uncorrected alpha=0.05, one test (delta-corrected steering at L8) shows a marginal negative correlation (r=-0.431, p=0.028), but this does not survive Bonferroni correction across 12 tests (corrected p=0.334).' Present uncorrected and corrected results consistently throughout."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Feature U (24.2% absorption, 100% steering success) is n=1 — a single feature used to support the general claim that 'high-absorption features retain functional steering capability' (RQ4). This is anecdotal, not systematic, evidence.",
+      "suggestion": "Either (a) test steering on all high-absorption features (H, S, U, V at L8 all have >14% absorption), or (b) reframe RQ4 as a case study rather than a general finding. Do not present n=1 evidence as supporting a general research question."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Precision=1.0 at k>=5 for k-sparse probes indicates the probe is saturated — the probe can perfectly distinguish positive from negative examples with k>=5 features. This ceiling effect means the precision invariance finding is trivially true (the probe always has enough capacity to be correct when it fires). It does not demonstrate that absorption preserves precision in a meaningful sense.",
+      "suggestion": "Test precision-recall asymmetry at k=1 (where precision std=0.195, not saturated) to determine whether precision invariance holds in the saturated regime only. Also compute what fraction of the dictionary each letter feature activates to contextualize the k-sparse probe ceiling."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Cross-model (Pythia-70M) validation was attempted but deemed 'inconclusive' (proposal.md, methodology.md). Yet the paper only presents GPT-2 Small results. The single-model limitation is acknowledged in proposal.md risk table but not prominently in the paper abstract or introduction. Claims about the LCA framework and competitive suppression mechanism have no cross-model validation.",
+      "suggestion": "Prominently acknowledge the single-model limitation in the abstract and introduction. Consider whether the paper should wait for cross-model validation before submission, or reframe as a GPT-2 Small case study with broader claims scaled back accordingly."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The proposal claims novelty over 'Sanity Checks' (Korznikov et al. 2026) by saying they focus on general metrics while this project focuses on absorption specifically. However, the paper's contribution 1 (LCA connection) and contribution 3 (mechanistic explanation for precision-recall asymmetry) are both framed as theoretical contributions without empirical validation of the core predictions (H6 falsified, H10 not executed).",
+      "suggestion": "Strengthen the empirical grounding of the theoretical contributions. If the LCA connection is the primary novelty, validate it with experiments that clearly distinguish it from alternative explanations."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "The paper references supplementary materials for raw graph data and detailed statistics, but no supplementary materials are present in the workspace. The per-feature absorption rates, steering correlations, and probe F1 scores needed to reproduce Table 3, Table 4, and the hypothesis tests are not accessible.",
+      "suggestion": "Ensure all raw per-feature data is saved to machine-readable JSON files in the workspace (e.g., exp/results/absorption_rates.json, exp/results/steering_results.json) so any claim can be traced back to evidence."
+    }
+  ],
+  "metric_gaming_risks": [
+    "Top-5 steering success is too coarse — large steering effects that don't remove target from top-5 are invisible",
+    "Precision-recall probe ceiling: precision=1.0 at k>=5 reflects probe capacity saturation, not genuine absorption insensitivity",
+    "Single-feature (n=1) steering success used to generalize about high-absorption features broadly"
+  ],
+  "novelty_risks": [
+    "LCA-SAE connection was not validated empirically — H6 (primary predictive test) was falsified, H10 (homeostatic rebalancing) was not executed. The primary novelty claims rest on a mechanistic framework that was not fully tested.",
+    "The 'rate-distortion optimal compression' framing in proposal.md and the 'competitive suppression / LCA' framing in writing/paper.md are different framings with different evidence requirements and have not been reconciled.",
+    "Chanin et al. (2024) is the primary prior art. The paper does not clearly distinguish what is new beyond the LCA framing (which was not empirically validated) and the random baseline comparison (confounded by orthonormal decoder constraint)."
+  ],
+  "reproducibility_gaps": [
+    "No supplementary materials present despite paper referencing them",
+    "No per-feature raw data files accessible in workspace for key claims (absorption rates, steering correlations, probe F1)",
+    "Random SAE baseline comparison confounds orthonormal constraint with training state — cannot be reproduced without clarifying the comparison",
+    "Cross-model validation on Pythia-70M was inconclusive and not incorporated, so the framework has only single-model support"
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "pilot_overview": {
+    "purpose": "Validate experimental design before scaling to full experiments. Pilots use reduced scale: 1 seed, 1024 features, shorter training.",
+    "go_criteria": "All pilots must show: (1) convergence, (2) absorption rates span >2x range across variants, (3) downstream metrics show monotonic trend with absorption",
+    "no_go_criteria": "If all variants have similar absorption rates (<1.5x span) or downstream metrics show no trend, halt and revise design",
+    "total_estimated_time_minutes": 130
+  },
+  "pilots": [
+    {
+      "id": "pilot_rq1_baseline",
+      "name": "Baseline L1 SAE Pilot",
+      "scale": "1024 features, 1 seed, 10k training steps",
+      "target_l0": 50,
+      "expected_absorption_range": "0.3-0.6",
+      "timeout_seconds": 900,
+      "pass_criteria": "Converges (loss plateau); L0 within 40-60; absorption rate computable"
+    },
+    {
+      "id": "pilot_rq1_topk",
+      "name": "TopK SAE Pilot",
+      "scale": "1024 features, 1 seed, 10k training steps",
+      "target_k": 50,
+      "expected_absorption_range": "0.4-0.7",
+      "timeout_seconds": 900,
+      "pass_criteria": "Converges; L0 approximately k; absorption rate > Baseline (if H1c holds)"
+    },
+    {
+      "id": "pilot_rq1_matryoshka",
+      "name": "Matryoshka SAE Pilot",
+      "scale": "1024 features, 1 seed, 10k training steps, 2 levels",
+      "target_l0": 50,
+      "expected_absorption_range": "0.05-0.2",
+      "timeout_seconds": 900,
+      "pass_criteria": "Converges; both levels active; absorption rate < Baseline (if H1a holds)"
+    },
+    {
+      "id": "pilot_rq1_ort_sae",
+      "name": "OrtSAE Pilot",
+      "scale": "1024 features, 1 seed, 10k training steps",
+      "target_l0": 50,
+      "lambda_ortho": 1e-3,
+      "expected_absorption_range": "0.3-0.6",
+      "timeout_seconds": 900,
+      "pass_criteria": "Converges; orthogonality penalty non-zero; absorption rate similar to Baseline (if H1b holds)"
+    },
+    {
+      "id": "pilot_rq1_random_control",
+      "name": "Random SAE Control Pilot",
+      "scale": "1024 features, untrained dictionary",
+      "expected_absorption_range": "0.5-0.8",
+      "timeout_seconds": 900,
+      "pass_criteria": "Absorption rate computable; serves as upper bound"
+    },
+    {
+      "id": "pilot_rq1_l0_match",
+      "name": "L0-Matched Baseline Sweep Pilot",
+      "scale": "1024 features, 1 seed per match point",
+      "target_matches": ["TopK L0", "Matryoshka L0", "OrtSAE L0"],
+      "timeout_seconds": 900,
+      "pass_criteria": "At least 3 L0-matched baselines with L0 within +/- 10% of target"
+    },
+    {
+      "id": "pilot_rq2_dose_response",
+      "name": "Dose-Response Sparsity Sweep Pilot",
+      "scale": "1024 features, 1 seed, 5 lambda_L1 levels",
+      "lambda_levels": [5e-5, 8e-5, 1.2e-4, 1.6e-4, 2.0e-4],
+      "expected_absorption_span": ">2x (e.g., 0.2 to 0.6)",
+      "timeout_seconds": 900,
+      "pass_criteria": "Absorption spans >2x range; downstream metrics show monotonic trend"
+    },
+    {
+      "id": "pilot_rq3_mutual_coherence",
+      "name": "Mutual Coherence Computation Pilot",
+      "scale": "Compute on all pilot-trained SAEs",
+      "expected_correlation": "|r| > 0.5",
+      "timeout_seconds": 900,
+      "pass_criteria": "Correlation computable; |r| > 0.3 for directional signal"
+    },
+    {
+      "id": "pilot_rq4_semantic_absorption",
+      "name": "Semantic Feature Absorption Pilot",
+      "scale": "Use Baseline pilot SAE; 3 semantic categories",
+      "categories": ["syntactic", "factual", "safety"],
+      "timeout_seconds": 900,
+      "pass_criteria": "All categories have computable absorption; rates differ across categories"
+    },
+    {
+      "id": "pilot_gpt2_validation",
+      "name": "GPT-2 SAEBench Validation Pilot",
+      "scale": "Full SAEBench eval on pretrained GPT-2 small SAE",
+      "timeout_seconds": 900,
+      "pass_criteria": "SAEBench completes; absorption score in published range (0.3-0.7)"
+    }
+  ],
+  "decision_matrix": {
+    "all_go": "Proceed with all full experiments",
+    "partial_go": "Proceed with experiments where pilots passed; revise and re-pilot failed directions",
+    "all_no_go": "Revise experimental design. Possible revisions: (1) increase feature count, (2) adjust sparsity targets, (3) change synthetic data distribution, (4) add more variants"
+  }
+}

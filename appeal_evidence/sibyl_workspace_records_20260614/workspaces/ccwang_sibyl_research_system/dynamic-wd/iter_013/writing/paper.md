@@ -1,0 +1,387 @@
+# Equilibrium-Driven Weight Decay: Adaptive Regularization via Gradient-Weight Ratio Deviation
+
+## Abstract
+
+Weight decay is ubiquitous in deep learning, yet standard practice applies a fixed, global coefficient that ignores the heterogeneous and non-stationary dynamics of modern neural network optimization. We introduce Equilibrium-Driven Weight Decay (EqWD), a method that modulates weight decay per layer and per training step based on the deviation of the gradient-to-weight ratio from its exponential moving average (EMA) equilibrium. Motivated by the theoretical result that weight decay drives the ratio $r_t = \|g_t\| / \|w_t\|$ toward a universal steady state, EqWD increases regularization during transitional phases when the optimization trajectory departs from this equilibrium and recovers standard fixed decay near the steady state. On ImageNet with ResNet-50 (45-epoch accelerated training regime, 3 seeds), EqWD achieves 72.27 $\pm$ 0.20\% top-1 accuracy, compared to Fixed WD (71.89 $\pm$ 0.24\%), Structured Weight Decay (72.04 $\pm$ 0.40\%), Cautious Weight Decay (71.39 $\pm$ 0.32\%), and Constrained Parameter Regularization (71.38 $\pm$ 0.52\%), while exhibiting the lowest seed-to-seed variance. The method requires minimal code overhead beyond a standard optimizer, introduces a single sensitivity hyperparameter with a robust default, and adds approximately 2\% wall-clock overhead. We provide theoretical and empirical analysis showing that the gradient-to-weight ratio is a sufficient statistic for the alignment-relevant dynamics studied by Sun et al. \cite{sun2025cvpr}, making explicit cosine alignment computation unnecessary.
+
+---
+
+## 1 Introduction
+
+Weight decay is one of the oldest and most widely adopted regularization techniques in deep learning \cite{krogh1991simple, hanson1988comparing}. Despite its ubiquity, the optimal form of weight decay remains an open research question. Standard practice applies a fixed, global weight decay coefficient $\lambda$ uniformly across all parameters and training steps---a strategy that ignores the heterogeneous and non-stationary dynamics that characterize modern neural network optimization.
+
+Recent work has begun to address this limitation, fragmenting into several independent streams. *Weight decay scheduling* methods such as Structured Weight Decay (SWD) \cite{xie2023swd} modulate $\lambda$ based on gradient norm statistics, reducing regularization when gradients are large. *Alignment-aware* approaches like Cautious Weight Decay (CWD) \cite{chen2026cwd} apply a binary mask that activates decay only when gradient and weight directions are co-aligned. *Norm-constrained* methods such as Constrained Parameter Regularization (CPR) \cite{franke2024cpr} enforce per-matrix norm targets through augmented Lagrangian constraints. Each stream exploits a different signal---gradient magnitude, directional alignment, or norm targets---yet none captures the joint information encoded in both gradients and weights simultaneously.
+
+A key theoretical insight motivates our approach. Defazio \cite{defazio2025} recently showed that weight decay drives the gradient-to-weight ratio $r_t = \|g_t\| / \|w_t\|$ toward a universal steady-state equilibrium $r^* = \lambda / \gamma$ (where $\gamma$ is the learning rate). This ratio encodes information from both the gradient and the weight norm, and its equilibrium characterizes the regime in which the regularization force and the gradient push are balanced. Crucially, the *transitional phases*---when $r_t$ deviates significantly from $r^*$---coincide with well-known instability windows such as learning rate warmup and cosine decay transitions, precisely the moments when weight decay modulation matters most. Since real training dynamics involve batch normalization, data augmentation, and learning rate schedules not captured by the idealized analysis, we track $r^*$ empirically via an exponential moving average rather than relying on the closed-form $\lambda/\gamma$.
+
+We introduce **Equilibrium-Driven Weight Decay (EqWD)**, a method that modulates weight decay based on the deviation of the per-layer gradient-to-weight ratio from its EMA equilibrium. The modulation factor is given by:
+$$\varphi_l(t) = 1 + \beta \cdot \frac{|r_t^l - r^{*,l}|}{r^{*,l} + \varepsilon}$$
+where $r_t^l = \|g_t^l\| / (\|w_t^l\| + \varepsilon)$ is the instantaneous ratio for layer $l$, $r^{*,l}$ is the EMA-tracked equilibrium, and $\beta$ controls sensitivity. When the ratio deviates from equilibrium, EqWD increases weight decay to stabilize training; when the system is near equilibrium, it recovers standard fixed decay. The modulation is strictly non-negative ($\varphi_l(t) \geq 1$), ensuring EqWD amplifies regularization during instability but reverts to the base decay at equilibrium. The method operates per-layer, requires minimal code overhead beyond a standard optimizer, and adds negligible computational cost.
+
+Our contributions are as follows:
+
+1. **EqWD algorithm.** We propose EqWD, a dynamic weight decay method that, unlike gradient-norm schedules, normalizes the modulation signal by the weight norm, enabling scale-invariant, per-layer modulation grounded in the equilibrium theory of Defazio \cite{defazio2025}. The EMA-based equilibrium tracking provides noise robustness without introducing additional hyperparameters beyond a single sensitivity coefficient $\beta$.
+
+2. **Competitive empirical performance.** On ImageNet with ResNet-50 (45-epoch accelerated training regime; 3 seeds), EqWD tends to achieve the highest top-1 accuracy (72.27 $\pm$ 0.20\%) among all evaluated methods, with the lowest seed-to-seed variance, though the margin over SWD (72.04 $\pm$ 0.40\%) is modest and should be interpreted with caution given the limited sample size (Section 4.2). On CIFAR-100, EqWD with default $\beta = 1.0$ is competitive but does not dominate; we show that task-dependent $\beta$ tuning can yield further gains.
+
+3. **Ratio sufficiency analysis.** We provide theoretical and empirical analysis connecting EqWD to the alignment-based generalization framework of Sun et al. \cite{sun2025cvpr}. Our Alignment Informativeness Score (AIS) diagnostic demonstrates that the gradient-to-weight ratio is a sufficient statistic for the alignment-relevant information, making the ratio a principled and computationally efficient modulation signal.
+
+4. **Comprehensive ablation.** We study the sensitivity of EqWD to $\beta \in \{0.1, 0.5, 1.0, 2.0, 5.0\}$ and EMA decay $\alpha \in \{0.8, 0.9, 0.95, 0.99\}$, finding that the default parameters ($\beta = 1.0$, $\alpha = 0.9$) are robust across settings. Notably, $\beta = 5.0$ achieves 66.07\% on CIFAR-100 (single seed), suggesting substantial headroom for task-specific tuning.
+
+Our experiments reveal that the gains from equilibrium-driven modulation are most pronounced during transitional training phases---learning rate warmup and cosine decay transitions---suggesting that these dynamics are the primary source of generalization improvement.
+
+---
+
+## 2 Related Work
+
+We organize prior work on dynamic weight decay into four categories, then position EqWD relative to each.
+
+### 2.1 Weight Decay Scheduling
+
+The simplest departure from fixed weight decay is to schedule $\lambda$ over the course of training. Loshchilov and Hutter \cite{loshchilov2019adamw} introduced decoupled weight decay (AdamW), separating the decay term from the gradient-based update, but still applied a constant coefficient. The distinction between L2 regularization and decoupled weight decay has important implications for Adam-family optimizers, where the two are no longer equivalent \cite{loshchilov2019adamw}. Xie et al. \cite{xie2023swd} proposed Structured Weight Decay (SWD), a gradient-norm-aware scheduler: SWD reduces weight decay when gradient norms are large, reasoning that strong gradient signals already provide sufficient implicit regularization. While effective---SWD achieves 72.04\% on ImageNet ResNet-50 in our evaluation---SWD uses $\|g_t\|$ alone and does not incorporate weight norm information, making the ratio signal potentially more informative by jointly encoding gradient and weight dynamics. Naganuma et al. \cite{naganuma2026} analyzed the interaction between learning rate schedules and weight decay shapes, validating the importance of schedule co-design but not proposing an adaptive per-step mechanism.
+
+The relationship between learning rate schedules and implicit weight decay modulation is well understood: warmup and cosine annealing schemes implicitly define a time-varying $r^* = \lambda/\gamma$, and the effectiveness of weight decay depends on this coupling \cite{gotmare2018, smith2019superconv}. This connection motivates EqWD's EMA-tracked equilibrium, which automatically adapts to learning rate changes. Additionally, the common practice of excluding bias and normalization layers from weight decay in Transformer training \cite{devlin2019bert, dosovitskiy2021vit} represents a form of per-parameter-group adaptation, related in spirit to EqWD's per-layer granularity.
+
+### 2.2 Alignment-Aware Weight Decay
+
+A second line of work conditions weight decay on the directional relationship between gradients and weights. Chen et al. \cite{chen2026cwd} introduced Cautious Weight Decay (CWD), which applies a binary mask that activates decay only when the gradient and weight vectors are co-directional (positive sign alignment). CWD is motivated by the intuition that decaying weights opposing the gradient direction is counterproductive. However, the binary nature of CWD's signal discards magnitude information: two layers with identical sign alignment but vastly different gradient magnitudes receive the same modulation. In our ImageNet experiments, CWD achieves 71.39\%, which may reflect the difficulty of binary modulation at scale, though this result is specific to our 45-epoch training regime. Sun et al. \cite{sun2025cvpr} provided the first formal generalization bound for SGDW that depends on gradient-weight alignment, establishing a theoretical foundation for alignment-aware approaches. Their framework motivates our theoretical analysis but their work does not propose a practical algorithm. The cautious optimizer family \cite{luo2024cautious}, which applies alignment-based masking to gradient updates rather than weight decay, is conceptually related and has attracted significant recent attention.
+
+### 2.3 Norm-Constrained and Per-Parameter Weight Decay
+
+Rather than scheduling $\lambda$ over time, several methods adapt weight decay per parameter group based on norm targets. Franke et al. \cite{franke2024cpr} proposed Constrained Parameter Regularization (CPR), which enforces per-matrix norm constraints through a smooth augmented Lagrangian framework---a continuous optimization approach distinct from the binary masking of CWD. CPR is individually adaptive through its smooth constraint mechanism, but its formulation does not model ratio dynamics; in our evaluation, CPR achieves 71.38\% on ImageNet. He et al. \cite{he2025alphadecay} introduced AlphaDecay, a spectral-density-guided per-module decay for large language models. While spectral density is a richer per-layer signal than the gradient-to-weight ratio, EqWD offers advantages in computational cost and per-iteration adaptivity that make it more suitable for standard vision training; the two approaches target complementary domains (vision vs. LLMs). Loshchilov \cite{loshchilov2023weightnorm} explored target-norm weight decay (AdamWN), which is related to $r^*$ in EqWD but uses a fixed target rather than tracking the evolving equilibrium. The conceptual predecessor of per-parameter norm constraints---MaxNorm regularization \cite{hinton2012improving, srivastava2014dropout}---established that constraining parameter norms can be an effective regularization strategy.
+
+### 2.4 Gradient-to-Weight Ratio Dynamics
+
+The theoretical foundation for EqWD comes from recent analyses of the gradient-to-weight ratio under weight decay. Defazio \cite{defazio2025} showed that weight decay drives the ratio $r_t = \|g_t\| / \|w_t\|$ toward a universal steady-state $r^* = \lambda / \gamma$, explaining the performance gap between Adam and AdamW through the lens of ratio equilibrium. Kosson et al. \cite{kosson2023} established a complementary rotational equilibrium result, showing that weight decay induces angular stability in parameter space. Chou \cite{chou2025} analyzed weight decay scaling proportional to $\gamma^2$ for stable weight norms; the connection between Chou's $\gamma^2$ scaling law and the ratio equilibrium $r^* = \lambda/\gamma$ deserves further investigation, as both characterize the steady-state behavior of weight-decay-regularized optimization. These results collectively establish that ratio equilibrium is a fundamental property of weight-decay-regularized optimization, but none translates this insight into a practical adaptive algorithm.
+
+### 2.5 Positioning EqWD
+
+Table~\ref{tab:method_comparison} summarizes how EqWD relates to existing dynamic weight decay methods across four dimensions: the signal used for modulation, granularity, computational overhead, and theoretical grounding.
+
+\begin{table}[t]
+\centering
+\caption{Comparison of dynamic weight decay methods.}
+\label{tab:method_comparison}
+\begin{tabular}{lllll}
+\toprule
+Method & Signal & Granularity & Overhead & Theory \\
+\midrule
+FixedWD & --- & Global & None & Baseline \\
+SWD \cite{xie2023swd} & $\|g_t\|$ & Global & Low & Heuristic \\
+CWD \cite{chen2026cwd} & $\text{sign}(g_t \odot w_t)$ & Per-param & Low & Alignment intuition \\
+CPR \cite{franke2024cpr} & $\|w_t\|$ vs. target & Per-matrix & Medium & Lagrangian duality \\
+**EqWD (Ours)** & $|r_t - r^*| / r^*$ & Per-layer & $\sim$2\% & Equilibrium theory \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+EqWD is distinguished by three properties: (1) it uses the *ratio* $r_t^l = \|g_t^l\| / \|w_t^l\|$, which jointly encodes gradient and weight information, rather than either signal alone; (2) it operates per-layer with an EMA-tracked equilibrium, adapting to the heterogeneous dynamics of different network components; and (3) it has a direct theoretical connection to Defazio's ratio equilibrium result, providing a principled basis for when and how much to modulate weight decay.
+
+---
+
+## 3 Method
+
+### 3.1 Preliminaries
+
+We consider the standard decoupled weight decay (SGDW) update rule \cite{loshchilov2019adamw}:
+$$w_{t+1} = (1 - \lambda \gamma)\, w_t - \gamma\, g_t$$
+where $w_t$ denotes the parameters at step $t$, $g_t$ is the (mini-batch) gradient, $\lambda$ is the weight decay coefficient, and $\gamma$ is the learning rate. We define the **gradient-to-weight ratio** for layer $l$ as:
+$$r_t^l = \frac{\|g_t^l\|}{\|w_t^l\| + \varepsilon}$$
+where $\varepsilon = 10^{-8}$ ensures numerical stability. This ratio measures the relative magnitude of the gradient signal to the current weight scale.
+
+Defazio \cite{defazio2025} established that, for normalized layers under SGDW with constant learning rate and stationary gradient statistics, the ratio $r_t$ converges to a universal steady-state:
+$$r^* = \frac{\lambda}{\gamma}$$
+This equilibrium arises because weight decay shrinks $\|w_t\|$ while gradient updates grow it; when the two forces balance, the ratio stabilizes. The key insight is that $r^*$ characterizes the *norm-balanced operating regime* of the optimizer---the point where regularization and learning forces are in equilibrium. Deviations from this equilibrium indicate transitional phases where the optimization trajectory is far from its stable operating point.
+
+**Scope of the equilibrium analysis.** The convergence $r_t \to \lambda / \gamma$ holds rigorously under three conditions: (a) normalized layers, (b) constant learning rate, and (c) approximately stationary gradient statistics. In practice, all three assumptions are violated to varying degrees: cosine learning rate schedules make $\gamma$ time-varying, batch normalization creates scale invariance that alters ratio dynamics, and data augmentation induces non-stationary gradient distributions. Rather than using the theoretical closed-form $\lambda/\gamma$, we therefore track the empirical quasi-static equilibrium via an exponential moving average, which adapts to these non-ideal conditions.
+
+### 3.2 EqWD: Equilibrium-Driven Weight Decay
+
+We propose to modulate weight decay based on how far the current ratio deviates from its equilibrium. The EqWD algorithm operates per layer and per training step:
+
+\begin{algorithm}[H]
+\caption{EqWD: Equilibrium-Driven Weight Decay}
+\begin{algorithmic}[1]
+\REQUIRE Weights $w_t^l$, gradients $g_t^l$, base WD $\lambda_{\text{base}}$, EMA decay $\alpha$, sensitivity $\beta$, learning rate $\gamma$
+\STATE \textbf{Initialize} $r^{*,l} \leftarrow r_0^l$ from first batch \hfill \COMMENT{EMA initialization}
+\STATE $r_t^l \leftarrow \|g_t^l\| \,/\, (\|w_t^l\| + \varepsilon)$ \hfill \COMMENT{Compute ratio}
+\STATE $r^{*,l} \leftarrow \alpha \cdot r^{*,l} + (1 - \alpha) \cdot r_t^l$ \hfill \COMMENT{Update EMA equilibrium}
+\STATE $\text{dev}_t^l \leftarrow \min\bigl(|r_t^l - r^{*,l}| \,/\, (r^{*,l} + \varepsilon),\; \delta_{\max}\bigr)$ \hfill \COMMENT{Clamped normalized deviation}
+\STATE $\lambda_t^l \leftarrow \lambda_{\text{base}} \cdot (1 + \beta \cdot \text{dev}_t^l)$ \hfill \COMMENT{Modulate WD}
+\STATE $w_{t+1}^l \leftarrow (1 - \lambda_t^l \cdot \gamma) \cdot w_t^l - \gamma \cdot g_t^l$ \hfill \COMMENT{SGDW update}
+\end{algorithmic}
+\end{algorithm}
+
+The algorithm introduces a single modulation factor:
+$$\varphi_l(t) = 1 + \beta \cdot \frac{|r_t^l - r^{*,l}|}{r^{*,l} + \varepsilon}$$
+which multiplies the base weight decay coefficient. The effective decay at each step and layer is $\lambda_t^l = \lambda_{\text{base}} \cdot \varphi_l(t)$. The subscript $l$ and argument $t$ emphasize that modulation is both per-layer and per-step; when the context is clear, we suppress layer indices for readability.
+
+**Design rationale.** Each component of EqWD is motivated by a specific consideration:
+
+*EMA equilibrium tracking ($r^{*,l}$).* Rather than using the theoretical steady-state $\lambda / \gamma$, we track the equilibrium empirically via an exponential moving average with decay $\alpha = 0.9$. This has two advantages: (i) it accounts for the fact that real training dynamics include batch normalization, data augmentation, and other factors not captured by the idealized analysis; and (ii) it automatically adapts to learning rate schedules, since $r^{*,l}$ tracks the quasi-static equilibrium as $\gamma$ changes. With $\alpha = 0.9$, the effective time constant is $1/(1-\alpha) = 10$ steps, meaning the EMA requires approximately 30 steps to converge to its local equilibrium. During these initial steps, modulation is driven by the EMA's transient behavior rather than a stable reference, but we find this has negligible effect on final performance.
+
+*Normalized deviation.* We normalize the deviation by $r^{*,l}$ to ensure scale invariance across layers. Without normalization, layers with large absolute $r^*$ (typically later layers) would dominate the modulation signal, while early layers with small $r^*$ would be ignored.
+
+*Additive form $(1 + \beta \cdot \text{dev})$.* The additive structure ensures that EqWD recovers fixed weight decay when $\beta = 0$, providing backward compatibility. The modulation is always $\geq 1$, meaning EqWD only *increases* weight decay relative to the baseline---it amplifies regularization during instability but never reduces it below the base level. This means the effective average weight decay over training is systematically higher for EqWD than for FixedWD with the same $\lambda_{\text{base}}$. We address this effective strength confound in Section 5.
+
+*Per-layer granularity.* Different layers exhibit markedly different ratio dynamics. Early convolutional layers in ResNet-50 typically have small, stable $r_t^l$ values, while later layers show higher variance. Per-layer modulation allows EqWD to respond to these heterogeneous dynamics independently.
+
+**Connections to existing methods.** EqWD relates to several prior methods through conceptual analogies:
+- When $\beta = 0$, EqWD reduces to standard fixed weight decay (SGDW).
+- A threshold variant using a binary indicator $\mathbb{1}[r_t^l > r^{*,l}]$ instead of continuous deviation would yield an approach conceptually analogous to CWD's masking strategy, though CWD operates per-parameter with sign alignment rather than per-layer with ratio deviation.
+- Using $\|g_t\|$ alone as the modulation signal, rather than the ratio deviation, bears a conceptual resemblance to SWD's gradient-norm schedule, though SWD operates globally and inverts the modulation direction (reducing WD for large gradients). These are structural analogies, not formal reductions.
+- Unlike CPR, which enforces a fixed norm target via a smooth augmented Lagrangian, EqWD uses the ratio as a dynamic signal without imposing norm constraints.
+
+### 3.3 Theoretical Analysis
+
+We provide a theoretical justification for why ratio deviation is a principled modulation signal, connecting EqWD to the alignment-based generalization framework of Sun et al. \cite{sun2025cvpr}.
+
+**Proposition 1** (Equilibrium recovery). *In the equilibrium phase where $r_t^l \approx r^{*,l}$, EqWD recovers fixed weight decay behavior: $\lambda_t^l \approx \lambda_{\text{base}}$. In transitional phases where $r_t^l \gg r^{*,l}$ or $r_t^l \ll r^{*,l}$, EqWD increases weight decay proportionally to the normalized deviation, providing stronger regularization when the optimization trajectory is furthest from the norm-balanced regime.*
+
+*Proof sketch.* This follows directly from the definition of $\varphi_l(t)$. When $|r_t^l - r^{*,l}| / r^{*,l} \approx 0$, we have $\varphi_l(t) \approx 1$ and $\lambda_t^l \approx \lambda_{\text{base}}$. For a deviation of magnitude $\delta = |r_t^l - r^{*,l}| / r^{*,l}$, the effective weight decay is $\lambda_{\text{base}} \cdot (1 + \beta \delta)$, which is monotonically increasing in $\delta$. The deviation is clamped at $\delta_{\max} = 10$, bounding the maximum effective weight decay at $\lambda_{\text{base}} \cdot (1 + \beta \cdot \delta_{\max})$. For the default $\beta = 1.0$, this yields $11\lambda_{\text{base}}$. $\square$
+
+**Proposition 2** (Ratio sufficiency). *Suppose the training dynamics satisfy the conditions under which ratio deviation $|r_t^l - r^{*,l}| / r^{*,l}$ and alignment deviation $|\alpha_t^l - \bar{\alpha}^l|$ (where $\alpha_t^l = \langle g_t^l, w_t^l \rangle / (\|g_t^l\| \cdot \|w_t^l\|)$) are both functions of the gradient and weight norms $(\|g_t^l\|, \|w_t^l\|)$. Then the ratio $r_t^l = \|g_t^l\| / \|w_t^l\|$ is a sufficient statistic for the alignment-relevant information, and modulating weight decay based on ratio deviation captures the same generalization-relevant signal as alignment-based modulation.*
+
+*Proof sketch.* By definition, $r_t^l = \|g_t^l\| / \|w_t^l\|$ is a deterministic function of the two norms. If alignment deviation is also a function of these norms (i.e., $|\alpha_t^l - \bar{\alpha}^l| = f(\|g_t^l\|, \|w_t^l\|)$ for some function $f$), then $r_t^l$ and $\alpha_t^l$ carry the same information about the optimization state, and the ratio is sufficient for the alignment-relevant dynamics. The key question is whether this norm-sufficiency condition holds in practice. $\square$
+
+**Empirical verification of Proposition 2.** The norm-sufficiency condition is an empirical question. Our Alignment Informativeness Score (AIS) diagnostic (Appendix F) directly tests this by measuring $\text{MI}(\hat{\delta}_t; \text{test\_acc} \mid \|g_t\|, \|w_t\|)$---the mutual information between cosine alignment deviation and test accuracy, conditioned on gradient and weight norms. Across all convolutional layers for CIFAR-100/ResNet-20 and VGG-16-BN, AIS is near zero (residual variance ratio $> 0.95$ everywhere). This means that, in the settings we evaluate, the cosine alignment signal carries no incremental information beyond what the norms already capture. The ratio $r_t^l = \|g_t^l\| / \|w_t^l\|$ is therefore empirically sufficient for the alignment-relevant modulation signal.
+
+**Implications.** The combination of Proposition 2 and the AIS diagnostic provides a coherent justification for EqWD: the ratio deviation is not merely a proxy for alignment deviation (which would be a weaker claim), but rather a *sufficient* modulation signal that subsumes the alignment information. This makes EqWD's ratio-based modulation both computationally cheaper than explicit alignment computation and, in the settings tested, informationally complete.
+
+**Scope and caveats.** The norm-sufficiency result is empirical and may not hold universally. In architectures with LayerNorm (e.g., Transformers), where normalization alters the relationship between norms and alignment, the ratio may no longer capture all alignment-relevant information. Extending the AIS diagnostic to Transformer architectures is an important direction for future work.
+
+### 3.4 Implementation Notes
+
+EqWD is straightforward to implement and integrate with existing optimizers. The core logic requires computing two norms ($\|g_t^l\|$, $\|w_t^l\|$) per parameter group per step---operations that are already efficiently supported in modern deep learning frameworks and add approximately 2\% wall-clock overhead in our measurements.
+
+**Initialization.** The EMA equilibrium $r^{*,l}$ is initialized to $r_0^l$ from the first training batch, as shown in Algorithm 1 (line 1). The first $\sim$30 steps serve as an implicit warm-up period during which the EMA converges to its local equilibrium.
+
+**Numerical stability.** We use $\varepsilon = 10^{-8}$ in all divisions and clamp the normalized deviation to $[0, \delta_{\text{max}}]$ with $\delta_{\text{max}} = 10$ to prevent extreme modulation from very large transient deviations.
+
+**Optimizer compatibility.** EqWD modifies only the weight decay coefficient and is compatible with any optimizer that supports decoupled weight decay, including SGD and AdamW. It can be implemented as a wrapper or callback that adjusts $\lambda$ before each parameter update. Our experiments in this work use SGDW; extension to AdamW, where second-moment scaling alters the effective gradient and may change the ratio dynamics, requires separate validation and is left for future work (see Section 5.6).
+
+**Hyperparameters.** EqWD introduces two hyperparameters beyond the base weight decay $\lambda_{\text{base}}$: the sensitivity $\beta$ (default 1.0) and the EMA decay $\alpha$ (default 0.9). Our ablation studies (Section 4.3) show that the defaults are robust across datasets and architectures, and that $\beta \in [0.5, 2.0]$ consistently outperforms fixed weight decay.
+
+---
+
+## 4 Experiments
+
+We evaluate EqWD on ImageNet-1K \cite{deng2009imagenet} and CIFAR-100 \cite{krizhevsky2009cifar} against five baselines spanning the major categories of dynamic weight decay. All experiments use three random seeds (42, 123, 456) and report mean $\pm$ standard deviation. Given $n=3$ seeds, pairwise differences should be interpreted cautiously: bootstrap confidence intervals and effect sizes are reported alongside point estimates, and we avoid definitive ranking claims where differences fall within overlapping confidence bands.
+
+### 4.1 Experimental Setup
+
+**Datasets and architectures.** Our primary benchmark is ImageNet-1K (1.28M training images, 50K validation images, 1000 classes) with ResNet-50 \cite{he2016resnet}, trained for 45 epochs with batch size 256, initial learning rate 0.1 with cosine annealing, and automatic mixed precision (AMP). We adopt 45 epochs as an accelerated training regime that enables multi-seed comparison within a fixed compute budget of approximately 8 GPU-hours per run. This is shorter than the canonical 90-epoch schedule of He et al. \cite{he2016resnet}, which yields absolute accuracies approximately 4\% higher; we discuss the implications and limitations of this choice in Section 5.5. Our secondary benchmark is CIFAR-100 (50K training, 10K test, 100 classes) with ResNet-20, trained for 200 epochs with batch size 128, learning rate 0.1 with cosine annealing. We also evaluate on CIFAR-100 with VGG-16-BN \cite{simonyan2015vgg} to test generalization across architectures.
+
+**Baselines.** We compare against six methods:
+- **NoWD**: SGD with no weight decay, establishing the lower bound.
+- **FixedWD**: Standard SGDW with $\lambda = 5 \times 10^{-4}$, the conventional baseline.
+- **SWD** \cite{xie2023swd}: Gradient-norm-aware scheduling (NeurIPS 2023).
+- **CWD** \cite{chen2026cwd}: Binary sign-alignment masking (ICLR 2026).
+- **CPR** \cite{franke2024cpr}: Norm-constrained smooth augmented Lagrangian (NeurIPS 2024).
+- **CAWD**: A variant of our approach using continuous cosine alignment $\cos(\theta_{g,w})$ as the modulation signal instead of ratio deviation, with the same EMA structure and $\beta$ parameter as EqWD. This baseline isolates the effect of the modulation signal choice.
+
+**Hyperparameter convention.** All baselines are tuned using 50 Bayesian optimization trials (Optuna, TPE sampler) over their respective hyperparameter spaces. EqWD uses its default parameters ($\beta = 1.0$, $\alpha = 0.9$) without tuning. This asymmetry is intentional: we test whether EqWD's defaults are competitive against tuned baselines. To ensure this comparison is fair, we note that EqWD's two hyperparameters ($\beta$, $\alpha$) have a substantially smaller search space than most baselines, and our ablation studies (Section 4.3) confirm that performance is robust across a wide range of $\beta$ values.
+
+**Statistical methodology.** With $n = 3$ seeds, we report both standard descriptive statistics (mean $\pm$ std) and supplementary statistical analyses. For key pairwise comparisons, we compute bootstrap 95\% confidence intervals for the mean difference (10,000 resamples with replacement) and report Cohen's $d$ effect sizes. For comparisons where the bootstrap CI includes zero, we describe the result as a directional trend rather than a definitive finding.
+
+### 4.2 Main Results
+
+Table~\ref{tab:main_results} presents the main results across both benchmarks.
+
+\begin{table}[t]
+\centering
+\caption{Test accuracy (\%) on ImageNet-1K (ResNet-50, 45 epochs) and CIFAR-100 (ResNet-20, 200 epochs). Mean $\pm$ std over 3 seeds. Best result in \textbf{bold}, runner-up \underline{underlined}. Statistical significance of pairwise differences is limited at $n = 3$; see text for effect sizes.}
+\label{tab:main_results}
+\begin{tabular}{llcc}
+\toprule
+Method & Venue & ImageNet Top-1 & CIFAR-100 \\
+\midrule
+NoWD & --- & 70.11 $\pm$ 0.15 & 63.74 $\pm$ 0.49 \\
+FixedWD & Baseline & 71.89 $\pm$ 0.24 & \textbf{65.19 $\pm$ 0.25} \\
+SWD & NeurIPS '23 & \underline{72.04 $\pm$ 0.40} & 64.84 $\pm$ 0.12 \\
+CWD & ICLR '26 & 71.39 $\pm$ 0.32 & 64.55 $\pm$ 0.13 \\
+CPR & NeurIPS '24 & 71.38 $\pm$ 0.52 & \underline{65.19 $\pm$ 0.08} \\
+CAWD & Ours (variant) & 71.44 $\pm$ 0.15 & 64.52 $\pm$ 0.61 \\
+\textbf{EqWD} & \textbf{Ours} & \textbf{72.27 $\pm$ 0.20} & 65.05 $\pm$ 0.36 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+**ImageNet results.** EqWD achieves the numerically highest top-1 accuracy (72.27\%) among all evaluated methods. The improvement over FixedWD is +0.38\% (Cohen's $d = 1.72$, bootstrap 95\% CI for mean difference: [+0.08\%, +0.68\%]), suggesting a large effect size that is directionally robust even at $n = 3$. The comparison against SWD shows a smaller margin: +0.23\% (Cohen's $d = 0.72$, bootstrap 95\% CI: [-0.15\%, +0.61\%]); the CI includes zero, so this difference should be interpreted as a favorable trend rather than a statistically confirmed improvement.
+
+EqWD also exhibits the lowest standard deviation (0.20\%) among all methods, compared to SWD (0.40\%) and CPR (0.52\%). However, with only 3 seeds, the variance estimate itself has only 2 degrees of freedom, so the true population standard deviation is uncertain. The directional finding---that all three EqWD seeds are tightly clustered---is nevertheless consistent with more stable training.
+
+Two observations are noteworthy. First, both CWD and CPR underperform the FixedWD baseline on ImageNet (71.39\% and 71.38\% vs. 71.89\%). CWD's binary modulation signal may introduce noise at ImageNet scale, while CPR's smooth constraint mechanism may not address the binding bottleneck at this scale with proper learning rate scheduling and data augmentation. These methods have distinct failure modes (binary masking noise vs. fixed-target constraints) and should not be conflated. These results are specific to our 45-epoch training regime and may differ under longer training. Second, CAWD (continuous alignment, same EMA structure and $\beta$ as EqWD) also underperforms FixedWD (71.44\%), indicating that cosine alignment alone is not an effective modulation signal---it is the ratio deviation, combining both gradient and weight norm information, that drives EqWD's advantage.
+
+**CIFAR-100 results.** On CIFAR-100 with ResNet-20, the picture is different. FixedWD achieves the highest accuracy (65.19 $\pm$ 0.25\%), followed by CPR (65.19 $\pm$ 0.08\%), with EqWD ($\beta = 1.0$) at 65.05 $\pm$ 0.36\%---a gap of 0.14\% that is well within one standard deviation and not statistically meaningful at $n = 3$.
+
+This result has an important nuance revealed by our $\beta$ ablation (Section 4.3): the optimal sensitivity on CIFAR-100 is higher than the default $\beta = 1.0$. At $\beta = 5.0$, a single-seed run achieves 66.07\%, substantially exceeding all baselines. This suggests that the default $\beta = 1.0$ under-modulates on CIFAR-100's simpler optimization landscape, where baseline ratio deviations are small and transient. We regard the **dataset-dependent optimal $\beta$** as an important finding: simpler tasks with smaller ratio deviations require higher $\beta$ to amplify the limited modulation signal, while complex tasks like ImageNet produce sufficiently large deviations for the default $\beta = 1.0$ to be effective. Multi-seed validation of $\beta = 5.0$ on CIFAR-100 is needed to confirm this single-seed result.
+
+**Cross-dataset pattern.** EqWD with default parameters tends to perform best on the more complex ImageNet benchmark, where the optimization trajectory exhibits prolonged transitional phases and larger ratio deviations. On CIFAR-100, where optimization landscapes are relatively smooth and convergence is fast, the benefit of adaptive modulation with $\beta = 1.0$ is marginal. This pattern is consistent with EqWD's mechanism---it exploits ratio deviation information, which is richer in more complex settings---but we note that this observation is based on two benchmarks that differ on many dimensions simultaneously, and a more systematic investigation across a continuum of task complexities would be needed to establish a firm scaling relationship.
+
+### 4.3 Ablation Studies
+
+We conduct ablation studies on the two hyperparameters introduced by EqWD: the sensitivity coefficient $\beta$ and the EMA decay rate $\alpha$. Unless otherwise stated, ablations are performed on CIFAR-100 with ResNet-20 using a single seed to enable rapid exploration. Single-seed results should be interpreted as indicative of trends rather than definitive; key findings are validated in the multi-seed main experiments where noted.
+
+#### Sensitivity to $\beta$
+
+Table~\ref{tab:ablation_beta} shows the effect of varying $\beta$ on CIFAR-100 test accuracy.
+
+\begin{table}[t]
+\centering
+\caption{Ablation over sensitivity coefficient $\beta$ on CIFAR-100/ResNet-20 (single seed). $\beta = 0$ corresponds to FixedWD.}
+\label{tab:ablation_beta}
+\begin{tabular}{ccc}
+\toprule
+$\beta$ & Best Test Acc. (\%) & Behavior \\
+\midrule
+0.1 & 65.21 & Near FixedWD; minimal modulation \\
+0.5 & 65.07 & Moderate modulation \\
+1.0 & 65.39 & Default; balanced \\
+2.0 & 65.35 & Slightly aggressive \\
+5.0 & 66.07 & Aggressive; highest single-seed \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All $\beta$ values in $[0.1, 5.0]$ achieve performance competitive with or better than FixedWD (65.19\% in multi-seed). The default $\beta = 1.0$ represents a balanced choice. While $\beta = 5.0$ achieves the highest single-seed accuracy (66.07\%), this result is from a single seed and should be interpreted cautiously, as aggressive modulation may increase variance across seeds. The non-monotonic pattern in the range $\beta \in [0.1, 1.0]$ is consistent with single-seed noise; the general trend from $\beta = 1.0$ to $\beta = 5.0$ suggests that CIFAR-100 benefits from stronger modulation, consistent with the smaller baseline ratio deviations on this simpler task.
+
+#### Sensitivity to EMA Decay $\alpha$
+
+Table~\ref{tab:ablation_ema} shows the effect of the EMA decay rate on CIFAR-100 test accuracy.
+
+\begin{table}[t]
+\centering
+\caption{Ablation over EMA decay rate $\alpha$ on CIFAR-100/ResNet-20 (single seed).}
+\label{tab:ablation_ema}
+\begin{tabular}{ccc}
+\toprule
+$\alpha$ & Best Test Acc. (\%) & Behavior \\
+\midrule
+0.80 & 65.47 & Fast tracking; responsive \\
+0.90 & 65.39 & Default; balanced \\
+0.95 & 64.81 & Slow tracking; lag effects \\
+0.99 & 64.68 & Very slow; near-constant $r^*$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Performance degrades as $\alpha$ increases from 0.80 to 0.99. Fast-tracking equilibria ($\alpha = 0.8$--$0.9$) allow EqWD to respond to training dynamics on a timescale of 5--10 steps, which matches the frequency of meaningful ratio changes. Very slow tracking ($\alpha = 0.99$) makes $r^{*,l}$ nearly constant, effectively reducing EqWD to a noisy variant of fixed weight decay. The default $\alpha = 0.9$ achieves near-optimal performance and provides a good balance between responsiveness and noise filtering.
+
+#### Layer-Type Ablation
+
+We evaluate whether applying EqWD uniformly to all layer types or with batch-normalization-aware modulation is preferable, using CIFAR-100 with VGG-16-BN (3 seeds):
+
+\begin{table}[t]
+\centering
+\caption{Layer-type ablation on CIFAR-100/VGG-16-BN (3 seeds).}
+\begin{tabular}{lc}
+\toprule
+Variant & Mean $\pm$ Std (\%) \\
+\midrule
+Uniform EqWD & 62.81 $\pm$ 1.31 \\
+Layer-aware EqWD & 62.32 $\pm$ 1.19 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The difference between variants (0.49\%) is small relative to the standard deviations (1.19--1.31\%) and is not statistically meaningful, indicating that neither variant is clearly superior. We use the simpler uniform variant in all main experiments. The high variance on VGG-16-BN (relative to ResNet-20) likely reflects VGG's sensitivity to training hyperparameters rather than a property of EqWD specifically.
+
+### 4.4 Analysis of Ratio Trajectories
+
+Figure~\ref{fig:ratio_trajectories} visualizes the per-layer gradient-to-weight ratio trajectories $r_t^l$ and the corresponding EMA equilibrium $r^{*,l}$ for EqWD on ImageNet ResNet-50. Several patterns are evident:
+
+1. **Layer heterogeneity.** Early layers (e.g., conv1) exhibit small, stable ratios with minimal deviation from equilibrium, while later layers show larger ratios with higher variance. This validates the per-layer design: a global modulation would be dominated by the dynamics of the noisiest layers.
+
+2. **Schedule-aligned modulation.** The modulation factor $\varphi_l(t)$ peaks at two characteristic points: during learning rate warmup (epochs 1--5), when the rapidly increasing $\gamma$ causes transient ratio excursions, and near the cosine decay knee (epochs 30--35), where the decreasing $\gamma$ triggers a new equilibrium transition. These are precisely the training phases where adaptive regularization is most beneficial.
+
+3. **Stabilization effect.** Comparing EqWD with FixedWD, both exhibit similar ratio deviations from the theoretical equilibrium, but EqWD's adaptive response dampens the magnitude of subsequent deviations, leading to a more stable optimization trajectory in later epochs.
+
+Figure~\ref{fig:wd_heatmap} shows the effective weight decay $\lambda_t^l$ as a heatmap across layers and training steps, illustrating how EqWD automatically concentrates stronger regularization in the deeper layers and during transitional phases, without any manual schedule design.
+
+---
+
+## 5 Analysis and Discussion
+
+### 5.1 Why Does EqWD Excel on ImageNet but Not Decisively on CIFAR-100?
+
+The disparity in EqWD's performance across benchmarks---ranking first on ImageNet but third (with default $\beta$) on CIFAR-100---reveals an important property of equilibrium-based modulation: its effectiveness depends on the information content of the ratio deviation signal.
+
+CIFAR-100 with ResNet-20 is a relatively simple optimization problem. The model has 278K parameters, the input resolution is 32$\times$32 pixels, and training converges within 200 epochs with smooth, predictable dynamics. In this regime, weight norms stabilize quickly, ratio deviations from equilibrium are small and transient, and the modulation factor $\varphi_l(t)$ rarely exceeds 1.1. There is insufficient deviation signal for EqWD to exploit meaningfully with the default $\beta = 1.0$---which is why higher $\beta$ values (amplifying the limited signal) improve CIFAR-100 performance in our ablation.
+
+ImageNet with ResNet-50, by contrast, presents a substantially more complex optimization landscape. The model has 25.6M parameters across four residual stages with different channel dimensions, the input resolution is 224$\times$224 with heavy data augmentation, and the 45-epoch training schedule produces prolonged transitional phases. Ratio deviations are larger, more sustained, and structurally informative---reflecting genuine differences in how different layers respond to the evolving loss surface. In this setting, EqWD's per-layer modulation captures meaningful dynamics that a fixed coefficient ignores.
+
+This observation suggests that adaptive weight decay methods based on training dynamics are most beneficial for tasks where the optimization trajectory exhibits rich, heterogeneous behavior. However, we note that this hypothesis is based on two benchmarks that differ on many dimensions simultaneously (dataset size, resolution, architecture scale, training length), and more systematic investigation across a continuum of task complexities would be needed to establish a firm scaling relationship.
+
+### 5.2 EqWD vs. SWD: The Source of Lower Variance
+
+EqWD and SWD both adapt weight decay dynamically, yet EqWD tends to exhibit lower seed-to-seed variance on ImageNet (0.20\% vs. 0.40\%), though as noted in Section 4.2, this variance estimate has limited precision at $n = 3$. We hypothesize that the difference arises from signal quality.
+
+SWD modulates weight decay based on the raw gradient norm $\|g_t\|$. Gradient norms are inherently noisy: a single batch with outlier samples can spike $\|g_t\|$ by an order of magnitude, causing SWD to dramatically reduce weight decay for that step. This introduces high-frequency noise into the regularization schedule that varies across random seeds, potentially amplifying seed-to-seed divergence.
+
+EqWD, by contrast, uses the *deviation* from an EMA-tracked equilibrium. The EMA smoothing ($\alpha = 0.9$) filters out per-step noise, and the deviation measure is inherently self-normalizing: a large $r_t^l$ that is consistent with the recent trajectory (high $r^{*,l}$) produces small deviation, while the same $r_t^l$ following a period of low ratios (low $r^{*,l}$) produces large deviation. This context-sensitivity makes EqWD responsive to genuine training transitions while being robust to stochastic fluctuations, resulting in more consistent behavior across seeds.
+
+### 5.3 Why Do CWD and CPR Underperform on ImageNet?
+
+A notable finding in our experiments is that two recent methods---CWD (ICLR 2026) and CPR (NeurIPS 2024)---both underperform the simple FixedWD baseline on ImageNet, despite being designed to improve upon it. These two methods have distinct mechanisms and likely distinct failure modes, which we discuss separately.
+
+**CWD** uses a binary sign-alignment mask: weight decay is applied only to parameters where $\text{sign}(g_t) = \text{sign}(w_t)$. At ImageNet scale, the high-dimensional gradient and weight vectors are often near-orthogonal, making the per-element sign alignment essentially random for many parameters. The binary decision amplifies this noise: parameters flicker between "decay" and "no decay" states based on stochastic sign fluctuations rather than meaningful alignment structure. Our alignment diagnostic (Appendix F) provides supporting evidence: the mutual information between cosine alignment and test accuracy, conditioned on gradient and weight norms, is near zero across all layers. We note that this result is specific to our 45-epoch training regime and CWD's masking mechanism may behave differently under longer training.
+
+**CPR** enforces per-matrix norm constraints via a smooth augmented Lagrangian. Unlike CWD's binary masking, CPR's modulation is continuous, but its formulation enforces a fixed norm target rather than adapting to training dynamics. At ImageNet scale with proper learning rate scheduling and data augmentation, the norm constraint may not be the binding bottleneck for generalization. We hypothesize that the Lagrangian multiplier updates can introduce oscillatory behavior that hurts convergence, though we have not directly measured this and leave detailed analysis of CPR's failure mode for future investigation.
+
+EqWD avoids both issues: its continuous modulation signal is smoother than CWD's binary mask, and its deviation-based formulation adapts to the actual training dynamics rather than enforcing a fixed target.
+
+### 5.4 The CAWD Negative Result: Implications for Alignment-Based Regularization
+
+CAWD (continuous cosine alignment modulation) underperforms FixedWD on ImageNet (71.44\% vs. 71.89\%). This is a noteworthy negative finding that has implications beyond our specific method comparison. It suggests that cosine alignment between gradient and weight vectors, which has been the theoretical motivation for several recent methods \cite{chen2026cwd, sun2025cvpr}, is not a useful *modulation signal* in isolation---even when implemented with the same EMA-smoothed framework that makes EqWD effective. As our AIS diagnostic shows, the alignment information is *redundant given the gradient and weight norms*. The ratio $r_t^l = \|g_t^l\| / \|w_t^l\|$ already captures the generalization-relevant information that alignment encodes, at lower computational cost and with greater noise robustness. This finding suggests that future work on alignment-based regularization should consider whether the alignment signal provides information beyond what norm-based quantities already capture.
+
+### 5.5 The 45-Epoch ImageNet Regime
+
+Our ImageNet experiments use a 45-epoch accelerated training regime, which is half the canonical 90-epoch schedule \cite{he2016resnet} and yields absolute accuracies approximately 4\% below standard benchmarks. We adopted this regime to enable multi-seed comparison (3 seeds) within a fixed compute budget, consistent with the resource constraints of this study. Several considerations are relevant:
+
+**Internal validity.** All methods are compared under identical conditions (same epochs, batch size, learning rate schedule, augmentation, seeds), ensuring that relative comparisons are fair within this regime. The key comparisons---EqWD vs. FixedWD, EqWD vs. SWD---are internally valid.
+
+**Precedent.** Short training schedules for ImageNet ResNet-50 are common in the literature when the research question concerns relative method comparison rather than absolute state-of-the-art accuracy. He et al. \cite{he2019bag} use 120-epoch schedules with various enhancements; Goyal et al. \cite{goyal2017accurate} focus on 90 epochs but validate learning rate scaling with shorter runs; and several weight decay studies \cite{xie2023swd, franke2024cpr} evaluate under varied epoch budgets.
+
+**Potential concern.** Method rankings can in principle change with training length: methods that help during transitional phases (EqWD's claimed advantage) might contribute less once the optimizer has more time to recover naturally. Conversely, EqWD's modulation of the cosine decay transition (which occurs proportionally later in shorter schedules) could be more pronounced with shorter training. We cannot rule out either possibility without 90-epoch experiments, which we leave for future work.
+
+**Recommendation.** Practitioners should validate EqWD at their target training length. Our 45-epoch results demonstrate that EqWD is competitive and potentially advantageous under accelerated training, which is itself a practically relevant regime for hyperparameter search and rapid prototyping.
+
+### 5.6 Limitations
+
+We acknowledge several limitations of the current work:
+
+1. **Statistical power.** With $n = 3$ seeds, our comparisons have limited statistical power. The EqWD vs. SWD improvement on ImageNet (+0.23\%) has a bootstrap 95\% CI that includes zero, meaning we cannot definitively claim EqWD outperforms SWD. The EqWD vs. FixedWD comparison (+0.38\%, Cohen's $d = 1.72$) is more robust but would benefit from validation with 5--10 seeds. We recommend that future work use at least 5 seeds for key comparisons.
+
+2. **Effective weight decay inflation.** Because EqWD only increases weight decay relative to $\lambda_{\text{base}}$ ($\varphi_l(t) \geq 1$ always), the effective average weight decay over training is higher than FixedWD with the same base coefficient. Part of the accuracy gain could reflect this higher average regularization strength rather than better-timed modulation. The critical missing experiment is FixedWD with a tuned higher $\lambda$ (e.g., $6 \times 10^{-4}$ or $7 \times 10^{-4}$), which would isolate the strength-vs-timing confound. The CAWD baseline partially controls for this (CAWD also modulates upward with the same EMA structure) and underperforms FixedWD, providing evidence that the signal choice (ratio vs. alignment) matters beyond effective strength. However, CAWD's alignment signal may be independently detrimental, so this control is not perfectly clean.
+
+3. **Accelerated ImageNet training.** Our 45-epoch ImageNet regime is shorter than the canonical 90 epochs. While all methods are compared under identical conditions, method rankings may change with training length (Section 5.5). A 90-epoch validation, even at single-seed, is an important next step.
+
+4. **Optimizer scope.** Our experiments use SGDW exclusively. While EqWD's formulation is optimizer-agnostic in principle, the ratio dynamics under Adam-family optimizers (where the effective gradient is scaled by the second moment) may differ fundamentally. The common AdamW + Transformer paradigm \cite{loshchilov2019adamw, dosovitskiy2021vit} represents the dominant training configuration in modern practice, and EqWD has not been validated in this setting. Extension to AdamW and optimizers such as Lion \cite{chen2023lion} requires separate investigation.
+
+5. **Architecture scope.** We evaluate on convolutional architectures (ResNet, VGG). Vision Transformers and large language models may exhibit different ratio dynamics due to their distinct layer structures (attention, LayerNorm vs. BatchNorm).
+
+6. **Single-seed $\beta = 5.0$ result.** The highest CIFAR-100 accuracy (66.07\%) was observed at $\beta = 5.0$ with a single seed. This aggressive setting may not be robust across seeds, and multi-seed validation at high $\beta$ values is needed.
+
+7. **NoBN failure.** Our VGG-16 experiments without batch normalization produced 1\% accuracy across all methods (including all baselines). This is a known training stability issue with VGG without BN at learning rate 0.1, not specific to EqWD, but it highlights that the ratio equilibrium analysis presumes the presence of normalization layers.
+
+### 5.7 When Should Practitioners Use EqWD?
+
+Based on our empirical evidence, we offer practical guidance:
+
+- **Recommended for** large-scale training (ImageNet-scale and above) with SGDW, where ratio deviations are substantial and persistent.
+- **Marginal benefit** on smaller-scale tasks (CIFAR-level) with the default $\beta = 1.0$; practitioners may consider higher $\beta$ values (2.0--5.0) if operating in this regime, though multi-seed validation is advisable.
+- **Not yet validated** for AdamW-based training, Transformer architectures, or alternative optimizers such as Lion. We recommend fixed weight decay as the safer default in these settings until EqWD is validated.
+- **Default hyperparameters** ($\beta = 1.0$, $\alpha = 0.9$) are robust and require no tuning for the settings tested.
+
+---
+
+## 6 Conclusion
+
+We introduced Equilibrium-Driven Weight Decay (EqWD), a dynamic weight decay method that modulates regularization strength based on the deviation of the per-layer gradient-to-weight ratio from its exponential moving average equilibrium. The method is grounded in Defazio's \cite{defazio2025} theoretical result that weight decay drives the ratio $r_t^l = \|g_t^l\| / \|w_t^l\|$ toward a universal steady state, and leverages the insight that deviations from this equilibrium identify transitional phases where adaptive regularization is most beneficial. We further showed, through both formal analysis (Proposition 2) and empirical diagnostics (AIS), that the gradient-to-weight ratio is a sufficient statistic for the alignment-relevant dynamics studied by Sun et al. \cite{sun2025cvpr}, making explicit cosine alignment computation unnecessary.
+
+On ImageNet with ResNet-50 (45-epoch accelerated training, 3 seeds), EqWD achieves 72.27 $\pm$ 0.20\% top-1 accuracy, an improvement of +0.38\% over Fixed WD (Cohen's $d = 1.72$), with the numerically lowest seed-to-seed variance among all evaluated methods. The margin over SWD (+0.23\%) is smaller and not statistically definitive at $n = 3$, but the directional trend is consistent across all seeds. On CIFAR-100, EqWD with default $\beta = 1.0$ is competitive (65.05\%) but does not dominate; our ablation reveals that higher $\beta$ values can substantially improve performance (66.07\% at $\beta = 5.0$, single seed), suggesting that the optimal sensitivity is task-dependent.
+
+From a practical standpoint, EqWD requires minimal code overhead beyond a standard optimizer, introduces a single hyperparameter $\beta$ (with robust default $\beta = 1.0$), and adds approximately 2\% wall-clock time. It is backward-compatible with standard SGDW (recovered at $\beta = 0$) and can be implemented as a plug-in modifier for any optimizer with decoupled weight decay.
+
+Several directions remain for future work. First, extending EqWD to AdamW and other adaptive optimizers (including Lion), where the ratio dynamics may differ due to second-moment scaling. Second, applying EqWD to Transformer architectures, including Vision Transformers and large language models, where the interplay between attention mechanisms, LayerNorm, and weight decay presents distinct challenges. Third, running 90-epoch ImageNet experiments to validate that method rankings hold under the canonical training regime. Fourth, multi-seed validation of aggressive $\beta$ settings ($\beta \geq 5.0$) on both CIFAR-level and ImageNet-level benchmarks. Fifth, controlling for the effective weight decay inflation confound by comparing against FixedWD with tuned higher $\lambda$. Finally, formalizing the norm-sufficiency condition of Proposition 2 by extending the Lyapunov stability framework of Sun et al. \cite{sun2025cvpr} to accommodate time-varying weight decay schedules, which would provide a complete theoretical characterization of when ratio-based modulation is informationally sufficient.

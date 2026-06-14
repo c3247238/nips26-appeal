@@ -1,0 +1,86 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "UAD F1=0.725 is unanchored without a random baseline. There are C(500,2)=124,750 possible pairs among the top 500 features. UAD flags 51 pairs and finds 29 true positives. Without knowing what random selection achieves, the F1 magnitude is meaningless. The f10_random_baseline task was explicitly SKIPPED ('Demoted to supplementary per revised proposal'), meaning the authors deliberately chose not to run it.",
+    "suggestion": "Compute random baseline immediately: randomly select 51 pairs from top 500 features, compute precision/recall/F1 against Chanin labels. Repeat 100 times. Report mean + std. This is computationally trivial (<1 minute) and essential for interpreting the 0.725 claim."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Multi-seed 'robustness' is determinism, not robustness. The JSON data (f2_uad_multiseed_results.json) confirms that all three seeds (42, 123, 456) produce IDENTICAL results -- same 51 pairs, same 29 TPs, same supervised_labels dictionary (feature indices 20644, 12453, 18486, etc. are identical across all seeds). Standard deviation is exactly 0.000. This is complete determinism because the SAE weights are frozen and 1000 samples suffice to stabilize co-occurrence statistics. Calling this 'robustness' in the section heading (4.3) while correctly identifying it as 'determinism' elsewhere (abstract, 5.2) is a framing inconsistency that misleads reviewers.",
+    "suggestion": "Rename Section 4.3 to 'Multi-Seed Reproducibility' or 'Determinism Validation.' Remove all 'robustness' claims. Explicitly state: 'The perfect consistency reflects determinism on a fixed pre-trained SAE, not robustness to SAE retraining, corpus change, or model variation.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "DFDA's 99.5% MSE improvement is a metric tautology, not absorption recovery. The MLP learns to predict near-zero parent values in child-dominant positions (where the parent is already suppressed). Baseline MSE measures deviation from zero; compensated MSE measures deviation from a near-zero prediction. The improvement is mathematically guaranteed because the MLP can always learn to output values close to zero. The source data (f5_dfda_scale_results.json) shows compensated MSE values of 1.5e-10, 5.6e-10, 2.2e-08 -- essentially machine epsilon -- confirming the MLP predicts near-zero. The paper correctly identifies this as artifactual but still reports the 99.5% figure in Table 4 and the abstract, which damages credibility.",
+    "suggestion": "Either (a) completely remove DFDA from the paper and focus solely on UAD, or (b) relegate DFDA to a single paragraph in Future Work with NO results table and NO percentage figures. Do not report 99.5% anywhere. If retaining DFDA, rebuild evaluation around parent-positive examples (inputs where parent should activate per ground truth) before reporting any numbers."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Cross-layer 'validation' masks a layer-dependent failure. Layer 4 achieves F1=0.432, below the 0.5 minimum threshold. The mean F1=0.561 is entirely driven by layer 8's outlier performance (F1=0.725). Without layer 8, the mean of layers 4 and 10 would be 0.490. Presenting 'mean F1=0.561 across layers' as validation is misleading -- it averages a success (layer 8), a partial success (layer 10 at 0.548), and a failure (layer 4 at 0.432). The 'cross-layer validation' contribution is actually a partial failure.",
+    "suggestion": "Report layer-wise results individually and honestly: 'UAD performs well at layer 8 (F1=0.725) but falls below threshold at layer 4 (F1=0.432), suggesting absorption signatures are strongest in mid-to-late layers where hierarchical feature structure is most pronounced.' Do not present mean F1=0.561 as a validation result."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "No ablation studies were conducted. The paper claims UAD uses hierarchical agglomerative clustering (Ward linkage, 50 clusters) and phi coefficient normalization, but never tests whether these choices matter. Would k-means work equally well? Would raw co-occurrence (without phi normalization) achieve similar F1? Would spectral clustering (as in 'Geometry of Concepts') outperform HAC? The f7_ablation task exists in the results directory but its content is not available for review.",
+    "suggestion": "Run ablations: (1) k-means vs HAC, (2) raw co-occurrence vs phi coefficient, (3) 25 vs 50 vs 100 clusters, (4) top 250 vs 500 vs 1000 features. Each ablation is computationally cheap (~10 seconds). Report which design choices contribute to performance."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "No statistical significance testing is reported. The notation table defines bootstrap CI but notes it is 'not yet implemented.' Without confidence intervals, p-values, or bootstrap estimates, the F1=0.725 claim has no statistical grounding. A reviewer will rightly ask: is this F1 significantly different from random? Is the cross-layer difference significant?",
+    "suggestion": "Implement bootstrap CI for F1: resample the 1000 examples with replacement 1000 times, recompute F1 each time, report 95% CI. Also compute a permutation test: randomly shuffle cluster assignments and compute F1 distribution under null. Report p-value for F1 > null."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "No analysis of false positives. With precision=0.569, 22 of 51 same-cluster pairs are false positives. The paper acknowledges this (Section 4.2: '43% false positive rate') but never analyzes what these false positives are. Are they semantically related co-occurring features? Random noise? Features sharing a common child? Understanding false positives would strengthen the method and guide post-hoc filtering.",
+    "suggestion": "Analyze the 22 false positive pairs: report their phi coefficients, marginal activation frequencies, and any semantic patterns. Categorize them (e.g., topical co-occurrence, shared super-absorber, random). This analysis could suggest post-hoc filters to raise precision above 0.8."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "The novelty claim depends on UAD being the 'first' unsupervised absorption detection method. While the literature search found no direct competitor, the core machinery -- co-occurrence clustering on phi matrices -- is not novel. 'Geometry of Concepts' (Anonymous 2024) uses spectral clustering on phi matrices for functional lobe discovery. UAD's innovation is applying this general technique to absorption detection with a parent-child direction assignment (low marginal = parent, high marginal = child). However, this application-level novelty may be viewed as incremental by reviewers familiar with co-occurrence analysis. The single-model, single-layer, single-concept-domain validation further weakens the novelty claim.",
+    "suggestion": "Strengthen novelty by: (1) explicitly contrasting UAD's parent-child pair identification with 'Geometry of Concepts' functional lobe discovery, (2) showing via ablation that the parent-child direction assignment (low marginal = parent) is critical and non-obvious, (3) demonstrating that UAD outperforms spectral clustering on the same task."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "Single model (GPT-2 Small), single SAE configuration (d_SAE=24,576 JumpReLU), single concept domain (first letters a-z), single layer (layer 8 is the only one above threshold). The paper claims 'Any SAE, any corpus' applicability in Table 1, but has validated on exactly one SAE, one model, one layer, and one concept domain. Cross-model validation was blocked (Gemma-2B gated, Pythia SAE unavailable), but the claims are not scoped accordingly.",
+    "suggestion": "Scope claims narrowly: 'UAD detects first-letter absorption in GPT-2 Small layer 8 without supervision.' Remove 'Any SAE, any corpus' from Table 1 until cross-model validation is completed. Add a 'Generalization Limitations' paragraph explicitly stating what has and has not been tested."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Missing E4 experiment creates structural confusion. Section 4.5 is labeled 'E5: DFDA Scaling' with no E4 anywhere. The outline also jumps from E3 to E5. Readers will search for missing content. Additionally, Figure 1 (UAD pipeline) is referenced in Section 3.3 but does not exist -- only fig1_desc.md exists, no PDF generated.",
+    "suggestion": "Renumber experiments sequentially: E1 (UAD full), E2 (multi-seed), E3 (cross-layer), E4 (DFDA). Generate figures/fig1.pdf as a flow diagram showing the six-step UAD pipeline."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Table 4 (DFDA) shows identical phi values (0.8123201004396181) for pairs 1-4 and 6. This is suspicious -- different feature pairs should have different phi coefficients. The clustering algorithm should not produce identical phi values for different pairs. The source data confirms this exact floating-point equality across 5 different pairs.",
+    "suggestion": "Verify phi values in the source data. If correct, add a footnote explaining why multiple pairs share the same phi (e.g., they come from the same cluster with identical co-occurrence patterns). If incorrect, correct them."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "The citation [Elhage et al., 2022] is used to support 'mid-to-late layers contain the most structured feature hierarchies' (Section 4.4), but Elhage et al. is about superposition, not layer-wise hierarchy structure. This is a weak citation that undermines the cross-layer analysis.",
+    "suggestion": "Find a citation specifically about layer-wise hierarchy in transformers, or soften the claim to 'consistent with the general observation that mid-to-late layers encode more abstract semantic features.'"
+  }
+]

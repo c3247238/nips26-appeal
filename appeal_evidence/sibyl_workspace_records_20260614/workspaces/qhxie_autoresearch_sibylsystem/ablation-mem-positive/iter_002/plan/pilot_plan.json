@@ -1,0 +1,153 @@
+{
+  "pilot_overview": "Four pilot experiments for Round 3 (Candidate C: Synthetic-to-Real Transfer). Pilots validate the core pipeline: synthetic data generation -> SAE training -> metric validation -> real SAE transfer. All pilots target 5-15 minute runtime on a single GPU.",
+  "pilot_decision_criteria": {
+    "advance_to_full": "SAE trains successfully (MSE < 5%) AND at least one metric achieves ROC-AUC > 0.75 on synthetic data AND real SAE transfer produces at least 5 identifiable parent-child pairs with computable metric scores",
+    "refine": "SAE trains but metric AUC 0.65-0.75 OR real SAE transfer identifies pairs but metrics are noisy OR synthetic data structure is correct but SAE reconstruction is marginal (5-10% MSE)",
+    "pivot": "SAE fails to train (MSE > 10%) OR no metric achieves AUC > 0.65 OR real SAE has zero identifiable hierarchical features OR synthetic ground-truth labels are all same class"
+  },
+  "pilots": [
+    {
+      "id": "pilot_synth_gen",
+      "hypothesis": "Synthetic hierarchical features can be generated with clear ground-truth absorption labels",
+      "description": "Generate simple synthetic data with 50 features (10 parent + 40 child), 2-level hierarchy, controlled co-occurrence, low noise. Validate that ground-truth labels contain both absorbed and non-absorbed parents.",
+      "complexity": "simple",
+      "n_features": 50,
+      "n_parents": 10,
+      "n_children_per_parent": 4,
+      "d_model": 128,
+      "n_samples": 1000,
+      "p_parent_given_child": 0.7,
+      "p_parent_alone": 0.1,
+      "sparsity": 0.05,
+      "noise_std": 0.05,
+      "estimated_minutes": 5,
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "pass_criteria": "Activation matrix shape = (1000, 128); ground-truth has both absorbed (p_alone < 0.2*p_given) and non-absorbed parents; parent-child co-occurrence visible in activation statistics",
+      "failure_action": "If ground-truth is degenerate: adjust p_parent_alone and p_parent_given_child ranges; if still fails, flag synthetic generation as at-risk"
+    },
+    {
+      "id": "pilot_synth_train",
+      "hypothesis": "Small SAE can be trained on synthetic data with good reconstruction and reasonable sparsity",
+      "description": "Train Standard ReLU SAE (d_model=128, d_sae=512) on simple synthetic data. Validate reconstruction quality and sparsity.",
+      "sae_config": {
+        "architecture": "standard",
+        "d_model": 128,
+        "d_sae": 512,
+        "activation_fn": "relu",
+        "l1_coefficient": 1e-3,
+        "lr": 1e-3,
+        "batch_size": 256,
+        "training_steps": 5000
+      },
+      "estimated_minutes": 10,
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "pass_criteria": "Reconstruction MSE < 5% of input variance; L0 (avg active features) between 10 and 100; loss decreases monotonically; no training crashes",
+      "failure_action": "If MSE too high: increase d_sae or decrease L1; if L0 too low/high: adjust L1 coefficient; if unstable: reduce lr or increase batch size"
+    },
+    {
+      "id": "pilot_metric_validation",
+      "hypothesis": "At least one absorption metric achieves good accuracy (AUC > 0.75) on synthetic ground-truth data",
+      "description": "Apply 4 metrics to trained synthetic SAE and compare to ground-truth labels. Compute ROC-AUC, precision, recall for each metric.",
+      "metrics": [
+        {
+          "name": "chanin_ablation",
+          "description": "Chanin et al. ablation-based absorption: 1 - act_parent(child_zeroed) / act_parent(child_active)"
+        },
+        {
+          "name": "saebench_absorption",
+          "description": "SAEBench absorption metric implementation (or closest replication)"
+        },
+        {
+          "name": "encoder_decoder_cosine",
+          "description": "Cosine similarity between encoder and decoder weights per latent"
+        },
+        {
+          "name": "conditional_activation",
+          "description": "P(parent active | child off) / P(parent active | child on)"
+        }
+      ],
+      "estimated_minutes": 10,
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "pass_criteria": "At least one metric achieves ROC-AUC > 0.75; at least 10% of parents are absorbed in ground truth; metrics produce score distributions with non-zero variance",
+      "failure_action": "If best AUC < 0.75: try combined metric (logistic regression on multiple signals); if still weak, consider that absorption may not be detectable with these metrics and flag for discussion"
+    },
+    {
+      "id": "pilot_real_transfer",
+      "hypothesis": "Calibrated metrics from synthetic data can be applied to real SAEs to produce meaningful absorption estimates",
+      "description": "Apply best metric from pilot_metric_validation to GPT-2-small SAE (layer 8). Identify parent-child pairs via top-activating tokens and WordNet hierarchies. Use synthetic calibration to derive confidence intervals.",
+      "model": "gpt2-small",
+      "sae_release": "gpt2-small-res-jb",
+      "layer": 8,
+      "pair_identification": "WordNet hypernym-hyponym + top-100 activating token overlap",
+      "corpus": "OpenWebText subset (1k prompts for co-occurrence statistics)",
+      "estimated_minutes": 15,
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "pass_criteria": "At least 5 parent-child pairs identified; metric scores computable for all pairs; confidence intervals from synthetic calibration are non-degenerate (width > 0 and < 1)",
+      "failure_action": "If < 5 pairs identified: expand WordNet search or use spelling hierarchies; if metrics fail: use simpler metric variant; if GemmaScope available, try as alternative"
+    }
+  ],
+  "pilot_execution_order": [
+    "setup_env",
+    "pilot_synth_gen",
+    "pilot_synth_train",
+    "pilot_metric_validation",
+    "pilot_real_transfer"
+  ],
+  "pilot_parallel_groups": [
+    ["pilot_synth_gen"],
+    ["pilot_synth_train"],
+    ["pilot_metric_validation"],
+    ["pilot_real_transfer"]
+  ],
+  "round_1_2_lessons_applied": [
+    "Replaced real-SAE measurement (no ground-truth) with synthetic data where ground-truth is known",
+    "Switched from semantic overlap metric to mechanistic ablation-based metric (Chanin et al.)",
+    "Eliminated degenerate probe tasks (AUC=1.0) by using synthetic ground-truth labels",
+    "Removed dependency on Gemma-2-2B multi-width SAEs (pilot uses GPT-2-small as fallback)",
+    "Added confidence intervals derived from synthetic calibration curves",
+    "Designed modular pipeline: synthetic validation first, then transfer to real SAEs"
+  ],
+  "synthetic_data_specs": {
+    "simple": {
+      "n_features": 50,
+      "n_hierarchy_levels": 2,
+      "d_model": 128,
+      "n_samples": 1000,
+      "p_parent_given_child": 0.7,
+      "p_parent_alone": 0.1,
+      "sparsity": 0.05,
+      "noise_std": 0.05
+    },
+    "medium": {
+      "n_features": 210,
+      "n_hierarchy_levels": 3,
+      "d_model": 128,
+      "n_samples": 10000,
+      "p_parent_given_child": 0.7,
+      "p_parent_alone": 0.1,
+      "sparsity": 0.05,
+      "noise_std": 0.1
+    },
+    "complex": {
+      "n_features": 500,
+      "n_hierarchy_levels": 3,
+      "n_distractors": 290,
+      "d_model": 128,
+      "n_samples": 10000,
+      "p_parent_given_child": 0.7,
+      "p_parent_alone": 0.1,
+      "sparsity": 0.10,
+      "noise_std": 0.2
+    }
+  },
+  "metric_thresholds": {
+    "absorption_threshold_chanin": 0.5,
+    "absorption_threshold_cosine": 0.5,
+    "absorption_threshold_conditional": 0.5,
+    "optimal_threshold_selection": "youden_j"
+  }
+}

@@ -1,0 +1,385 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "description": "Install SAELens, TransformerLens, SAEBench and verify GPU access. Create shared data directories.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "environment/setup_complete.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [],
+      "visualizations": []
+    },
+    {
+      "id": "p1_caab",
+      "name": "Pilot P1: CAAB Feasibility",
+      "description": "Load GemmaScope JumpReLU SAE + train small TopK SAE on GPT-2 Small layer 8. Run Chanin et al. absorption detection on first-letter features (a-z). Verify >10% absorption rate difference and 15-min completion.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/pilots/p1_caab_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate difference between JumpReLU and TopK > 10 percentage points; experiment completes within 15 minutes"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Pilot absorption rate comparison (JumpReLU vs TopK)",
+          "x": "architecture",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "p2_causal",
+      "name": "Pilot P2: Causal Evaluation Feasibility",
+      "description": "Train two SAEs with different sparsity levels (high vs low absorption) on GPT-2 Small layer 8. Run sparse probing on 20 concepts (4 per domain). Verify correlation between absorption rate and probe accuracy.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/pilots/p2_causal_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Probe accuracy difference > 5 percentage points between high and low absorption SAEs; correlation direction matches hypothesis"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption rate vs probe accuracy",
+          "x": "absorption_rate",
+          "y": "probe_accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "p3_uad",
+      "name": "Pilot P3: UAD Feasibility",
+      "description": "Build co-occurrence matrix for 100 features from GemmaScope/GPT-2 SAE. Run hierarchical clustering. Compare with Chanin et al. supervised labels on known absorption cases (first-letter features).",
+      "type": "experiment",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/pilots/p3_uad_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Precision > 40% and Recall > 30% compared to supervised labels; runtime < 15 minutes"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Feature co-occurrence matrix",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "p4_dfda",
+      "name": "Pilot P4: DFDA Feasibility",
+      "description": "Train a small MLP (<1% params) to predict absorbed parent feature activation from child features on 10 known absorbed pairs from GPT-2 Small. Measure probe accuracy improvement post-compensation.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/pilots/p4_dfda_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Probe accuracy improvement > 5% OR reconstruction error increase < 10%; training completes within 15 minutes"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Probe accuracy before/after DFDA compensation",
+          "x": "condition",
+          "y": "probe_accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f1_caab",
+      "name": "Full E1: Cross-Architecture Absorption Benchmark",
+      "description": "Systematic comparison of 5 architectures (JumpReLU, TopK, BatchTopK, Gated, Matryoshka) on Gemma-2-2B at layers 5, 10, 15, 20. Width 16k. Compute absorption rate, reconstruction quality, sparsity, dead feature ratio. Use OpenWebText 10k samples.",
+      "type": "experiment",
+      "depends_on": [
+        "p1_caab"
+      ],
+      "expected_output": "exp/full/f1_caab_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        },
+        {
+          "type": "checkpoint",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "Architecture comparison across metrics",
+          "columns": [
+            "Architecture",
+            "Absorption_Rate",
+            "Loss_Recovered",
+            "L0_Sparsity",
+            "Dead_Feature_Ratio"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Pareto frontier: absorption rate vs reconstruction quality",
+          "x": "absorption_rate",
+          "y": "loss_recovered",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f2_causal",
+      "name": "Full E2: Causal Impact on Downstream Tasks",
+      "description": "Measure absorption's causal impact on 3 downstream tasks using Gemma-2-2B layer 10 SAEs. Tasks: (1) sparse probing on 100 concepts across 5 domains, (2) steering efficacy on 10 directions, (3) feature attribution consistency. Control for reconstruction quality and sparsity.",
+      "type": "experiment",
+      "depends_on": [
+        "p2_causal",
+        "f1_caab"
+      ],
+      "expected_output": "exp/full/f2_causal_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "concept_sets_100",
+          "path": "shared/datasets/concept_sets_100"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption rate vs downstream performance (partial correlation)",
+          "x": "absorption_rate",
+          "y": "downstream_score",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Critical absorption threshold analysis",
+          "x": "absorption_rate_bin",
+          "y": "mean_downstream_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f3_sparsity",
+      "name": "Full E3: Sparsity-Absorption Relationship",
+      "description": "Train TopK SAEs with k in {10, 25, 50, 100, 200} on GPT-2 Small layer 8. Compute absorption rate at each k. Fit monotonic trend and measure Spearman correlation. Also test Standard SAE with varying L1 coefficient.",
+      "type": "experiment",
+      "depends_on": [
+        "p1_caab"
+      ],
+      "expected_output": "exp/full/f3_sparsity_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 40,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Sparsity-absorption curve",
+          "x": "k_value",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Reconstruction quality vs sparsity",
+          "x": "k_value",
+          "y": "loss_recovered",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f4_layer",
+      "name": "Full E4: Layer-Depth Absorption Pattern",
+      "description": "Load GemmaScope JumpReLU SAEs at all 18 layers of Gemma-2-2B. Compute absorption rate at each layer using standardized concept set. Analyze trend across depth.",
+      "type": "experiment",
+      "depends_on": [
+        "f1_caab"
+      ],
+      "expected_output": "exp/full/f4_layer_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate vs layer depth",
+          "x": "layer",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Layer x concept domain absorption matrix",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f5_uad",
+      "name": "Full E5: Unsupervised Absorption Detection",
+      "description": "Scale UAD to full Gemma-2-2B layer 10 SAE (16k features). Build co-occurrence matrix on 10k tokens. Validate against Chanin et al. supervised labels on all known hierarchical concepts. Report precision, recall, F1.",
+      "type": "experiment",
+      "depends_on": [
+        "p3_uad",
+        "f1_caab"
+      ],
+      "expected_output": "exp/full/f5_uad_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 35,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "UAD precision-recall curve",
+          "x": "recall",
+          "y": "precision",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "f6_dfda",
+      "name": "Full E6: Dynamic Feature De-Absorption",
+      "description": "Scale DFDA to 50 absorbed pairs on Gemma-2-2B layer 10. Train compensation MLP. Measure probe accuracy improvement, reconstruction error change, and inference latency overhead.",
+      "type": "experiment",
+      "depends_on": [
+        "p4_dfda",
+        "f1_caab"
+      ],
+      "expected_output": "exp/full/f6_dfda_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 35,
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "DFDA recovery rate per absorbed pair",
+          "x": "pair_id",
+          "y": "recovery_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_main",
+      "name": "Main Results Analysis",
+      "description": "Aggregate all experiment results. Compute partial correlations, statistical tests, generate main result tables and figures. Perform sensitivity analysis.",
+      "type": "analysis",
+      "depends_on": [
+        "f1_caab",
+        "f2_causal",
+        "f3_sparsity",
+        "f4_layer"
+      ],
+      "expected_output": "exp/results/main_analysis.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main results comparison table",
+          "columns": [
+            "Architecture",
+            "Absorption_Rate",
+            "Loss_Recovered",
+            "Probe_Accuracy",
+            "Steering_Efficacy"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_exploratory",
+      "name": "Exploratory Results Analysis",
+      "description": "Aggregate UAD and DFDA results. Generate precision-recall curves, recovery rate plots. Assess feasibility for publication.",
+      "type": "analysis",
+      "depends_on": [
+        "f5_uad",
+        "f6_dfda"
+      ],
+      "expected_output": "exp/results/exploratory_analysis.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": []
+    },
+    {
+      "id": "baseline_random",
+      "name": "Baseline: Random Pair Shuffle",
+      "description": "Compute absorption rate on randomly shuffled feature pairs as a null model. This establishes the baseline for chance-level absorption detection.",
+      "type": "baseline",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/baselines/random_shuffle_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": []
+    },
+    {
+      "id": "baseline_nosae",
+      "name": "Baseline: Direct Model Probing",
+      "description": "Train linear probes directly on model activations (without SAE) as an upper bound for downstream task performance.",
+      "type": "baseline",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/baselines/direct_probe_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": []
+    }
+  ]
+}

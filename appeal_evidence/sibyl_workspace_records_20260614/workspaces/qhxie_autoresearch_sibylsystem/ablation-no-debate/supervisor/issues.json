@@ -1,0 +1,65 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "H_Mech real SAE data (held_out_validation.json) shows encoder-driven absorption: Condition A (218.52) = Condition D (218.52), Condition C (34.39) = Condition A (34.39), B vs D delta = 0.0. The paper claims decoder contributes 0.299 but this is from synthetic data only. On real SAEs, decoder effect is ZERO. Paper text was never updated from earlier synthetic finding.",
+    "suggestion": "Rewrite H_Mech narrative to reflect B=D finding: 'On real GPT-2 Small SAEs, encoder alignment is necessary and sufficient for absorption (B=D), while decoder training has no measurable effect (C=A). This confirms encoder-driven absorption on real language model features.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "H_Safe paper reports p=0.665 but held_out_validation.json shows p=0.345. The paper Abstract claims 'Mann-Whitney U = 216.5, p = 0.665' but source data shows p=0.345. This is a data integrity issue requiring verification.",
+    "suggestion": "Verify H_Safe p-value calculation. Cross-check paper claim (p=0.665) against actual computed value (p=0.345 from held_out_validation.json). Update paper if source data is correct."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "H_Comp hypothesis states 'Absorption monotonically increases with hierarchy strength' but h_comp_full.json shows monotonic=false with R²=0.04 (not R²>0.8 as required). The full experiment across 6 cosine levels x 3 seeds FALSIFIES the hypothesis, yet the paper does not report this finding and instead cites the earlier pilot that passed.",
+    "suggestion": "Report the H_Comp full result honestly: the monotonic hypothesis is NOT supported (R²=0.04, p=0.703). The earlier pilot (3 levels, single seed) was insufficient to establish the trend. Add discussion of why absorption may not scale monotonically with hierarchy strength."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "H1 absorption rate is exactly 0.50 across all samples (std=0.0). This is deterministic arithmetic from synthetic hierarchy geometry, not biological variation. Reporting t-tests and p-values for deterministic constants vs random variables is methodologically questionable. The paper presents p=3e-133 as evidence of a genuine phenomenon.",
+    "suggestion": "Acknowledge that absorption under the current synthetic hierarchy design is deterministic (invariant to sample variation). Report the geometric computation directly rather than framing as statistical significance test."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Shuffled (0.487) and Permuted (0.484) baselines are statistically indistinguishable from Trained SAE (0.500) with effect sizes d=0.54 and d=0.61. Only Random Decoder (0.059) differs. The 'differentiation' is about trained vs random encoder, not trained vs baseline per se. Paper framing overstates the finding.",
+    "suggestion": "Reframe H1: 'Multi-child proportional ablation differentiates trained-encoder SAEs from random-encoder SAEs. Trained encoders with any decoder state (trained, shuffled, permuted) achieve similar absorption.'"
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "H2 correlation (rho=+0.17) is driven by 1.5% non-zero outliers out of 1024 features. The zero-inflated distribution makes correlation analysis unreliable. The paper presents this as a meaningful falsification of competitive exclusion.",
+    "suggestion": "Report zero-inflation explicitly: '98.5% of features show zero absorption, limiting correlation interpretability.' Consider zero-inflated models or restrict analysis to non-zero subset."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Table 6 contains degenerate percentage values (134,717,856%, 1.52 billion%) from division by near-zero baseline. These are not meaningful metrics and will be immediately flagged by reviewers.",
+    "suggestion": "Remove the 'Mean Delta Percent' column from Table 6. Report only absolute delta norms."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "H_Safe methodology description says 'overlap method' but this term is never defined. The paper's primary methodology is multi-child proportional ablation, yet H_Safe uses a different undefined method.",
+    "suggestion": "Define 'overlap method' explicitly in Section 3.7, or state H_Safe uses the same multi-child methodology."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "H_Downstream (does absorption affect downstream utility?) is listed as untested in proposal but appears in paper contributions. Without downstream validation, practical significance of measurement differences is unclear.",
+    "suggestion": "Either add H_Downstream pilot results or remove from contributions. Acknowledge as future work."
+  }
+]

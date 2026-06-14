@@ -1,0 +1,87 @@
+\documentclass[tikz,border=5pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, positioning, calc, shadows.blur, shapes.misc}
+
+\begin{document}
+\begin{tikzpicture}[
+    node distance=2cm,
+    level distance=2.5cm,
+    sibling distance=2cm,
+    every node/.style={draw, rounded corners=2pt, blur shadow={shadow blur steps=5, shadow blur extra=1}},
+    edge from parent/.style={draw, thick, ->},
+    feature_node/.style={circle, draw, minimum size=8mm, fill=red!30},
+    child_node/.style={circle, draw, minimum size=8mm, fill=green!30},
+    grandchild_node/.style={circle, draw, minimum size=6mm, fill=orange!30},
+    baseline/.style={dashed, draw=gray, fill=gray!10}
+]
+
+% Left side: 3-level hierarchy
+\node[feature_node, fill=red!40] (parent) at (0,0) {$p$}
+    child { node[child_node] (c1) {$c_1$}
+        child { node[grandchild_node] (g1) {$g_1$} }
+        child { node[grandchild_node] (g2) {$g_2$} }
+    }
+    child { node[child_node] (c2) {$c_2$}
+        child { node[grandchild_node] (g3) {$g_3$} }
+        child { node[grandchild_node] (g4) {$g_4$} }
+    };
+
+% Cosine annotations
+\node[above=0.8cm of parent, font=\small] {cos(p, $c_i$) = 0.67};
+\node[right=0.5cm of g1, font=\small] {cos($g_i, g_j$) $\approx$ 0};
+
+% Middle: Ablation box
+\node[baseline, right=3cm of parent, minimum width=3.5cm, minimum height=5cm, label={Ablation: k=5}] (ablation_box) {};
+
+% Before ablation label
+\node[below=0.3cm of ablation_box.north, font=\small, anchor=north] {Before:};
+
+% Before ablation nodes
+\node[feature_node, fill=red!40] at (ablation_box) (p_before) {$p'$};
+\node[child_node] at ($(ablation_box.south west)+(1.2,0)$) (c1_before) {$c_1$};
+\node[child_node] at ($(ablation_box.south east)+(-1.2,0)$) (c2_before) {$c_2$};
+
+% After ablation label
+\node[above=0.3cm of ablation_box.south, font=\small, anchor=south] {After (k=5):};
+
+% After ablation - crossed out children
+\node[child_node, draw=red, line width=2pt] at ($(ablation_box.south west)+(1.2,0)$) (c1_after) {$c_1$};
+\node[draw=red, line width=2pt] (x1) at (c1_after) {};
+\draw[red, thick] (x1) +(-0.3,-0.3) -- +(0.3,0.3);
+\draw[red, thick] (x1) +(-0.3,0.3) -- +(0.3,-0.3);
+
+\node[child_node, draw=red, line width=2pt] at ($(ablation_box.south east)+(-1.2,0)$) (c2_after) {$c_2$};
+\node[draw=red, line width=2pt] (x2) at (c2_after) {};
+\draw[red, thick] (x2) +(-0.3,-0.3) -- +(0.3,0.3);
+\draw[red, thick] (x2) +(-0.3,0.3) -- +(0.3,-0.3);
+
+% Residual parent
+\node[feature_node, dashed] at ($(ablation_box.south)+(0,-0.5)$) (p_after) {$abs_5$};
+
+% Right side: Results comparison
+\node[right=2cm of ablation_box, font=\small] (results) {
+    \begin{tabular}{lcc}
+    \toprule
+    Method & $abs_5$ & \\
+    \midrule
+    Trained SAE & 0.50 & \cellcolor{green!20}\\
+    Random Decoder & 0.06 & \cellcolor{red!20}\\
+    \bottomrule
+    \end{tabular}
+};
+
+% Arrow from hierarchy to ablation
+\draw[thick, ->] (parent) -- (ablation_box.west) node[midway, above] {Input};
+
+% Legend
+\node[below=3cm of parent, anchor=north, font=\small] (legend) {
+    \begin{tabular}{cl}
+        \tikz\node[feature_node, minimum size=5mm, fill=red!40] {}; & Parent feature \\
+        \tikz\node[child_node, minimum size=5mm] {}; & Child feature \\
+        \tikz\node[grandchild_node, minimum size=4mm] {}; & Grandchild \\
+        \tikz\draw[red, line width=2pt] (0,0) -- (0.4,0); & Ablated
+    \end{tabular}
+};
+
+\end{tikzpicture}
+\end{document}

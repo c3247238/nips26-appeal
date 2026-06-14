@@ -1,0 +1,237 @@
+\documentclass{article}
+
+% ready for submission
+\usepackage[final]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+% Custom commands for paper notation
+\newcommand{\UAS}{\text{UAS}}
+\newcommand{\cosvar}{\text{cos\_var}}
+\newcommand{\freqskew}{\text{act\_freq}}
+
+\title{Absorption and Steering Sensitivity in Sparse Autoencoders}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+
+\begin{document}
+
+
+\maketitle
+
+
+\begin{abstract}
+Sparse Autoencoders (SAEs) trained on language model residual streams decompose neuron activations into sparse, interpretable features. A key phenomenon is \textbf{absorption}: when child features in the feature hierarchy subsume parent features, making the parent features inactive. Prior work hypothesized that absorption degrades the effectiveness of features for steering interventions. We empirically test this hypothesis on GPT-2 Small (layer 8) using a matched-group design comparing 50 high-absorption and 50 low-absorption features. We find no statistically significant difference in steering sensitivity between absorption groups across steering magnitudes ($\beta \in \{1, 3, 5, 10, 20\}$), with aggregated p=0.299. After Bonferroni correction for 5 alpha conditions, the only nominally significant result (low-absorption > high-absorption at $\beta=20$, p=0.015) does not survive correction. Null controls confirm that feature-based steering produces significantly larger effects than random directions ($p < 10^{-12}$). We validate Unsupervised Absorption Scores (UAS) as a practical tool for identifying absorbed features ($r = 0.65$--$0.79$ with supervised absorption). Our findings suggest that absorption level is not a reliable predictor of steering effectiveness.
+\end{abstract}
+
+
+\section{1. Introduction}
+
+Sparse Autoencoders (SAEs) have emerged as a powerful tool for mechanistic interpretability, decomposing polysemantic neurons into sparse, monosemantic features. A key phenomenon is \textbf{absorption}: when child features subsume parent features in the activation hierarchy, causing the parent features to become inactive.
+
+Prior work \citep{Bricken2023} hypothesized that absorption degrades the reliability of features for steering interventions. The intuition is that absorbed features are ``second-class citizens'' in the model's computation, and steering them may have weaker effects on model behavior. This view predicts that features with higher absorption should show lower steering sensitivity.
+
+In this paper, we empirically test this hypothesis. Contrary to some prior expectations, we find \textbf{no significant difference} in steering sensitivity between high-absorption and low-absorption features. This finding has important implications for SAE-based interpretability and steering research.
+
+
+\section{2. Background and Related Work}
+
+\subsection{2.1 Sparse Autoencoders}
+
+SAEs are trained to reconstruct model activations through a sparse bottleneck. The input activation passes through an encoder to produce sparse features, which are then decoded back to reconstruct the original activation. The SAE loss includes an L1 sparsity penalty that encourages most features to be inactive at any given time, leading to interpretable features. Recent work by Anthropic demonstrated that approximately 70\% of SAE features are genuinely interpretable by human evaluators \citep{Bricken2023}.
+
+\subsection{2.2 The Absorption Phenomenon}
+
+When features are hierarchically organized, child features may subsume parent features. For example, if ``cat'' and ``dog'' features are both active, a ``mammal'' feature might absorb into both, causing the standalone ``mammal'' feature to rarely activate.
+
+This raises a critical question: \textbf{Does absorption reduce a feature's steering effectiveness?} Prior theoretical work suggested that absorbed features are ``second-class citizens'' in the model's computation.
+
+\subsection{2.3 Steering Interventions}
+
+Steering involves adding a feature direction to the residual stream to modify model behavior. Prior work \citep{Subramani2022,Zou2023} has shown that steering is effective for modifying model behavior. In this paper, we measure \textbf{steering sensitivity} as the magnitude of model output change (measured by max absolute logit difference) resulting from adding $\beta \times W_{\text{dec}}[\text{feature}]$ to the residual stream. We distinguish this from \textbf{activation sensitivity} \citep{Tian2025}, which measures how reliably a feature activates across contexts.
+
+
+\section{3. Unsupervised Absorption Score (UAS)}
+
+\subsection{3.1 Motivation}
+
+We need a \textbf{practical} metric for predicting absorption without expensive supervised probes. We propose the \textbf{Unsupervised Absorption Score (UAS)}:
+
+\begin{equation}
+\UAS(f) = \alpha \cdot \cosvar(f) + \beta \cdot \freqskew(f)
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $\cosvar(f)$: variance of cosine similarities between the feature decoder direction and all other feature directions
+    \item $\freqskew(f)$: fraction of tokens where the feature is active
+\end{itemize}
+
+\subsection{3.2 Validation}
+
+We validate UAS against the Chanin absorption score metric \citep{Chanin2024}:
+
+\begin{table}[htbp]
+\caption{UAS correlation with supervised absorption across layers}
+\label{tab:uas-validation}
+\centering
+\begin{tabular}{lc}
+\toprule
+Layer & Spearman $r$ \\
+\midrule
+Layer 4 & 0.8147 \\
+Layer 8 & 0.7603 \\
+Combined & 0.7875 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Result}: UAS achieves strong correlation ($r = 0.65$--$0.79$) with supervised absorption without requiring expensive probing experiments.
+
+
+\section{4. Experiments}
+
+\subsection{4.1 Setup}
+
+\begin{itemize}
+    \item \textbf{Model}: GPT-2 Small
+    \item \textbf{SAE}: gpt2-small-res-jb (layer 8, $d_{\text{sae}} = 24576$)
+    \item \textbf{Feature Selection}: 50 high-absorption (UAS $>$ 1.0), 50 low-absorption (UAS $<$ 0.3)
+    \item \textbf{Steering Protocol}: Add $\beta \times W_{\text{dec}}$[feature] to residual stream at layer 8
+    \item \textbf{Beta Values}: $[1, 3, 5, 10, 20]$
+    \item \textbf{Test Prompts}: 10 diverse prompts
+    \item \textbf{Metric}: Max absolute logit difference at last position
+\end{itemize}
+
+\subsection{4.2 H3: Absorption and Steering Sensitivity}
+
+\textbf{Hypothesis H3}: Absorption degrades steering reliability (negative correlation expected)
+
+\textbf{Result}: We find \textbf{no significant difference} in steering sensitivity between high-absorption and low-absorption features.
+
+\begin{table}[htbp]
+\caption{Steering sensitivity by absorption level across steering magnitudes}
+\label{tab:h3-results}
+\centering
+\begin{tabular}{ccccc}
+\toprule
+Beta & High-Absorption Mean & Low-Absorption Mean & Random Baseline & $p$-value \\
+\midrule
+1 & 0.1138 & 0.1116 & 0.0954 & 0.295 \\
+3 & 0.3426 & 0.3379 & 0.2862 & 0.462 \\
+5 & 0.5731 & 0.5688 & 0.4771 & 0.700 \\
+10 & 1.1545 & 1.1708 & 0.9552 & 0.497 \\
+20 & 2.3323 & 2.4628 & 1.9175 & \textbf{0.015} \\
+\midrule
+\textbf{Aggregated} & 0.9032 & 0.9304 & 0.7463 & 0.299 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Finding}: At $\beta = 20$, low-absorption features show significantly higher steering sensitivity than high-absorption features ($p = 0.015$). At all other beta values, there is no significant difference. The absorption-sensitivity relationship is not consistent across steering magnitudes.
+
+Note on Original Analysis: Our initial analysis found a Spearman correlation of $r = +0.35$ ($p < 0.001$) between UAS and steering sensitivity. This analysis was conducted with a different feature selection methodology. The controlled null control experiment, which compares matched high and low absorption features directly, shows no consistent pattern favoring either group.
+
+\subsection{4.3 Null Controls}
+
+We verify that steering with SAE feature directions produces effects above random baseline. Null controls use the same 50 high/low absorption features with full beta range $[1, 3, 5, 10, 20]$:
+
+\begin{table}[htbp]
+\caption{Null control statistical comparisons}
+\label{tab:null-controls}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Comparison & $t$-statistic & $p$-value & Interpretation \\
+\midrule
+High-absorption vs Random & 7.02 & $< 10^{-12}$ & Significant \\
+Low-absorption vs Random & 7.18 & $< 10^{-12}$ & Significant \\
+High-absorption vs Low-absorption & $-1.04$ & 0.299 & Not significant \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Result}: Feature-based directions show effects significantly above the random baseline ($p < 10^{-12}$), confirming that SAE feature directions contain meaningful steering information. However, the effect does not vary systematically with absorption level.
+
+\subsection{4.4 H2: Mitigation Methods (Pilot Evaluation)}
+
+We conducted a pilot evaluation of whether alternative SAE architectures can reduce absorption. Absorption is measured using the \textbf{Chanin absorption score} $A(f)$ \citep{Chanin2024}.
+
+\textbf{Note}: This is a pilot-scale evaluation. Full-scale evaluation with consistent absorption metrics is needed before definitive conclusions can be drawn. Prior work suggests TopK SAE achieves better absorption-accuracy tradeoffs at scale, but this requires further validation.
+
+\subsection{4.5 H5: Downstream Task Dependence}
+
+We tested whether absorption affects downstream task performance:
+
+\begin{table}[htbp]
+\caption{Downstream task performance by absorption level}
+\label{tab:h5-downstream}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Task Type & Low Absorption AUC & High Absorption AUC & $\Delta$ (Low $-$ High) \\
+\midrule
+Simple classification & 0.710 & 0.636 & 7.45\% \\
+Causal reasoning & 0.547 & 0.522 & 2.51\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Statistical note}: We report $\Delta = \text{Low} - \text{High}$; positive $\Delta$ indicates low-absorption features perform better. The 7.45\% and 2.51\% differences are not statistically significant ($p > 0.05$, paired $t$-test).
+
+\textbf{Result}: High-absorption features show lower AUC on both tasks. This marginal degradation is not statistically significant ($p = 0.42$, paired $t$-test).
+
+
+\section{5. Discussion}
+
+\subsection{5.1 Relationship to Prior Work}
+
+Our findings contrast with some prior expectations about absorption. Rather than finding that absorption degrades steering effectiveness (as some theoretical work suggested) or enhances it (as some speculative accounts proposed), we find \textbf{no systematic relationship} between absorption level and steering sensitivity.
+
+\subsection{5.2 Implications for Steering Research}
+
+The lack of systematic relationship between absorption and steering sensitivity suggests that:
+\begin{enumerate}
+    \item Researchers should not assume that high-absorption features are better (or worse) steering targets
+    \item The Unsupervised Absorption Score (UAS) is useful for identifying absorbed features but not for predicting steering effectiveness
+    \item Other factors (activation frequency, feature interpretability, downstream task relevance) may be more important for steering target selection
+\end{enumerate}
+
+\subsection{5.3 Limitations}
+
+\begin{enumerate}
+    \item \textbf{Single Model and Layer}: All experiments use GPT-2 Small layer 8. Replication on larger models (Gemma-2B, Llama) and multiple layers is needed.
+    \item \textbf{Steering Magnitude Dependency}: The finding of low-absorption $>$ high-absorption at $\beta = 20$ warrants further investigation.
+    \item \textbf{Feature Selection}: Our high/low absorption feature selection may not capture all relevant dimensions of the absorption phenomenon.
+    \item \textbf{Effect Size}: While statistically significant vs. random, the practical effect sizes for steering are modest.
+\end{enumerate}
+
+
+\section{6. Conclusion}
+
+We conducted a controlled experiment testing whether SAE feature absorption affects steering effectiveness. Using matched high and low absorption features with full beta range null controls, we found \textbf{no significant difference} in steering sensitivity between absorption groups. Feature-based steering produces effects significantly above random baseline ($p < 10^{-12}$), confirming that SAE feature directions contain meaningful steering information, but absorption level does not predict steering effectiveness. Our Unsupervised Absorption Score (UAS) provides a practical tool for identifying absorbed features without expensive probing experiments.
+
+
+\section*{References}
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+
+\end{document}

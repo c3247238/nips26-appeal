@@ -1,0 +1,158 @@
+{
+  "priority": "critical",
+  "items": [
+    {
+      "rank": 1,
+      "severity": "critical",
+      "category": "data_integrity",
+      "issue": "Matryoshka and MultiScale share 4/5 identical replicate data points (seeds 123, 456, 789, 1011) -- VERIFIED",
+      "action": "Re-run Full Matryoshka experiment with all 5 seeds independently. Do not copy data between variants. Withdraw the 'antagonistic interaction' claim until genuine data is available. Add automated cross-file duplicate detection (MD5 hash comparison across variant replicates) to the experiment pipeline.",
+      "files_affected": ["full_matryoshka_results.json", "paper.md Section 4.4"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 2,
+      "severity": "critical",
+      "category": "data_integrity",
+      "issue": "Paper claims 16,384 features (SynthSAEBench-16k) but all experiments use 1,024 features (num_features=1024 in all JSONs)",
+      "action": "Either (a) re-run all experiments on actual 16k dataset and update all numbers, or (b) honestly report 1k scale throughout. Revise title, abstract, method, and all '16k' references. Remove novelty claim of 'first on 16k.'",
+      "files_affected": ["paper.md", "proposal.md", "all result JSON files"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 3,
+      "severity": "critical",
+      "category": "experiment",
+      "issue": "Negative explained_variance on 5/6 trained variants (Baseline=-0.884, TopK=-0.385, MultiScale=-0.281, Gating=-0.481, Matryoshka=-0.279). Formula is mathematically consistent (implied total_variance ~0.0056), so this is genuine undertraining, not a bug. Only Orthogonality is positive (0.994).",
+      "action": "Extend training to at least 10M samples or increase learning rate. Add convergence diagnostics (loss curves, validation MSE plateau). Do not draw strong conclusions about downstream interpretability until reconstruction quality is positive. Consider that absorption may reflect random structure rather than learned features.",
+      "files_affected": ["all variant result JSONs", "training code", "paper.md"],
+      "status": "new_in_this_round"
+    },
+    {
+      "rank": 4,
+      "severity": "critical",
+      "category": "experiment",
+      "issue": "L0-matched ablation (central control) was never run despite being promised in methodology and marked 'completed' in gpu_progress.json",
+      "action": "Run L0-matched ablation immediately: train Baseline L1 SAEs with tuned lambda to achieve L0=50 and L0=550, measure absorption, compare with TopK and Orthogonality. Without this, the 'absorption is a sparsity phenomenon' claim is unsupported.",
+      "files_affected": ["exp/results/full/", "paper.md Section 3.2, 4.2"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 5,
+      "severity": "critical",
+      "category": "analysis",
+      "issue": "Dose-response study failed to create sparsity gradient: L0 ~980 across all lambda levels (r=0.59, p=0.30). Variance decomposition: 75% seed-related, 17% lambda-related. The causal falsification claim is unsupported.",
+      "action": "Withdraw or severely soften the causal falsification claim. Report variance decomposition honestly. Redesign dose-response using TopK with varying k values, which explicitly controls L0.",
+      "files_affected": ["paper.md Abstract, Section 4.3", "full_rq2_dose_response_results.json"],
+      "status": "new_in_this_round"
+    },
+    {
+      "rank": 6,
+      "severity": "critical",
+      "category": "analysis",
+      "issue": "L0-absorption correlation uses variant means (n=7 points) rather than individual replicates (n=35)",
+      "action": "Compute correlation across all 35 replicates. Report both analyses and acknowledge the limitation. Consider a mixed-effects model with L0 as predictor and variant as random effect.",
+      "files_affected": ["paper.md Section 4.1", "statistical_analysis.py"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 7,
+      "severity": "major",
+      "category": "experiment",
+      "issue": "Dead latent crisis is unaddressed: TopK has 81.6% dead latents (1672/2048), MultiScale 56.4% (1155/2048), Matryoshka 56.7% (1162/2048)",
+      "action": "Add dedicated subsection on dead latents. Report rates for all variants. Test absorption on active latents only. Discuss whether TopK recommendation is viable given this pathology.",
+      "files_affected": ["paper.md", "all variant result JSONs"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 8,
+      "severity": "major",
+      "category": "analysis",
+      "issue": "Cohen's d values are inconsistent: 4.93 (statistical_analysis.json, pooled std) vs 5.51 (full_summary.json, Baseline std only)",
+      "action": "Standardize on pooled std denominator (conventional choice), state formula explicitly in Method Section 3.5, regenerate full_summary.json with all 7 variants, and ensure all numbers match across all files.",
+      "files_affected": ["paper.md", "proposal.md", "statistical_analysis.json", "full_summary.json"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 9,
+      "severity": "major",
+      "category": "methodology",
+      "issue": "Antagonistic interaction claim uses invalid additive model (produces negative expectation below physical bound) AND is based on copied data",
+      "action": "Withdraw antagonism claim entirely until genuine Matryoshka data is available. If reinstated, use multiplicative framework (relative risk) instead of additive. Conduct formal 2x2 factorial interaction test.",
+      "files_affected": ["paper.md Section 4.4", "component_interaction.json"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 10,
+      "severity": "major",
+      "category": "experiment",
+      "issue": "Suspiciously short training times (1-2 min for 2M samples) combined with negative explained_variance on 5/6 variants suggests non-convergence",
+      "action": "Add convergence diagnostics: final training loss values, loss curves, validation MSE plateau. Verify that 2M samples is sufficient for convergence. Address negative explained_variance before claiming training succeeded.",
+      "files_affected": ["all variant result JSONs", "paper.md Method"],
+      "status": "new_in_this_round"
+    },
+    {
+      "rank": 11,
+      "severity": "major",
+      "category": "reproducibility",
+      "issue": "gpu_progress.json 'completed' status is unreliable: e2_l0_matched, e3_ksweep, e4_dead_latent, e5_training_dynamics marked complete but no output files exist",
+      "action": "Implement output verification: mark experiments complete only when expected output files exist AND pass sanity checks (non-empty, correct schema, no negative explained_variance where inappropriate).",
+      "files_affected": ["gpu_progress.json", "experiment pipeline"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 12,
+      "severity": "major",
+      "category": "methodology",
+      "issue": "No multiple comparison correction reported despite Method claiming Holm-Bonferroni",
+      "action": "Apply and report corrected p-values (Holm-Bonferroni or Benjamini-Hochberg) for all pairwise comparisons.",
+      "files_affected": ["paper.md Section 3.5", "statistical_analysis.json"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 13,
+      "severity": "major",
+      "category": "experiment",
+      "issue": "Missing k-sweep and real-LLM validation: promised in proposal but never run",
+      "action": "Run the k-sweep at minimum. Real-LLM validation can remain as future work but should be more prominently acknowledged as a limitation.",
+      "files_affected": ["exp/results/full/", "paper.md"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 14,
+      "severity": "major",
+      "category": "novelty",
+      "issue": "Novelty claim of 'first on SynthSAEBench-16k' is false if experiments used 1k features",
+      "action": "Scope novelty claim to 'first component-isolated study on ground-truth synthetic hierarchies' without specifying 16k, or re-run on 16k to justify the claim.",
+      "files_affected": ["paper.md", "proposal.md"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 15,
+      "severity": "minor",
+      "category": "writing",
+      "issue": "MSE reporting convention in Table 1 spans 350x range (3e-5 to 0.649)",
+      "action": "Add footnote explaining wide MSE range, or use log-scale for MSE visualization.",
+      "files_affected": ["paper.md Table 1"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 16,
+      "severity": "minor",
+      "category": "methodology",
+      "issue": "Hedging invariance claimed but no statistical test reported",
+      "action": "Add ANOVA for hedging across variants, or soften claim to 'approximately constant' with note that no significant differences were detected.",
+      "files_affected": ["paper.md Section 4.1"],
+      "status": "unaddressed_from_prior_round"
+    },
+    {
+      "rank": 17,
+      "severity": "minor",
+      "category": "reproducibility",
+      "issue": "No code repository URL or data release location mentioned",
+      "action": "Include repository link in abstract or introduction. State 'Code and data will be released upon publication' if not yet public.",
+      "files_affected": ["paper.md Abstract/Introduction"],
+      "status": "unaddressed_from_prior_round"
+    }
+  ]
+}

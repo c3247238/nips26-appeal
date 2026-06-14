@@ -1,0 +1,180 @@
+{
+  "decision": "PROCEED",
+  "confidence": 0.82,
+  "timestamp": "2026-03-18T22:00:00Z",
+  "iteration": 4,
+  "prior_score": 5.5,
+  "current_score": 6.5,
+  "projected_score_after_experiments": "7.0-7.5",
+
+  "rationale": {
+    "summary": "PROCEED 决策基于三个判断：(1) Phi 不变性猜想已通过 90 runs AdamW + 42 runs SGD 获得初步验证，核心发现（AdamW 下动态 WD 无显著差异）具备实质性实用价值；(2) 评分已从 5.5 提升至 6.5，主要问题（BEM bug、SGD 统计错误、叙事定位）均已识别并有明确修复路径；(3) iter_004 实验计划已设计完善（Phase 2A-2C 共 122 runs），补充实验可在 1-2 天内完成，不需要根本性方向调整。",
+
+    "proceed_reasons": [
+      "核心发现的实用价值高：'AdamW 标准设定下不需要调 WD 策略'对从业者直接有用，6 方辩论中实用价值评分 7.0/10",
+      "Phi Modulator 四维分类框架获得 5/6 辩论者认可，成熟度 90%，是论文最稳定的贡献",
+      "Phase 0 零算力修复已全部完成（BEM=-0.5 验证通过、SGD 统计重分析完成、AIS/CSI 文档更正）",
+      "Phase 1 Pilot 验证通过：VGG-16-BN 训练管线正常运行，指标计算正确",
+      "评分从 5.5→6.5 的提升路径清晰：当前 review 明确指出 VGG-16-BN + n=5 seeds → 7.0，加上 ImageNet pilot → 7.5-8.0",
+      "剩余实验均在已验证的基础设施上运行（同一代码库、同一 GPU 集群），技术风险极低"
+    ],
+
+    "pivot_not_warranted_reasons": [
+      "没有根本性理论缺陷：Phi 不变性是有意义的经验发现，而非伪相关或 artifact",
+      "SGD 对照实验成功证明了实验方法论的有效性（能检测到差异时确实检测到了），排除了系统性测量偏差",
+      "竞争文献（Wang & Aitchison 2024, D'Angelo 2024, Chen et al. 2026）虽有重叠，但本研究的系统性对比 + 可证伪性 + 评测框架提供了足够差异化",
+      "研究方向不存在'方向性错误'——即使 NoBN 或 rho sweep 结果不利好，也只需调整叙事而非推翻整个研究"
+    ]
+  },
+
+  "key_risks_acknowledged": [
+    {
+      "risk": "NoBN 消融实验可能揭示 Phi 不变性仅是 BN 的 scale-invariance 效应",
+      "probability": 0.30,
+      "impact": "严重——核心贡献从'AdamW 内在机制'降级为'BN+AdamW 交互效应'",
+      "mitigation": "NoBN 实验应作为 P0 最高优先级，结果出来前不做最终叙事决策",
+      "fallback": "即使 NoBN 不利好，'BN+AdamW 协同导致 WD 策略无关'仍是有价值的发现"
+    },
+    {
+      "risk": "n=3/n=5 统计功效不足，TOST 等价检验可能无法通过",
+      "probability": 0.40,
+      "impact": "高——审稿人可能视为'不可证的 null result'",
+      "mitigation": "核心对比增至 n=5（已在 Phase 2B 计划中），关键对比考虑 n=7-10",
+      "fallback": "报告 MDE + power analysis，坦诚讨论统计局限"
+    },
+    {
+      "risk": "18.3x SGD/AdamW 效应比统计不稳定（37% bootstrap 样本符号翻转）",
+      "probability": 0.50,
+      "impact": "中——需要降级为'描述性统计量'",
+      "mitigation": "Bootstrap BCa CI 验证；如 CI 包含零则不作为核心声明",
+      "fallback": "即使 18.3x 不可靠，SGD constant vs no_wd 的显著性（p=0.002, d=10.29）仍然稳健"
+    },
+    {
+      "risk": "matched-lambda SGD 控制实验（Codex 审查指出的关键遗漏）可能弱化优化器特异性归因",
+      "probability": 0.35,
+      "impact": "中高——SGD 效应可能部分归因于 lambda 值差异（SGD wd=5e-3 vs AdamW wd=5e-4）",
+      "mitigation": "将 matched-lambda SGD 控制加入实验计划（~6 GPU hours, 12 runs）",
+      "fallback": "论文中明确标注 SGD/AdamW 使用不同 lambda 是标准实践，并讨论其影响"
+    }
+  ],
+
+  "experiment_priorities": {
+    "P0_critical": [
+      {
+        "id": "P0-a",
+        "name": "ResNet-20-NoBN 消融",
+        "description": "ResNet-20 去掉 BatchNorm，CIFAR-10/100，7 methods x 3 seeds",
+        "runs": 42,
+        "gpu_hours": 2,
+        "rationale": "6/6 辩论者一致认定最高优先级，决定论文叙事路径"
+      },
+      {
+        "id": "P0-b",
+        "name": "rho regime sweep",
+        "description": "lambda = {1e-4, 5e-4, 1e-3, 5e-3}，AdamW，ResNet-20，7 methods x 3 seeds",
+        "runs": 84,
+        "gpu_hours": 4,
+        "rationale": "5/6 辩论者认为是论文价值的决定性实验，验证 rho=lambda/eta 理论"
+      },
+      {
+        "id": "P0-c",
+        "name": "CIFAR-100 SGD 缺失数据补充",
+        "description": "random_mask seed_456 + no_wd seeds 123/456",
+        "runs": 3,
+        "gpu_hours": 0.5,
+        "rationale": "数据完整性，当前 84-run 声称存在缺口"
+      }
+    ],
+    "P1_important": [
+      {
+        "id": "P1-a",
+        "name": "ResNet-20 额外种子（n=3→n=5）",
+        "description": "seeds 789/999，7 methods x 2 datasets x 2 seeds",
+        "runs": 28,
+        "gpu_hours": 3,
+        "rationale": "6/6 一致认为 n=3 统计功效严重不足，应优先于 VGG 全量"
+      },
+      {
+        "id": "P1-b",
+        "name": "VGG-16-BN 全量（AdamW）",
+        "description": "CIFAR-10/100，7 methods x 5 seeds x 200 epochs",
+        "runs": 70,
+        "gpu_hours": 10,
+        "rationale": "跨架构验证，当前 review 明确指出此实验可将评分提至 7.0"
+      },
+      {
+        "id": "P1-c",
+        "name": "matched-lambda SGD 控制",
+        "description": "SGD wd=5e-4（与 AdamW 相同），ResNet-20，4 methods x 3 seeds",
+        "runs": 12,
+        "gpu_hours": 2,
+        "rationale": "Codex 审查指出的最重要遗漏——解耦优化器效应与 lambda 效应"
+      }
+    ],
+    "P2_desirable": [
+      {
+        "id": "P2-a",
+        "name": "VGG-16-BN SGD 对照",
+        "runs": 24,
+        "gpu_hours": 4,
+        "rationale": "跨架构 + 跨优化器完整矩阵"
+      },
+      {
+        "id": "P2-b",
+        "name": "ImageNet ResNet-50 pilot",
+        "runs": 12,
+        "gpu_hours": 14,
+        "rationale": "规模验证，但时间成本高，视 P0/P1 结果和时间窗口决定"
+      }
+    ]
+  },
+
+  "adjustments_to_iter004_plan": [
+    {
+      "change": "新增 P0-a NoBN 消融实验",
+      "reason": "6 方辩论一致认定的最高优先级，原 iter_004 plan 未包含",
+      "impact": "新增 42 runs，约 2 GPU hours"
+    },
+    {
+      "change": "新增 P0-b rho regime sweep",
+      "reason": "验证核心理论框架，原 plan 未包含",
+      "impact": "新增 84 runs，约 4 GPU hours"
+    },
+    {
+      "change": "新增 P1-c matched-lambda SGD 控制",
+      "reason": "Codex 审查识别的关键遗漏，解耦 lambda 效应",
+      "impact": "新增 12 runs，约 2 GPU hours"
+    },
+    {
+      "change": "P1-a 种子增加优先级提升至与 VGG 全量并行或更高",
+      "reason": "n=3 统计功效是 6/6 一致认定的最高优先级问题，比跨架构验证更紧迫",
+      "impact": "调整 GPU 调度优先级，无额外 runs"
+    },
+    {
+      "change": "18.3x 效应比改为条件性报告",
+      "reason": "怀疑论者指出 37% bootstrap 样本符号翻转，Codex 确认此为'可能不存在的比值'",
+      "impact": "零计算成本，Bootstrap CI 完成后决定是否保留"
+    }
+  ],
+
+  "statistical_corrections_immediate": [
+    "SGD 统计：明确声明 Holm 校正后仅 CIFAR-10 constant vs no_wd 和 CIFAR-10 swd 两个对比显著（非所有 SGD 对比）",
+    "18.3x ratio：附 Bootstrap BCa 95% CI，重定义为'WD 存在性效应比'而非'动态调度效应比'",
+    "BEM 重算：从 iter_003 epoch_metrics.jsonl 重新计算所有方法的 BEM（已在 Phase 0 完成）",
+    "Post-hoc power analysis：报告 n=3 和 n=5 的 MDE"
+  ],
+
+  "narrative_guidance": {
+    "recommended_framing": "regime discovery（'何时需要调 WD 策略？'）而非 null result（'动态 WD 不工作'）",
+    "recommended_title": "When Does Dynamic Weight Decay Matter? Regime Boundaries Under Adaptive Optimization",
+    "phi_invariance_status": "Conjecture（非 Theorem），除非截稿前在简化设定下给出形式化证明",
+    "metrics_positioning": "BEM 作为描述性特征工具（正文），CSI/AIS 视 rho sweep 结果决定去留"
+  },
+
+  "decision_boundary_for_next_review": {
+    "proceed_to_writing": "P0-a (NoBN) + P0-b (rho sweep) 完成且至少一项利好",
+    "adjust_narrative": "P0 中仅一项利好——调整叙事但继续推进",
+    "consider_pivot": "P0-a 和 P0-b 双不利好——转向 Workshop/TMLR 定位或更根本方向调整",
+    "target_venue": "NeurIPS 2026 主会（P0+P1 完成后），备选 NeurIPS OPT Workshop 或 TMLR"
+  }
+}

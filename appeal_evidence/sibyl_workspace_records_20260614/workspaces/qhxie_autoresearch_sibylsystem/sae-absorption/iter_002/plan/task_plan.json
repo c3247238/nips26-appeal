@@ -1,0 +1,598 @@
+{
+  "tasks": [
+    {
+      "id": "task_B1_eda_decomposition",
+      "name": "B.1-REV: EDA Geometric Decomposition — Encoder vs. Decoder Alignment",
+      "description": "Decompose EDA = 1 - cos(encoder_j, decoder_j) to understand why letter features have high EDA. For GPT-2 Small L6: (1) compute cos(encoder_j, letter_probe) and cos(decoder_j, letter_probe) for each letter feature and each non-letter feature; (2) run paired t-test: does letter feature encoder align more with letter probe than its own decoder does? (3) visualize encoder vs. decoder projection onto letter probes. Separately compute the mean_encoder_norm and mean_decoder_norm per feature class. Run same analysis at L10 as comparison (EDA fails at L10 — what changes geometrically?). Seed 42. Use first-letter probes trained in C.1 (F1=0.820). Save per-feature encoder-probe cosine, decoder-probe cosine, EDA value, and feature class.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/results/full/B1_eda_decomposition.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small",
+          "path": "shared/checkpoints/gpt2-small"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Paired t-test p < 0.05: letter feature encoder aligns more with letter probe than decoder does. If not significant, the revised H1 model is also weakened — report explicitly."
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "cos(encoder_j, letter_probe) vs. cos(decoder_j, letter_probe) per feature at L6 and L10",
+          "x": "cos_decoder_probe",
+          "y": "cos_encoder_probe",
+          "paper_section": "experiments"
+        }
+      ],
+      "notes": "This task tests the REVISED H1 mechanism: encoder-decoder dissociation as the geometric fingerprint of absorption. Critical for the revised theory in F.1."
+    },
+    {
+      "id": "task_B1_pairwise_eda",
+      "name": "B.1-RAVEN: Pairwise EDA Against Exact Chanin Labels",
+      "description": "Load sae-spelling repository to obtain exact per-pair absorption labels for GPT-2 Small L6 (Chanin et al. n_pos >= 67 absorbed pairs). For each absorbed (parent, child) pair: (1) compute EDA_child = 1 - cos(encoder_c, decoder_c); (2) compute cos(encoder_c, decoder_p) — child encoder alignment with parent decoder; (3) compute cos(encoder_p, decoder_c) — parent encoder alignment with child decoder. Compare: absorbed vs. non-absorbed child features in terms of EDA and cross-directional cosines. Report AUROC, AUPRC, Cohen's d, Wilcoxon p for each metric. Null control: permute absorbed labels 100 times. Minimum n_pos >= 50 for AUROC computation; if exact labels unavailable, fall back to probe-alignment labels from pilot (n_pos=71). Seed 42.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_B1_eda_decomposition"
+      ],
+      "expected_output": "exp/results/full/B1_pairwise_eda.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small",
+          "path": "shared/checkpoints/gpt2-small"
+        },
+        {
+          "type": "dataset",
+          "name": "sae_spelling_labels",
+          "path": "shared/datasets/sae_spelling_labels"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "EDA AUROC >= 0.60 against exact Chanin labels. If < 0.60, investigate mismatch between proxy labels (pilot used, AUROC=0.681) and exact labels."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "EDA and cross-directional cosine metrics: absorbed vs. non-absorbed pairs",
+          "columns": [
+            "Metric",
+            "Absorbed mean",
+            "Non-absorbed mean",
+            "Cohen's d",
+            "Wilcoxon p",
+            "AUROC"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_B2_sparsity_analysis",
+      "name": "B.2: Sparsity-EDA Scaling Analysis (Reuse Pilot Data)",
+      "description": "Extend B2 pilot data with proper analysis. Data already collected: 11 GPT-2 Small configs (layers 2, 4, 6, 8, 10 at width 24576; layer 6 at widths 46080 AJT variants; layer 8 at widths 12288/49152/98304). New analysis tasks: (1) Separate primary jb suite (5 layers) from AJT variants and width-scaling variants. (2) For jb primary suite (5 points, LRT p=0.027): report sigmoid fit parameters, L0_c=81 with bootstrap CI. (3) For AJT variants: characterize why EDA_delta is negative (different normalization or training regime). (4) For width-scaling at L8: compute EDA_delta per width, test Spearman rho vs. log2(width). (5) Flag clearly: the LRT p=0.027 is borderline with only 5 points — interpret cautiously. Also attempt to measure TRUE sae-spelling absorption rate (not EDA) for at least 3 configs to use as ground truth for phase transition test.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/results/full/B2_sparsity_analysis.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 40,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "True sae-spelling absorption rate measured for at least 3 configs. Sigmoid vs. linear BIC comparison computed."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "EDA_delta vs. 1/L0: primary jb suite with sigmoid fit (LRT p=0.027), inflection at L0_c~81",
+          "x": "inv_L0",
+          "y": "eda_delta",
+          "paper_section": "experiments",
+          "figure_id": "fig_phase_transition"
+        }
+      ],
+      "notes": "No new experiment needed — reuse pilot B2 JSON data. Main work is statistical analysis and producing clean output JSON."
+    },
+    {
+      "id": "task_B3_cross_arch",
+      "name": "B.3: Cross-Architecture Comparison — Why AJT SAEs Show Inverse EDA",
+      "description": "Pilot B2 found that AJT SAEs (layer 6, width 46080) show NEGATIVE EDA delta: letter features have LOWER EDA than non-letter features. This is the opposite of jb SAEs. Investigate: (1) Load AJT SAE (res_sce-ajt, L0~34) and jb SAE (res-jb, L0~35 for comparison). (2) Compute EDA distributions for letter vs. non-letter in both. (3) Measure true sae-spelling absorption rate for both (100 tokens/letter minimum, seed 42). (4) Test: does AJT's training regime actually produce LESS absorption, or just a different EDA signature? (5) Check if AJT uses decoder normalization that changes the EDA computation. Report: absorption rate (true sae-spelling) per architecture, EDA distribution per architecture, hypothesis about mechanism. If absorption rates differ substantially, this is a positive finding supporting the EDA-absorption link.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/results/full/B3_cross_arch.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 35,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small",
+          "path": "shared/checkpoints/gpt2-small"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "True absorption rate measured for at least 2 architectures. Report regardless of direction."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate (sae-spelling) and EDA_delta by SAE architecture",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_C2_redesign",
+      "name": "C.2-REDESIGN: Cross-Domain Absorption via Child-Feature Suppression",
+      "description": "Redesign of Phase C.2 absorption measurement. Previous measurement (parent-latent-suppression) found absorption_rate=0.0 for all clean hierarchies. New measurement tracks CHILD-FEATURE SUPPRESSION: does a child-specific SAE feature fire less when the parent is strongly active? Protocol: (1) For each hierarchy (first_letter, noun_proper, animate_inanimate): identify top-3 parent latents per parent category (from C.1 empirical discovery). (2) For each parent category's tokens (concept tokens): find the child-specific SAE latent — the latent that fires most strongly and specifically for each individual concept token. Use differential activation vs. unrelated tokens. (3) For each (parent_latent, child_latent, concept_token) triple: compute P(child_active | parent_fired) and P(child_active | parent_not_fired). Parent_fired = top 25% percentile activation on concept token context. (4) Absorption rate = fraction of triples where child activation is suppressed by >= 30% when parent fires. (5) Null control: permute parent-child token assignments (100 permutations). Report ratio-to-null and 95% bootstrap CI (1000 resamples). Minimum 50 concept tokens per parent category. Bonferroni correction over number of hierarchies. Report AUPRC alongside AUROC. For first_letter hierarchy: also compare against true sae-spelling absorption labels as sanity check.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/results/full/C2_child_suppression_absorption.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        },
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small",
+          "path": "shared/checkpoints/gpt2-small"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Ratio-to-null >= 1.5 for first_letter hierarchy (sanity check against known sae-spelling absorption). If ratio < 1.0 for all hierarchies including first_letter, redesign has a bug — investigate before reporting."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate via child-suppression per hierarchy type, with shuffled-null baseline and 95% bootstrap CI",
+          "x": "hierarchy_type",
+          "y": "absorption_rate",
+          "paper_section": "experiments",
+          "figure_id": "fig_cross_domain"
+        }
+      ],
+      "notes": "CRITICAL REDESIGN. The previous C2 measurement tracked parent-latent-suppression (WRONG). This redesign implements child-feature-suppression — the correct operational definition from Chanin et al. If first_letter fails the sanity check, there is a pipeline bug."
+    },
+    {
+      "id": "task_C3_hierarchy_correlation",
+      "name": "C.3: Hierarchy Property Correlation with Absorption Rate",
+      "description": "For each hierarchy type with measured absorption rate from C.2-REDESIGN, compute: (a) mean EDA of top parent latents (higher EDA → higher absorption susceptibility per revised model); (b) mean parent latent activation frequency (freq_parent); (c) child-to-parent activation frequency ratio (freq_child / freq_parent). Test: Spearman correlation between each property and measured absorption rate. With n=3 data points, treat as directional evidence only — no statistical test. Plot scatter: EDA vs. absorption_rate per hierarchy. Report: does the hierarchy with the highest EDA parent latents also show the highest absorption rate? This validates EDA as a probe-free absorption predictor at the hierarchy level.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_C2_redesign"
+      ],
+      "expected_output": "exp/results/full/C3_hierarchy_correlation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Computable for all hierarchies passing C.2-REDESIGN. No hard threshold."
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Mean parent EDA vs. absorption rate per hierarchy type",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_D1_eda_validation",
+      "name": "D.1: EDA Validation Against Exact Chanin Labels",
+      "description": "Validate EDA = 1 - cos(encoder_j, decoder_j) against exact sae-spelling absorption labels for GPT-2 Small L6. Compute: AUROC, AUPRC, Precision@k (k=50, 100, 500), precision-recall curve. Compare against baselines: (a) random ranking (AUROC=0.5), (b) cos(encoder_j, decoder_j) alone, (c) feature activation frequency alone (hypothesis: absorbed features may have lower frequency), (d) decoder norm alone. Run null AUROC: permute absorption labels 100 times, compute null distribution. Report: EDA AUROC minus null mean in SD units. Target: EDA AUROC >= 0.65. Apply DeLong test for AUROC comparison between EDA and best baseline. Additionally: compare EDA measured on correct label format (absorbed letter-feature child vs. all other features) with the proxy approach from the pilot (EDA of letter-probe-aligned features). This confirms whether the pilot AUROC=0.681 was measuring the right thing.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_B1_pairwise_eda"
+      ],
+      "expected_output": "exp/results/full/D1_eda_validation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "sae_spelling_labels",
+          "path": "shared/datasets/sae_spelling_labels"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "EDA AUROC >= 0.60 on exact Chanin labels. AUPRC > 3x base rate. If AUROC < 0.55, investigate discrepancy with pilot result (AUROC=0.681)."
+      },
+      "visualizations": [
+        {
+          "type": "pr_curve",
+          "description": "Precision-recall curves: EDA vs. baselines (cos_enc_dec, frequency, random) against exact Chanin labels",
+          "paper_section": "experiments",
+          "figure_id": "fig_EDA_pr_curve"
+        },
+        {
+          "type": "table",
+          "description": "Table 1: AUROC and AUPRC for EDA and baselines across SAE configs",
+          "columns": [
+            "Detector",
+            "GPT-2 L6 (jb)",
+            "GPT-2 L6 (ajt)",
+            "GPT-2 L10 (jb)",
+            "Shuffled Null"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_D2_eda_variants",
+      "name": "D.2: EDA Refined Variants",
+      "description": "Test three refined EDA formulations against the base EDA on exact Chanin labels (GPT-2 Small L6): (1) EDA-norm = (1 - cos(enc_j, dec_j)) * ||enc_j|| / ||dec_j|| — weights by relative norms; (2) EDA-parent-aware = cos(enc_j, dec_parent) — how aligned is the child encoder with the parent decoder? (requires known parent from C.1 parent latent discovery); (3) EDA-activation-weighted = EDA * mean_activation_j — emphasizes features that are both misaligned and active. For each: compute AUROC, AUPRC, DeLong test vs. base EDA. Select best variant for D.3. Report: does any variant substantially outperform base EDA? If EDA-parent-aware outperforms, this supports the revised theory that absorption is defined by parent-encoder alignment.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_D1_eda_validation"
+      ],
+      "expected_output": "exp/results/full/D2_eda_variants.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 variants computable. Report AUROCs regardless of improvement over base."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "AUROC comparison: base EDA vs. refined variants",
+          "paper_section": "supplementary"
+        }
+      ]
+    },
+    {
+      "id": "task_D3_eda_cross_domain",
+      "name": "D.3: EDA Cross-Domain Predictive Validity",
+      "description": "For each hierarchy where absorption rate is measured in C.2-REDESIGN, compute the mean EDA of empirically discovered parent latents (from C.1). Compute Spearman rho between mean parent EDA and absorption rate across hierarchy types. With n=3 data points, report as directional evidence only — rank ordering of hierarchies by mean_EDA vs. rank by absorption_rate. If rank order is positively correlated (Spearman rho > 0), this supports using EDA as a probe-free predictor at hierarchy-level. Also compute: for each hierarchy, what is the mean EDA of its top-10 parent latents vs. random latents? The gap should predict absorption rate. Plot scatter: mean_parent_EDA vs. absorption_rate per hierarchy type.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_D2_eda_variants",
+        "task_C2_redesign"
+      ],
+      "expected_output": "exp/results/full/D3_eda_cross_domain.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Computable for all hierarchies with non-zero absorption rate from C.2. No hard threshold."
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Mean parent EDA vs. absorption rate per hierarchy type (labeled)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_E1_phase_transition",
+      "name": "E.1: Within-Layer Sparsity Sweep for Phase Transition",
+      "description": "Extend B2 sparsity analysis with correct measurement of TRUE sae-spelling absorption rate (not EDA). For the jb primary suite (layers 2, 4, 6, 8, 10 with width 24576), measure true absorption rate per layer: count fraction of first-letter features with absorption rate > 20% (Chanin operational threshold). Minimum 100 tokens per letter per SAE. Fit sigmoid vs. linear to absorption_rate vs. 1/L0 (5 data points from jb suite). Report BIC comparison and LRT test. For AJT L6 variants (3 L0 values: ~34, ~46, ~81 at width 46080), run same true absorption measurement. Test whether AJT shows different phase transition profile than jb. Identify inflection point L0_c with bootstrap CI (1000 resamples). If fewer than 4 L0 variants show non-trivial absorption rates, report phase transition as underpowered. Note: cross-layer comparison conflates absorption with representation maturity; this is an acknowledged limitation.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_B2_sparsity_analysis"
+      ],
+      "expected_output": "exp/results/full/E1_phase_transition.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "True absorption rate measured for at least 4 SAE configs. Non-trivial rate (> 5%) in at least 2 configs. If all absorption_rate < 5%, report as 'absorption not detected at this scale.'"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "True absorption rate vs. 1/L0 with sigmoid and linear fits, BIC comparison",
+          "x": "inv_L0",
+          "y": "true_absorption_rate",
+          "paper_section": "experiments",
+          "figure_id": "fig_phase_transition_true"
+        }
+      ]
+    },
+    {
+      "id": "task_E2_hysteresis",
+      "name": "E.2: Hysteresis Test — Sparsity Reduction Reversibility",
+      "description": "Load GPT-2 Small L2 SAE (jb release, L0~18.5 — lowest L0 in available suite) as the high-sparsity starting point. Measure baseline absorption rate on first-letter task (100 tokens/letter, seed 42). Fine-tune for 500 steps with reduced sparsity (20% of original L1 coefficient, lr=1e-5, batch_size_tokens=4096, seed 42). Checkpoint every 100 steps. Measure absorption rate at each checkpoint. Compare to: (a) pre-trained L4 SAE at L0~34 (the 'scratch' lower-sparsity reference), (b) original high-sparsity L2 SAE. Hysteresis confirmed if: fine-tuned rate at 500 steps >= 70% of L2 original AND L4 scratch rate <= 30% of L2 rate. Also monitor CE delta at each checkpoint. Skip gracefully if SAELens does not support fine-tuning API — report H4b as untested. Time budget: 60 minutes hard cap. If fine-tuning setup takes > 30 min to debug, skip and proceed.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_E1_phase_transition"
+      ],
+      "expected_output": "exp/results/full/E2_hysteresis.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small",
+          "path": "shared/checkpoints/gpt2-small"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Fine-tuning runs without OOM. 100-step checkpoint measurable. If OOM, reduce batch_size to 2048."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate vs. fine-tuning steps vs. scratch baseline at lower L0",
+          "x": "training_steps",
+          "y": "absorption_rate",
+          "paper_section": "experiments",
+          "figure_id": "fig_hysteresis"
+        }
+      ],
+      "notes": "Only training experiment in pipeline. 60-minute hard cap. Skip if SAELens fine-tuning unavailable."
+    },
+    {
+      "id": "task_E3_width_analysis",
+      "name": "E.3: Width-EDA Analysis at Fixed L0",
+      "description": "Reuse B2 pilot data for width-scaling analysis. Feature-splitting suite at layer 8 (widths 12288, 49152, 98304, all at L0~50) provides controlled width variation at nearly matched L0. (1) Compute EDA_delta (letter vs. non-letter) for each width configuration. (2) Spearman rho vs. log2(width). (3) Also measure true absorption rate per width (100 tokens/letter, seed 42). (4) Test theory prediction: wider SAEs have more capacity for feature specialization, so absorbed letter features should show greater EDA. (5) Compare mean EDA of letter features vs. non-letter features at each width. Report effect size and direction. If no monotonic trend in EDA_delta by width, report as null. Also check: does wider SAE distribute letter feature encoding across more latents (more polysemanticity)?",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_B2_sparsity_analysis"
+      ],
+      "expected_output": "exp/results/full/E3_width_analysis.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "EDA_delta and true absorption rate computed for all 4 width configs. Report regardless of trend direction."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "EDA_delta and absorption_rate vs. log2(SAE width) at matched L0~50",
+          "x": "log2_width",
+          "y": "eda_delta",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_F1_theory_revised",
+      "name": "F.1: Revised Theory — EDA as Geometric Fingerprint of Absorption",
+      "description": "Write the revised formal theory document. The pilot evidence fundamentally changed the geometric prediction: absorbed features have HIGH EDA (encoder-decoder misalignment), not high decoder-decoder cosine as originally predicted. The theory must be revised accordingly. Document must contain: (1) Formal statement: absorption of child feature c into parent feature p produces an encoder-decoder dissociation in c, measurable as EDA_c = 1 - cos(enc_c, dec_c). (2) Algebraic derivation: starting from the SDL loss stationarity conditions, derive why gradient flow during training pulls enc_c toward dec_p (parent decoder direction) while dec_c remains anchored. (3) Revised RD threshold: state what lambda > sin^2(theta) now refers to in the encoder-decoder geometry. (4) Absorption impossibility theorem: restate h* in terms of EDA rather than decoder-decoder cosine. (5) Account for why L10 EDA fails: propose testable hypothesis (e.g., late-layer SAEs may undergo encoder-decoder realignment after absorption is already complete). (6) Analyze architectural mitigations through the EDA lens: Matryoshka reduces EDA by providing dedicated encoder slots; OrtSAE increases decoder angles, reducing the pull on encoders. NOTE: If the algebraic derivation cannot be completed rigorously, demote to 'Proposition 1 (Mechanistic Conjecture)' and label it explicitly. Do NOT present informal arguments as formal proofs.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/results/full/F1_theory_revised.md",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "The derivation reaches a conclusion without circular arguments. Label explicitly if any step is a heuristic. Also generate Figure 1 as a PDF (matplotlib or similar): method diagram showing encoder-decoder dissociation geometry."
+      },
+      "visualizations": [
+        {
+          "type": "diagram",
+          "description": "Figure 1 (PDF): Method diagram showing encoder-decoder dissociation. Vector diagram of enc_c being pulled toward dec_p while dec_c remains specialized. Include the EDA formula and the threshold formula.",
+          "format": "PDF",
+          "paper_section": "method",
+          "figure_id": "fig1_method",
+          "notes": "MUST be generated as PDF or PNG. Text descriptor is NOT acceptable."
+        }
+      ]
+    },
+    {
+      "id": "task_F2_mitigation",
+      "name": "F.2: Architectural Mitigation Verification (if available)",
+      "description": "If Matryoshka or OrtSAE SAEs are available via SAEBench or HuggingFace for GPT-2 Small or Gemma 2B: load both architectures, compute EDA distributions for letter features (absorbed) vs. non-letter. Test: Matryoshka reduces EDA by providing dedicated encoder slots. Measure true absorption rate (sae-spelling) for both. Report: EDA distribution comparison (violin plots), absorption rate comparison, Wilcoxon test. If no alternative architecture available: (a) Provide theoretical analysis only in F.1; (b) Note 'empirical verification not available' in methods. SKIP GRACEFULLY if unavailable.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_B1_pairwise_eda"
+      ],
+      "expected_output": "exp/results/full/F2_mitigation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Either architecture loaded, OR graceful skip with clear note in methods."
+      },
+      "visualizations": [
+        {
+          "type": "violin_plot",
+          "description": "EDA distribution: TopK vs. Matryoshka (if available)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_STAT_audit",
+      "name": "Pre-Writing Statistical Audit",
+      "description": "Before any writing agent launches, run a mandatory audit of all results. For each quantitative claim that will appear in the paper: (1) identify the source JSON file; (2) verify the number matches by re-computing from raw data; (3) flag any discrepancy. Specifically verify: all AUROC/AUPRC values, all absorption rate percentages, all n_pos counts, all p-values, all effect sizes (Cohen's d, rank-biserial r). Also check: (a) the revised theory proof in F.1 does not contain circular arguments; (b) Figure 1 exists as a PDF; (c) all table cells traceable to source JSON. Special checks for lessons from prior iterations: (1) EDA AUROC values are from correct layer (L6 confirmed, L10 failure acknowledged); (2) absorption_rate=0.0 from pilot C2 (parent-latent-suppression) is explicitly distinguished from C2-REDESIGN (child-feature-suppression) results; (3) AUPRC is reported alongside AUROC for all imbalanced tasks; (4) No claim about cross-domain absorption without confirmed ratio-to-null >= 2.0. Output: audit_report.json with per-claim status: verified / discrepancy / untested. Block writing if any Table 1 cell is unverified.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "task_B1_pairwise_eda",
+        "task_B2_sparsity_analysis",
+        "task_C2_redesign",
+        "task_D1_eda_validation",
+        "task_E1_phase_transition",
+        "task_F1_theory_revised"
+      ],
+      "expected_output": "exp/results/full/audit_report.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Zero unresolved discrepancies for Table 1 cells. All AUPRC values present. Figure 1 PDF exists."
+      },
+      "visualizations": []
+    }
+  ],
+  "execution_order": {
+    "parallel_tracks": [
+      {
+        "track": "Theory",
+        "tasks": [
+          "task_F1_theory_revised"
+        ],
+        "note": "No GPU required, can run concurrently with all other tracks"
+      },
+      {
+        "track": "EDA_Geometry",
+        "tasks": [
+          "task_B1_eda_decomposition",
+          "task_B1_pairwise_eda",
+          "task_D1_eda_validation",
+          "task_D2_eda_variants"
+        ]
+      },
+      {
+        "track": "Sparsity_Dynamics",
+        "tasks": [
+          "task_B2_sparsity_analysis",
+          "task_B3_cross_arch",
+          "task_E1_phase_transition",
+          "task_E2_hysteresis",
+          "task_E3_width_analysis"
+        ],
+        "note": "B2 and B3 are independent; E1 depends on B2; E2 depends on E1"
+      },
+      {
+        "track": "Cross_Domain",
+        "tasks": [
+          "task_C2_redesign",
+          "task_C3_hierarchy_correlation"
+        ],
+        "note": "C.2 can start immediately; C1 probe data already available"
+      },
+      {
+        "track": "EDA_Cross_Domain",
+        "tasks": [
+          "task_D3_eda_cross_domain"
+        ],
+        "note": "Requires D2 and C2 to complete first"
+      },
+      {
+        "track": "Mitigation",
+        "tasks": [
+          "task_F2_mitigation"
+        ],
+        "note": "Parallel with everything; skip gracefully if no alternative SAE available"
+      }
+    ],
+    "sequential_gates": [
+      "task_B1_eda_decomposition MUST complete before task_B1_pairwise_eda (reuse EDA computation setup)",
+      "task_B1_pairwise_eda MUST complete before task_D1_eda_validation (provides exact label loading pipeline)",
+      "task_D1_eda_validation MUST complete before task_D2_eda_variants",
+      "task_D2_eda_variants AND task_C2_redesign MUST complete before task_D3_eda_cross_domain",
+      "task_B2_sparsity_analysis MUST complete before task_E1_phase_transition",
+      "task_E1_phase_transition MUST complete before task_E2_hysteresis",
+      "task_STAT_audit MUST complete before any writing agent launches"
+    ]
+  },
+  "key_pilot_findings_incorporated": {
+    "EDA_validated": "EDA = 1 - cos(encoder_j, decoder_j) achieves AUROC=0.681 at GPT-2 L6 (Cohen's d=+0.70). PRIMARY detection metric.",
+    "ASI_failed": "ASI formulation (cos^2 × freq_ratio) FAILED (AUROC=0.476). Dropped as primary metric.",
+    "RD_threshold_failed": "RD threshold (lambda > sin^2(theta)) with lambda=1/L0 FAILED (AUROC=0.410). Lambda too small.",
+    "cos2_inverse_direction": "cos^2(theta) separation is significant but INVERSE to H1 prediction: letter features have LOWER decoder cosine with parents.",
+    "C2_parent_suppression_failed": "Parent-latent-suppression measurement: absorption_rate=0.0 for all clean hierarchies. Parent latents DO fire. Redesign required.",
+    "sigmoid_directional": "Sigmoid fit to primary EDA-vs-1/L0 (5 configs): LRT p=0.027, L0_c~81. Directional support for H4a.",
+    "EDA_layer_specific": "EDA works at L6 (AUROC=0.681) but fails at L10 (AUROC=0.337). Layer-specific metric.",
+    "AJT_inverse_EDA": "AJT SAEs at L6 show NEGATIVE EDA delta. Different training regime changes encoder-decoder geometry.",
+    "4_probes_pass": "4 hierarchy probes pass F1 gate: first_letter (0.820), noun_proper (0.987), animate_inanimate (1.0). city_country_binary excluded (failed shuffle gate)."
+  },
+  "no_go_branches_pruned": [
+    "ASI = cos^2(theta_{p,c}) x (freq_p/freq_c): frequency ratio unstable at low base rates. PRUNED.",
+    "RD threshold classifier (lambda > sin^2(theta)) with empirical lambda=1/L0: lambda too small. PRUNED.",
+    "cos^2(decoder_c, decoder_p) as absorption predictor: inverse direction found. Reframed as supporting revised theory.",
+    "Parent-latent-suppression cross-domain measurement: PRUNED. Replaced by child-feature-suppression.",
+    "Cross-model probe projection: already excluded from iter_001."
+  ],
+  "total_estimated_gpu_hours": 7.5,
+  "critical_dependencies": {
+    "sae_spelling_exact_labels": "Required for task_B1_pairwise_eda and task_D1. If unavailable from sae-spelling repo, fall back to probe-alignment labels from pilot (n_pos=71).",
+    "gpt2_small_saelens_suite": "11 configs already confirmed available. Primary data source.",
+    "openwebtext_sample": "Required for true absorption rate measurement (100 tokens per letter). 10k tokens needed.",
+    "ravel_dataset": "Available as hij/ravel on HuggingFace. Used for city_country hierarchy (excluded from C2 due to shuffle gate fail; may retry with stricter exclusion of overlapping tokens)."
+  },
+  "fallback_plan": {
+    "if_exact_chanin_labels_unavailable": "Use proxy labels from pilot (n_pos=71, probe-alignment method). Acknowledge limitation in methods.",
+    "if_C2_redesign_also_finds_zero_absorption": "Scope cross-domain result explicitly: 'Absorption in GPT-2 Small SAEs is primarily a first-letter/orthographic phenomenon; semantic hierarchies show different encoder-decoder geometry but no measurable child suppression.' This is a valid, publishable finding.",
+    "if_hysteresis_training_fails": "Skip E.2. Report H4b as untested. Retain H4a (phase transition) from E.1.",
+    "if_no_alternative_architecture": "Skip F.2 empirical. Provide theoretical analysis of mitigations in F.1 only.",
+    "if_EDA_AUROC_drops_below_0.55_on_exact_labels": "Investigate discrepancy with proxy-label result. If pipeline error, fix and rerun. If genuine discrepancy, report both and investigate label definition mismatch."
+  }
+}

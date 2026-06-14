@@ -1,0 +1,51 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "H4 conclusion 'absorption does not predict circuit-level causal importance' is unsupported: The experiment compared 10% latent subsets (low vs high absorption) at layer 8, but BOTH subsets yielded 0.0 faithfulness due to zeroing 90% of latents. The correct experiment — compare FULL SAE at layer 4 (49.3% absorption) vs layer 8 (0.19% absorption) — was never conducted. Cross-validated from h4_pilot.json and pilot_summary.json.",
+    "suggestion": "Remove or reframe the H4 causal conclusion. Run the correctly designed experiment (layer 4 vs layer 8 full SAE on France/Paris circuit) or explicitly frame this as future work. Current data only supports 'subset patching destroys signal', not 'absorption level predicts importance'."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "8 perfect-score latents likely represent positional artifacts: Each latent with Af=1.0 fires on exactly 100 tokens — precisely the number of sequences in the pilot. Verified in h5_pilot_output.log: 'Top 5 most absorbed latents (dict=24576): 1. Subsampled idx 6955: score=1.0000, activations=100'. The paper acknowledges 'suspicious uniformity' but does not investigate. Always-on features (>90% of tokens) are excluded; these 8 latents may warrant the same treatment.",
+    "suggestion": "Compute token position consistency across sequences for each perfect-score latent. If confirmed as positional artifacts, exclude from primary analysis and report in Appendix. This directly affects the validity of the Af>0.5 threshold."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "H2 remains untested despite adequate power at layer 4: The paper cites insufficient absorption variance at layer 8 (46/24,576 latents with Af>0.5) as reason for early termination, but layer 4 has 49.3% absorption (~12,000 latents) — 260x more data. The early termination rationale is self-defeating: layer 4 was never tested despite having more than adequate statistical power. Cross-validated from h3_pilot.json layer_results.",
+    "suggestion": "Run H2 analysis on layer 4 where absorption prevalence is highest. Alternatively, use continuous absorption measure (mean RVE across all activating tokens) rather than binary threshold to increase sensitivity."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Only pilot experiments (n=100) reported, not full-scale (n=1024): Methodology (Section 3.1) specifies 1,024-sequence full experiments but all results use only 100 sequences. The 10x scale gap is material for rare phenomenon characterization. Cross-validated from pilot_summary.json and writing/outline.md.",
+    "suggestion": "Either run full-scale experiments (n=1024) or explicitly scope the paper as a pilot study with commitment to full-scale replication. Do not present pilot results as if they are full-scale findings."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "H1 hypothesis is internally inconsistent: The hypothesis predicts >20% prevalence 'at layers 4-10' but only layer 8 is falsified (0.19%). Layer 4 shows 49.3% which does NOT falsify the hypothesis. The falsification criterion '<10% prevalence across layers 4-10' cannot be evaluated because layer 4 results contradict rather than support the hypothesis. Cross-validated from h3_pilot.json layer_results.",
+    "suggestion": "Restate H1 precisely: specify layer 8 as the primary test layer, or redefine to predict layer-specific absorption rates. Current presentation claims 'H1 falsified' but layer 4 results contradict this conclusion."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "No seed ablation reported: H1 layer discrepancy (layer 4: 49.3% vs layer 8: 0.19%) could be a seed artifact. All experiments use seed=42 with no confirmation across seeds. This is critical for the H1 internal consistency issue.",
+    "suggestion": "Run key experiments (H1 layer comparison, H3 inverted-U) with 2-3 seeds before finalizing. The dramatic layer difference needs verification."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "minor",
+    "description": "H5 '10-fold reduction' framing overstates practical significance: 2K=2.25% vs 24K=0.19% is directionally correct but 97.75% vs 99.81% non-absorbed. The paper acknowledges this but relative framing persists in Abstract and Section 5.4.",
+    "suggestion": "Lead with absolute numbers: '97.75% non-absorbed at 2K vs 99.81% at 24K' to avoid overstating the practical significance of a 2 percentage point difference."
+  }
+]

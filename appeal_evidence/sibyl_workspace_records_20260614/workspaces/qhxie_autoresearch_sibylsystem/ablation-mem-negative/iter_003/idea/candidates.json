@@ -1,0 +1,110 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Negative Result: Co-occurrence Clustering Cannot Detect Feature Absorption",
+      "status": "front_runner",
+      "summary": "Empirically falsify UAD co-occurrence clustering for absorption detection (F1=0.0005), identify token-level mutual exclusivity as root cause, validate collision rate proxy (r=0.87), and propose decoder weight similarity as alternative.",
+      "hypotheses": [
+        "H1: Co-occurrence clustering achieves F1 <= 0.01 for absorption detection",
+        "H2: Token-level mutual exclusivity is the root cause of failure",
+        "H3: Collision rate correlates with absorption rate at r >= 0.5"
+      ],
+      "pilot_focus": "N/A - all experiments complete",
+      "evidence_from_prior_iterations": {
+        "uad_f1": 0.00048,
+        "uad_precision": 0.00024,
+        "uad_recall": 0.1429,
+        "same_cluster_random_f1": 0.00048,
+        "collision_rate_spearman_r": 0.869,
+        "collision_rate_n_pairs": 56,
+        "collision_rate_ci_95": "[0.780, 0.938]",
+        "root_cause": "token_level_mutual_exclusivity"
+      },
+      "key_risks": [
+        "Single SAE (gpt2-small-res-jb layer 8) may limit generalizability claims",
+        "Only 7 ground truth absorption pairs - statistical power is limited",
+        "Negative result papers may face publication bias",
+        "Collision rate is still a proxy, not ground truth"
+      ],
+      "novelty_claim": "First systematic empirical falsification of co-occurrence clustering for SAE absorption detection; first validation of collision rate proxy at scale (56 pairs); identification of token-level mutual exclusivity as structural barrier"
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Decoder Weight Similarity for Absorption Detection",
+      "status": "backup",
+      "summary": "Replace co-occurrence with decoder weight cosine similarity. Features absorbing the same parent concept should have geometrically similar decoder directions.",
+      "hypotheses": [
+        "Absorption pairs have higher decoder weight cosine similarity than random pairs",
+        "Decoder similarity correlates with collision rate (r > 0.5)",
+        "Decoder similarity achieves F1 > 0.5 for absorption detection"
+      ],
+      "pilot_focus": "Compute decoder cosine similarity for 100 feature pairs (including 7 known absorption pairs), compare to ground truth",
+      "evidence_from_prior_iterations": {
+        "theoretical_support": "theoretical perspective's formal proposition on decoder geometry",
+        "uad_failure_mode": "co-occurrence fails due to token-level mutual exclusivity; decoder weights bypass this issue"
+      },
+      "key_risks": [
+        "Decoder weights may not encode absorption if features are non-orthogonal",
+        "May still have high false positive rate",
+        "Requires ground truth for validation"
+      ],
+      "novelty_claim": "First use of decoder weight similarity for unsupervised absorption detection",
+      "pilot_trigger": "If current negative result paper is well-received, pursue as follow-up"
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Collision Rate as Standalone SAE Quality Metric",
+      "status": "backup",
+      "summary": "Pivot to collision rate as a validated, training-free proxy for absorption rate. Expand validation across hierarchy types, models, and SAE architectures.",
+      "hypotheses": [
+        "Collision rate correlates with absorption rate across 5+ hierarchy types",
+        "Collision rate is stable across SAE architectures (JumpReLU, TopK, Gated)",
+        "Collision rate thresholds can classify SAEs by absorption susceptibility"
+      ],
+      "pilot_focus": "Validate on 2-3 additional hierarchy types (colors, animals)",
+      "evidence_from_prior_iterations": {
+        "collision_rate_r": 0.869,
+        "validated_hierarchies": ["numbers", "punctuation"],
+        "control_hierarchy": "case (no absorption, collision rate near zero)"
+      },
+      "key_risks": [
+        "May be seen as too simple by reviewers",
+        "Correlation may not hold for semantic hierarchies",
+        "Limited to concepts with clear token-level representations"
+      ],
+      "novelty_claim": "First systematic validation of a training-free absorption proxy metric at scale",
+      "pivot_trigger": "If decoder weight similarity (cand_b) also fails"
+    },
+    {
+      "candidate_id": "cand_d",
+      "title": "Causal Intervention for Absorption Detection",
+      "status": "backup",
+      "summary": "Use activation patching/ablation to causally establish absorption. Ablating child features should cause parent feature recovery.",
+      "hypotheses": [
+        "Ablating absorbed child features increases parent feature activation",
+        "Causal intervention achieves higher precision than correlation-based methods",
+        "Intervention effect size correlates with collision rate"
+      ],
+      "pilot_focus": "Test 10 known absorption pairs + 10 random pairs with activation patching",
+      "evidence_from_prior_iterations": {
+        "contrarian_concern": "correlation vs causation",
+        "empiricist_methodology": "causal intervention is gold standard"
+      },
+      "key_risks": [
+        "Computationally expensive",
+        "Requires careful causal graph construction",
+        "May be confounded by reconstruction effects"
+      ],
+      "novelty_claim": "First causal validation of absorption relationships in pretrained SAEs",
+      "pivot_trigger": "If decoder weight similarity shows promise but needs causal validation"
+    }
+  ],
+  "front_runner": "cand_a",
+  "pivot_criteria": {
+    "if_negative_result_rejected": "Pivot to cand_c (collision rate standalone) for a more positive framing",
+    "if_decoder_pilot_succeeds": "Promote cand_b to front_runner for next iteration",
+    "if_decoder_pilot_fails": "Try cand_d (causal intervention), then cand_c"
+  },
+  "synthesis_notes": "Iteration 3 experiments definitively falsified UAD (F1=0.0005) and confirmed collision rate proxy (r=0.87). The root cause is token-level mutual exclusivity of absorption features. The front-runner is a negative result paper with constructive forward look. Backup alternatives are ordered by feasibility and novelty: decoder weight similarity (highest potential), causal intervention (highest rigor), collision rate standalone (safest)."
+}

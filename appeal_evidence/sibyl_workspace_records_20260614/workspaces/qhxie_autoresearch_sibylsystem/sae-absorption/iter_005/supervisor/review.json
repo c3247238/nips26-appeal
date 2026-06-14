@@ -1,0 +1,121 @@
+{
+  "score": 6.0,
+  "verdict": "revise",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 5,
+    "experiments": 6,
+    "reproducibility": 5
+  },
+  "summary": "The paper attempts three contributions: confound resolution for the absorption-quality link, cross-domain absorption measurement, and a scaling surface analysis. Contribution 1 (confound resolution, 48 SAEs) applies epidemiological causal methods to SAE evaluation for the first time -- a genuine methodological novelty -- and the suppression effect for sparse probing (partial r strengthening from -0.664 to -0.746) is a striking finding. Contribution 3 (scaling surface, 420 SAEs, interaction p=3.1e-15) is statistically powerful and actionable. However, the paper has critical soundness problems: (a) it claims 'causal mediation' from cross-sectional observational data while its own within-width matching shows Gamma=1.0 for all metrics, meaning the causal evidence vanishes when width is held constant; (b) Table 3 mixes standardized and unstandardized coefficients, and the abstract uses a different coefficient than the table for the same quantity; (c) the summary JSON pipeline has a confirmed data integrity failure where the taxonomy correction rate is reported as 92.3% (delta=0.0) when the source data shows 19.2% (delta=-73.1 pp) -- though the paper body correctly reports 19.2%; (d) H2 (cross-domain) is a clean falsification misclassified as 'partially supported'; (e) Phase 2 was conducted on GPT-2 Small with 98% dead SAE features, a setting incapable of testing the hypothesis. The GAM does not include architecture as a covariate despite 360 L1 vs 54 JumpReLU SAEs spanning different width/L0 ranges. Multiple comparison correction is absent across 50+ tests on n=48. The core statistical findings (H1 suppression, H3 interaction) are likely robust, but the causal overclaiming, coefficient confusion, and missing controls require a substantial revision pass before the paper reaches NeurIPS borderline-accept quality.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Causal overclaiming from observational cross-sectional data. The paper repeatedly uses 'causally mediates' (Section 5.1), 'causal chain' (contribution 1 throughout), and 'causal status of absorption' (Section 5.1 heading) based on Baron-Kenny mediation from 48 cross-sectional observations. Baron-Kenny mediation does not establish causation -- it tests consistency with a mediation model. Critically, the paper's own within-width matching analysis (Table 4) shows Gamma=1.0 for ALL metrics under exact-width matching (4 pairs), within-width median (23 pairs), and tertile matching (16 pairs). The causal evidence disappears completely when width is controlled by design rather than statistically. This within-width null is buried in a subsection of Discussion (5.1) rather than foregrounded in Results. An alternative common-cause explanation (SAE feature quality drives both low absorption and high downstream quality) is consistent with all data and cannot be distinguished from mediation in cross-sectional designs.",
+      "suggestion": "Replace 'causally mediates' with 'statistically mediates' or 'is consistent with a causal mediation model' throughout. Change Section 5.1 heading to 'The Statistical Case for Absorption as a Quality Predictor.' Move the within-width matching null from the end of Section 5.1 to a prominent position in Section 4.1 Results, immediately after Table 4. Add a paragraph in Section 5.4 explicitly naming 'feature quality' as an alternative common-cause explanation. State that an interventional study (OrtSAE, Matryoshka) is required to establish causation."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Table 3 mixes standardized and unstandardized coefficients without consistent labeling. Paths a and b are labeled '(std)' and match the standardized values in P1_mediation.json (path_a_std=-0.469, path_b_std=-0.727 for SP-F1; path_a_std=-0.543, path_b_std=-0.457 for SCR). However, c' for SCR is reported as -0.029 in the table (matching the standardized value -0.0291) while the abstract and Section 5.1 report c'=-0.003 (matching the unstandardized value -0.00290). The indirect effect ab=0.025 in the table matches the unstandardized value (0.02469) not the standardized (0.2478). The Sobel z values are coefficient-type-invariant and consistent (3.62 for SCR, 4.08 for SP-F1, 2.08 for TPP). This coefficient confusion is unpublishable and would be immediately flagged by any reviewer who checks the algebra.",
+      "suggestion": "Choose one coefficient type for the entire table. Recommended: use UNSTANDARDIZED coefficients in Table 3 with a clear footnote, and provide standardized coefficients in a supplementary table. Update the abstract to use the same coefficient type. Verify that ab = a*b and c-c' = ab holds numerically for the chosen type."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H2 (cross-domain absorption) is classified as 'PARTIALLY_SUPPORTED' in the abstract, final_results.json, and final_results_summary.md. By the paper's own pre-registered falsification criterion ('H2 falsified if: No RAVEL hierarchy shows absorption exceeding 3x the shuffled-hierarchy baseline after the probe quality gate'), H2 is falsified: the shuffled baseline is 100%, so no real hierarchy can exceed 3x that value. The dominance-based metric produces absorption_rate = false_negative_rate at tau_dom=1.0 (confirmed by Table 5 where R_abs equals FN Rate in every row). The cosine-calibrated metric detects 0% across all thresholds. This is a clean negative result that the paper correctly describes in Section 4.2 but incorrectly classifies in metadata and summary framing.",
+      "suggestion": "Reclassify H2 as 'FALSIFIED (metric invalid on GPT-2 Small)' in all summary documents. Reframe the contribution as: 'We attempted to measure absorption on knowledge hierarchies and discovered that the standard dominance metric is invalid on GPT-2 Small with 98% dead features -- it reduces to the false-negative rate and cannot distinguish real from shuffled hierarchies.' This is a legitimate methodological finding but must not be framed as evidence about cross-domain absorption."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Phase 2 was conducted on GPT-2 Small (124M) with a 24k-feature SAE having 98% dead features on city prompts, rather than the originally planned Gemma 2 2B with Gemma Scope SAEs (16k-1M features). This model-SAE combination is categorically incapable of testing whether absorption occurs on knowledge hierarchies: with ~319-500 live features across all layers for 3,552 cities with 5 attribute types, there is no dictionary capacity for dedicated knowledge features. The 0% cosine-calibrated rate is an inevitable consequence of the model choice, not evidence about absorption. The paper acknowledges this in Section 5.4 but the abstract and Contribution 2 framing still suggest the experiment informs the cross-domain absorption question.",
+      "suggestion": "Add a boxed warning in Section 4.2 stating: 'Caution: This experiment was conducted on GPT-2 Small due to Gemma 2B access restrictions. The results characterize metric behavior on a model with insufficient SAE capacity for knowledge features, not whether cross-domain absorption exists in adequately-sized SAEs.' Strengthen the Conclusion to explicitly state that the cross-domain absorption question remains open."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Phase 3 GAM (420 SAEs) does not include architecture as a covariate despite highly non-uniform architecture composition: 360 standard (L1/TopK from sae_bench releases), 54 JumpReLU (Gemma Scope), 6 unknown. These architecture families are NOT uniformly distributed across the width-L0 space -- Gemma Scope SAEs (JumpReLU) are concentrated at specific width/L0 points while sae_bench SAEs (standard) span a different range. If JumpReLU has systematically different absorption rates than standard SAEs (which is plausible given different sparsity mechanisms), the width-L0 interaction term may partially capture architecture differences rather than genuine width-L0 interaction physics.",
+      "suggestion": "Add architecture class as a categorical covariate in the GAM. Report the interaction p-value with and without the architecture covariate. Run the interaction GAM separately on the 360 standard SAEs alone (sufficient power at n=360). If the interaction remains significant within-architecture, the finding is robust. This is a zero-GPU, 30-minute analysis."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The SP-F1 suppression effect (partial r strengthening from -0.664 to -0.746) is presented as the 'central finding' but the interpretation is fragile. The SP-F1 total effect c is non-significant (p=0.45), meaning L0 has no overall effect on SP-F1. The Baron-Kenny procedure classifies this as 'none' (step 3 fails). The paper correctly notes this as 'indirect-only mediation' per Zhao et al. (2010) but does not adequately discuss that a non-significant total effect with opposite-sign direct and indirect effects is more consistent with confounding than mediation. A competing interpretation: L0 directly improves SP-F1 through better reconstruction (direct effect c'=-0.012, p=0.001, negative because higher L0 = lower absorption = higher quality) while L0 reduces absorption, which independently tracks quality through a correlated latent (feature quality). The suppression effect then reflects two independent pathways from L0, not a causal chain.",
+      "suggestion": "Expand Section 5.1 to present the competing explanation side-by-side with the mediation interpretation. State explicitly: 'The SP-F1 total effect is non-significant (p=0.45), precluding classical Baron-Kenny mediation (step 3 fails). The significant indirect effect with non-significant total effect could reflect either (a) opposing causal pathways (indirect-only mediation per Zhao et al.) or (b) a non-causal suppression artifact where L0 correlates with both absorption and a latent feature-quality variable.'"
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "No multiple comparison correction is applied despite testing 4 quality metrics x multiple analysis types (partial correlation, width-stratified at 3 strata, mediation, Rosenbaum at 5 matching strategies) on n=48 SAEs. The total number of hypothesis tests exceeds 50. At alpha=0.05, approximately 2-3 false positives are expected by chance. The TPP partial correlation (r=-0.331, p=0.022) and TPP mediation Sobel z (2.08, p=0.037) are borderline and may not survive Bonferroni or FDR correction. Only SP-F1 and SCR confound resolution results are clearly robust (p < 10^-4).",
+      "suggestion": "Apply FDR correction (Benjamini-Hochberg) to the set of partial correlation p-values and the set of mediation Sobel p-values. Report both corrected and uncorrected p-values. If TPP loses significance after correction, acknowledge this transparently. The SP-F1 and SCR results will survive any reasonable correction."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Data pipeline integrity failure: final_results.json reports H5 corrected_rate=0.923 (delta=0.0, verdict='CORRECTION_MINIMAL') while P4_taxonomy_correction.json shows corrected_rate=0.192 (delta=-0.731, 19 letters changed). Additionally, final_results.json uses alternative_direction_test Sobel z for TPP (2.632) rather than the primary mediation Sobel z (2.083). The paper body correctly uses the right numbers (19.2% for taxonomy, 2.08 for TPP Sobel z), indicating the integration script has bugs rather than the analysis being wrong. However, final_results.json is described as the canonical machine-readable artifact consumed by downstream automation -- delivering wrong numbers to the reflection and evolution pipelines.",
+      "suggestion": "Fix final_results.json immediately: set H5 corrected_rate=0.192, delta=-0.731, verdict='CORRECTION_LARGE'. Fix TPP Sobel z to 2.083 (p=0.037). Fix n_full_mediations from 0 to 2 (SCR and TPP). Fix phase_boundary_detected to true (matching P3_scaling_surface.json source). These are data integrity bugs that must be resolved before any downstream pipeline consumes the JSON."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The Rosenbaum Gamma=2.65 for TPP under Mahalanobis matching (17 pairs) is presented as strong robustness evidence. However, Mahalanobis matching on log(width), layer, and log(L0) across all 48 SAEs allows cross-width matches. Since absorption is strongly confounded with width, cross-width matched pairs may match on L0 but still differ substantially on width-correlated features. The within-width matching strategies (exact-width: 4 pairs; median: 23 pairs; tertile: 16 pairs) all yield Gamma=1.0 for every metric, suggesting the 'robustness' is driven by width variation in the Mahalanobis matches. The paper reports this (Table 4) but does not sufficiently problematize that the Mahalanobis Gamma may be inflated by residual width confounding.",
+      "suggestion": "Add explicit discussion of why Mahalanobis and within-width matching diverge. State that the Gamma=2.65 should be interpreted as robustness conditional on the matching covariates (which include width), not as evidence of a within-width causal effect. The honest conclusion is: 'The absorption-quality association is robust in cross-width comparisons (Gamma=2.65) but undetectable within fixed width (Gamma=1.0).'"
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "minor",
+      "description": "The paper reports 'Chanin false-negative-based metric independently validates absorption in 73.1% of letters' (19/26) but the source data (P4_taxonomy_correction.json) shows Chanin classifications: 7 letters are 'Chanin_none' (F, G, I, K, U, V, Z). K, U, Z have absorption_rate_chanin=0.0; F, G, I, V retain their original Type II classification with n_comparison_tokens=1. The paper says the corrected rate drops to 19.2% (5 letters: Q as Type I, F, G, I, V as Type II). The 73.1% Chanin rate and 19.2% corrected rate measure different things (false-negative detection vs magnitude-ratio), but the 54-percentage-point gap is confusing and not adequately reconciled.",
+      "suggestion": "Add a reconciliation paragraph explaining: the magnitude-ratio metric asks 'does the parent feature fire at reduced magnitude?' while the Chanin metric asks 'does the parent feature fail to fire at all?'. The 54 pp gap reveals that most absorption in GPT-2 Small is total suppression (false negatives) rather than partial suppression (reduced magnitude), which is consistent with the small 24k dictionary."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "Figure numbering jumps from Figure 3 to Figure 5 (no Figure 4). Section 4.3 (gradient analysis and phase boundary detection) has no visual support despite describing ridge points, transition zones, and gradient magnitudes. Section 4.4 (taxonomy correction) has no figure. Three generated figures (fig4_hypothesis_verdicts, fig6_taxonomy_correction, fig7_crossdomain_by_layer) are not referenced in the text. A 'Figures and Tables' section after the Conclusion lists raw filenames -- an internal production artifact.",
+      "suggestion": "Renumber figures sequentially (1-2-3-4-5). Add the gradient/contour surface figure to Section 4.3. Add the taxonomy correction figure to Section 4.4. Remove the artifact section."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The Phase 1 and Phase 3 datasets overlap partially (48 SAEs from Gemma Scope JumpReLU in Phase 1 are a subset of the 54 JumpReLU in Phase 3's 420-SAE set). The absorption scores may be computed differently: Phase 1 uses scores from a prior iteration's C3A_saebench_corr.json, while Phase 3 uses SAEBench precomputed scores. The paper does not confirm these use the same measurement protocol. If the absorption scores differ between datasets (e.g., different SAE checkpoints, different number of evaluation tokens, different threshold parameters), cross-phase comparisons are invalid.",
+      "suggestion": "Add a sentence in Section 3.3.1 confirming that Phase 1 and Phase 3 absorption scores are computed using identical protocols, or explicitly noting any differences."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "minor",
+      "description": "The GAM is fit with a Gaussian response on absorption rates bounded in [0,1]. The P3_scaling_surface.json shows absorption ranges from 0.0001 to 0.896, with mean 0.077 and a heavily right-skewed distribution. A Gaussian GAM can predict negative absorption values or values > 1. A Beta-GAM with logit link would be more appropriate for a bounded, skewed response variable. The paper does not report the GAM's smoothing basis, number of knots, or penalty parameter.",
+      "suggestion": "Report GAM specification details (smoothing basis, knots, penalty). Consider a Beta-GAM sensitivity check. If results are similar, note this as a robustness check. If they differ, the interaction conclusion may be fragile."
+    }
+  ],
+  "risks": [
+    "The causal mediation claim is the headline contribution but rests entirely on observational cross-sectional data with a within-width null. A reviewer who works in causal inference will immediately identify this as insufficient for causal claims. The risk is a desk-reject-level objection from such a reviewer.",
+    "The Phase 2 negative result on GPT-2 Small may be dismissed by reviewers as 'testing the wrong model,' reducing its value as a methodological contribution. The risk is that reviewers view this phase as wasted space rather than informative.",
+    "The architecture confound in the 420-SAE scaling surface is a low-effort, high-impact concern. If the interaction loses significance when architecture is added, Contribution 3 is substantially weakened.",
+    "The data pipeline integrity failures (taxonomy, TPP Sobel z, phase_boundary_detected, n_full_mediations) in final_results.json suggest systemic quality control issues in the experiment-to-paper pipeline. Even though the paper body has the correct numbers, reviewers who check supplementary materials or code artifacts will lose trust."
+  ],
+  "evidence_gaps": [
+    "No within-width interventional or quasi-experimental evidence that absorption causes quality degradation (all evidence is cross-width)",
+    "No architecture-stratified GAM analysis (360 standard vs 54 JumpReLU)",
+    "No FDR-corrected p-values for the 50+ hypothesis tests in Phase 1",
+    "No power analysis for within-width correlations (n=15-18 per stratum)",
+    "Cross-domain absorption unmeasured on a model with adequate SAE capacity (Gemma 2B or similar)",
+    "GAM specification details (knots, smoothing parameters) not reported",
+    "No leave-one-out or cross-validation stability check for the suppression effect",
+    "Phase 3 residual analysis not reported (are residuals correlated with architecture?)"
+  ],
+  "what_would_raise_score": "To reach 7.0 (weak accept): (1) Fix all data integrity issues in final_results.json; (2) Replace causal language with 'statistical association/mediation' throughout; (3) Move within-width null to prominent position in Results; (4) Add architecture as GAM covariate and show interaction survives; (5) Apply FDR correction and report which results survive; (6) Fix Table 3 coefficient confusion (all standardized or all unstandardized, with clear labeling); (7) Reclassify H2 as falsified and reframe Phase 2 as a metric-validity finding. To reach 7.5+ (borderline accept): additionally (8) add power analysis for within-width tests; (9) report GAM specification details; (10) add competing causal explanation in Discussion; (11) add figures for Sections 4.3 and 4.4."
+}

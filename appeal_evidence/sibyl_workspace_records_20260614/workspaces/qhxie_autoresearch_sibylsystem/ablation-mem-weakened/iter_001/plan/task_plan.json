@@ -1,0 +1,285 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "description": "Install SAELens, SAEBench, sae-spelling, transformer-lens, and dependencies. Verify GPU availability and model download.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/requirements.txt, environment verified",
+      "gpu_count": 0,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "visualizations": []
+    },
+    {
+      "id": "pilot_absorption",
+      "name": "Pilot: Absorption Detection (Gemma-2-2B, Layer 8, 16K)",
+      "description": "Detect absorption for first-letter features (A-Z) on Gemma-2-2B layer 8, 16K dict. Run Chanin metric via SAEBench. Record absorption rates per feature.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/pilots/absorption_layer8_16k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 10 features with absorption rate > 10% detected; metric computation completes without error"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate per first-letter feature",
+          "x": "letter",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_steering",
+      "name": "Pilot: Feature Steering (Layer 8, 16K)",
+      "description": "Steer first-letter features at strengths [1.0, 2.0, 5.0, 10.0]. Measure target-letter token probability increase. Include random feature baseline and null steering control.",
+      "type": "experiment",
+      "depends_on": ["pilot_absorption"],
+      "expected_output": "exp/results/pilots/steering_layer8_16k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Random baseline steering success < 15%; At least 5 first-letter features show >30% steering success; computation completes within timeout"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption rate vs. steering success rate",
+          "x": "absorption_rate",
+          "y": "steering_success",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_probing",
+      "name": "Pilot: Sparse Probing (Layer 8, 16K)",
+      "description": "Train k-sparse linear probes (k=1, 5, 10) on first-letter classification. Measure F1 using only main feature latents vs. all latents. Compare absorbed vs. non-absorbed.",
+      "type": "experiment",
+      "depends_on": ["pilot_absorption"],
+      "expected_output": "exp/results/pilots/probing_layer8_16k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Full-latent probing F1 > 0.6; k=1 sparse probing F1 > 0.3; computation completes within timeout"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption rate vs. probing F1 degradation",
+          "x": "absorption_rate",
+          "y": "f1_degradation",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_correlation",
+      "name": "Pilot: Correlation Analysis",
+      "description": "Compute Pearson/Spearman correlation between absorption rate and steering success / probing F1. Fit linear model. Test shuffled label control.",
+      "type": "analysis",
+      "depends_on": ["pilot_steering", "pilot_probing"],
+      "expected_output": "exp/results/pilots/correlation_analysis.json",
+      "gpu_count": 0,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Shuffled control correlation |r| < 0.15; Analysis script runs without error"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Correlation results summary",
+          "columns": ["Task", "Pearson_r", "p_value", "Spearman_rho", "R_squared"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "full_absorption_l12",
+      "name": "Full: Absorption Detection (Layer 12, 16K + 65K)",
+      "description": "Detect absorption for first-letter features on Gemma-2-2B layer 12, both 16K and 65K dictionary sizes.",
+      "type": "experiment",
+      "depends_on": ["pilot_correlation"],
+      "expected_output": "exp/results/full/absorption_layer12_16k_65k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "visualizations": []
+    },
+    {
+      "id": "full_absorption_l16",
+      "name": "Full: Absorption Detection (Layer 16, 16K + 65K)",
+      "description": "Detect absorption for first-letter features on Gemma-2-2B layer 16, both 16K and 65K dictionary sizes.",
+      "type": "experiment",
+      "depends_on": ["pilot_correlation"],
+      "expected_output": "exp/results/full/absorption_layer16_16k_65k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "visualizations": []
+    },
+    {
+      "id": "full_steering_l12",
+      "name": "Full: Feature Steering (Layer 12, 16K + 65K)",
+      "description": "Steer first-letter features on layer 12 at multiple strengths. Include random baseline and null control.",
+      "type": "experiment",
+      "depends_on": ["full_absorption_l12"],
+      "expected_output": "exp/results/full/steering_layer12_16k_65k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "multi_gpu_strategy": "single",
+      "visualizations": []
+    },
+    {
+      "id": "full_steering_l16",
+      "name": "Full: Feature Steering (Layer 16, 16K + 65K)",
+      "description": "Steer first-letter features on layer 16 at multiple strengths. Include random baseline and null control.",
+      "type": "experiment",
+      "depends_on": ["full_absorption_l16"],
+      "expected_output": "exp/results/full/steering_layer16_16k_65k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "multi_gpu_strategy": "single",
+      "visualizations": []
+    },
+    {
+      "id": "full_probing_l12",
+      "name": "Full: Sparse Probing (Layer 12, 16K + 65K)",
+      "description": "Train k-sparse probes on layer 12 first-letter features. Compare absorbed vs. non-absorbed F1.",
+      "type": "experiment",
+      "depends_on": ["full_absorption_l12"],
+      "expected_output": "exp/results/full/probing_layer12_16k_65k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "visualizations": []
+    },
+    {
+      "id": "full_probing_l16",
+      "name": "Full: Sparse Probing (Layer 16, 16K + 65K)",
+      "description": "Train k-sparse probes on layer 16 first-letter features. Compare absorbed vs. non-absorbed F1.",
+      "type": "experiment",
+      "depends_on": ["full_absorption_l16"],
+      "expected_output": "exp/results/full/probing_layer16_16k_65k.json",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "visualizations": []
+    },
+    {
+      "id": "full_correlation",
+      "name": "Full: Cross-Layer Correlation Analysis",
+      "description": "Aggregate data across layers 8, 12, 16 and both dictionary sizes. Compute correlations, fit models, test H3 (consistency across configurations). Include power analysis.",
+      "type": "analysis",
+      "depends_on": ["full_steering_l12", "full_steering_l16", "full_probing_l12", "full_probing_l16"],
+      "expected_output": "exp/results/full/correlation_analysis_full.json",
+      "gpu_count": 0,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption vs. steering success across all layers/sizes",
+          "x": "absorption_rate",
+          "y": "steering_success",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Absorption vs. probing F1 degradation across all layers/sizes",
+          "x": "absorption_rate",
+          "y": "f1_degradation",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Correlation strength by layer and dictionary size",
+          "x": "configuration",
+          "y": "pearson_r",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "validation_pythia",
+      "name": "Validation: Pythia-160M Cross-Model Check",
+      "description": "Replicate absorption detection + steering + probing on Pythia-160M layer 8, 32K dict. Validate that findings generalize across model families.",
+      "type": "experiment",
+      "depends_on": ["pilot_correlation"],
+      "expected_output": "exp/results/full/validation_pythia_160m.json",
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Pythia validation: absorption vs. steering success",
+          "x": "absorption_rate",
+          "y": "steering_success",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_steering_strength",
+      "name": "Ablation: Steering Strength Dose-Response",
+      "description": "Vary steering strength [1, 2, 5, 10, 20] for a subset of features. Measure dose-response curve to understand how steering strength interacts with absorption.",
+      "type": "ablation",
+      "depends_on": ["pilot_correlation"],
+      "expected_output": "exp/results/full/ablation_steering_strength.json",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Steering success vs. strength for high/medium/low absorption features",
+          "x": "steering_strength",
+          "y": "steering_success",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_random_baseline",
+      "name": "Ablation: Random Feature Baseline Analysis",
+      "description": "Systematically analyze random feature steering baseline. Test 5 sets of 26 random features each to estimate variance of random steering effects.",
+      "type": "ablation",
+      "depends_on": ["pilot_steering"],
+      "expected_output": "exp/results/full/ablation_random_baseline.json",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Distribution of random feature steering success rates",
+          "x": "random_set",
+          "y": "steering_success",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

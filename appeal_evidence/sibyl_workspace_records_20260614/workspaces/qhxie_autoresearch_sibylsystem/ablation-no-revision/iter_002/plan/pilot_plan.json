@@ -1,0 +1,66 @@
+{
+  "pilots": [
+    {
+      "id": "h1_pilot",
+      "hypothesis": "H1: Prevalence of Feature Absorption",
+      "description": "Measure absorption prevalence on 100 sequences, layer 8, 8K dict. Compute absorption score for all latents.",
+      "samples": 100,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "At least 5% of latents show absorption score >0.5 (signal detectable); random control shows <2%",
+      "falsification_action": "If <5% absorption: H1 likely falsified; skip full experiment and focus on H2/H5",
+      "gpu_count": 1,
+      "estimated_minutes": 10
+    },
+    {
+      "id": "h2_pilot",
+      "hypothesis": "H2: Co-occurrence Frequency Drives Absorption",
+      "description": "Correlate token frequency with absorption score on 100 sequences, layer 8.",
+      "samples": 100,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "Spearman r < -0.1 between log-frequency and absorption score; lowest-frequency bin mean > highest-frequency bin mean",
+      "falsification_action": "If r >= 0 or no quartile difference: H2 falsified; skip full experiment",
+      "gpu_count": 1,
+      "estimated_minutes": 10
+    },
+    {
+      "id": "h3_pilot",
+      "hypothesis": "H3: Sparsity Penalty Trade-off",
+      "description": "Proxy sparsity-absorption relationship via L0 correlation across available checkpoints, layer 8.",
+      "samples": 100,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "Monotonic trend detectable: higher L0 (sparser) correlates with higher absorption; or mini-trained SAEs show ordered absorption rates",
+      "falsification_action": "If no monotonic trend or negative correlation: H3 falsified; skip full experiment",
+      "gpu_count": 1,
+      "estimated_minutes": 10
+    },
+    {
+      "id": "h4_pilot",
+      "hypothesis": "H4: Downstream Impact on Circuit Discovery",
+      "description": "Activation patching on one factual recall task at layer 8. Compare raw residual vs. SAE latent patching.",
+      "samples": 1,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "Faithfulness score computable and >0 for raw residual; SAE patching within 20 pp of raw",
+      "falsification_action": "If SAE patching is degenerate (faithfulness <0 or >30 pp worse than raw): debug methodology before full experiment",
+      "gpu_count": 1,
+      "estimated_minutes": 10
+    },
+    {
+      "id": "h5_pilot",
+      "hypothesis": "H5: Dictionary Size Effect",
+      "description": "Compare absorption rates for 2K vs. 8K dictionary sizes at layer 8 on 100 sequences.",
+      "samples": 100,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "8K dict shows lower mean absorption than 2K dict; random controls scale appropriately",
+      "falsification_action": "If 8K >= 2K absorption or random controls do not scale: H5 falsified; skip full experiment",
+      "gpu_count": 1,
+      "estimated_minutes": 10
+    }
+  ],
+  "pilot_execution_order": ["h1_pilot", "h2_pilot", "h3_pilot", "h5_pilot", "h4_pilot"],
+  "rationale": "H1 pilot runs first because it establishes the core metric and validates signal detectability. H2, H3, H5 are independent analytical pilots that can run in parallel after H1. H4 runs last because it depends on identifying low- vs. high-absorption layers from H1 results."
+}

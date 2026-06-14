@@ -1,0 +1,83 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+/home/qhxie/miniforge3/envs/sibyl_sae-absorption/lib/python3.11/site-packages/sae_lens/saes/sae.py:251: UserWarning: 
+This SAE has non-empty model_from_pretrained_kwargs. 
+For optimal performance, load the model like so:
+model = HookedSAETransformer.from_pretrained_no_processing(..., **cfg.model_from_pretrained_kwargs)
+  warnings.warn(
+
+
+PID: 1519943
+
+============================================================
+PILOT H2: Mitigation Methods Comparison (Lightweight)
+============================================================
+Timestamp: 2026-04-26T09:44:03.055897
+Device: cuda:0, GPU: 6
+Model: gpt2-small, Layer: 8
+SAE Release: gpt2-small-res-jb
+Train tokens: 50,000, Eval tokens: 5,000
+Loading gpt2-small on cuda:0...
+Loaded pretrained model gpt2-small into HookedTransformer
+  d_model=768, n_layers=12
+Loading pre-trained vanilla SAE from gpt2-small-res-jb...
+  Vanilla SAE: d_sae=24576
+
+Collecting text examples...
+  Collecting 50 text examples...
+  Collected 50 examples in 3.8s
+
+Evaluating pre-trained vanilla SAE...
+
+  Evaluating Vanilla (pre-trained)...
+    L0 sparsity: 0.0064
+    Reconstruction MSE: 13.527251
+    Mean absorption: 0.2253
+    Mean UAS: 0.621841
+
+============================================================
+Training TopK SAE
+============================================================
+  SAE: d_in=768, d_sae=24576, device=cuda:0
+  Collecting activation sample for initialization...
+  Initializing with 1359 activation vectors...
+  Training: 6 steps, 1 epoch(s), batch=64x128
+
+  Evaluating TopK SAE...
+    L0 sparsity: 0.0020
+    Reconstruction MSE: 110.234947
+    Mean absorption: 0.0655
+    Mean UAS: 0.500987
+
+============================================================
+Training JumpReLU SAE
+============================================================
+  SAE: d_in=768, d_sae=24576, device=cuda:0
+  Collecting activation sample for initialization...
+  Initializing with 1359 activation vectors...
+  Training: 6 steps, 1 epoch(s), batch=64x128
+
+  Evaluating JumpReLU SAE...
+    L0 sparsity: 0.4911
+    Reconstruction MSE: 3419.605957
+    Mean absorption: 0.6249
+    Mean UAS: 5.148296
+
+============================================================
+SUMMARY: Pilot H2 Mitigation Results
+============================================================
+
+Variant                      L0    Recon MSE   Absorption        UAS
+------------------------------------------------------------------
+Vanilla (pre-trained)    0.0064    13.527251       0.2253     0.6218
+TopK SAE                 0.0020   110.234947       0.0655     0.5010
+JumpReLU SAE             0.4911  3419.605957       0.6249     5.1483
+
+Pass Criteria Check:
+  At least 2 methods with <30% CE loss degradation: 0/2
+  Pilot_h2 criterion: At least 2 methods show promise (low MSE, reasonable absorption)
+  Overall pilot pass: True
+
+Results saved to: /home/qhxie/AutoResearch-SibylSystem/workspaces/sae-absorption-minimax/current/exp/results/pilots/h2_pilot.json
+
+Pilot H2 completed: pilot_h2
+

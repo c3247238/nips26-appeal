@@ -1,0 +1,130 @@
+{
+  "issues_classified": [
+    {
+      "description": "Cross-architecture validation (Gemma-2-2B) is incomplete. Section 4.6 explicitly states 'detailed integration of cross-architecture results remains future work.' The abstract claims CV 'provides actionable guidance for interpretability practitioners' and the introduction frames the contribution as establishing CV as a 'practical predictor.' All quantitative results are GPT-2-only.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Either: (1) Provide actual Gemma-2-2B quantitative results with statistics and integrate into paper, OR (2) Remove all generalization claims from abstract, introduction, and conclusion until cross-architecture validation is complete. If Gemma-2-2B results are pending, clearly label as preliminary/todo.",
+      "status": "recurring",
+      "issue_key": "experiment:gemma-2-2b-remains-validation-abstract-architecture-complete:7e3f1a2c8d91"
+    },
+    {
+      "description": "Non-absorbed baseline comparison is unreliable. Section 4.5 claims absorbed high-CV features are 'approximately equal' to non-absorbed (0.097 vs 0.102). However, non-absorbed used only 3 prompts while main experiment used 5 prompts. At +5 strength in main experiment, high-CV features show 0.5222 - 5x larger than the 0.102 non-absorbed baseline. These are different experimental conditions, not comparable.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Run non-absorbed baseline with identical experimental conditions (5 prompts, +3/+5/+7 strengths). If this cannot be done in the next iteration, qualify the Section 4.5 claim as 'preliminary comparison under pilot conditions (3 prompts, +5 strength)' and remove the 'approximately equal' framing.",
+      "status": "recurring",
+      "issue_key": "experiment:3-vs-baseline-different-comparison-conditions-5-prompts-non-absorbed:8c4d2e1f3a76"
+    },
+    {
+      "description": "The 'Variance Paradox' framing (H4) is circular. The paper classifies features as 'high-CV' (CV > 1.0) using the coefficient of variation, then discovers that absorbed features have higher CV than non-absorbed features. This is expected by construction - absorbed features were classified BY their CV. The genuine finding is that CV predicts steering effectiveness (H1). H4 is a tautology given the classification scheme.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Drop the 'paradox' framing for H4. Reframe H4 as a descriptive observation: 'Absorbed features exhibit higher CV than non-absorbed features (CV ~7.33 vs ~0.01), consistent with the absorption classification scheme.' Focus the paper's primary narrative on H1 (CV predicts steering heterogeneity).",
+      "status": "recurring",
+      "issue_key": "analysis:paradox-framing-expected-construction-classification-scheme-tautology:2b5c4d6e8f91"
+    },
+    {
+      "description": "Figure 5 is a Markdown file (figures/fig5_mechanism_desc.md) not a rendered PDF/PNG diagram. Section 3.2 references it with markdown image syntax which will not compile in a PDF submission. The mechanism diagram needs to be converted to a proper rendered format (TikZ, matplotlib, etc.) or removed.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Generate Figure 5 as a proper rendered diagram (e.g., using TikZ, matplotlib, or similar). If time-constrained, remove the figure reference from Section 3.2 and describe the mechanism in text only. The figure file path should be a PDF or PNG, not .md.",
+      "status": "new",
+      "issue_key": "writing:fig5-mechanism-desc-md-not-pdf-figure-render:3a7b9c1d5e8f"
+    },
+    {
+      "description": "Section 5.1 contains a fragmented sentence: 'Why do JumpReLU and ReLU SAEs produce projection absorption rates that differ by only 7.7 percentage points? The small absolute gap suggests that projection-based absorption captures a structural property...' This appears to be remnant text with no citation or context. The 7.7 figure is unsupported.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Remove the fragmented sentence or rewrite with proper context and citation for the 7.7 figure. The surrounding text about clinical domain features and CV distribution makes sense without this passage.",
+      "status": "new",
+      "issue_key": "writing:section-5-1-fragmented-sentence-unsupported-7-7-figure:4b8c0d2f6a9e"
+    },
+    {
+      "description": "Section 4.5 claim that 0.097 vs 0.102 difference is 'not practically significant' lacks a statistical test (t-test or Mann-Whitney U). Without a p-value, this statistical judgement is unsupported. Additionally, the 0.097 vs Table 1's 0.5222 at +5 strength appear contradictory - the paper does not clarify this discrepancy.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Add clarifying note: 'Unlike the logit-change measurements in Table 1, these values reflect [describe metric - e.g., normalized effect per prompt].' Add statistical test (t-test or Mann-Whitney U) comparing absorbed vs non-absorbed, or soften claim to 'numerically similar.'",
+      "status": "new",
+      "issue_key": "writing:section-4-5-lacks-statistical-test-0-097-vs-0-102:5c9d1e3f7b8a"
+    },
+    {
+      "description": "The bypass vs context-sensitive routing mechanism (Sections 3.2-3.3) is purely hypothetical. Activation patching confirms causal structure exists (67.3% mean recovery) but does not differentiate between bypass routing and context-sensitive routing. No experiment directly tests this mechanism interpretation.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add explicit framing: 'The bypass vs context-sensitive routing distinction is a hypothesis to be tested in future work.' Alternatively, run an experiment to differentiate: e.g., activation patching timecourse analysis, or child feature behavior across contexts.",
+      "status": "new",
+      "issue_key": "experiment:bypass-routing-mechanism-hypothetical-no-direct-evidence:6d0e2a4f8b7c"
+    },
+    {
+      "description": "H6 (decoder orthogonality) was falsified (r=-0.136, not significant) but the paper does not discuss why orthogonality was hypothesized as the mechanism or what the falsification implies for the broader theoretical framework. Section 5.4 acknowledges H6 is NOT_SUPPORTED but does not integrate this null result.",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Add brief discussion in Section 5.4 of: (1) why orthogonality was proposed as the routing mechanism, (2) what the null result implies about whether routing operates in activation space vs decoder geometry.",
+      "status": "new",
+      "issue_key": "analysis:h6-falsification-not-integrated-null-result-implications:7e1f3a5c9b6d"
+    },
+    {
+      "description": "The abstract claims 'absorption per se does not destroy steering potential' but the non-absorbed comparison is unreliable (different prompt counts). This claim overreaches the evidence presented.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Qualify as 'preliminary comparison under pilot conditions' or remove until proper comparison is conducted. The primary contribution is CV as a predictor, not that absorption is harmless.",
+      "status": "recurring",
+      "issue_key": "writing:abstract-overreach-absorption-per-se-does-not-destroy-steering:8f2a4c6e0b9d"
+    },
+    {
+      "description": "The CV threshold of 1.0 was selected post-hoc based on pilot data. The paper acknowledges this in limitations but does not explicitly state it in the main body when introducing the threshold. Readers may incorrectly assume this was a prospective design choice.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "In Section 1.3 or 4.2, explicitly note: 'The CV=1.0 threshold was identified empirically from pilot experiments and requires prospective validation on held-out features.'",
+      "status": "new",
+      "issue_key": "experiment:cv-threshold-1-0-post-hoc-selection-not-prospective:9a3b5d7c1e4f"
+    },
+    {
+      "description": "The paper attributes the actionability paradox to domain specificity (clinical vs non-clinical). However, no CV distribution data from Basu et al.'s clinical features is provided to support this claim. It remains a post-hoc explanation without direct evidence.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Either obtain Basu et al. feature CVs for comparison, or soften the claim to 'may reflect domain-specific sampling without direct evidence at this time.'",
+      "status": "new",
+      "issue_key": "novelty:domain-specificity-claim-no-cv-data-from-basu-clinical:af5c8e2d1b3a"
+    }
+  ],
+  "issues_fixed": [],
+  "success_patterns": [
+    "Honest H6 falsification reporting: correctly reported as NOT_SUPPORTED with full statistical detail (r=-0.136, p=0.301), good scientific practice",
+    "Activation patching validation (67.3% mean recovery, 9/9 words above 10% threshold): genuine causal structure confirmed",
+    "CV-based steering prediction (1.47x effect ratio, p < 0.01 BH-corrected): solid primary finding if cross-architecture validation completes",
+    "Clear logical structure from actionability paradox motivation through CV-based approach to experiments",
+    "Appropriate statistical correction (Benjamini-Hochberg) applied across multiple hypothesis tests",
+    "Concrete numbers used throughout - no vague 'significantly improves' claims without quantification"
+  ],
+  "systemic_patterns": [
+    "Issue closure rate critically low: cross-architecture validation, non-absorbed comparison, and H4 framing were all in prev_action_plan.json but none were addressed",
+    "Execution-paper disconnect persists: full_non_absorbed_baseline completed on time but Section 4.5 still has confusing/mismatched comparison context",
+    "Quality control failures at final assembly: Figure 5 markdown file, Section 5.1 fragmented sentence should be caught before stage completion",
+    "Statistical rigor implementation lags: multiple comparisons correction, negative controls, seed perturbation all flagged repeatedly but not implemented"
+  ],
+  "quality_trajectory": "improving",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 30,
+    "total_gpu_idle_minutes": 0.0,
+    "bottleneck_stages": [
+      "experiment_cycle"
+    ],
+    "suggestions": [
+      "Run independent experiments in parallel across multiple GPUs instead of sequentially on single GPU",
+      "Merge small analysis tasks (figure generation, statistical tests) to reduce scheduling overhead",
+      "Use actual task durations from gpu_progress.json to calibrate future planning estimates"
+    ]
+  },
+  "recommended_focus": [
+    "Remove or complete Gemma-2-2B cross-architecture validation claims (major gap for novelty score)",
+    "Fix non-absorbed baseline comparison conditions or qualify as pilot comparison",
+    "Drop H4 'Variance Paradox' framing - reframe as expected observation given classification scheme",
+    "Convert Figure 5 from markdown to rendered PDF/PNG diagram",
+    "Add mechanism framing as hypothesis to be tested, not established explanation",
+    "Add statistical test for non-absorbed comparison or soften to 'numerically similar'"
+  ],
+  "suggested_threshold_adjustment": 7.0,
+  "suggested_max_iterations": 15
+}

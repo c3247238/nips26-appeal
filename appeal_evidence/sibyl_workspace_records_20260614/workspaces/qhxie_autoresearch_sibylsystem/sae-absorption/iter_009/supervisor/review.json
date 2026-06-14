@@ -1,0 +1,105 @@
+{
+  "score": 6.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 8,
+    "soundness": 5,
+    "experiments": 6,
+    "reproducibility": 7
+  },
+  "summary": "The paper makes a genuinely novel empirical contribution -- the first cross-domain absorption characterization -- with strong statistical support for within-RAVEL variation (Kruskal-Wallis p=7.4e-66) and decisive pathological absorption evidence (1,471 instances, 0% benign, 1000x effect ratio). Activation patching for first-letter (d=1.33, p=0.000218) is the first interventional evidence for competitive exclusion in SAEs. However, four soundness issues prevent a score above 7: (1) CRITICAL: the paper uses buggy pilot cross-domain patching results (Section 5.2: city-continent recovery 0.05%, d=-0.91) when the corrected FULL-mode data shows recovery=61.9%, d=1.50 -- the 'concentrated vs. distributed absorption' mechanistic dichotomy, which the paper treats as a major finding, is based on incorrect data; (2) CRITICAL: the benign/pathological diagnostic is partly circular -- ablating the parent direction from a decoder vector known to carry parent information will always produce large logit changes, measuring absorption magnitude rather than computational redundancy; (3) MAJOR: city-country (F1=0.73, 80 classes) drives the '4x range' headline but its absorption rate (45.1%) is substantially confounded by probe quality, and after Bonferroni correction only city-language differs significantly from first-letter; (4) MAJOR: the paper's first-letter weighted F1 is reported as 0.97 but the data file shows 1.0 at all layers -- one of several data provenance inconsistencies that a reviewer would catch.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Section 5.2 reports city-continent activation patching recovery at 0.05% (d=-0.91), concluding that 'the mechanism does not generalize to semantic hierarchies' and proposing a 'concentrated vs. distributed absorption' mechanistic divide. The corrected FULL-mode data (activation_patching_crossdomain_full.json) shows city-continent recovery = 61.9% with d=1.50 (p<1e-20) and city-language recovery = 34.2% with d=0.75 (p<1e-18). The pilot used a buggy methodology that zeroed features supporting the correct class rather than absorbing features. The paper's entire mechanistic narrative (concentrated vs. distributed absorption) and two paragraphs of Section 7.2 discussion are based on incorrect data. The experiment_analysis.md correctly identifies this as 'the single most important update for the paper.'",
+      "suggestion": "Replace Section 5.2 with the corrected FULL-mode cross-domain patching results. The narrative becomes: activation patching confirms competitive exclusion across ALL hierarchy types (first-letter d=1.33, city-continent d=1.50, city-language d=0.75), not just first-letter. Remove the 'concentrated vs. distributed absorption' dichotomy entirely or reframe it as a pilot artifact that was corrected. Update the abstract, Section 1 anchoring findings, Table 4 hypothesis verdicts (H7-crossdomain should change from FAILED/NEGATIVE to SUPPORTED), and Sections 7.1-7.2 discussion."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "The benign/pathological diagnostic (Section 5.3) ablates the parent direction from the child feature's decoder vector and measures logit change. But absorption IS the child's decoder carrying parent-relevant information. Ablating parent information from a vector known to contain it will always produce large logit changes -- the diagnostic partly measures the magnitude of the absorbed component, not whether the model independently needs the parent feature when the child is active. A genuine test of computational redundancy would ablate the parent feature's activation directly (not the direction from the child's decoder) and measure downstream effects, holding the child constant. The 3.98 nats result establishes that absorption has large magnitude, not necessarily that it is pathological in the computational-redundancy sense the paper claims.",
+      "suggestion": "Reframe the benign/pathological claim more carefully. The current test shows 'the child feature's decoder carries significant parent-direction information that contributes to model output' -- this is informative but not a direct test of computational redundancy. Acknowledge the circularity issue explicitly. A stronger design would: (a) ablate the parent feature activation (z_parent = 0) and measure logit change, holding child activation constant; or (b) use path patching to test whether the parent direction has independent causal effects through separate downstream circuits. The current result should be framed as 'absorption carries large magnitude parent information in the decoder' rather than 'absorption is always pathological.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The headline '4x range' (11.6% to 45.1%) depends on city-country at F1=0.73. After Bonferroni correction of pairwise tests against first-letter, only city-language (p_Bonf=0.003 at 16k, p_Bonf=0.043 at 65k) differs significantly from first-letter. City-continent (p_Bonf=1.0) and city-country (p_Bonf=1.0) do NOT differ significantly from first-letter. The Kruskal-Wallis test (p=7.4e-66) is computed on 3 RAVEL hierarchies only, excluding first-letter. The statistically supported claim is actually: 'among RAVEL hierarchies, absorption rates differ significantly; but only city-language differs significantly from first-letter.' This is a weaker claim than the paper makes.",
+      "suggestion": "Separate the descriptive claim ('rates range from 11.6% to 45.1%') from the inferential claim. Report that the Kruskal-Wallis test covers only the 3 RAVEL hierarchies and that pairwise tests against first-letter survive Bonferroni correction only for city-language. Consider running a 4-hierarchy Kruskal-Wallis that includes first-letter (requires matching the per-entity format). The within-RAVEL variation is genuinely significant (all 3 pairwise Mann-Whitney tests survive Bonferroni). Reframe the headline around the within-RAVEL variation rather than the full 4-hierarchy range."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The '100% pathological' claim (Section 5.3, abstract, Section 1) is tested exclusively on city-continent (F1=0.87) at L24 with 16k SAE. The paper extrapolates to 'Absorption is 100% pathological' and 'Every absorption instance degrades model output' in headline positions. This extrapolation from one hierarchy, one layer, one SAE to all absorption is not warranted. The first-letter hierarchy (F1=1.0, concentrated absorption mechanism) might yield different results. The city-country and city-language hierarchies are untested.",
+      "suggestion": "Change headline framing from 'absorption is always pathological' to 'absorption is pathological across all 1,471 tested instances from city-continent at L24.' Add a prominent caveat that the diagnostic has not been run on first-letter (where probe quality is perfect and the mechanism is concentrated) or on other hierarchies. Replicate on first-letter as a priority experiment -- this requires ~0.5 GPU-hours and would either strengthen the universality claim or reveal an important distinction."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Data provenance confusion between sources. The consolidation_summary.json reports first-letter L24_16k absorption as 0.345 (per-instance), while the paper uses 0.2707 (per-unique-word) from the FULL data file. The paper reports first-letter weighted F1 as 0.97 but the data file shows f1_weighted=1.0 at all layers. The consolidation summary reports benign instances as 1,464 while the paper says 1,471. The consolidation still reports H7-crossdomain as 'FAILED' based on the buggy pilot, contradicting the corrected FULL data. No single document is the authoritative data source.",
+      "suggestion": "Create a single authoritative data manifest that maps every number in the paper to a specific data file and field. Resolve: (a) first-letter F1 should be 1.0 per the data file, or explain the 0.97 source; (b) benign/pathological instance count should match one source exactly; (c) document the per-unique-word vs per-instance aggregation choice in Section 3.3; (d) update the consolidation summary to reflect corrected FULL results for cross-domain patching."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Probe quality confound is acknowledged but unquantified. No probe-quality sensitivity analysis is performed. City-country (F1=0.73) may have 27% of instances misclassified, inflating the absorption rate. The probe-only FN rate baseline (control 3 from Section 3.3) is never reported numerically. Without this baseline, we cannot bound the probe-induced inflation of absorption rates for RAVEL hierarchies.",
+      "suggestion": "Perform a probe degradation ablation: inject label noise into first-letter probes to degrade to F1={0.70, 0.80, 0.85, 0.90} and re-measure absorption. This directly quantifies the probe quality confound. Additionally, report the probe-only FN baseline for each hierarchy. Even a crude back-of-envelope estimate (e.g., if probe error is ~13% for city-continent, subtract those from FN count) would bound the confound."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Three figure PDFs are missing (fig4_patching_comparison.pdf, fig5_pathological_histogram.pdf, fig6_architecture_comparison.pdf). These correspond to three of the paper's five main contributions. Table 3 is inline markdown while all other tables are PDF figures, breaking format consistency. A reviewer cannot evaluate the visual evidence.",
+      "suggestion": "Generate all missing figures from the existing JSON data files before any further review or compilation. This is a compilation blocker."
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "The architecture comparison (Section 6) claims 'SAE architecture has no significant effect' from Kruskal-Wallis tests with only 12 data points at L24 (3 architectures x 4 hierarchies) and width confounds (Matryoshka 32k vs JumpReLU 16k/65k). A non-significant p-value from an underpowered test is absence of evidence, not evidence of absence. The conclusion 'hierarchy dominates architecture' compares p-values across different tests with different data and different layers, which is a statistical fallacy.",
+      "suggestion": "Reframe as 'we could not detect an architecture effect with the available data, though the test had limited statistical power.' Remove direct comparison of hierarchy vs architecture p-values as evidence for relative importance. Report effect sizes (even if non-significant) to help readers assess practical magnitude."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Token position asymmetry: first-letter probes use position -6 (sae-spelling convention) while RAVEL probes use position -2. Different positions may differ in how much SAE encoding disrupts probed information, independent of absorption. This is an uncontrolled confound in the cross-domain comparison.",
+      "suggestion": "Acknowledge the position asymmetry as a confound in Section 7.3. If feasible, test whether position choice affects absorption rates by training first-letter probes at position -2."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The paper tests a single base model (Gemma 2 2B) with Gemma Scope SAEs. Chanin et al. (2024) tested multiple models (GPT-2 Small, Gemma, Llama, Qwen) but always on first-letter. This paper tests multiple hierarchies but only on one model. Cross-model generalization is untested.",
+      "suggestion": "Acknowledge this limitation prominently. If time permits, replicate the core finding (cross-domain absorption variation at L24) on one additional model (e.g., Llama 3.2 1B or Pythia) to demonstrate generalization."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "The Kruskal-Wallis scope (3 RAVEL hierarchies, not 4 including first-letter) is stated in the body text but not in the abstract, which simply says 'across three RAVEL hierarchies.' A reader may assume the 4x range and p=7.4e-66 apply to a 4-hierarchy comparison. The per-unique-word vs per-instance aggregation choice is undocumented.",
+      "suggestion": "Clarify in the abstract that the Kruskal-Wallis test covers the 3 RAVEL hierarchies. Add a paragraph to Section 3.3 explaining the per-unique-word aggregation and documenting the per-instance rate for transparency."
+    }
+  ],
+  "risks": [
+    "The corrected cross-domain patching results (d=1.50) are not reflected in the paper, creating a critical disconnect between data and narrative. The paper's second anchoring finding is based on buggy pilot data.",
+    "If probe degradation ablation shows that first-letter absorption rates match RAVEL rates when probes are degraded to F1=0.73-0.87, the cross-domain variation finding would be substantially weakened.",
+    "The benign/pathological circularity could cause a reviewer to dismiss the '100% pathological' finding as trivially expected rather than informative.",
+    "City-country (F1=0.73) drives the upper end of the '4x range' headline; dropping it from the primary analysis reduces the range to ~3x (11.6% to 31.4%) and weakens the headline.",
+    "A competing cross-domain absorption paper could appear before publication, though none exists as of April 2026."
+  ],
+  "evidence_gaps": [
+    "Probe degradation ablation (inject noise into first-letter probes to F1={0.70, 0.80, 0.85, 0.90} and re-measure absorption) -- this is the single highest-priority missing experiment that would resolve the core uncertainty about whether cross-domain variation is a probe artifact.",
+    "Benign/pathological diagnostic on first-letter (probe F1=1.0) -- currently tested only on city-continent.",
+    "Probe-only FN baseline for each hierarchy -- never reported numerically, needed to bound probe-induced inflation.",
+    "Multi-model replication -- single-model (Gemma 2 2B) limitation.",
+    "Multi-feature ablation for cross-domain patching -- zeroing top-5 or top-10 attributed features to test distributed absorption hypothesis (though this may be moot given the corrected FULL data shows single-feature patching works)."
+  ],
+  "what_would_raise_score": "Three targeted actions would raise the score to 7.5-8.0: (1) Incorporate the corrected FULL-mode cross-domain patching results (d=1.50, d=0.75) into the paper, replacing the buggy pilot narrative -- this alone fixes the most critical soundness issue; (2) Perform the probe degradation ablation (~2 GPU-hours) to quantify the probe quality confound -- either outcome (artifact vs. genuine) clarifies the paper; (3) Replicate benign/pathological on first-letter (~0.5 GPU-hours) and reframe the circularity issue honestly. Together these three actions require ~3 GPU-hours and would address all critical and most major issues."
+}

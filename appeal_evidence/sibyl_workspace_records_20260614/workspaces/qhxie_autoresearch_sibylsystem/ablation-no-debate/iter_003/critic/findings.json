@@ -1,0 +1,76 @@
+{
+  "summary": "Paper makes a potentially important contribution (encoder-driven absorption mechanism) but contains a self-contradictory H_Mech interpretation, placeholder-only safety features, and statistical fragilities that undermine confidence. The decoder suppression finding is more interesting than framed but mischaracterized.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H_Mech self-contradiction: Condition B (trained encoder, random decoder) produces 0.076 absorption vs Condition D (full training) at 0.017. The paper claims 'B ≈ D confirms encoder-driven' but B is 4.5× larger than D, not approximately equal. This contradicts the conclusion that the encoder alone is sufficient.",
+      "suggestion": "Reframe: Condition B > Condition D suggests decoder plays a REGULATORY/suppressive role in full training, not merely that encoder is sufficient. The finding should be stated as: encoder alignment creates absorption, but decoder training during joint training suppresses it. This is a more nuanced and accurate interpretation."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H_Safe pilot uses PLACEHOLDER feature indices (1024, 2048, 3072, 4096, 5120) not validated safety features. The paper claims 'null absorption for safety-critical features' but this is measuring arbitrary SAE indices, not actual safety-relevant features from Neuronpedia annotations.",
+      "suggestion": "Either (1) remove H_Safe from results entirely and describe it as 'methodology proposed, awaiting validated feature annotations' or (2) actually identify real safety features from Neuronpedia before claiming any result. The current presentation is misleading."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Statistical fragility in H_Comp: The r~+0.93 sparsity-absorption correlation is based on n=4 data points with TWO points at identical L0=50 (TopK and MultiScale pilot). With two points stacked vertically, the correlation is driven by only 3 unique L0 values. The bootstrap CI does not address this fundamental sample-size limitation.",
+      "suggestion": "Either (1) acknowledge n=4 as insufficient for reliable correlation, (2) replicate at additional unique L0 values, or (3) reframe as preliminary evidence requiring validation."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "H_Pareto pilot sensitivity values appear invalid. L0=16 shows sensitivity_mean=1.525 (std=0.1). Since sensitivity is defined as Var(Δlogits | Δa_f), values should be bounded between 0 and 1. A value >1 suggests either wrong formula implementation or wrong normalization.",
+      "suggestion": "Verify the sensitivity metric formula and ensure proper normalization. If raw steering coefficient variance is used without appropriate scaling, this needs correction before the Pareto frontier claim can be trusted."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Section 3.5 promises a one-way ANOVA across all completed variants, but this is not reported in the Results. The paper focuses on pairwise effect sizes instead, which is more appropriate, but the unfulfilled promise undermines credibility.",
+      "suggestion": "Remove the ANOVA promise from Section 3.5, or actually conduct and report the ANOVA. Alternatively, reframe Section 3.5 as describing what comparisons WILL be made, not what statistical test WILL be run."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The core novelty claim—that L0 confounds architecture comparisons—is important but may be considered a methodological observation rather than a research contribution. SAEBench (Karvonen et al., 2025) already compares architectures and notes sparsity differences. The contribution is quantifying the magnitude, not discovering the confound.",
+      "suggestion": "Tone down novelty claims around 'discovering' the confound. Position as quantifying the magnitude and characterising the sensitivity-absorption trade-off, which IS novel."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "MCC ~0.21 across ALL variants including Random control suggests Hungarian matching on overcomplete dictionaries yields chance-level recovery regardless of training. If SAEs are not recovering ground-truth features, the meaning of 'absorption reduction' is unclear—could reflect sparsity-induced suppression rather than genuine hierarchical feature recovery.",
+      "suggestion": "Acknowledge this limitation explicitly. Discuss whether absorption measured with chance-level MCC recovery actually means what the paper claims. Consider alternative validation that doesn't rely on MCC."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "The proposal mentions 'multi-child proportional method' but the exact implementation details (k value, ablation procedure, sample size for averaging) vary across experiments and are not systematically reported.",
+      "suggestion": "Add a unified metrics subsection in methods that specifies exact protocols for each metric, including k values, number of samples, and any preprocessing."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "GPT-2 Small validation (layer 8) uses different layer than Gemma Scope experiments (layer 12). Cross-model validation is not truly cross-layer, limiting generalisation claims.",
+      "suggestion": "Either validate GPT-2 Small at multiple layers or acknowledge that validation is layer-specific."
+    }
+  ],
+  "metric_gaming_risks": [
+    "Absorption metric (multi-child proportional) may not capture single-child absorption effects",
+    "Sensitivity metric appears to exceed valid range, suggesting potential implementation error",
+    "MCC validation shows chance-level recovery, raising questions about what the absorption metric actually measures"
+  ],
+  "novelty_risks": [
+    "Encoder-driven absorption mechanism is genuinely novel as a factorial decomposition",
+    "Sensitivity-absorption Pareto frontier quantification is novel",
+    "Safety-critical feature analysis is potentially high-novelty but currently uses placeholder data only"
+  ],
+  "reproducibility_gaps": [
+    "Exact k value for multi-child ablation not consistently specified",
+    "Sensitivity metric formula implementation needs verification",
+    "H_Safe cannot be reproduced without validated safety feature annotations",
+    "Stochastic hierarchy generation code not provided",
+    "Random seed management across experiments unclear"
+  ]
+}

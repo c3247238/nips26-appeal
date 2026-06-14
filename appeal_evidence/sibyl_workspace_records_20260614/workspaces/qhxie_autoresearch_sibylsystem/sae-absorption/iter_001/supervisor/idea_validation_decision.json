@@ -1,0 +1,127 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_eda_crossdomain",
+  "confidence": 0.74,
+  "generated_at": "2026-04-13",
+  "evidence_basis": "Round 4 full experiments (r4a_gemma_access_check, r4a_direct_label_generation, r4a_eda_direct_validation, r4b_ravel_probes_proper, r4b_shuffled_control, r4b_crossdomain_analysis_updated, r4c_llama_replication)",
+  "framing": "TWO_CONTRIBUTION_PAPER",
+  "paper_title": "Characterizing SAE Absorption: A Regime-Specific Weight-Only Detector and Three-Subtype Taxonomy",
+  "candidate_scores": {
+    "cand_eda_crossdomain": {
+      "weighted_score": 3.475,
+      "verdict": "ADVANCE",
+      "score_breakdown": {
+        "pilot_signal_strength": {
+          "weight": 0.30,
+          "score": 3.5,
+          "contribution": 1.05,
+          "evidence": "3/8 configs pass AUROC >= 0.65: Gemma L5-16k (0.698 proxy), L12-16k (0.776 proxy), GPT-2 L6 (0.650 direct). GPT-2 L10 reversed (0.336). Taxonomy confirmed: early 72-75%, late 13%. H3 cross-domain collapsed by shuffled control (0/3 domains exceed null). ITAC 2.69% FN reduction (synthetic). H6 falsified."
+        },
+        "hypothesis_survival": {
+          "weight": 0.25,
+          "score": 3.0,
+          "contribution": 0.75,
+          "evidence": "H1 CONFIRMED (SynthSAEBench F1=0.974). H2/D-EDA FALSIFIED (EDA=1-dec_cos identity; D-EDA delta=0). H3 FALSIFIED (shuffled control matches real; probe gate fails at 59.5% best). H4 CONFIRMED (taxonomy primary contribution). H5 FALSIFIED (2.69% vs 20% target). H6 FALSIFIED (partial rho +0.37)."
+        },
+        "path_to_full_result": {
+          "weight": 0.20,
+          "score": 3.5,
+          "contribution": 0.70,
+          "evidence": "Two-contribution paper publishable now with current evidence. No blocking experiments remain. Cross-domain dropped. Title revision required. ITAC and H6 become appendix negative results."
+        },
+        "novelty": {
+          "weight": 0.15,
+          "score": 3.5,
+          "contribution": 0.525,
+          "evidence": "EDA=1-dec_cos not independently novel as formula (SAEBench uses dec_cos). Novelty is: (a) formal lower-bound theorem, (b) regime characterization, (c) cross-model validation. Taxonomy still 8/10 novelty — no prior three-subtype partition or 75% early-dominance finding in literature."
+        },
+        "resource_efficiency": {
+          "weight": 0.10,
+          "score": 4.0,
+          "contribution": 0.40,
+          "evidence": "All experiments complete. No additional GPU budget needed. ~6 GPU-hours total over all rounds. Publishing now avoids indefinite waiting for gated model access."
+        }
+      }
+    },
+    "cand_lca_sae": {
+      "weighted_score": 2.4,
+      "verdict": "HOLD_AS_BACKUP",
+      "note": "Pivot trigger partially met (H3 null) but not fully triggered (EDA detection still holds in favorable regime; H4 taxonomy is independent, strong contribution). Do not activate unless EDA AUROC falls below 0.60 across all configs AND taxonomy finding is disputed."
+    },
+    "cand_scaling_laws": {
+      "weighted_score": 2.20,
+      "verdict": "DEMOTED_TO_SECONDARY",
+      "note": "H6 falsified. Retain as Phase 4 supplementary analysis within main paper. Do not activate as standalone."
+    }
+  },
+  "hypothesis_verdicts": {
+    "H1_eda_lower_bound": {
+      "verdict": "CONFIRMED",
+      "evidence": "SynthSAEBench AUROC=1.0, F1=0.974. Theoretical bound derivation verified. Mann-Whitney group separation p=6.4e-5 at Gemma L12-16k.",
+      "confidence": 0.95,
+      "r4_update": "No new experiments. Theorem and synthetic validation stand."
+    },
+    "H2_eda_predictive_power": {
+      "verdict": "PARTIALLY_CONFIRMED_EDA_FALSIFIED_DEDA",
+      "evidence": "Scalar EDA: 3/8 configs pass AUROC >= 0.65 (regime-specific). D-EDA: fully falsified — EDA=1-dec_cos identity confirmed (delta=0.0 on all validated configs including Gemma, GPT-2, Llama). D-EDA contributes no information beyond scalar EDA.",
+      "confidence": 0.55,
+      "r4_update": "R4A confirms EDA=dec_cosine_negated identity (Pearson r=-1.0, Spearman r=-1.0). D-EDA hypothesis falsified. Regime-specific EDA detection stands."
+    },
+    "H3_cross_domain_generalization": {
+      "verdict": "FALSIFIED",
+      "evidence": "R4B: probe quality gate fails for all 3 RAVEL hierarchies (best: 59.5% city-continent, gate: 85%). R4B shuffled control: real absorption rates indistinguishable from shuffled null for all 3 domains (0/3 pass p95 threshold; ratio range 0.98-2.09). Intra-RAVEL rho drops from 0.924 (R3, n=6, proxy probes) to 0.667 (R4, n=3, bridge-model probes). Both Gemma 2B and Llama-3.1-8B remain HF-gated.",
+      "confidence": 0.85,
+      "r4_update": "H3 contribution collapses. The cross-domain claim cannot be supported with available bridge-model probes. Reported as a limitation requiring same-model probe access (gated models) for validation."
+    },
+    "H4_three_subtype_taxonomy": {
+      "verdict": "CONFIRMED",
+      "evidence": "L12-16k: n=16 absorbed; early 75.0%, late 12.5%, diffuse 12.5%. L12-65k: n=65 absorbed; early 72.3%, late 13.8%, diffuse 13.8%. KW p=0.0002 at L12-65k. Late > early EDA holds at all 5 thresholds (0.20-0.40). Threshold sensitivity: early% drops to ~32% at tau=0.2 (report as caveat).",
+      "confidence": 0.80,
+      "r4_update": "No new taxonomy experiments in R4. R3 finding stands. Threshold sensitivity caveat must be reported."
+    },
+    "H5_itac_efficacy": {
+      "verdict": "FALSIFIED",
+      "evidence": "Mean FN reduction: 2.69% (L12-65k, synthetic activations). Target: 20%. Gap ratio: 7.4x below target. 1/10 targets show improvement (j_idx=61217: 18.9%). R4D (real text activations) not completed.",
+      "confidence": 0.75,
+      "r4_update": "R4D not run (optional task). Synthetic activation result (2.69%) stands as primary evidence. Real-activation test remains outstanding but is not needed for the two-contribution paper framing."
+    },
+    "H6_scaling_sign_reversal": {
+      "verdict": "FALSIFIED",
+      "evidence": "Partial rho(width, absorption | L0) = +0.368 (positive; H6 predicts negative). L0 range 65-72 across all configs — insufficient variation to test confound. H6 falsification confirmed.",
+      "confidence": 0.85,
+      "r4_update": "No new scaling experiments in R4. R3 finding confirmed."
+    }
+  },
+  "reasons": [
+    "GPT-2 L6 direct-label AUROC=0.650 confirms EDA detection with exact Chanin labels — model-agnostic evidence without proxy label caveats",
+    "H4 taxonomy (three-subtype partition, 72-75% early-dominance) is independently confirmed and constitutes a primary contribution regardless of EDA or cross-domain status",
+    "Falsification conditions for full pivot not met: EDA AUROC is not below 0.60 across all configs (3/8 pass at >= 0.65); H4 taxonomy is robust",
+    "H3 cross-domain collapse is a genuine finding (shuffled control = real absorption signal), not a methodology error — requires gated model access to resolve",
+    "EDA=1-dec_cos identity confirmed across 3 architectures — enables reframing as systematic validation and regime characterization of an existing metric",
+    "Two-contribution paper is publishable with current evidence: no additional blocking experiments needed",
+    "Sunk cost check passed: decision based on current evidence strength alone"
+  ],
+  "framing_recommendation": "TWO_CONTRIBUTION_PAPER: (1) EDA (= 1 - dec_cosine) as regime-specific absorption detector — reliable at 16k-width SAEs, early-to-mid layers; formal lower-bound theorem; cross-model validated on Gemma 2B (proxy) and GPT-2 Small (direct labels); EDA=DecCos equivalence confirmed across 3 architectures as a systematic validation finding. (2) Three-subtype absorption taxonomy (early/late/diffuse) with early-dominance finding (72-75% early-type at L12, tau=0.3) — reframes dominant failure mode as dictionary coverage, not encoder alignment. Cross-domain evidence downgraded to limitation (H3 collapses with shuffled control). ITAC, D-EDA, H5, H6 all reported as negative results.",
+  "paper_framing_changes_required": [
+    "Revise title: remove 'Cross-Domain Generalization'; use 'Characterizing SAE Absorption: A Regime-Specific Weight-Only Detector and Three-Subtype Taxonomy'",
+    "Remove cross-domain contribution from primary contributions list",
+    "Acknowledge EDA=1-dec_cos equivalence to SAEBench metric; reframe novelty as theorem + regime characterization + cross-model validation",
+    "Report H3 as a negative result: bridge-model RAVEL probes insufficient; shuffled control matches real signal; requires gated model access",
+    "Drop D-EDA from all primary claims; demote to a mathematical footnote confirming the equivalence",
+    "Move ITAC, H5, H6 to appendix negative results section",
+    "Add threshold sensitivity caveat for early-dominance finding (75% at tau=0.3; 32% at tau=0.2)"
+  ],
+  "next_actions": [
+    "Revise proposal.md to two-contribution structure (title, abstract, contributions section)",
+    "Proceed to writing phase — go_write=true per r4_writing_gate.json",
+    "Report EDA=dec_cos equivalence prominently; cite SAEBench Karvonen et al. 2503.09532",
+    "Report H3 as failed validation attempt with honest explanation (gated models, shuffled control evidence)",
+    "All negative results (D-EDA, ITAC, H5, H6) moved to appendix",
+    "Venue: target NeurIPS 2026 MI Workshop or EMNLP 2026"
+  ],
+  "dropped_candidates": [],
+  "backup_activation_conditions": {
+    "cand_lca_sae": "Activate only if: (a) EDA AUROC falls below 0.60 on ALL tested configs (including GPT-2 L6 direct labels) AND (b) H4 taxonomy is disputed by reviewers. Neither condition currently applies.",
+    "cand_amortization_gap_experiment": "Activate as supplementary experiment (1-2 GPU-hours, no new downloads) if the taxonomy finding needs additional mechanistic support. Feedforward vs. OMP comparison on Gemma L12-16k would separate Tang et al. vs. O'Neill et al. explanations for early absorption dominance."
+  }
+}

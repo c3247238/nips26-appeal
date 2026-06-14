@@ -1,0 +1,51 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "ACTIVATION PATCHING SAMPLE SIZE (n=8). The 0/8 parent recovery result is the paper's strongest causal evidence, but 8 words yield a 95% CI of [0%, 36.9%] for the true recovery rate. A reviewer could argue that 8 words -- 5 of which are high-frequency function-adjacent words (other, often, offer, under, until) -- are not representative of the full false-negative population (186 at L0=82, 656 at L0=22). The wide CI means the data are consistent with up to ~37% competitive exclusion in the population. This is acknowledged in Section 7.5 but the paper's central narrative relies heavily on this result.",
+    "suggestion": "The most impactful improvement for the next iteration would be scaling activation patching to all 186 FN tokens at L0=82. If logistically infeasible, patching a stratified random sample of 30-50 FN tokens from diverse letters would substantially narrow the CI and strengthen the causal claim. Also discuss the word-frequency confound explicitly: high-frequency words may have unusual encoding because the model dedicates specialized features to them."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "CONFOUND DECOMPOSITION NARRATIVE COMPLEXITY. The paper presents both permissive (98.6%) and strict (6.2%) hedging rates, which is correct. However, the dramatic difference between these two numbers may confuse readers. The permissive rate (98.6%) appears in the Abstract and Introduction as the headline, while the strict rate (6.2%) appears in Table 4 and Section 4.4. A reader encountering 98.6% first and 6.2% later may struggle to reconcile them. The 93.8% of FN tokens where NONE of the 5 parent-associated latents fire even at L0=176 are neither permissive-hedging nor strict-hedging -- they are 'persistent encoding failures.' This third category is the dominant one but is not clearly named.",
+    "suggestion": "Consider a three-category decomposition in the narrative: (a) strict hedging (6.2% -- specific parent latents recover), (b) diffuse resolution (92.4% -- tokens stop being FN at high L0 but NOT through parent-specific latents), (c) persistent core (1.4% -- FN at all L0 values). This tripartite framing avoids the misleading contrast between 98.6% and 6.2% and gives each category a clear mechanistic interpretation."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "SINGLE MODEL FAMILY LIMITATION UNDERSOLD. All experiments use Gemma 2 2B with Gemma Scope JumpReLU SAEs. The control failure, hedging dominance, and L0 phase transition are established on exactly one model. While acknowledged in Section 7.5, the practical impact is understated: all three findings could be specific to Gemma 2 2B's residual stream geometry (d_model=2304) and Gemma Scope's specific JumpReLU training procedure. The candidate explosion argument (23% of decoder columns at cos >= 0.025) depends on d_model; at d_model=768 (GPT-2), the expected fraction would differ. The paper does not compute this comparison.",
+    "suggestion": "Add a brief analytical calculation: what fraction of decoder columns would a random vector identify at cos >= 0.025 in R^768 vs R^2304? This requires no experiments -- just the concentration-of-measure formula. If the fraction is substantially lower at d_model=768, this explains both why the metric works on GPT-2 and fails on Gemma 2 2B, strengthening the structural explanation."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "FN COUNT DISCREPANCY (656 vs 657) UNRESOLVED. The paper uses 656 in Table 4 and activation patching sections (from tightened_hedging.json), but the data validation report records 657 FN at L0=22 from confound_decomposition_multi_l0.json. The difference (1 token) arises from vocabulary filtering (1195 vs 1196 tested). While scientifically negligible, a reviewer who cross-checks will notice the inconsistency.",
+    "suggestion": "Add a footnote in Section 3.2 or 4.4 explaining: 'The FN count is 656 using the 1,196-word vocabulary (tightened hedging protocol) and 657 using the 1,195-word vocabulary (confound decomposition protocol). The difference of 1 token reflects vocabulary filtering criteria and does not affect any conclusion.'"
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "minor",
+    "description": "LETTER G OUTLIER IN STRICT HEDGING. Letter G accounts for 19/41 strict-hedging cases (46% of all strict hedging from a single letter). The paper notes this in Section 4.4 but does not investigate why G is anomalous.",
+    "suggestion": "Add 1-2 sentences explaining or speculating about the G anomaly. Check whether G's parent probe has unusually high cosine similarity to specific latents, or whether G's letter frequency or word distribution is distinctive."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "CMI REPLICATION AT L0=22 USES PILOT DATA. The CMI replication results come from pilots/cmi_replication_l0_22.json (mode: PILOT). While the key result (rho=0.044, p=0.835) is clear, using pilot-mode data for a central finding creates an asymmetry with the L0=82 CMI analysis which uses full data.",
+    "suggestion": "Note in the Methods that the L0=22 analysis used the same k-NN parameters and bootstrap procedure as L0=82 but on the pilot corpus subset. The null result is robust enough that pilot vs full is unlikely to change the conclusion, but transparency is important."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "THRESHOLD SENSITIVITY TABLE USES DIFFERENT RATES FROM MAIN ANALYSIS. Table 3 reports rates on 576 tested words from iter_006. The main analysis at L0=82 uses 1,203 or 1,195 words. This vocabulary difference is not noted.",
+    "suggestion": "Add a footnote to Table 3 explaining the vocabulary basis for the threshold sensitivity analysis."
+  }
+]

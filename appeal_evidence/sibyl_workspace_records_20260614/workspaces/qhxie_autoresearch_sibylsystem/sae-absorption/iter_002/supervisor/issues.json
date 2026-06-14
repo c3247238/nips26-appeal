@@ -1,0 +1,100 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Proposition 1's primary empirical prediction is falsified and the paper misrepresents this. Proposition 1 predicts absorbed pairs have SMALLER sin^2(theta_{p,c}) (smaller decoder-decoder angle) than non-absorbed pairs, because absorption is preferred when lambda > sin^2(theta). B1_decoder_geometry.json cross-validates this prediction directly: absorbed (letter) features have pos_cos2_mean=0.052 while non-absorbed have neg_cos2_mean=0.127 (AUROC=0.318 for the cos^2 classifier, below random). This means absorbed features have LARGER decoder angles than non-absorbed, opposite to the theory's geometric prediction. The paper's Section 3.3 reframes this as 'once absorption is established, the child decoder drifts away from d_p' — but this reframing is asserted in three sentences without derivation. The audit_report_summary.md explicitly flags this as 'H1 FALSIFIED.' A paper that leads with a theoretical threshold as a central contribution must either (a) show the theory predicts the correct direction at some timescale or (b) clearly reorder contributions so that EDA is primary and the rate-distortion framework is contextual motivation.",
+    "suggestion": "Reorder the three contributions so EDA empirical detection is listed first, the rate-distortion framework is listed as providing a theoretical account of when absorption is loss-preferred (not a geometric predictor), and Proposition 2 (mechanistic conjecture) is listed as the bridge between theory and EDA. Add one sentence to Section 3.2 acknowledging that the geometric prediction from the onset condition (small theta_{p,c} → absorption onset) does not characterize the post-convergence state, and cite B1_decoder_geometry.json as the empirical test."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The cross-directional metric label count is inconsistent between the paper and raw data. The paper states 'proxy labels (n_pos=50)' for the cross-directional AUROC = 0.730 result. B1_pairwise_eda.json, the source file for these results, uses n_pos=63 letter features at threshold=0.29 (not n_pos=50). The exact Jaccard overlap reported between proxy (n=50) and exact (n=18) labels is 0.115, but the cross-directional results appear to use a third label set (n=63) defined by a different threshold (0.29). The paper reports cross-directional AUROC = 0.730 against 'proxy labels (n_pos=50)' but the raw data shows this was n_pos=63. This is not a minor rounding; 63 vs. 50 positives changes the statistical framing. All three label sets must be reconciled and Table 1 must explicitly show which metric was computed against which label set.",
+    "suggestion": "Audit the chain from B1_pairwise_eda.json (threshold=0.29, n_pos=63) to the paper's stated n_pos=50. If the cross-directional metric uses a different threshold/label set than the EDA metric, add a dedicated column header in Table 1 ('Label set: exact n=18 / proxy n=50 / proxy n=63') for each row. The Jaccard overlap claim (0.115) should also be recomputed if the proxy set is n=63, not n=50."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The practical 'shortlisting' claim is not supported by raw data. The paper argues EDA provides 'a tractable candidate set for downstream IG-based verification.' D1_eda_validation.json shows Precision@50 = 0, Precision@100 = 0, Precision@500 = 0 for EDA against exact labels (n_pos=18). Even in the top 500 features by EDA, no absorbed feature is found. The minimum k at which EDA enrichment becomes non-zero is not reported. AUPRC = 2.09x base rate is statistically detectable but practically insufficient for shortlisting at any k <= 500. The paper acknowledges the label sparsity in Section 5.7 but continues to use the 'tractable candidate set' framing without qualification, including in the Abstract and Conclusion.",
+    "suggestion": "Report the minimum k at which EDA rank achieves non-zero Precision@k from D1 data. If EDA requires k > 1000 to find any absorbed feature, reframe EDA as 'statistical evidence that absorbed features are overrepresented in the top EDA percentile' rather than 'a shortlisting method.' The Abstract currently claims EDA provides 'the first probe-free statistical shortlist method' which is inconsistent with Precision@500 = 0 in the raw data."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "EDA-norm (AUROC = 0.738 from D2_eda_variants.json) significantly outperforms EDA_base (AUROC = 0.650, DeLong p = 0.0007). This difference is statistically significant. The paper leads all summary claims with EDA_base = 0.650, not EDA_norm = 0.738. If EDA_norm is the stronger metric (which the data shows it is, with statistical confirmation), it should be the primary reported detector, not a buried variant. The paper's decision to lead with the theoretically motivated but empirically weaker EDA_base introduces a systematic downward bias in reported performance.",
+    "suggestion": "Promote EDA_norm (AUROC = 0.738) as the primary reported EDA variant in Table 1, Abstract, Introduction, and Conclusion. Report EDA_base as a secondary diagnostic. Note that EDA_norm = EDA_base * ||enc_j|| since decoder norms are approximately 1.0 in this SAE, so the empirical superiority of EDA_norm is consistent with the mechanistic conjecture (absorbed features have elevated encoder norms under competing gradient pressure)."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Absorption rates reported in the paper are internally inconsistent across sections. The Abstract uses '92-97%' (confirmed by E1 to be 0.938-0.967 for jb suite only), Section 4.4 correctly reports '0.876-0.978' (all 11 configs), but the Conclusion uses '0.919-0.968' — a value that matches neither the jb-only range nor the full range and does not appear in E1_phase_transition.json at all.",
+    "suggestion": "Use '0.876-0.978' uniformly (Abstract, Introduction, Section 4.4, Conclusion). Add a parenthetical scoping '(0.938-0.967 for the primary jb suite)' in Section 4.4. The value 0.919-0.968 appearing in the Conclusion is unverifiable from any source file and must be corrected."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The first-letter absorption rate in C2 is driven by a single letter (h at 0.067); 7/8 letters show 0. The aggregate rate 0.0083 with ratio-to-null=10.0 masks this heterogeneity. The paper's 'confirming genuine absorption' framing overstates the breadth of the effect.",
+    "suggestion": "Report the per-letter breakdown: h=0.067, others=0. The aggregate rate is technically accurate but misleading. One letter out of 8 showing absorption is a much more specific claim than 'first-letter hierarchy: GO.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The hysteresis experiment is uninterpretable due to ceiling saturation. Absorption 0.959 → 0.960 after fine-tuning. From-scratch at target sparsity: 0.964. The Conclusion claims metastability but no non-absorbed second stable state has been identified. Metastability is untestable in this regime.",
+    "suggestion": "Replace the metastability claim in the Conclusion with 'we were unable to test hysteresis due to saturation of absorption rates across the tested L0 range.' The saturation finding is correctly reported in Section 5.4 and is the key result."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "The phantom AUROC = 0.206 for decoder-decoder cosine does not appear in any raw data file as a detector in Table 1. B1_decoder_geometry.json shows 0.318 for a different analysis. The raw cosine in Table 1 is 0.350. If the paper still contains 0.206 anywhere, it must be replaced. Cross-validation from paper.md confirms the Abstract no longer uses 0.206 but the Introduction and Conclusion need verification.",
+    "suggestion": "Audit every occurrence of 0.206 in the paper. The correct Table 1 value for the intra-feature raw cosine detector is AUROC = 0.350 (verified from D1_eda_validation.json: cos_enc_dec AUROC = 0.34967 ≈ 0.350)."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "The paper does not clearly state that the originally proposed probe-free detector (ASI) was falsified (AUROC = 0.4215, below null) and that EDA emerged as an empirical replacement. The connection between the proposal's H1-H4 structure and the published paper's three contributions is opaque.",
+    "suggestion": "Add one sentence to Section 3.3 or Section 4.1 noting that the originally proposed ASI failed empirical validation and that EDA was identified as the operative geometric signal. This improves scientific transparency and aligns with the paper's otherwise exemplary negative result reporting."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "B3 cross-architecture comparison uses different hook points: Standard uses resid_pre, TopK uses resid_post at layer 6. This confound is noted in audit_report.json but not in the paper.",
+    "suggestion": "Add an explicit confound caveat sentence to Section 4.3 noting the hook-point mismatch and stating that the TopK-Standard EDA difference cannot be cleanly attributed to the sparsity formulation alone."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "sae-spelling commit hash, FeatureAbsorptionCalculator parameters, and SAELens release hash are absent from Section 3.4. The 18 absorbed feature IDs are in D1_eda_validation.json but not the paper.",
+    "suggestion": "Add reproducibility details to Section 3.4: sae-spelling repo URL and commit hash, FeatureAbsorptionCalculator threshold and n_tokens settings, SAELens release identifier. Include the 18 absorbed feature IDs in an appendix table."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "animate_inanimate probe achieves F1 = 1.0 on n_test = 22. Shuffle control F1 is not reported in the paper. The city_country_binary probe was excluded after failing the shuffle gate but the same rigor is not visibly applied to animate_inanimate.",
+    "suggestion": "Report shuffle control F1 for animate_inanimate and confirm it passes the gate (shuffled F1 < 0.60) before using this probe in cross-domain analysis."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Spearman rho = 0.191 in Introduction and Spearman rho = -0.482 in Section 4.4 measure different dependent variables (EDA_delta vs. 1/L0 and absorption_rate vs. 1/L0 respectively) and should not both appear as 'Spearman correlation' for the same phase stability claim without explicit labeling.",
+    "suggestion": "Use rho = -0.482 (all 11 configs, absorption_rate vs. 1/L0 from E1) as the canonical phase stability statistic. Label rho = 0.191 explicitly as EDA_delta vs. 1/L0 if it remains in the paper."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "minor",
+    "description": "EDA magnitude tension (mean EDA = 0.671, implying ~48° angle vs. small theta predicted at onset) appears twice in near-identical language — Sections 4.2 and 5.2.",
+    "suggestion": "Remove the brief mention in Section 4.2. Retain the fuller treatment in Section 5.2 with the temporal-drift hypothesis."
+  }
+]

@@ -1,0 +1,125 @@
+{
+  "report_date": "2026-04-14",
+  "searcher": "sibyl-novelty-checker",
+  "search_rounds": 12,
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Geometric Factorization Meets Physical Reality: A Systematic Compositional Generalization Benchmark for JEPA World Models",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Kim et al., NeurIPS 2023. Imagine the Unseen World: A Benchmark for Systematic Generalization in Visual World Models. arXiv:2311.09064",
+          "overlap": "SVIB is a CoGenT-style benchmark for systematic generalization in visual world models, using factor holdout (dSprites, CLEVR, CLEVRTex with shape/color/texture factors). Conceptually similar holdout-based evaluation philosophy.",
+          "severity": "partial_overlap",
+          "differentiation": "SVIB tests visual image-to-image transformation rules (shape-swap, color-swap) on object-centric toy domains. Our proposal tests a JEPA world model (LeWM) on physical dynamics parameters (friction, gravity, mass) in DMControl Walker — a physics simulation control domain. SVIB does not evaluate physical parameters, does not target JEPA architectures, and does not include geometric/interventional diagnostics or LoRA adaptation."
+        },
+        {
+          "paper": "Uselis et al., ICML 2025. Does Data Scaling Lead to Visual Compositional Generalization? arXiv:2507.07102",
+          "overlap": "Proves that compositional generalization requires data diversity, not mere scale; evaluates linear factorization in vision model representations (CLIP, DINO); correlates orthogonality of per-concept subspaces with compositional generalization performance.",
+          "severity": "partial_overlap",
+          "differentiation": "Uselis et al. study static vision encoders (CLIP, DINO, SigLIP) on visual concept holdouts (color, shape, texture). Our proposal tests LeWM — a JEPA world model that also learns dynamics (predictor for future state prediction). We extend their geometric analysis to the temporal dynamics domain and add IIS, LoRA diagnostics, and physics regime analysis — none of which appear in Uselis et al."
+        },
+        {
+          "paper": "Uselis et al., 2026. Compositional Generalization Requires Linear, Orthogonal Representations in Vision Embedding Models. arXiv:2602.24264",
+          "overlap": "Formalizes the geometric conditions (linear, orthogonal per-concept representations) required for compositional generalization; provides principal angle analysis codebase; tests on CLIP, DINO, SigLIP.",
+          "severity": "partial_overlap",
+          "differentiation": "Exclusively tests static vision encoders, not world models. Does not address JEPA predictors, temporal dynamics, SIGReg vs. VICReg comparison, interventional probing, LoRA adaptation, or physical coupling analysis. We build on their geometric framework and extend it to the world model setting."
+        },
+        {
+          "paper": "Nam et al., 2026. Causal-JEPA: Learning World Models through Object-Level Latent Interventions. arXiv:2602.11389",
+          "overlap": "Uses latent interventions in a JEPA world model context; induces causal inductive bias via object-level masking; demonstrates improved counterfactual reasoning (+20%) on CLEVRER and Push-T.",
+          "severity": "partial_overlap",
+          "differentiation": "Causal-JEPA focuses on learning world models with causal inductive biases via object masking as a training objective — a completely different problem from measuring compositional generalization in an already-trained model. It does not evaluate physical parameter holdout (friction, gravity, mass), does not measure interventional independence scores as a test-time diagnostic, and does not apply LoRA adaptation. There is no compositional generalization benchmark or geometric analysis."
+        },
+        {
+          "paper": "Zhou et al., 2024. DINO-WM: World Models on Pre-trained Visual Features Enable Zero-Shot Planning. arXiv:2411.04983 (ICML 2025)",
+          "overlap": "Evaluates JEPA-style world model (DINO-WM) for planning and generalization to new environments; achieves SR=0.82 on unseen wall configurations. Serves as architecture baseline.",
+          "severity": "related_work",
+          "differentiation": "DINO-WM is a key baseline we compare against. Its generalization experiments test new visual configurations (maze walls, object shapes), not physics parameter combinations. It does not use CoGenT-style holdout, no geometric/interventional analysis, no LoRA, no regime analysis."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "The core contributions of cand_a — (1) first CoGenT-style physics-parameter holdout benchmark for a JEPA world model (LeWM), (2) empirical test of SIGReg-orthogonality connection, (3) Interventional Independence Score (IIS) as novel diagnostic metric, (4) LoRA as encoder-predictor bottleneck diagnostic, (5) regime-aware evaluation distinguishing model vs. physically irreducible failures — are collectively absent from the literature. Individual components have partial precedent but the specific combination targeting LeWM with physics factors is genuinely novel. The most significant risk is from SVIB (NeurIPS 2023) as a conceptual predecessor, but the methodological and domain differences are substantial.",
+      "key_differentiators": [
+        "First benchmark targeting JEPA world model (not static vision encoder) for physics parameter holdout",
+        "First empirical measurement of SIGReg-orthogonality connection (Uselis 2026 conditions applied to world model setting)",
+        "Interventional Independence Score (IIS) — novel metric transplanting activation-patching methodology from LLM interpretability to world model evaluation",
+        "LoRA as encoder-predictor diagnostic — no prior work applies LoRA rank analysis to distinguish encoder-vs-predictor bottleneck in JEPA",
+        "Regime-aware evaluation (physics coupling as predictor of irreducible failures) — genuinely new framework",
+        "DMControl Walker with MuJoCo parameter variation as the specific test environment"
+      ]
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Group-Structured vs. Isotropic Latent Priors for Compositional Physical Generalization",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Delliaux et al., 2025. Learning Abstract World Models with a Group-Structured Latent Space. arXiv:2506.01529",
+          "overlap": "Directly implements group-structured latent space for world model learning (MDPs); uses geometric priors (SO(2), translational symmetry); improves downstream RL performance. This is precisely the method cand_b proposes to compare against SIGReg.",
+          "severity": "partial_overlap",
+          "differentiation": "Delliaux et al. test group-structured models on environments with rotational/translational symmetries, not on physics parameter compositional generalization benchmarks. They do not compare to SIGReg, do not measure principal angle orthogonality, and do not evaluate CoGenT-style holdout for friction/gravity/mass. Cand_b's specific contribution is the head-to-head comparison on the ComPhys-LeWM benchmark."
+        },
+        {
+          "paper": "Schwarcz, 2026. Semantic Interaction Information mediates compositional generalization in latent space. arXiv:2603.27134",
+          "overlap": "Proposes RCC (Relational Compositional Coding) architectures; casts compositional generalization as variational inference over latent variables with parametric interactions.",
+          "severity": "related_work",
+          "differentiation": "Different theoretical framework (variational inference vs. group theory). Does not implement or evaluate group-structured world models. Does not use JEPA or SIGReg."
+        }
+      ],
+      "recommendation": "proceed_as_pivot",
+      "differentiation_notes": "The key novelty is the comparison between group-structured prior (Delliaux) and isotropic Gaussian prior (SIGReg) specifically on the physics compositional generalization benchmark. This comparison has not been done. Activate as pivot if H2 is falsified (SIGReg neutral/harmful) or as natural extension if H2 is confirmed."
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Physics-Informed Fair Evaluation of World Model Compositional Generalization",
+      "novelty_score": 9,
+      "collisions": [
+        {
+          "paper": "Uselis et al., ICML 2025. Does Data Scaling Lead to Visual Compositional Generalization? arXiv:2507.07102",
+          "overlap": "Argues that data diversity (combinatorial coverage) is the key driver for compositional generalization; reveals that some visual combinations are harder to generalize than others.",
+          "severity": "related_work",
+          "differentiation": "Does not address physical coupling as a principled upper bound on compositionality. Does not distinguish model limitations from physically irreducible failures. Does not involve dynamical systems analysis."
+        },
+        {
+          "paper": "Four Principles for Physically Interpretable World Models. arXiv:2503.02143 (2025)",
+          "overlap": "Addresses physical interpretability of world models; argues that aligning world models with physical principles improves OOD generalization.",
+          "severity": "related_work",
+          "differentiation": "Focuses on model design principles (equivariant representations, physics-constrained objectives) rather than evaluation framework for distinguishing model vs. physically irreducible failures. No bifurcation/coupling analysis."
+        },
+        {
+          "paper": "Decomposing dynamical subprocesses for compositional generalization. PNAS 2024. doi:10.1073/pnas.2408134121",
+          "overlap": "Studies compositionality of dynamical subprocesses in human cognition; shows humans segregate holistic experiences into component parts and recombine for novel scenarios.",
+          "severity": "related_work",
+          "differentiation": "Neuroscience/cognitive science context, not machine learning world model evaluation. Does not address physically irreducible coupling or ML benchmarking."
+        }
+      ],
+      "recommendation": "proceed_as_pivot",
+      "differentiation_notes": "The regime-aware evaluation framework (coupling strength predicts irreducible failures, independent of model quality) is genuinely novel. No prior work classifies world model compositional generalization failures as 'model-fixable' vs. 'physically irreducible' using dynamical systems coupling theory. This is the primary pivot if H1 is falsified."
+    },
+    {
+      "candidate_id": "cand_d",
+      "title": "The Probing Illusion: Geometric Diagnostics for Compositional Generalization in JEPA World Models",
+      "novelty_score": 7,
+      "collisions": [
+        {
+          "paper": "Liang et al., 2025. Compositional Generalization Requires More Than Disentangled Representations. arXiv:2501.18797",
+          "overlap": "Shows that disentangled representations (a commonly used probing target) are insufficient for compositional generalization — explicitly arguing that probing accuracy does not guarantee transfer.",
+          "severity": "partial_overlap",
+          "differentiation": "Liang et al. study static vision models (disentanglement methods), not JEPA world models. They do not quantify the probing-generalization dissociation with a specific correlation coefficient, do not measure IIS or principal angles, and do not propose geometric diagnostics as alternatives for world models. Our contribution quantifies the dissociation specifically in LeWM and proposes replacements."
+        },
+        {
+          "paper": "Uselis et al., 2026. Compositional Generalization Requires Linear, Orthogonal Representations. arXiv:2602.24264",
+          "overlap": "Shows that in-distribution probing (disentanglement metrics) is a weak proxy for compositional generalization; advocates for geometric analysis as stronger predictor.",
+          "severity": "partial_overlap",
+          "differentiation": "Tests static encoders (CLIP, DINO, SigLIP), not JEPA world models. The probing-generalization dissociation for JEPA world models specifically — including the temporal prediction component — has not been characterized."
+        }
+      ],
+      "recommendation": "proceed_as_embedded",
+      "differentiation_notes": "The specific empirical characterization of probing-generalization dissociation in LeWM (not static encoders) is novel. However, the conceptual argument is already well-supported in the literature. Best pursued as a subsection of cand_a's multi-level evaluation (Level 1 vs. Level 2-3 comparison) rather than a standalone paper. Novelty score reflects partial prior art on the conceptual claim."
+    }
+  ],
+  "overall_novelty": "high",
+  "summary": "The front-runner (cand_a) is genuinely novel at the combination level. Individual technical components have precedents: CoGenT-style holdout (SVIB), geometric analysis of representations (Uselis 2026), latent interventions in JEPA (Causal-JEPA), delta-vector independence (Learning Robust Intervention). However, no prior work combines: (1) JEPA world model (LeWM) + (2) physics-parameter holdout (friction/gravity/mass) + (3) SIGReg vs. VICReg geometric analysis + (4) IIS metric + (5) LoRA bottleneck diagnostic + (6) physics-coupling regime analysis. The most important gap confirmed: no paper has applied CoGenT-style holdout to physical parameters in a JEPA world model, and no paper has tested whether SIGReg's isotropic Gaussian prior promotes or competes with the Uselis geometric conditions for compositional generalization."
+}

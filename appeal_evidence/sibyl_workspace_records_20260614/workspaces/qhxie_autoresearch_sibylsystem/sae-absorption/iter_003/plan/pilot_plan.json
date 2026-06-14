@@ -1,0 +1,120 @@
+{
+  "version": "iter_003_v2_post_experiment",
+  "created": "2026-04-14",
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout": 900
+  },
+  "note": "All iter_003 A1-F1 pilots are COMPLETE. This plan covers Round 5 pilots for tasks R5A-R5D before writing phase.",
+
+  "completed_pilots": [
+    {
+      "task_id": "task_A1_encoder_norm_replication",
+      "status": "PASS",
+      "result": "encoder_norm AUROC=0.757 at GPT-2 L6 (n_pos=18). DeLong z=3.04 p=0.0012 vs EDA."
+    },
+    {
+      "task_id": "task_A2_encoder_norm_theory",
+      "status": "PASS",
+      "result": "Spearman(enc_norm, EDA)=0.712. Late-absorbed mean enc_norm=3.65 > early=2.95. Peak layer=L6."
+    },
+    {
+      "task_id": "task_A3_encoder_norm_cross_arch",
+      "status": "PASS",
+      "result": "Standard L1: enc_norm AUROC=0.757. TopK 32k: enc_norm AUROC=0.837 (proxy labels). TopK AR=0.0%."
+    },
+    {
+      "task_id": "task_B1_cooccurrence_graph",
+      "status": "PASS",
+      "result": "Co-occurrence graph built (10k tokens). A_cooccur, O_jaccard arrays saved."
+    },
+    {
+      "task_id": "task_B2_ars_v2_validation",
+      "status": "PASS_NEGATIVE",
+      "result": "Multiplicative ARS product (0.528) < encoder_norm alone (0.757). O_jaccard alone = 0.721 (independent signal)."
+    },
+    {
+      "task_id": "task_C1_omp_pilot",
+      "status": "PASS",
+      "result": "OMP reconstruction < feedforward (sanity check). Absorption at ceiling (98%), proceed with caution."
+    },
+    {
+      "task_id": "task_C2_amortization_gap_full",
+      "status": "PASS_NEGATIVE",
+      "result": "OMP reduction_ratio=0.0. Sparsity landscape dominant. Ceiling effect possible."
+    },
+    {
+      "task_id": "task_D1_crosshier_probe_training",
+      "status": "PASS",
+      "result": "Entity-type probe accuracy > 75% at L4. Quality gate passed."
+    },
+    {
+      "task_id": "task_D2_crosshier_absorption",
+      "status": "PASS_NEGATIVE",
+      "result": "Entity-type AR=0.0% vs negative control AR=5.0%. H3 falsified at pilot scale."
+    },
+    {
+      "task_id": "task_E1_gemma_scope_validation",
+      "status": "PASS_FALLBACK",
+      "result": "Gemma still gated. TopK fallback: 0% absorption (proxy labels)."
+    },
+    {
+      "task_id": "task_F1_successive_refinement",
+      "status": "PASS",
+      "result": "67% absorbed features (24k SAE) recovered in 32k TopK SAE (cos>0.8)."
+    }
+  ],
+
+  "pending_pilots": [
+    {
+      "task_id": "task_R5A_topk_ig_validation",
+      "priority": "CRITICAL",
+      "pilot_description": "Run sae_spelling FeatureAbsorptionCalculator on TopK 32k SAE at GPT-2 L6 for 3 letters (a, e, s). Check if IG-labeled absorption rate is < 5% or similar to Standard L1.",
+      "pass_criteria": "IG absorption computed for at least 3 letters. Comparison to Standard L1 rates documented. go_no_go determination for TopK zero-absorption claim.",
+      "estimated_minutes": 15,
+      "gpu_count": 1
+    },
+    {
+      "task_id": "task_R5B_combination_detector",
+      "priority": "HIGH",
+      "pilot_description": "Test max(norm_enc_norm, norm_O_jaccard) and linear combination on GPT-2 L6 exact labels. CPU-only.",
+      "pass_criteria": "At least 2 combinations tested. AUROC reported. DeLong test vs encoder_norm alone.",
+      "estimated_minutes": 5,
+      "gpu_count": 0
+    },
+    {
+      "task_id": "task_R5C_omp_ig_measurement",
+      "priority": "MEDIUM",
+      "pilot_description": "For 3 late-absorbed features, identify absorption-active tokens and test OMP firing. 30 tokens per feature.",
+      "pass_criteria": "3 features evaluated. Reduction rate measured. Direction of effect confirmed.",
+      "estimated_minutes": 15,
+      "gpu_count": 1
+    },
+    {
+      "task_id": "task_R5D_crosshier_scaleup",
+      "priority": "SUPPLEMENTARY",
+      "pilot_description": "Run animate/inanimate hierarchy absorption with 100 tokens. If > 0% absorption, proceed to full 500-token run.",
+      "pass_criteria": "Animate/inanimate absorption measured. Non-zero result OR confirmed null at this scale.",
+      "estimated_minutes": 15,
+      "gpu_count": 1
+    }
+  ],
+
+  "go_no_go_gates": [
+    {
+      "task_id": "task_R5A_topk_ig_validation",
+      "gate": "TopK IG absorption rate < 10% (vs Standard L1 ~0.07% rate) OR > 25% (similar to Standard — proxy was false positive). Either outcome is publishable; the framing changes.",
+      "action_if_gate_1": "Add TopK architecture as third contribution: 'TopK k=32 nearly eliminates absorption on first-letter task'",
+      "action_if_gate_2": "Drop TopK architecture claim; strengthen sparsity landscape + encoder_norm narrative"
+    },
+    {
+      "task_id": "task_R5B_combination_detector",
+      "gate": "Best combination AUROC > 0.780 with DeLong p < 0.05 vs encoder_norm alone",
+      "action_if_pass": "Report combination as primary detection method; encoder_norm and O_jaccard as components",
+      "action_if_fail": "Use encoder_norm alone as primary detector; O_jaccard as supplementary finding"
+    }
+  ],
+
+  "overall_go_write_criteria": "Writing can proceed after R5A and R5B complete (estimated 25 min wall clock time). R5C and R5D are supplementary and can run in parallel with outline writing. Minimum publishable paper requires: (1) encoder_norm AUROC >= 0.757 confirmed on exact labels — already done; (2) sparsity landscape dominance — already confirmed by C2 (with caveat); (3) at least one framing for the remaining contributions (TopK or cross-hierarchy)."
+}

@@ -1,0 +1,35 @@
+# Related Work
+
+We organize prior work on dynamic weight decay into four categories, then position EqWD relative to each.
+
+## Weight Decay Scheduling
+
+The simplest departure from fixed weight decay is to schedule $\lambda$ over the course of training. Loshchilov and Hutter \cite{loshchilov2019adamw} introduced decoupled weight decay (AdamW), separating the decay term from the gradient-based update, but still applied a constant coefficient. The distinction between L2 regularization and decoupled weight decay has important implications for Adam-family optimizers, where the two are no longer equivalent \cite{loshchilov2019adamw}. Xie et al. \cite{xie2023swd} proposed Structured Weight Decay (SWD), a gradient-norm-aware scheduler: SWD reduces weight decay when gradient norms are large, reasoning that strong gradient signals already provide sufficient implicit regularization. While effective---SWD achieves 72.04\% on ImageNet ResNet-50 in our evaluation---SWD uses $\|g_t\|$ alone and does not incorporate weight norm information, making the ratio signal potentially more informative by jointly encoding gradient and weight dynamics. Naganuma et al. \cite{naganuma2026} analyzed the interaction between learning rate schedules and weight decay shapes, validating the importance of schedule co-design but not proposing an adaptive per-step mechanism.
+
+The relationship between learning rate schedules and implicit weight decay modulation is well understood: warmup and cosine annealing schemes implicitly define a time-varying $r^* = \lambda/\gamma$, and the effectiveness of weight decay depends on this coupling \cite{gotmare2018, smith2019superconv}. This connection motivates EqWD's EMA-tracked equilibrium, which automatically adapts to learning rate changes. Additionally, the common practice of excluding bias and normalization layers from weight decay in Transformer training \cite{devlin2019bert, dosovitskiy2021vit} represents a form of per-parameter-group adaptation, related in spirit to EqWD's per-layer granularity.
+
+## Alignment-Aware Weight Decay
+
+A second line of work conditions weight decay on the directional relationship between gradients and weights. Chen et al. \cite{chen2026cwd} introduced Cautious Weight Decay (CWD), which applies a binary mask that activates decay only when the gradient and weight vectors are co-directional (positive sign alignment). CWD is motivated by the intuition that decaying weights opposing the gradient direction is counterproductive. However, the binary nature of CWD's signal discards magnitude information: two layers with identical sign alignment but vastly different gradient magnitudes receive the same modulation. In our ImageNet experiments, CWD achieves 71.39\%, which may reflect the difficulty of binary modulation at scale, though this result is specific to our 45-epoch training regime. Sun et al. \cite{sun2025cvpr} provided the first formal generalization bound for SGDW that depends on gradient-weight alignment, establishing a theoretical foundation for alignment-aware approaches. Their framework motivates our theoretical analysis but their work does not propose a practical algorithm. The cautious optimizer family \cite{luo2024cautious}, which applies alignment-based masking to gradient updates rather than weight decay, is conceptually related and has attracted significant recent attention.
+
+## Norm-Constrained and Per-Parameter Weight Decay
+
+Rather than scheduling $\lambda$ over time, several methods adapt weight decay per parameter group based on norm targets. Franke et al. \cite{franke2024cpr} proposed Constrained Parameter Regularization (CPR), which enforces per-matrix norm constraints through a smooth augmented Lagrangian framework---a continuous optimization approach distinct from the binary masking of CWD. CPR is individually adaptive through its smooth constraint mechanism, but its formulation does not model ratio dynamics; in our evaluation, CPR achieves 71.38\% on ImageNet. He et al. \cite{he2025alphadecay} introduced AlphaDecay, a spectral-density-guided per-module decay for large language models. While spectral density is a richer per-layer signal than the gradient-to-weight ratio, EqWD offers advantages in computational cost and per-iteration adaptivity that make it more suitable for standard vision training; the two approaches target complementary domains (vision vs. LLMs). Loshchilov \cite{loshchilov2023weightnorm} explored target-norm weight decay (AdamWN), which is related to $r^*$ in EqWD but uses a fixed target rather than tracking the evolving equilibrium. The conceptual predecessor of per-parameter norm constraints---MaxNorm regularization \cite{hinton2012improving, srivastava2014dropout}---established that constraining parameter norms can be an effective regularization strategy.
+
+## Gradient-to-Weight Ratio Dynamics
+
+The theoretical foundation for EqWD comes from recent analyses of the gradient-to-weight ratio under weight decay. Defazio \cite{defazio2025} showed that weight decay drives the ratio $r_t = \|g_t\| / \|w_t\|$ toward a universal steady-state $r^* = \lambda / \gamma$, explaining the performance gap between Adam and AdamW through the lens of ratio equilibrium. Kosson et al. \cite{kosson2023} established a complementary rotational equilibrium result, showing that weight decay induces angular stability in parameter space. Chou \cite{chou2025} analyzed weight decay scaling proportional to $\gamma^2$ for stable weight norms; the connection between Chou's $\gamma^2$ scaling law and the ratio equilibrium $r^* = \lambda/\gamma$ deserves further investigation, as both characterize the steady-state behavior of weight-decay-regularized optimization. These results collectively establish that ratio equilibrium is a fundamental property of weight-decay-regularized optimization, but none translates this insight into a practical adaptive algorithm.
+
+## Positioning EqWD
+
+Table~\ref{tab:method_comparison} summarizes how EqWD relates to existing dynamic weight decay methods across four dimensions: the signal used for modulation, granularity, computational overhead, and theoretical grounding.
+
+| Method | Signal | Granularity | Overhead | Theory |
+|--------|--------|-------------|----------|--------|
+| FixedWD | --- | Global | None | Baseline |
+| SWD \cite{xie2023swd} | $\|g_t\|$ | Global | Low | Heuristic |
+| CWD \cite{chen2026cwd} | $\text{sign}(g_t \odot w_t)$ | Per-param | Low | Alignment intuition |
+| CPR \cite{franke2024cpr} | $\|w_t\|$ vs. target | Per-matrix | Medium | Lagrangian duality |
+| **EqWD (Ours)** | $|r_t - r^*| / r^*$ | Per-layer | ~2\% | Equilibrium theory |
+
+EqWD is distinguished by three properties: (1) it uses the *ratio* $r_t^l = \|g_t^l\| / \|w_t^l\|$, which jointly encodes gradient and weight information, rather than either signal alone; (2) it operates per-layer with an EMA-tracked equilibrium, adapting to the heterogeneous dynamics of different network components; and (3) it has a direct theoretical connection to Defazio's ratio equilibrium result, providing a principled basis for when and how much to modulate weight decay.

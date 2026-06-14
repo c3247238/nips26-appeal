@@ -1,0 +1,108 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_eda_crossdomain",
+      "title": "When Encoder-Decoder Misalignment Signals Feature Absorption: Regime-Specific Detection, Cross-Domain Generalization, and the Dominance of Dictionary Coverage Failure",
+      "status": "front_runner",
+      "revision_round": 3,
+      "summary": "A unified, training-free framework for SAE absorption analysis with three primary contributions confirmed by experiment: (1) EDA as regime-specific weight-only absorption screening tool with formal biconvex lower bound — AUROC = 0.776 at L12-16k, validated cross-model on GPT-2 — characterizing layer-width dependency as an informative finding about absorption geometry; (2) first cross-domain absorption characterization via RAVEL entity-attribute hierarchies, all 18 measurements above 3x random baseline, intra-RAVEL coherence rho = 0.924, pending Gemma 2B probe validation; (3) three-subtype taxonomy (early: decoder-absent ~75%; late: decoder-present ~13%; partial: ~12%) revealing that early absorption (dictionary coverage failure) dominates, reframing the dominant failure mode and challenging the implicit focus of all ITAC-style mitigation approaches. Two secondary components (D-EDA, ITAC) are repositioned as exploratory/proof-of-concept with honest negative results.",
+      "hypotheses": [
+        "H1 (CONFIRMED): EDA lower bound theorem — EDA(j) >= delta^2 * sin^2(theta) / (2 + delta^2) for absorbed latents; validated on SynthSAEBench (AUROC = 1.0, F1 = 0.974) and with strong group separation on real Gemma SAEs (Cohen's d > 0.84, p = 6.4e-5 at L12-16k)",
+        "H2 (PARTIALLY CONFIRMED): EDA achieves AUROC >= 0.65 in mid-layer, narrow-SAE regimes (L12-16k: 0.776, L5-16k: 0.698); fails in wide SAEs due to early-absorption prevalence; pending direct Chanin labels to resolve proxy-label collapse at L12-65k",
+        "H3 (REFRAMED — PENDING): Cross-domain absorption exists (all 18 RAVEL combinations > 3x random); intra-RAVEL rho = 0.924; cross-paradigm (first-letter vs. RAVEL) rho = -0.20 to -0.43; absolute rates unreliable pending proper Gemma 2B probes",
+        "H4 (PARTIALLY CONFIRMED): Late > early EDA ordering robust (KW p = 0.0002, L12-65k, stable across 5 thresholds); partial < early (counter-prediction, both may share decoder-absent mechanism); early absorption dominates at ~75% — the primary finding",
+        "H5 (FALSIFIED — reframed): ITAC achieves 3% FN reduction (vs. 20% target); falsification explains by 75% early-type ineligibility; proof-of-concept only",
+        "H6 (FALSIFIED): Partial rho(width, absorption | L0) = +0.37; no sign reversal; insufficient L0 variation in canonical SAEs to test confound"
+      ],
+      "pilot_focus": "COMPLETED: Phase 0 (metric validation), Phase 1 (EDA pilot AUROC), Phase 2 (taxonomy + ITAC), Phase 3 (RAVEL). BLOCKING REMAINING: Gemma 2B access + direct Chanin labels + RAVEL probes re-run.",
+      "key_novelty": "EDA as first formal weight-only absorption detector with regime characterization; first cross-domain absorption characterization; three-subtype taxonomy with 75% early-absorption dominance insight (reframes the field's mitigation focus). Partial overlap: LessWrong informal suggestion (seed) vs. EDA (formal theorem + AUROC + baseline comparison + regime characterization).",
+      "crowded_risks": "MP-SAE (Costa et al. 2506.03093): iterative encoding, reduces absorption; ITAC differentiated as post-hoc training-free for existing SAEs. OrtSAE, Matryoshka, KronSAE, MaskedReg: all require retraining; detection + characterization + taxonomy are distinct contributions.",
+      "compute_estimate": "Remaining: 8-12 GPU-hours before paper writing. Breakdown: Gemma 2B labels replication (3-4 hr) + RAVEL probes fix (1-2 hr) + cross-model EDA (2-3 hr) + optional ITAC real-activation test (2-3 hr).",
+      "falsification_conditions": "EDA AUROC < 0.60 on ALL configs with DIRECT Chanin labels (not proxy) AND shuffled hierarchy control shows same absorption rates as real RAVEL hierarchies. Both must hold simultaneously to falsify both primary contributions. Taxonomy finding (75% early, late > early EDA ordering) is robust to this — it is independently validated.",
+      "blocking_dependency": "Gemma 2B HuggingFace authentication. Fallback: Llama-3.1-3B (publicly available, similar d_model = 3072).",
+      "venue_target": "Current: EMNLP 2026 / NeurIPS 2026 MI Workshop. With Gemma 2B validation: potentially NeurIPS 2026 / ICLR 2027 main.",
+      "key_changes_from_prior_round": [
+        "EDA repositioned from 'universal detector' to 'regime-specific screening tool' (2/6 Gemma configs pass; proxy-label collapse diagnosed but not fully resolved)",
+        "D-EDA demoted from 'improvement over EDA' to 'alternative detector in specific failure modes'; numerical conditioning issue identified",
+        "ITAC demoted from 'primary contribution' to 'proof-of-concept for late absorption minority'; 3% vs. 20% miss explained by 75% early-type ineligibility",
+        "Early-absorption dominance (~75%) elevated to primary contribution in its own right — reframes mitigation prescription from encoder fixes to dictionary coverage fixes",
+        "Cross-paradigm negative correlation (first-letter vs. RAVEL rho = -0.43) elevated as hypothesis-generating finding about distinct absorption regimes",
+        "H6 falsification explained by insufficient L0 variation in canonical SAEs; moved to supplementary",
+        "Contrarian's Amortization Gap Thesis partially incorporated: 75% early dominance is consistent with both Tang et al. (optimization landscape) and O'Neill et al. (amortization gap) but a controlled dictionary experiment (Backup A) would directly adjudicate",
+        "Backup A (amortization gap controlled experiment) added as a high-priority supplementary experiment that can be run in 1-2 GPU-hours with no new downloads"
+      ]
+    },
+    {
+      "candidate_id": "cand_amortization_gap_experiment",
+      "title": "Controlled Dictionary Experiment: Separating Sparsity-Landscape from Amortization-Gap Causes of Feature Absorption",
+      "status": "backup",
+      "summary": "Take the SAME pre-trained decoder dictionary D from a Gemma Scope SAE and measure absorption rates under standard feedforward encoding, OMP encoding, and 2-pass encoding. This definitively separates the Tang et al. (sparsity landscape is the cause) from O'Neill et al. (amortization gap is the cause) explanations of absorption. The 75% early-absorption finding from the main paper makes this test high-value: if OMP shows dramatically less early absorption with the same dictionary, the encoder is implicated in early-absorption causation.",
+      "hypotheses": [
+        "If amortization gap dominates: OMP absorption rate < 50% of feedforward absorption rate at matched L0",
+        "If sparsity landscape dominates: absorption rates are similar across all encoding methods with the same dictionary",
+        "2-pass encoder shows intermediate absorption rate between feedforward and OMP"
+      ],
+      "pilot_focus": "Run on Gemma Scope L12-16k (already downloaded). Feedforward vs. OMP comparison on 1000 tokens. 30 min.",
+      "key_novelty": "First controlled dictionary experiment separating encoder from dictionary in absorption causation. 9/10 novelty.",
+      "crowded_risks": "MP-SAE (Costa et al. 2506.03093) shows absorption reduction with iterative encoding, but does not hold the dictionary constant. This experiment's novelty is the controlled comparison.",
+      "compute_estimate": "1-2 GPU-hours. No new downloads needed. Activatable immediately.",
+      "pivot_trigger": "Always run as supplementary. Activate as primary if EDA + cross-domain both fail comprehensively."
+    },
+    {
+      "candidate_id": "cand_lca_sae",
+      "title": "LCA-SAE: Reducing Feature Absorption via Locally Competitive Encoder Dynamics",
+      "status": "backup",
+      "summary": "Replace the feedforward encoder in pre-trained SAEs with an unrolled Locally Competitive Algorithm (LCA), where features compete through lateral inhibition derived from the decoder Gram matrix. Iterative competition allows both parent and child features to coexist at graded activation levels, reducing absorption without changing decoder weights.",
+      "hypotheses": [
+        "LCA-SAE reduces absorption rate by >= 30% relative to standard SAE at matched L0 and reconstruction quality",
+        "LCA-SAE reduces late absorption but not early absorption (mechanistic validation of the taxonomy)",
+        "5 LCA iterations are sufficient for convergence"
+      ],
+      "pilot_focus": "Chanin et al. 2-feature hierarchical toy; verify LCA preserves both parent and child while feedforward SAE absorbs parent. ~10 min CPU.",
+      "key_novelty": "First application of LCA dynamics to SAE absorption. Distinct from MP-SAE (parallel vs. sequential competition). 5/10 novelty due to MP-SAE overlap.",
+      "crowded_risks": "MP-SAE (Costa et al. 2506.03093, 2506.05239): iterative encoding for hierarchical features. Key differentiator: LCA uses parallel lateral competition; MP uses greedy sequential selection.",
+      "compute_estimate": "~3-4 GPU-hours (fine-tuning threshold + SAEBench evaluation)",
+      "pivot_trigger": "EDA AUROC < 0.60 universally with direct labels AND cross-domain results null (all domains within 3pp of random baseline with proper probes)"
+    },
+    {
+      "candidate_id": "cand_scaling_laws",
+      "title": "Scaling Laws for Feature Absorption: Partial Correlation Analysis",
+      "status": "backup",
+      "summary": "Systematic measurement of absorption across 40+ Gemma Scope SAE configurations with partial correlation analysis. H6 falsified: no sign reversal in current canonical SAEs. Recommended as supplementary analysis in main paper or activated as primary if main contributions fail.",
+      "hypotheses": [
+        "FALSIFIED: Partial correlation rho(width, absorption | L0) < 0. Observed: +0.37. Explanation: insufficient L0 variation in canonical SAEs.",
+        "Valid finding: wider SAEs consistently absorb more regardless of L0; positive correlation is genuine, not a confound"
+      ],
+      "pilot_focus": "Already run as Phase 4. Supplement to main paper.",
+      "key_novelty": "Partial correlation analysis to test width-L0 confound. Now a negative result with methodological interpretation.",
+      "compute_estimate": "~8 GPU-hours for full 40-SAE sweep; SAEBench pre-computed scores reduce this significantly",
+      "pivot_trigger": "Cross-domain probe quality uniformly poor AND EDA fails. Second-line backup."
+    }
+  ],
+  "dropped_candidates": [
+    {
+      "candidate_id": "cand_hierarchy_coherent_loss",
+      "title": "Hierarchy-Coherent SAE Loss",
+      "reason_dropped": "Crowded by Muchane et al. (arXiv:2506.01197), Luo et al. HSAE (arXiv:2602.11881), KronSAE (arXiv:2505.22255). Not activating.",
+      "status": "dropped"
+    },
+    {
+      "candidate_id": "cand_fisher_information",
+      "title": "Fisher Information Absorption Detection",
+      "reason_dropped": "Computationally infeasible for large SAEs. EDA/D-EDA addresses the same need with lower cost.",
+      "status": "dropped"
+    },
+    {
+      "candidate_id": "cand_info_bound",
+      "title": "Rate-Distortion Absorption Bound",
+      "reason_dropped": "Not dropped — incorporated as supplementary theoretical material in main proposal. Predicts [15%, 50%] absorption for typical Gemma settings; consistent with empirical observations. No additional experiments required.",
+      "status": "merged_into_supplementary"
+    },
+    {
+      "candidate_id": "cand_divisive_normalization_sae",
+      "title": "Divisive Normalization SAE (from Interdisciplinary Perspective)",
+      "reason_dropped": "Requires SAE training at significant compute cost. Not activating without pilot validation. Requires a dedicated experiment comparing DN-SAE to standard TopK SAE at matched L0.",
+      "status": "deferred"
+    }
+  ]
+}

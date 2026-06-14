@@ -1,0 +1,65 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_seconds": 900,
+    "L0_targets": [32],
+    "num_hierarchies": 5,
+    "num_seeds": 3,
+    "expansion_factor": 8,
+    "model_dim": 512,
+    "focus": "H_Safe,H3_fix,multi_seed"
+  },
+  "pilot_tasks": [
+    {
+      "task_id": "h_safe_pilot",
+      "pilot_override": {
+        "description": "Test H_Safe: safety-critical features have elevated absorption vs matched non-safety",
+        "samples": 100,
+        "timeout": 900,
+        "pass_criteria": "Gemma Scope SAEs loaded, 20+ safety features identified, absorption scores computed for both groups, Mann-Whitney test run"
+      }
+    },
+    {
+      "task_id": "h3_fix_pilot",
+      "pilot_override": {
+        "description": "Debug steering: verify ||steered - baseline|| > 0, test alpha scaling",
+        "samples": 100,
+        "timeout": 900,
+        "pass_criteria": "||steered - baseline|| > 1e-6, absorbed features show different steering response than non-absorbed"
+      }
+    },
+    {
+      "task_id": "multichild_multiseed_pilot",
+      "pilot_override": {
+        "description": "Validate H1 with seeds 42, 43, 44 to address zero-variance concern",
+        "samples": 100,
+        "seeds": [42, 43, 44],
+        "timeout": 900,
+        "pass_criteria": "Non-zero std across seeds, all seeds show absorption > 0.3 for trained SAE"
+      }
+    },
+    {
+      "task_id": "h_mech_factorial",
+      "pilot_override": {
+        "description": "2x2 factorial: random/trained encoder x random/trained decoder",
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 4 conditions complete, Condition C ≈ D (within 0.1)"
+      }
+    }
+  ],
+  "pilot_success_criteria": {
+    "h_safe_quick_check": "Safety features identifiable in Gemma Scope, absorption scores computable, Mann-Whitney p < 0.3 (signal present)",
+    "h3_fix_quick_check": "Steering actually changes activations (||steered - baseline|| > 0), absorbed vs non-absorbed show different response",
+    "multiseed_quick_check": "Trained SAE absorption > 0.3 for all 3 seeds, non-zero variance",
+    "h_mech_quick_check": "Geometric component (Condition C) explains most absorption"
+  },
+  "pivot_triggers": {
+    "h_safe_no_signal": "If safety vs non-safety difference is near zero (p > 0.5), H_Safe may not be viable",
+    "h3_still_broken": "If steering still has no effect after debug, accept as negative result",
+    "all_seeds_identical": "If all seeds show identical absorption (std=0), absorption is deterministic geometric"
+  },
+  "pilot_expected_runtime_minutes": 90
+}

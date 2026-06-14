@@ -1,0 +1,136 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_p1",
+  "confidence": 0.85,
+  "candidate_scores": {
+    "cand_p1": {
+      "weighted_score": 4.40,
+      "verdict": "ADVANCE",
+      "component_scores": {
+        "pilot_signal_strength": 5,
+        "hypothesis_survival": 4,
+        "path_to_full_result": 4,
+        "novelty": 5,
+        "resource_efficiency": 4
+      },
+      "evidence": "H1: trained SAE absorption=0.500 (deterministic across 3 seeds), random baseline=0.147, Cohen's d=8.94. H_Mech: encoder effect=0.191, decoder effect=0.0. H3: steering verified, 1.62x sensitivity ratio. H_Safe: p=0.695 on synthetic SAE (wrong experiment, not Gemma Scope)."
+    },
+    "h3_steering": {
+      "weighted_score": 3.20,
+      "verdict": "REFINE",
+      "component_scores": {
+        "pilot_signal_strength": 3,
+        "hypothesis_survival": 3,
+        "path_to_full_result": 3,
+        "novelty": 3,
+        "resource_efficiency": 4
+      },
+      "evidence": "Steering implementation fixed. Absorbed features show 1.62x more sensitivity. But effect is modest; Basu et al. showed zero effect. Needs logit-level metrics and more seeds for publishable causal claim."
+    },
+    "h_safe": {
+      "weighted_score": 2.20,
+      "verdict": "PIVOT",
+      "component_scores": {
+        "pilot_signal_strength": 1,
+        "hypothesis_survival": 3,
+        "path_to_full_result": 2,
+        "novelty": 5,
+        "resource_efficiency": 2
+      },
+      "evidence": "Pilot tested synthetic SAE, not Gemma Scope. p=0.695 is not informative about real Gemma Scope SAEs. Requires Gemma Scope installation as prerequisite."
+    },
+    "cand_eco": {
+      "weighted_score": 2.70,
+      "verdict": "PIVOT",
+      "component_scores": {
+        "pilot_signal_strength": null,
+        "hypothesis_survival": 2,
+        "path_to_full_result": 3,
+        "novelty": 4,
+        "resource_efficiency": 3
+      },
+      "evidence": "H2 falsification (rho=+0.171 wrong direction) undermines competitive exclusion theoretical foundation. Deferred."
+    },
+    "cand_geom": {
+      "weighted_score": 3.05,
+      "verdict": "REFINE",
+      "component_scores": {
+        "pilot_signal_strength": null,
+        "hypothesis_survival": 3,
+        "path_to_full_result": 3,
+        "novelty": 3,
+        "resource_efficiency": 4
+      },
+      "evidence": "Training-free 15-min experiment. AUC > 0.75 is a high bar. Partial overlap with OrtSAE geometry approach."
+    },
+    "cand_ens": {
+      "weighted_score": 2.35,
+      "verdict": "PIVOT",
+      "component_scores": {
+        "pilot_signal_strength": null,
+        "hypothesis_survival": 3,
+        "path_to_full_result": 2,
+        "novelty": 2,
+        "resource_efficiency": 2
+      },
+      "evidence": "2-hour training cost. Partial overlap with Gadgil et al. 50% recovery threshold is aggressive. Lowest priority."
+    }
+  },
+  "reasons": [
+    "H1 confirmed with deterministic result: trained SAE absorption=0.500 across all seeds vs random baseline=0.147 (d=8.94)",
+    "H_Mech MAJOR finding: absorption is entirely ENCODER-driven (effect=0.191), decoder geometry contributes ZERO",
+    "H3 steering now works: absorbed features show 1.62x higher sensitivity to steering",
+    "H_Safe pilot tested synthetic SAE (p=0.695) -- wrong experiment; Gemma Scope needed but prerequisite not met",
+    "Clear path to full experiment: multi-seed factorial + real SAEs + logit-level steering + Gemma Scope retry",
+    "Highest novelty-to-cost ratio: ~2h GPU total",
+    "Resource efficient: all individual experiments within 1-hour budget"
+  ],
+  "critical_findings": [
+    {
+      "finding": "Absorption is encoder-driven, NOT decoder geometry",
+      "evidence": "H_Mech factorial: A=C (0.299=0.299), B=D (0.490=0.484). Decoder geometry effect = 0.0. Encoder alignment effect = 0.191.",
+      "implication": "Paper narrative must change: absorption comes from encoder learning hierarchical representations, not from decoder structure"
+    },
+    {
+      "finding": "Trained SAE absorption is deterministic",
+      "evidence": "All 3 seeds (42,43,44) show exactly 0.500 absorption. Zero variance.",
+      "implication": "Absorption is a fixed property of trained SAE geometry, not stochastic"
+    },
+    {
+      "finding": "H3 steering implementation is fixed",
+      "evidence": "delta_norm > 0 for all alpha > 0. Absorbed features 1.62x more sensitive to steering.",
+      "implication": "Can now make causal claims about absorption impact via steering"
+    },
+    {
+      "finding": "H_Safe pilot tested wrong system",
+      "evidence": "p=0.695 on synthetic SAE. Gemma Scope SAEs were not available.",
+      "implication": "H_Safe hypothesis is NOT falsified. Need Gemma Scope installation to properly test."
+    }
+  ],
+  "blocked_hypotheses": ["H2 (frequency-absorption inverse correlation, archived)", "H_Safe (pending Gemma Scope installation)"],
+  "supported_hypotheses": ["H1 (multi-child proportional absorption)", "H_Mech (encoder-driven mechanism)", "H3 (steering sensitivity)"],
+  "untested_hypotheses": ["H_Safe on real Gemma Scope SAEs"],
+  "dropped_candidates": ["cand_asym", "cand_eco (deferred)"],
+  "next_actions": [
+    "Full multi-seed factorial: 5 seeds x 4 conditions x 200+ samples to confirm encoder effect reproducibility",
+    "Update paper narrative: absorption is encoder-driven, not decoder geometry",
+    "Attempt Gemma Scope SAEs installation via sae-lens",
+    "Retry H_Safe on Gemma Scope SAEs if installation succeeds",
+    "Logit-level steering validation: switch from feature activation to logit-level metrics per Basu et al.",
+    "Document H2 as honest negative result (wrong direction frequency correlation)"
+  ],
+  "negative_results": [
+    {
+      "hypothesis": "H2 (frequency-absorption inverse correlation)",
+      "predicted": "Spearman rho < -0.3",
+      "observed": "rho = +0.171, p = 6.47e-08",
+      "interpretation": "Absorption positively correlates with feature activation frequency, opposite of competitive exclusion prediction."
+    },
+    {
+      "hypothesis": "H_Safe on synthetic SAE",
+      "predicted": "Mann-Whitney p < 0.05",
+      "observed": "p = 0.695 on synthetic SAE",
+      "interpretation": "WRONG EXPERIMENT. Synthetic SAE not informative about Gemma Scope. H_Safe NOT falsified."
+    }
+  ]
+}

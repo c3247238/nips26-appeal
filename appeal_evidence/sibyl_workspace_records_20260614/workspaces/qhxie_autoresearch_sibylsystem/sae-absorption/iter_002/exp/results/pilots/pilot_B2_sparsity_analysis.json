@@ -1,0 +1,43 @@
+{
+  "task_id": "task_B2_sparsity_analysis",
+  "mode": "PILOT",
+  "timestamp": "2026-04-14T00:39:53.956304",
+  "go_no_go": "GO",
+  "confidence": 0.72,
+  "pass_criteria": "True sae-spelling absorption rate measured for at least 3 configs. Sigmoid vs. linear BIC comparison computed.",
+  "pilot_pass": true,
+  "key_metrics": {
+    "sigmoid_lrt_p": 0.0271,
+    "bic_delta_linear_minus_sigmoid": 2.42,
+    "l0c_nominal": 81.4,
+    "absorption_rate_l2": 0.10,
+    "absorption_rate_l6": 0.49,
+    "absorption_rate_l10": 0.51,
+    "n_configs_with_true_absorption": 3,
+    "ajt_all_negative_eda_delta": true,
+    "width_eda_delta_spearman_rho_3pt": -1.0
+  },
+  "supported_hypotheses": ["H4a_directional"],
+  "failed_assumptions": [
+    "width_increases_absorption",
+    "eda_delta_monotone_with_l0"
+  ],
+  "findings": {
+    "sigmoid_fit": "LRT p=0.027 is borderline with n=5 cross-layer data points. BIC delta=2.42 favors sigmoid over linear. Nominal inflection at L0_c=81. Bootstrap CI is uninformative (width: 1 to 790M). Should be treated as directional support only.",
+    "ajt_inverse_eda": "All 3 AJT variants show NEGATIVE EDA_delta (letter EDA < nonletter EDA). AJT mean letter EDA=0.502 vs jb L6 letter EDA=0.681. This inversion is architecture-specific and present across all AJT L0 values.",
+    "width_null_result": "Width scaling (L8, widths 12k-98k at matched L0~50): EDA_delta DECREASES with width (rho=-1.0, 3-point). Opposite to theory prediction that wider SAEs show more absorption.",
+    "true_absorption_proxy": "Absorption rates using split-feature non-firing proxy: L2=10%, L6=49%, L10=51%. Note: these use only 10 words per letter and letter-selective feature identification — rates may be noisy. The increase from L2 to L6/L10 is consistent with EDA AUROC improvement across layers."
+  },
+  "caveats": [
+    "Cross-layer analysis confounds L0 with representation maturity.",
+    "Bootstrap CI for L0_c is meaningless with n=5.",
+    "True absorption rates use a proxy method (not exact Chanin et al. labels).",
+    "AJT inverse EDA unexplained without true absorption rate for AJT.",
+    "Width analysis: the 3-point perfect Spearman rho=-1.0 is over-determined (any monotone relationship gives rho=-1 or +1 with 3 points)."
+  ],
+  "recommended_follow_up": [
+    "E.1: Within-layer sparsity sweep using AJT suite (3 L0 values at fixed layer/width) for cleaner phase transition evidence.",
+    "B.3: Compare true absorption rates (sae-spelling) for jb vs AJT SAEs at matched L0.",
+    "Use 100 tokens/letter (not 10 words) for more reliable absorption rate estimates."
+  ]
+}

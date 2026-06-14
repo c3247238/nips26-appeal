@@ -1,0 +1,112 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_iggd",
+      "title": "Information-Gain Guided Decoding (IGGD): Training-Free Schedule Optimization for DLMs",
+      "status": "front_runner",
+      "summary": "Training-free method that optimizes unmasking order by maximizing conditional mutual information at each denoising step. Soft temperature-controlled selection avoids greedy failure mode. Theoretically grounded in submodular optimization (1-1/e approximation guarantee) and turbo extrinsic information principle. Composable with A-CFG (orthogonal guidance axis).",
+      "hypotheses": [
+        "H_IGGD: >=3% absolute improvement over vanilla Dream-7B on GSM8K at n>=300 (p<0.05)",
+        "H_compose: A-CFG + IGGD >=2% over better individual on >=2/3 benchmarks",
+        "H_adaptive_tau: Phase-aware tau schedule >=1% over fixed tau=1.0"
+      ],
+      "pilot_focus": "IGGD n=300 verification + adaptive tau sweep + A-CFG composition",
+      "pilot_evidence": {
+        "alt_a_pilot": "+5pp on GSM8K-100 (p=0.182, not significant but strongest positive signal in 22+ iterations)",
+        "greedy_failure": "-18pp catastrophic failure — deterministic ordering resolves trivial tokens first",
+        "diversity": "Distinct-2: 0.892 (higher than vanilla 0.840), no degeneration",
+        "overhead": "0.90x (faster than vanilla due to efficient unmasking)",
+        "entropy_analysis": "Bimodal distribution; greedy wastes steps on near-zero entropy positions"
+      },
+      "key_risks": [
+        "+5pp may not replicate at n=300 (p=0.182 is not significant)",
+        "A-CFG composition may be sub-additive",
+        "Info-Gain Sampler (Yang et al. 2026) already published — novelty differentiation needed",
+        "tau=1.0 is untuned — better or worse settings possible"
+      ],
+      "success_probability": "55%",
+      "estimated_gpu_hours": "24-30 (full evaluation including composition study)"
+    },
+    {
+      "candidate_id": "cand_coba",
+      "title": "Compute-Optimal Budget Allocation (COBA): D x W Framework for DLM Inference Scaling",
+      "status": "front_runner",
+      "summary": "Systematic evaluation framework profiling DLM inference-time compute allocation across Depth (denoising steps) and Width (parallel samples) axes. Pure evaluation study using existing models. Includes method composition analysis. Provides practitioner recipes and unifies fragmented literature under single framework.",
+      "hypotheses": [
+        "H_COBA: Optimal D x W allocation varies by task type (reasoning favors D, code favors W)",
+        "Log-linear model quality(D,W) fits with R-squared > 0.5"
+      ],
+      "pilot_focus": "D-axis grid search (Day 1) + W-axis (Day 3) + composition analysis",
+      "pilot_evidence": {
+        "remdm_signal": "ReMDM at D=256 with remasking: -9pp on GSM8K-100 — D-axis scaling is not monotonic",
+        "vanilla_d_scaling": "Standard 128-step denoising establishes baseline"
+      },
+      "key_risks": [
+        "Grid search may not reveal interesting structure (pure D-scaling dominates)",
+        "Log-linear model may be too simple",
+        "W-axis Best-of-N selection noisy at small W"
+      ],
+      "success_probability": "60%",
+      "estimated_gpu_hours": "35-40"
+    },
+    {
+      "candidate_id": "cand_dal",
+      "title": "Denoising-as-Learning (DaL): TTT-MLP Fast Weights for DLM Cross-Step Memory",
+      "status": "backup",
+      "summary": "Insert lightweight TTT layers into frozen DLM backbone, using revealed tokens as self-supervised signal. CONDITIONAL on Phase 0 diagnostics: D0c (SSL-task alignment r>0.3) AND D0d (Delta_I > 0.1 bits/token). Gate repair (sigmoid(-2) init + 10x gate_lr) addresses P3 failure. Demoted from front-runner to backup based on 22+ iterations of negative evidence and new IGGD positive signal.",
+      "hypotheses": [
+        "H_align: SSL-task Pearson r > 0.3 (D0c diagnostic)",
+        "H_deltaI: Delta_I > 0.1 bits/token (D0d diagnostic)",
+        "H_gate: Gate reaches >=0.10 within 5K steps",
+        "H_DaL: TTT-MLP >=2% over vanilla AND MetaState-GRU on >=2/3 benchmarks"
+      ],
+      "pilot_focus": "D0c + D0d diagnostics (Phase 0), then gate repair + GSM8K-200 (Phase 1, conditional)",
+      "pilot_evidence": {
+        "P1_feasibility": "PASS — SSL loss -33% to -72%, gradients stable",
+        "P2_signal_quality": "PASS — SNR peaks at r=0.6, degrades at r>0.7",
+        "P3_quick_eval": "FAIL — accuracy -1.0pp, gate stuck at 0.007",
+        "metastate_gru": "43.75% vs vanilla 50.0% (n=16) — paradigm-level concern",
+        "root_cause": "Gate initialization too conservative; SSL-task alignment untested"
+      },
+      "key_risks": [
+        "SSL-task misalignment is structural (P3 evidence + TTT++ theory)",
+        "Delta_I may be < 0.1 (information island problem is mild for powerful backbones)",
+        "Gate may remain low after repair",
+        "22+ iterations of negative results create strong negative prior",
+        "Even if DaL works, FLOPs overhead may make it Pareto-dominated by IGGD"
+      ],
+      "success_probability": "15% unconditional; 55% conditional on D0c+D0d+H_gate all passing (joint P(all pass) ≈ 15%)",
+      "estimated_gpu_hours": "8-12 (Phase 0-1), 80+ (Phase 2, conditional)"
+    },
+    {
+      "candidate_id": "cand_diagnostic",
+      "title": "Diagnostic Study: Why Inference-Time Scaling Methods Succeed or Fail for DLMs",
+      "status": "backup",
+      "summary": "Mechanistic analysis paper using extrinsic vs endogenous information framework. Explains IGGD success, ReMDM failure, DaL failure, MetaState-GRU failure. Grounded in turbo coding theory, information-theoretic bounds (Delta_I), and 22+ iterations of systematic data.",
+      "hypotheses": [
+        "Methods providing extrinsic information succeed; endogenous feedback methods fail",
+        "Delta_I < 0.5 bits/token (modest ceiling for cross-step memory)",
+        "SSL-task correlation < 0.3 (structural misalignment)"
+      ],
+      "pilot_focus": "D0c + D0d data + IGGD mechanistic analysis + cross-backbone validation",
+      "pilot_evidence": {
+        "accumulated": "22+ iterations, 20+ method variants, 4+ pilot-to-full-scale reversal cases"
+      },
+      "key_risks": [
+        "Negative-results papers need exceptionally clear mechanistic explanations",
+        "Requires cross-backbone validation (Dream-7B + LLaDA-8B)"
+      ],
+      "success_probability": "70% (publishable with proper framing)",
+      "estimated_gpu_hours": "12-15 marginal (most data from primary tracks)"
+    }
+  ],
+  "meta": {
+    "iteration": 5,
+    "round": 3,
+    "date": "2026-03-11",
+    "front_runner_rationale": "IGGD promoted to front-runner based on: (1) strongest positive task-level signal in project history (+5pp), (2) zero training cost, (3) theoretical grounding (submodular optimization + turbo extrinsic information), (4) composability with A-CFG. COBA is co-front-runner as the highest-probability safety net (60%). DaL demoted to conditional backup — proceeds only if D0c+D0d diagnostics pass.",
+    "structural_change": "Fundamental reorientation from 'DaL primary + training-free fallback' to 'IGGD + COBA primary + DaL conditional'. Driven by: 3 rounds of debate convergence, pilot evidence favoring training-free methods, extrinsic vs endogenous theoretical framework, and contrarian vindication across P3 and MetaState failures.",
+    "key_decision_point": "Phase 0 (Day 1): D0c + D0d diagnostics determine DaL fate; IGGD n=300 determines primary track strength",
+    "parallel_strategy": "GPU 0: D0c+D0d | GPU 1: IGGD n=300 | GPU 2: Baselines | GPU 3: COBA D-axis — all Day 1"
+  }
+}

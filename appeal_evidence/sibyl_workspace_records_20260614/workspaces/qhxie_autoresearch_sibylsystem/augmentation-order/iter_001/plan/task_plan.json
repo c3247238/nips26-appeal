@@ -1,0 +1,690 @@
+{
+  "project": "augmentation-order",
+  "candidate_id": "cand_a",
+  "version": "2.0",
+  "revision_note": "Updated 2026-04-03: reflects pilot-to-full-scale transition. Pilot tasks completed (1 seed, 10 epochs, 100-sample subsets). Full-scale tasks added. H5 replaced by H5b+H6. H3 revised to feature-space NC_2. H4 corrected to Flip-first DPI prediction.",
+  "total_estimated_gpu_hours": 54,
+  "hypothesis_map": {
+    "H1": "Augmentation ordering spread >0.3% in >=2/4 blocks (5-seed paired t-test, p<0.05)",
+    "H2": "ViT shows larger absolute ordering sensitivity than CNN (interaction ANOVA, p<0.05, eta-sq>0.05)",
+    "H3": "Feature-space NC_2 (512-D, 10k samples) Spearman rho>0.5 with accuracy ranking",
+    "H4": "Flip-first ordering outperforms Crop-first (conventional) in >=2/4 blocks (corrected DPI prediction)",
+    "H5b": "Interleaved P->G category ordering outperforms all-geometric-first in >=3/4 blocks",
+    "H6": "Inverted-U: M9 spread > M5 spread AND M9 spread > M14 spread (quadratic term significant)"
+  },
+  "tasks": [
+    {
+      "id": "setup",
+      "name": "Environment Setup and Dataset Download",
+      "description": "Install dependencies (torch, torchvision, timm, scipy, numpy), download CIFAR-10 and CIFAR-100 to shared cache, verify dataset integrity, run a single 1-epoch sanity training run on ResNet-18 to confirm end-to-end pipeline works.",
+      "type": "setup",
+      "candidate_id": "shared",
+      "status": "completed",
+      "depends_on": [],
+      "expected_output": "exp/setup_done.json with dataset paths and sanity accuracy",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        },
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Dataset download completes, 1-epoch run achieves val_accuracy > 10%, all 6 orderings can be instantiated without error"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_tier0",
+      "name": "Tier 0 Pilot: 6 Orderings on CIFAR-10 Subset",
+      "description": "COMPLETED: All 6 permutations of {Crop, Flip, CJ} on ResNet-18, CIFAR-10 5k subset, 10 epochs, 2 seeds. Spread = 2.68%. Decision: GO.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "status": "completed",
+      "depends_on": [
+        "setup"
+      ],
+      "expected_output": "exp/results/pilots/tier0_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        }
+      ],
+      "pilot": {
+        "samples": 5000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 6 orderings complete without error. Spread > 0.3%."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Pilot accuracy per ordering (6 bars) with seed variance",
+          "x": "ordering_label",
+          "y": "val_accuracy",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "tier1_pilot_all_blocks",
+      "name": "Tier 1 Pilot: All 4 Arch-Dataset Blocks (1 seed, 10 epochs, 100 samples)",
+      "description": "COMPLETED (pilot scale): All 6 orderings x 2 arch x 2 dataset, 1 seed, 10 epochs, 100-sample subsets. Results: resnet18/cifar10 spread=0.96%, resnet18/cifar100 spread=0.88%, vit/cifar10 spread=2.32%, vit/cifar100 spread=0.25%. 3/4 blocks above 0.5% threshold. All results are pilot-scale only; full-scale required.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "status": "completed",
+      "depends_on": [
+        "pilot_tier0"
+      ],
+      "expected_output": "exp/results/pilots/tier1_resnet18_cifar10_pilot.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        },
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 6 orderings run 10 epochs without error; spread > 0.0% in at least 1 block"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "tier4a_nc_measurement_pilot",
+      "name": "Tier 4a Pilot: NC_2 Computation (Pixel-Space, 100 samples)",
+      "description": "COMPLETED (pilot scale): SWD-based NC_2 proxy for 3 operation pairs in pixel space. Result: rho=-0.20, p=0.68 — H3 pixel-space FALSIFIED. Root cause: 100 samples in 3072-D space is statistically meaningless. Full-scale feature-space computation required (see tier4a_feature_nc).",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "status": "completed",
+      "depends_on": [
+        "setup"
+      ],
+      "expected_output": "exp/results/full/tier4a_nc.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "SWD computed for at least 1 pair; rho computation runs without error"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "tier1_resnet18_cifar10_full",
+      "name": "Tier 1 Full: ResNet-18 x CIFAR-10 (5 seeds, 200 epochs)",
+      "description": "Run all 6 permutations of {RandomCrop, RandomHorizontalFlip, ColorJitter} on ResNet-18 x CIFAR-10. Full training: 200 epochs, 5 seeds [42..46], full 50k training set. Paired design: same seed runs all 6 orderings. SGD + cosine annealing, lr=0.1, momentum=0.9, wd=5e-4. Save per-epoch val_accuracy, final accuracy, and per-ordering checkpoint for Tier 4b. Output: exp/results/full/tier1_resnet18_cifar10.json (mean/std over 5 seeds per ordering). Ordering labels: order_0=Crop→Flip→CJ, order_1=Crop→CJ→Flip, order_2=Flip→Crop→CJ, order_3=Flip→CJ→Crop, order_4=CJ→Crop→Flip, order_5=CJ→Flip→Crop. CRITICAL: Save model checkpoints for Tier 4 feature extraction.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "pilot_tier0"
+      ],
+      "expected_output": "exp/results/full/tier1_resnet18_cifar10.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 6 orderings run 10 epochs without error; val_accuracy variance across orderings > 0.0%; per-epoch logging works; checkpoint saved"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Final accuracy per ordering (6 bars, mean +/- std, 5 seeds)",
+          "x": "ordering_label",
+          "y": "val_accuracy_mean",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Learning curves per ordering (accuracy vs. epoch, all 5 seeds)",
+          "x": "epoch",
+          "y": "val_accuracy",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "tier1_resnet18_cifar100_full",
+      "name": "Tier 1 Full: ResNet-18 x CIFAR-100 (5 seeds, 200 epochs)",
+      "description": "Same design as tier1_resnet18_cifar10_full but on CIFAR-100 (100 classes). 6 orderings x 5 seeds x 200 epochs = 30 runs. Save per-class accuracy for cand_c secondary analysis. Output: exp/results/full/tier1_resnet18_cifar100.json.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "pilot_tier0"
+      ],
+      "expected_output": "exp/results/full/tier1_resnet18_cifar100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 6 orderings run 10 epochs; val_accuracy > 30% for at least 3 orderings; per-class accuracy logging enabled"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Final accuracy per ordering on CIFAR-100 (mean +/- std)",
+          "x": "ordering_label",
+          "y": "val_accuracy_mean",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier1_vit_cifar10_full",
+      "name": "Tier 1 Full: ViT-Small x CIFAR-10 (5 seeds, 200 epochs)",
+      "description": "Run all 6 permutations of {RandomCrop, RandomHorizontalFlip, ColorJitter} on ViT-Small (patch_size=4, timm recipe). Full training: 200 epochs, 5 seeds, full CIFAR-10. AdamW lr=1e-3, wd=0.05, 5-epoch linear warmup + cosine decay. This is the highest-priority block (pilot spread=2.32% is the paper's primary result). Output: exp/results/full/tier1_vit_cifar10.json.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "pilot_tier0"
+      ],
+      "expected_output": "exp/results/full/tier1_vit_cifar10.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "ViT-Small trains without NaN loss; val_accuracy > 50% at epoch 10; all 6 orderings complete for all 5 seeds"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "ViT final accuracy per ordering with error bars (mean +/- std, 5 seeds)",
+          "x": "ordering_label",
+          "y": "val_accuracy_mean",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier1_vit_cifar100_full",
+      "name": "Tier 1 Full: ViT-Small x CIFAR-100 (5 seeds, 200 epochs)",
+      "description": "Same as tier1_vit_cifar10_full but on CIFAR-100. 6 orderings x 5 seeds x 200 epochs = 30 runs. Pilot spread was only 0.25% (cautious signal) — full-scale will determine whether ViT/CIFAR-100 shows significant ordering sensitivity. Output: exp/results/full/tier1_vit_cifar100.json.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "pilot_tier0"
+      ],
+      "expected_output": "exp/results/full/tier1_vit_cifar100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "ViT-Small CIFAR-100 trains without NaN; val_accuracy > 25% at epoch 10"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "ViT CIFAR-100 final accuracy per ordering (mean +/- std)",
+          "x": "ordering_label",
+          "y": "val_accuracy_mean",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "baselines_full",
+      "name": "Full-Scale Baselines: CIFAR-10 and CIFAR-100 (5 seeds, 200 epochs)",
+      "description": "Train 4 additional baselines (beyond conventional ordering already in Tier 1): (1) Random-per-image ordering, (2) TrivialAugment (timm), (3) No augmentation (Crop+Flip only), (4) RandAugment N=2 M=9. Both ResNet-18 and ViT-Small. Both CIFAR-10 and CIFAR-100. 5 seeds, 200 epochs. NOTE: Conventional ordering (Crop→Flip→CJ) is already order_0 in Tier 1 and does not need separate runs. Output: exp/results/full/baselines_cifar10.json and exp/results/full/baselines_cifar100.json. Pilot-scale baselines already completed (used for sanity).",
+      "type": "baseline",
+      "candidate_id": "shared",
+      "depends_on": [
+        "setup"
+      ],
+      "expected_output": "exp/results/full/baselines_cifar10.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        },
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "4-baseline x 2-arch x 2-dataset runs complete at 10 epochs; no NaN loss; pilot-scale RandAugment accuracy > 80% on CIFAR-10 ResNet-18"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Baseline accuracy table: method x 4 arch-dataset combinations (mean +/- std)",
+          "columns": [
+            "Method",
+            "CIFAR-10 RN18",
+            "CIFAR-10 ViT",
+            "CIFAR-100 RN18",
+            "CIFAR-100 ViT"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier1_analysis_full",
+      "name": "Tier 1 Full Statistical Analysis",
+      "description": "Aggregate all full-scale Tier 1 results. Compute: (1) Max-min spread per (arch, dataset) with 95% CI; (2) Paired t-tests best vs. worst ordering per block with Bonferroni correction; (3) Two-way ANOVA ordering x architecture for H2, report interaction p-value and partial eta-squared; (4) Cohen's d for all pairwise ordering comparisons; (5) Identify best and worst orderings for Tier 3; (6) Compare Flip-first (order_2, order_3) vs. Crop-first (order_0, order_1) for H4; (7) Export per-ordering checkpoints list for Tier 4b. Write: exp/results/full/tier1_analysis_full.json (machine-readable) and exp/results/full/tier1_analysis_full.md (human-readable). CPU-only.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "tier1_resnet18_cifar10_full",
+        "tier1_resnet18_cifar100_full",
+        "tier1_vit_cifar10_full",
+        "tier1_vit_cifar100_full"
+      ],
+      "expected_output": "exp/results/full/tier1_analysis_full.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Analysis script runs without error; outputs contain spread values, p-values, Cohen's d for all 4 blocks; best/worst ordering IDs written; H1 and H2 verdicts generated"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Table 1 draft: 6 orderings x 4 arch-dataset blocks (mean +/- std; spread row; p-values)",
+          "columns": [
+            "Ordering",
+            "CIFAR-10 RN18",
+            "CIFAR-10 ViT",
+            "CIFAR-100 RN18",
+            "CIFAR-100 ViT"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Pairwise accuracy-difference matrix (6x6) per arch-dataset block",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "violin_plot",
+          "description": "Per-ordering accuracy distribution (5 seeds) for ResNet-18 vs. ViT-Small (H2)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier2_confirmation_pilot",
+      "name": "Tier 2 Confirmation Pilot: 5 Category Orderings, 30 Epochs, 2 Seeds",
+      "description": "BLOCKING GATE before full Tier 2. Test whether the 9.01% pilot spread (1 seed, 5k samples, 10 epochs) survives a more substantial training run. Operations: geometric={RandomCrop(32,pad=4), RandomHorizontalFlip, RandomRotation(15)}, photometric={ColorJitter(0.4,0.4,0.4,0.1), RandomGrayscale(p=0.1), GaussianBlur(3)}. Run 5 orderings on ResNet-18/CIFAR-10 (priority) and ViT-Small/CIFAR-10 (second priority), 30 epochs, seeds [42, 43]. Output: exp/results/pilots/tier2_confirmation_pilot.json. Pass criterion: interleaved_PG spread > 1% on CIFAR-10/ResNet-18 (any seed). If spread < 0.5% in both seeds, redirect Tier 2 budget to additional Tier 1 analysis.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "pilot_tier0"
+      ],
+      "expected_output": "exp/results/pilots/tier2_confirmation_pilot.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 5 category-level orderings instantiate with 6-op pipelines; 10-epoch pilot on CIFAR-10 ResNet-18 completes; no errors in GaussianBlur or RandomRotation; spread > 0.3% in at least 1 ordering comparison"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "30-epoch confirmation: 5 category orderings x 2 seeds accuracy",
+          "x": "ordering_label",
+          "y": "val_accuracy",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "tier2_category_ordering_full",
+      "name": "Tier 2 Full: Category-Level Ordering with 6 Operations (5 seeds, 200 epochs)",
+      "description": "CONDITIONAL on tier2_confirmation_pilot pass. Test H5b: interleaved P->G dominates block-level orderings. Run 5 canonical category-level orderings on both architectures and both datasets, 5 seeds, 200 epochs. Orderings: (1) all_geo_first=[Crop, Flip, Rotation, CJ, Grayscale, GaussianBlur], (2) all_photo_first=[CJ, Grayscale, GaussianBlur, Crop, Flip, Rotation], (3) interleaved_GP=[Crop, CJ, Flip, Grayscale, Rotation, GaussianBlur], (4) interleaved_PG=[CJ, Crop, Grayscale, Flip, GaussianBlur, Rotation], (5) random_per_image. Total: 5 x 2 x 2 x 5 = 100 runs. Output: exp/results/full/tier2_results.json.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "tier2_confirmation_pilot",
+        "tier1_analysis_full"
+      ],
+      "expected_output": "exp/results/full/tier2_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        },
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 5 6-op orderings run 10 epochs without error; no issues with GaussianBlur or RandomRotation; per-epoch logging works"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Category-level ordering accuracy: 5 orderings x 4 arch-dataset combos (mean +/- std)",
+          "x": "ordering_label",
+          "y": "val_accuracy_mean",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "grouped_bar",
+          "description": "Interleaved vs. block-level spread per arch-dataset block (H5b)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier3_magnitude_full",
+      "name": "Tier 3 Full: Magnitude Interaction — Test H6 Inverted-U (5 seeds, 200 epochs)",
+      "description": "Test H6: ordering spread follows an inverted-U shape with magnitude. Use best and worst orderings identified in tier1_analysis_full. Run 3 magnitude levels (M=5, M=9, M=14) on ResNet-18 x CIFAR-100, 5 seeds, 200 epochs. Magnitude parameterization: M=5 (ColorJitter(0.15,0.15,0.15), pad=1, rotation=5deg), M=9 (standard: ColorJitter(0.4,0.4,0.4), pad=4, rotation=15deg), M=14 (ColorJitter(0.8,0.8,0.8), pad=8, rotation=30deg). Primary metric: accuracy spread (best - worst ordering) at each magnitude level. Test: M9 spread > M5 spread AND M9 spread > M14 spread. Also run quadratic regression. Total: 2 orderings x 3 magnitudes x 1 arch x 1 dataset x 5 seeds = 30 runs. Output: exp/results/full/tier3_results_full.json.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "tier1_analysis_full"
+      ],
+      "expected_output": "exp/results/full/tier3_results_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Both orderings run at all 3 magnitude levels for 10 epochs; no NaN at M=14; pilot spread at M=9 exceeds spread at M=5 (preliminary inverted-U signal)"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Accuracy spread (best - worst ordering) vs. magnitude level (M=5, 9, 14) with inverted-U fit (H6)",
+          "x": "magnitude_level",
+          "y": "accuracy_spread",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier4a_feature_nc",
+      "name": "Tier 4a: Feature-Space NC_2 Computation (10k samples, 512-D, Revised H3)",
+      "description": "Revised H3: compute NC_2 in 512-D feature space (not 3072-D pixel space). Requires Tier 1 full ResNet-18/CIFAR-10 checkpoint (200 epochs). Steps: (1) Load pretrained ResNet-18 (remove final classifier), freeze weights; (2) Sample 10k CIFAR-10 images; (3) For each of the 3 operation pairs and both orderings: apply ordering, extract 512-D penultimate-layer features; (4) Compute SWD (Sliced Wasserstein Distance, 1000 projections) between P_AB and P_BA in 512-D space; (5) Rank 6 directional NC_2 estimates; (6) Compute Spearman rho between NC_2 ranking and accuracy-difference ranking (from tier1_analysis_full); (7) Permutation test (10k permutations) for significance. Also compute pixel-space NC_2 with 10k samples/1000 projections for comparison. Write to exp/results/full/tier4a_nc_feature.json. GPU needed only for feature extraction (fast); SWD computation is CPU.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "tier1_resnet18_cifar10_full"
+      ],
+      "expected_output": "exp/results/full/tier4a_nc_feature.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Feature extraction from pretrained ResNet-18 works (512-D tensors); SWD computed for at least 1 pair in feature space; NC_2 feature > NC_2 pixel (expected from 512-D vs 3072-D); Spearman rho computation runs without error"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Feature-space NC_2 vs. accuracy-diff scatter with Spearman rho annotation (H3)",
+          "x": "nc2_feature_swd",
+          "y": "accuracy_difference",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "NC_2 comparison: pixel-space vs. feature-space (same pairs, different spaces)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier4b_infonce_mi_full",
+      "name": "Tier 4b: InfoNCE MI Estimation with Proper Encoder (200-Epoch Checkpoints)",
+      "description": "Revised from pilot: use properly trained ResNet-18 checkpoints (200 epochs from tier1_resnet18_cifar10_full) as frozen feature extractor. For each of the 6 Tier 1 orderings on CIFAR-10 and CIFAR-100: (1) sample 10k (image, label) pairs; (2) apply ordering; (3) use 200-epoch ResNet-18 as frozen encoder; (4) estimate I(y; augmented_x) via InfoNCE lower bound with linear classifier (10 epochs on frozen features); (5) Compute Spearman rho between per-ordering MI ranking and per-ordering accuracy ranking (from tier1_analysis_full). Also: paired comparison Flip-first orderings (order_2, order_3) vs. Crop-first (order_0, order_1) for H4. Write to exp/results/full/tier4b_mi_full.json.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "tier1_resnet18_cifar10_full",
+        "tier1_resnet18_cifar100_full"
+      ],
+      "expected_output": "exp/results/full/tier4b_mi_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "InfoNCE MI estimates computed for all 6 orderings using 200-epoch encoder; MI values are finite; Spearman rho runs without error; Flip-first vs. Crop-first comparison outputs a direction (positive or negative)"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "InfoNCE MI estimate per ordering overlaid with final accuracy (dual y-axis, H4)",
+          "x": "ordering_label",
+          "y": [
+            "mi_estimate",
+            "val_accuracy"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier4_correlation_analysis_full",
+      "name": "Tier 4 Full: NC Correlation and DPI Validation Analysis",
+      "description": "Aggregate feature-space NC_2 (tier4a_feature_nc) and full MI estimates (tier4b_infonce_mi_full) with full-scale accuracy results (tier1_analysis_full). Compute: (1) Spearman rho between feature-space NC_2 ranking and accuracy-diff ranking; permutation test; compare to pixel-space rho for H3; (2) Spearman rho between MI ranking and accuracy ranking for H4; (3) Paired comparison: Flip-first orderings vs. Crop-first across 5 seeds per block for H4; (4) Generate H3/H4 verdict table with rho, p-values, confirmed/falsified/inconclusive. Write to exp/results/full/tier4_correlation_full.json and tier4_correlation_full.md. CPU-only.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "tier4a_feature_nc",
+        "tier4b_infonce_mi_full",
+        "tier1_analysis_full"
+      ],
+      "expected_output": "exp/results/full/tier4_correlation_full.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Correlation script runs without error; H3 and H4 verdicts written with rho, p-value, and confirmed/falsified/inconclusive status; feature-space rho provided for H3"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Feature-space NC_2 vs. accuracy-diff with regression line, rho annotation (H3)",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter",
+          "description": "Pixel-space NC_2 vs. accuracy-diff (side-by-side comparison with feature-space)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "final_summary_full",
+      "name": "Final Results Aggregation and Paper-Ready Tables (Full Scale)",
+      "description": "Aggregate all full-scale results into exp/results/full/final_summary_full.json. Generate: (1) Main Table 1 (6 orderings + 5 baselines x 4 arch-dataset combos, mean +/- std, spread row, p-values); (2) H1-H6 verdict table (confirmed/falsified/inconclusive, with metric values); (3) Practical recommendations: best ordering per arch-dataset combination; (4) Comparison to pilot-scale verdicts: what changed between 10 epochs (100 samples) and 200 epochs (full datasets)? (5) Key findings narrative. Write exp/results/full/pilot_summary_full.md for the orchestrator's next iteration. This is the primary source of truth for the paper writing phase. CPU-only.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "tier1_analysis_full",
+        "tier2_category_ordering_full",
+        "tier3_magnitude_full",
+        "tier4_correlation_analysis_full",
+        "baselines_full"
+      ],
+      "expected_output": "exp/results/full/final_summary_full.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "final_summary_full.json contains results for all 6 hypotheses (H1-H6) with confirmed/falsified/inconclusive verdict; pilot_summary_full.md written for orchestrator; at least 2 hypotheses have definitive verdicts"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Table 1: Main Results (6 orderings + 5 baselines x 4 arch-dataset combos, spread row, p-values)",
+          "columns": [
+            "Method/Ordering",
+            "CIFAR-10 RN18",
+            "CIFAR-10 ViT-S",
+            "CIFAR-100 RN18",
+            "CIFAR-100 ViT-S"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Hypothesis verdict table: H1-H6 with metric, threshold, observed, verdict",
+          "columns": [
+            "Hypothesis",
+            "Metric",
+            "Threshold",
+            "Observed",
+            "Verdict"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ],
+  "execution_priority": {
+    "immediate_parallel": [
+      "tier1_resnet18_cifar10_full",
+      "tier1_resnet18_cifar100_full",
+      "tier1_vit_cifar10_full",
+      "tier1_vit_cifar100_full",
+      "baselines_full",
+      "tier2_confirmation_pilot"
+    ],
+    "after_tier1_full": [
+      "tier1_analysis_full",
+      "tier4a_feature_nc",
+      "tier4b_infonce_mi_full",
+      "tier3_magnitude_full"
+    ],
+    "after_tier2_confirmation": [
+      "tier2_category_ordering_full"
+    ],
+    "final": [
+      "tier4_correlation_analysis_full",
+      "per_class_analysis",
+      "final_summary_full"
+    ]
+  },
+  "critical_notes": [
+    "All pilot-scale verdicts (1 seed, 10 epochs) are PRELIMINARY and CANNOT be used for paper claims",
+    "Tier 2 confirmation pilot MUST pass before investing in full Tier 2 (100 runs)",
+    "Tier 3 best/worst orderings MUST come from tier1_analysis_full, not the pilot",
+    "Feature-space NC_2 (tier4a_feature_nc) requires 200-epoch ResNet-18 checkpoint from tier1_resnet18_cifar10_full",
+    "InfoNCE MI (tier4b_infonce_mi_full) uses 200-epoch encoder — qualitatively different from underpowered pilot encoder",
+    "H5 is REPLACED by H5b (category interleaved) and H6 (inverted-U magnitude). Do not report H5 as 'falsified' without noting it was pre-registered differently.",
+    "H3 is REVISED from pixel-space to feature-space. Report both: pixel-space falsified, feature-space being tested.",
+    "H4 DPI prediction CORRECTED: Flip-first (not CJ-first) is the theoretically grounded prediction. Prior code using CJ-first as the 'reversibility-sorted' ordering is incorrect and must be updated."
+  ]
+}

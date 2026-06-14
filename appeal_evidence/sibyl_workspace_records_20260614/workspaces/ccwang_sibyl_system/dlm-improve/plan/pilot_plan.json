@@ -1,0 +1,290 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [
+      42
+    ],
+    "timeout_sec": 900,
+    "model": "LLaDA-8B-Instruct",
+    "primary_benchmark": "GSM8K",
+    "secondary_benchmark": "MATH500",
+    "boundary_benchmark": "HumanEval",
+    "batch_policy": "auto-detect max safe batch size"
+  },
+  "pilots": [
+    {
+      "pilot_id": "pilot_setup_throughput",
+      "task_id": "setup_throughput_stack",
+      "name": "吞吐优化 smoke test",
+      "hypotheses_tested": [],
+      "description": "验证 attention backend、torch.compile、safe batch size 与 throughput，阻止 batch_size=1 再次进入正式实验。",
+      "samples": 1,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 20,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "setup_pass": "Model loads, attention backend recorded, safe batch size auto-detected, throughput measured successfully",
+        "setup_warn": "safe batch size < 16 but blocker is explicitly documented"
+      },
+      "outputs": {
+        "verification": "exp/results/setup_throughput_verification.json"
+      },
+      "priority": 1
+    },
+    {
+      "pilot_id": "pilot_protocol",
+      "task_id": "protocol_repair",
+      "name": "协议修复 pilot",
+      "hypotheses_tested": [
+        "H4"
+      ],
+      "description": "建立 held-out calibration split、answer extraction audit 与 compute logging schema。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 25,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "protocol_pass": "Held-out split exists and compute schema is complete for all subsequent experiments",
+        "protocol_fail": "Any headline evaluation still shares data with calibrator or lacks actual compute logs"
+      },
+      "outputs": {
+        "protocol": "exp/results/protocol_repair.json"
+      },
+      "priority": 1
+    },
+    {
+      "pilot_id": "pilot_standard_dnb",
+      "task_id": "baseline_standard_dnb",
+      "name": "Standard / DNB 基线 pilot",
+      "hypotheses_tested": [
+        "H3"
+      ],
+      "description": "建立 Standard-64 与 DNB-84 的 honest baseline，并验证 GSM8K pipeline 正常。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 35,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "baseline_pass": "Standard-64 and DNB-84 both complete with valid accuracy and compute logs",
+        "sanity_fail": "Standard-64 accuracy < 30% or extractor/inference pipeline is clearly broken"
+      },
+      "outputs": {
+        "results": "exp/results/baseline_standard_dnb.json"
+      },
+      "priority": 2
+    },
+    {
+      "pilot_id": "pilot_prophet",
+      "task_id": "baseline_prophet",
+      "name": "Prophet 基线 pilot",
+      "hypotheses_tested": [
+        "H3"
+      ],
+      "description": "复现 Prophet 并记录 early-stop 行为与速度收益。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 35,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "prophet_pass": "Prophet completes with valid stop statistics and compute logs",
+        "prophet_warn": "Quality is weak but method still serves as a valid strong baseline"
+      },
+      "outputs": {
+        "results": "exp/results/baseline_prophet.json"
+      },
+      "priority": 2
+    },
+    {
+      "pilot_id": "pilot_core",
+      "task_id": "baseline_core",
+      "name": "CORE 基线 pilot",
+      "hypotheses_tested": [
+        "H1",
+        "H3"
+      ],
+      "description": "复现或近似复现 CORE 风格 context-robust remasking，作为 revision 类最强对手。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 45,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "core_pass": "Official CORE or labeled proxy completes on GSM8K pilot with valid compute logs",
+        "core_warn": "Proxy required, but approximation gap is explicitly documented"
+      },
+      "outputs": {
+        "results": "exp/results/baseline_core.json"
+      },
+      "priority": 2
+    },
+    {
+      "pilot_id": "pilot_calibration",
+      "task_id": "diagnostic_calibration_heldout",
+      "name": "held-out calibration 诊断 pilot",
+      "hypotheses_tested": [
+        "H4"
+      ],
+      "description": "在独立 calibration split 上确认 overconfidence / ranking drift 是否存在，并把 calibration 定位为诊断而非方法核心。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 30,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "diag_pass": "At least one interpretable diagnostic pattern appears (ECE, ranking drift, or revision-benefit correlation)",
+        "diag_fail": "Calibration is flat and uninformative even diagnostically"
+      },
+      "outputs": {
+        "results": "exp/results/diagnostic_calibration_heldout.json"
+      },
+      "priority": 2
+    },
+    {
+      "pilot_id": "pilot_tiger_signal",
+      "task_id": "tiger_signal_screen",
+      "name": "TIGER 信号筛选 pilot",
+      "hypotheses_tested": [
+        "H1"
+      ],
+      "description": "比较 random / raw entropy / instability 三类 revision signal，判断新方法是否值得继续。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 35,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "H1_pass": "Instability-guided revision beats raw-entropy revision by >=1% absolute or matches with lower compute",
+        "H1_fail": "Instability gives no benefit over raw entropy"
+      },
+      "outputs": {
+        "results": "exp/results/tiger_signal_screen.json"
+      },
+      "pivot_on_fail": {
+        "H1_fail": "Downgrade TIGER and prepare cand_diag as primary paper line."
+      },
+      "priority": 3
+    },
+    {
+      "pilot_id": "pilot_tiger_gating",
+      "task_id": "tiger_gating_boundary",
+      "name": "TIGER gating / code boundary pilot",
+      "hypotheses_tested": [
+        "H2"
+      ],
+      "description": "验证 task gating 是否能保住 reasoning 收益并阻断 code failure。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 40,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "H2_pass": "Gated TIGER stays within 1% of ungated TIGER on GSM8K and materially improves HumanEval failure profile",
+        "H2_fail": "Gating removes the reasoning gain or code still collapses"
+      },
+      "outputs": {
+        "results": "exp/results/tiger_gating_boundary.json"
+      },
+      "pivot_on_fail": {
+        "H2_fail": "Downgrade code to boundary-only appendix evidence and keep main claim strictly reasoning-only, or pivot to cand_diag if failure is severe."
+      },
+      "priority": 4
+    },
+    {
+      "pilot_id": "pilot_gsm8k_shortlist",
+      "task_id": "gsm8k_main_shortlist",
+      "name": "GSM8K shortlist pilot",
+      "hypotheses_tested": [
+        "H3"
+      ],
+      "description": "在 pilot GSM8K 上直接测试 TIGER 是否能击败至少一个强基线。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 55,
+      "gpu_count": 2,
+      "pass_criteria": {
+        "H3_pass": "TIGER beats raw-entropy revision and at least one of Prophet or DNB on pilot GSM8K",
+        "H3_fail": "TIGER loses to both Prophet and DNB"
+      },
+      "outputs": {
+        "results": "exp/results/gsm8k_main_shortlist.json"
+      },
+      "pivot_on_fail": {
+        "H3_fail": "Stop scaling TIGER to full benchmarks and switch to cand_diag framing."
+      },
+      "priority": 5
+    }
+  ],
+  "execution_order": [
+    {
+      "phase": 1,
+      "parallel_group": [
+        "pilot_setup_throughput"
+      ],
+      "description": "Phase 1: throughput stack must be validated before any other pilot",
+      "total_gpus": 1,
+      "estimated_minutes": 20
+    },
+    {
+      "phase": 2,
+      "parallel_group": [
+        "pilot_protocol"
+      ],
+      "description": "Phase 2: protocol repair and held-out split creation",
+      "total_gpus": 1,
+      "estimated_minutes": 25
+    },
+    {
+      "phase": 3,
+      "parallel_group": [
+        "pilot_standard_dnb",
+        "pilot_prophet",
+        "pilot_core",
+        "pilot_calibration"
+      ],
+      "description": "Phase 3: baseline reproduction and calibration diagnosis in parallel across 4 GPUs",
+      "total_gpus": 4,
+      "estimated_minutes": 45
+    },
+    {
+      "phase": 4,
+      "parallel_group": [
+        "pilot_tiger_signal"
+      ],
+      "description": "Phase 4: decide whether the instability signal is real",
+      "total_gpus": 1,
+      "estimated_minutes": 35
+    },
+    {
+      "phase": 5,
+      "parallel_group": [
+        "pilot_tiger_gating"
+      ],
+      "description": "Phase 5: validate task gating and code boundary behavior",
+      "total_gpus": 1,
+      "estimated_minutes": 40
+    },
+    {
+      "phase": 6,
+      "parallel_group": [
+        "pilot_gsm8k_shortlist"
+      ],
+      "description": "Phase 6: make the go / no-go decision on TIGER before scaling to full GSM8K and MATH500",
+      "total_gpus": 2,
+      "estimated_minutes": 55
+    }
+  ],
+  "total_pilot_time_estimate_minutes": 220,
+  "total_pilot_gpu_hours": 8.0,
+  "decision_tree": {
+    "throughput_or_protocol_fail": "Do not start any full benchmark. Fix infrastructure first.",
+    "H1_fail": "Pivot toward cand_diag; do not claim instability-guided editing as a new method.",
+    "H2_fail_only": "Keep reasoning-only scope and demote code to boundary analysis.",
+    "H3_fail": "Stop method scaling and convert the campaign into a compute-normalized diagnostic benchmark study.",
+    "all_main_pass": "Run full GSM8K, then MATH500, then synthesize Pareto results."
+  }
+}

@@ -1,0 +1,261 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Setup SAE experiment environment",
+      "description": "Install sae-lens, transformer-lens, verify Gemma Scope SAE access. Check remote GPU availability.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/results/setup_verification.json",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "pilot": null,
+      "shared_resources": [
+        {"type": "package", "name": "sae-lens", "path": ".venv/lib/python3.12/site-packages/sae_lens"},
+        {"type": "package", "name": "transformer-lens", "path": ".venv/lib/python3.12/site-packages/transformer_lens"}
+      ],
+      "visualizations": []
+    },
+    {
+      "id": "h_mech_pilot",
+      "name": "H_Mech pilot: 2x2 factorial stochastic hierarchy (seed 42)",
+      "description": "Pilot for H_Mech: 2x2 factorial (A/B/C/D) with stochastic hierarchy noise (epsilon ~ N(0, 0.05)). Validate B>D anomaly. 100 samples, seed 42.",
+      "type": "baseline",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/pilots/h_mech_pilot_seed42.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Condition B not significantly worse than D (delta < 0.05), Condition C not significantly better than A (delta < 0.05)"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "H_Mech 2x2 factorial absorption rates",
+          "columns": ["Condition", "Encoder", "Decoder", "Absorption Rate", "Std"],
+          "paper_section": "method"
+        }
+      ]
+    },
+    {
+      "id": "h_mech_full",
+      "name": "H_Mech full: 2x2 factorial with 5 seeds",
+      "description": "Full H_Mech validation: 2x2 factorial across 5 seeds (42, 123, 456, 789, 1024). Stochastic hierarchy. Total 20 runs. Validate B>D anomaly robustness.",
+      "type": "experiment",
+      "depends_on": ["h_mech_pilot"],
+      "expected_output": "exp/results/full/h_mech_5seeds.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": null,
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "H_Mech 2x2 factorial with error bars across 5 seeds",
+          "columns": ["Condition", "Encoder", "Decoder", "Mean Absorption", "Std", "N"],
+          "paper_section": "method"
+        }
+      ]
+    },
+    {
+      "id": "h_comp_pilot",
+      "name": "H_Comp pilot: hierarchy strength sweep (3 levels)",
+      "description": "Pilot for H_Comp: hierarchy strength sweep at 3 cosine similarity levels (0.6, 0.8, 0.95). 100 samples, seed 42.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/pilots/h_comp_pilot.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption monotonically increases with hierarchy strength (no reversal)"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption vs hierarchy strength",
+          "x": "cosine_similarity",
+          "y": "absorption_rate",
+          "paper_section": "results"
+        }
+      ]
+    },
+    {
+      "id": "h_comp_full",
+      "name": "H_Comp full: hierarchy strength sweep (6 levels, 3 seeds)",
+      "description": "Full H_Comp: 6 cosine similarity levels (0.5, 0.6, 0.7, 0.8, 0.9, 0.95) × 3 seeds. Fit monotonic curve, report R².",
+      "type": "experiment",
+      "depends_on": ["h_comp_pilot"],
+      "expected_output": "exp/results/full/h_comp_6levels_3seeds.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 35,
+      "pilot": null,
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "line_plot_with_fit",
+          "description": "H_Comp absorption vs hierarchy strength with monotonic fit",
+          "x": "cosine_similarity",
+          "y": "absorption_rate",
+          "fit": "monotonic",
+          "paper_section": "results"
+        }
+      ]
+    },
+    {
+      "id": "h_safe_pilot",
+      "name": "H_Safe pilot: validated safety features on Gemma Scope",
+      "description": "Pilot for H_Safe: Use Neuronpedia-validated safety features (deception, jailbreak, harm). 5 safety + 5 non-safety features from Gemma Scope layer 12. CRITICAL: No arbitrary indices.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/pilots/h_safe_pilot.json",
+      "candidate_id": "cand_safe",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Safety and non-safety absorption distributions are measurable (not both zero)"
+      },
+      "visualizations": [
+        {
+          "type": "violin_plot",
+          "description": "H_Safe safety vs non-safety absorption distributions",
+          "x": "feature_type",
+          "y": "absorption_rate",
+          "paper_section": "results"
+        }
+      ]
+    },
+    {
+      "id": "h_safe_full",
+      "name": "H_Safe full: 20 validated safety + 20 non-safety features",
+      "description": "Full H_Safe: 20 validated safety-relevant features from Neuronpedia + 20 matched non-safety. Mann-Whitney U test. Measure absorption via multi-child proportional method.",
+      "type": "experiment",
+      "depends_on": ["h_safe_pilot"],
+      "expected_output": "exp/results/full/h_safe_20v20.json",
+      "candidate_id": "cand_safe",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "pilot": null,
+      "shared_resources": [
+        {"type": "dataset", "name": "neuronpedia_safety_features", "path": "gemma-2b-res layer 12"}
+      ],
+      "visualizations": [
+        {
+          "type": "violin_plot",
+          "description": "H_Safe full: 20+20 safety vs non-safety absorption",
+          "x": "feature_type",
+          "y": "absorption_rate",
+          "paper_section": "results"
+        }
+      ]
+    },
+    {
+      "id": "h_downstream_pilot",
+      "name": "H_Downstream pilot: matched pair steering test",
+      "description": "Pilot for H_Downstream: Test whether absorbed features show degraded steering utility. Match 5 absorbed + 5 non-absorbed pairs on confounders (activation frequency, magnitude). CRITICAL: This tests contrarian's core challenge.",
+      "type": "experiment",
+      "depends_on": ["setup_env", "h_safe_pilot"],
+      "expected_output": "exp/results/pilots/h_downstream_pilot.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorbed vs non-absorbed steering difference > 5% (preliminary signal)"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "H_Downstream: steering accuracy vs absorption status",
+          "x": "absorption_status",
+          "y": "steering_accuracy",
+          "paper_section": "results"
+        }
+      ]
+    },
+    {
+      "id": "h_downstream_full",
+      "name": "H_Downstream full: 30 matched pairs, McNemar's test",
+      "description": "Full H_Downstream: 30 absorbed + 30 matched non-absorbed feature pairs. Test steering accuracy and circuit completeness. McNemar's test for paired proportions. Falsification: <10% difference means absorption doesn't matter downstream.",
+      "type": "experiment",
+      "depends_on": ["h_downstream_pilot", "h_safe_full"],
+      "expected_output": "exp/results/full/h_downstream_30pairs.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "pilot": null,
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "H_Downstream: steering accuracy by absorption status (30 pairs)",
+          "x": "absorption_status",
+          "y": "steering_accuracy",
+          "paper_section": "results"
+        }
+      ]
+    },
+    {
+      "id": "held_out_validation",
+      "name": "Held-out validation on GPT-2 Small",
+      "description": "Validate key findings (H_Mech factorial + H_Safe subset) on GPT-2 Small SAE as held-out test. Compare with Gemma findings for cross-model robustness.",
+      "type": "experiment",
+      "depends_on": ["h_mech_full"],
+      "expected_output": "exp/results/full/held_out_gpt2.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": null,
+      "shared_resources": [
+        {"type": "model", "name": "gpt2-small", "path": "gpt2-small"},
+        {"type": "sae", "name": "gpt2-small-res-jb", "path": "gpt2-small-res-jubb/blocks.8.hook_resid_pre"}
+      ],
+      "visualizations": [
+        {
+          "type": "comparison_table",
+          "description": "Cross-model comparison: Gemma 2B vs GPT-2 Small",
+          "columns": ["Model", "H_Mech (B-D gap)", "H_Safe effect size"],
+          "paper_section": "discussion"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_tasks": 10,
+    "pilot_tasks": 5,
+    "full_tasks": 5,
+    "estimated_total_minutes": 300,
+    "critical_path_minutes": 140,
+    "gpu_hours": 5.0,
+    "parallel_groups": [
+      ["h_mech_pilot", "h_comp_pilot", "h_safe_pilot", "h_downstream_pilot"],
+      ["h_mech_full", "h_comp_full", "h_safe_full", "h_downstream_full"],
+      ["held_out_validation"]
+    ]
+  }
+}

@@ -1,0 +1,93 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Data provenance mismatch between iterations remains unfixed. Table 2 reports constant AdamW CIFAR-10 = 90.13 +/- 0.31, sourced from iter_003 (seeds: 90.48, 90.03, 89.89). PMP-WD results in Section 5.7/Figure 8 come from iter_006 instrumented reruns, where the SAME constant configuration yields 89.80 +/- 0.31 (seeds: 89.72, 90.15, 89.54). The 0.33pp shift between identical configurations run in different iterations is LARGER than the paper's headline finding of 0.25pp total inter-method spread.",
+    "suggestion": "Rerun ALL 7 methods on CIFAR-10 AdamW ResNet-20 using the iter_006 instrumented codebase (3 seeds each = 21 runs, ~6 GPU-hours). Use a single consistent data source for all numbers reported in the paper."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Section 5.7 claims 'the band narrows rapidly during training, converging to a tight interval by epoch 50' and 'this narrowing explains Phi Invariance.' The critic independently confirmed that Figure 8 shows chaotic oscillating lines with no visible narrowing. V_t (Lyapunov function) empirically INCREASES throughout training, contradicting Theorem 1's guarantee V_{t+1} <= V_t.",
+    "suggestion": "Visually verify certified_band.png. Decompose V_t = f(w_t) + mu_t*||w_t||^2 and plot both components. Revise Section 5.7 to match reality."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "No appendix with proofs exists despite references to 'Appendix A'. 5th consecutive iteration of neglect. 4 theorems, 2 propositions, 3 metric definitions with zero formal derivations.",
+    "suggestion": "Write Appendix A with proofs for Theorems 1-4, PMP-WD derivation, and CSI sensitivity analysis. Estimated 4-6 hours."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "No ImageNet experiments despite project constraints mandating them and proposal planning 72 GPU-hours for ImageNet/ResNet-50. CIFAR-only is toy-scale by 2026 standards.",
+    "suggestion": "At minimum use ImageNet-100: 3 methods x 3 seeds x ResNet-50 = 9 runs in ~6-8 GPU-hours."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "Theory-experiment optimizer mismatch: ALL theorems assume SGD dynamics. ALL primary experiments use AdamW. Never discussed.",
+    "suggestion": "Add explicit acknowledgment in Section 6.4."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "PMP-WD appears in Figures 3/8 but is absent from Tables 1/2/3. Method inconsistency between text, tables, and figures.",
+    "suggestion": "Either formally integrate PMP-WD into all tables or remove from figures."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Theorem 2 validation is not statistically significant (rho=-0.379, p=0.121) but remains a numbered contribution.",
+    "suggestion": "Demote Theorem 2 from contribution to theoretical proposition pending larger-scale validation."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Statistical power insufficient for null-result claims. N=3 gives ~15-20% TOST power at delta=0.5%. Only 50% of comparisons confirm equivalence at delta=1.0%.",
+    "suggestion": "Add 2 seeds for 4 key comparisons (~2 GPU-hours)."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "NoBN ablation data exists (iter_005) but is absent from the paper. NoBN spread (0.12pp) may undermine BN-specific narrative.",
+    "suggestion": "Run full NoBN ablation or include existing partial data honestly."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "CSI has arbitrary weights, does not predict accuracy (rho < 0.3), and occupies significant paper space for zero predictive value.",
+    "suggestion": "Present components separately or demote from contribution to exploratory tool."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Abstract implies full factorial design (7 x 2 x 2 x 2 x 3 = 168 runs) but actual design is 84 + 21 = 105.",
+    "suggestion": "Rewrite abstract to make non-factorial design explicit."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Figure 3 uses different method sets in the two panels, invalidating cross-architecture spread comparison.",
+    "suggestion": "Use identical method sets in both panels or compute spread using common methods only."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Half_lambda BEM value may be inconsistent between Table 6 (BEM=0.500) and Figure 5 (diagnostic heatmap, possibly from old data).",
+    "suggestion": "Verify Figure 5 matches Table 6 for half_lambda BEM."
+  }
+]

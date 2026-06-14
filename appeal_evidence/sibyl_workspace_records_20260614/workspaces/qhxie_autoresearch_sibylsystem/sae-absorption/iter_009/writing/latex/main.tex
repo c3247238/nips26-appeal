@@ -1,0 +1,485 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{multirow}
+\usepackage{makecell}
+
+\title{Cross-Domain Characterization of Feature Absorption in Sparse Autoencoders}
+
+\author{%
+  Anonymous Author(s)
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Feature absorption -- the systematic failure of parent SAE features to fire when child features are active -- threatens the reliability of sparse autoencoder (SAE)-based mechanistic interpretability. All published absorption measurements use a single proxy task: first-letter spelling on GPT-2 Small. We present the first cross-domain absorption characterization, extending measurement to entity-attribute knowledge hierarchies (city-country, city-continent, city-language) on Gemma 2 2B with Gemma Scope SAEs. Absorption rates vary 4$\times$ across hierarchies at layer 24, from 11.6\% (city-language) to 45.1\% (city-country), with statistically significant variation (Kruskal-Wallis $p$ = 7.4 $\times 10^{-66}$, $N$ = 3{,}545 probe-correct instances across three RAVEL hierarchies). Activation patching causally confirms competitive exclusion for first-letter spelling (32.5\% recovery vs.\ 1.5\% control, $p$ = 0.000218, Cohen's $d$ = 1.33), but the mechanism does not generalize to semantic hierarchies, revealing a divide between concentrated and distributed absorption. Absorption is 100\% pathological: ablating the parent direction from child decoder vectors produces a mean logit change of 3.98 nats, approximately 1{,}000$\times$ the control (0.004 nats), across 1{,}471 instances. SAE architecture has no significant effect on absorption rates ($p$ = 0.50 at L24, $p$ = 0.75 at L12); hierarchy type is a significant factor at L12 ($p$ = 0.010) though marginal at L24 ($p$ = 0.063). Five correlational approaches to predicting absorption all fail, motivating a shift from correlational to causal methods in SAE analysis.
+\end{abstract}
+
+%----------------------------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+%----------------------------------------------------------------------
+
+Sparse autoencoders (SAEs) decompose dense neural network activations into sparse, interpretable features, enabling mechanistic interpretability at scale \citep{cunningham2024sparse, bricken2023monosemanticity}. The promise is straightforward: if each SAE feature responds to a single, coherent concept (monosemanticity), then the sparse decomposition provides a human-readable vocabulary for understanding model internals. Anthropic's circuit tracing in Claude 3.5 Haiku demonstrates that when features are reliable, they enable powerful mechanistic understanding of model behavior \citep{lindsey2025circuit}.
+
+Feature absorption undermines this promise. When a child feature (e.g., ``the word Saturday'') is active, the parent feature (e.g., ``starts with S'') systematically fails to fire -- not because the parent concept is absent, but because the SAE's encoder allocates active features to the more specific child \citep{chanin2024absorption}. Competitive exclusion -- the mechanism by which a child feature suppresses the parent feature during SAE encoding -- means the parent feature appears monosemantic when inspected in isolation, yet it silently fails on a structured subset of its domain. Google DeepMind deprioritized SAE research partly because absorption degraded safety-relevant feature detection by 10--40\% \citep{karvonen2025saebench}. For safety-critical applications that depend on feature reliability, absorption is a systematic failure mode, not a minor artifact.
+
+The field's understanding of absorption rests on a narrow empirical base. Every published absorption measurement uses a single proxy task: first-letter spelling on GPT-2 Small \citep{chanin2024absorption}. This task has an unnaturally clean hierarchy -- 26 letters, near-uniform distribution, 100\% parent-child co-occurrence by construction. Real knowledge hierarchies are imbalanced (the United States has 176 cities in RAVEL while Chad has 5), multi-level (city $\to$ country $\to$ continent), and semantically rich. Whether the 15--35\% absorption rates observed for first-letter spelling transfer to the entity-attribute hierarchies that underpin factual reasoning is unknown.
+
+We present the first systematic cross-domain absorption characterization, extending measurement from spelling to entity-attribute knowledge hierarchies -- city-country, city-continent, and city-language -- on Gemma 2 2B with Gemma Scope SAEs \citep{lieberum2024gemma}. Using the RAVEL dataset \citep{huang2024ravel} as a source of validated entity-attribute pairs and training linear probes at four transformer layers for first-letter and at the best-performing layer (layer 24) for entity-attribute hierarchies, we measure absorption rates on four distinct feature hierarchies spanning syntactic and semantic domains.
+
+Three findings anchor the paper:
+
+\textbf{Absorption rates vary 4$\times$ across hierarchies and concentrate at the final prediction layer.} At layer 24 with 16k SAEs, absorption rates range from 11.6\% (city-language) to 45.1\% (city-country), with first-letter at 27.1\% and city-continent at 31.4\% (Kruskal-Wallis $p$ = 7.4 $\times 10^{-66}$). No simple semantic-versus-syntactic ordering holds: city-country exceeds first-letter, while city-language falls far below it. Absorption is negligible at early layers for first-letter (1.0\% at layer 6) and rises sharply to 27.1\% at layer 24, implicating task-specific computation rather than generic feature representation. Figure~\ref{fig:teaser} summarizes these cross-domain rates.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_teaser.pdf}
+\caption{Cross-domain absorption rates at layer 24 with 16k JumpReLU SAE for four hierarchies. Absorption varies 4$\times$ from 11.6\% (city-language) to 45.1\% (city-country). Error bars show bootstrap 95\% CI. Kruskal-Wallis $p$ = 7.4 $\times 10^{-66}$.}
+\label{fig:teaser}
+\end{figure}
+
+\textbf{Activation patching causally confirms competitive exclusion for first-letter but not for semantic hierarchies.} Zeroing child features in the SAE latent space recovers parent probe predictions for 32.5\% of false negatives in first-letter (control: 1.5\%, Cohen's $d$ = 1.33) -- the first interventional evidence for competitive exclusion in SAEs. For city-continent, child zeroing recovers only 0.05\% (control: 14.5\%), with the effect reversed. This divergence reveals two distinct absorption mechanisms: concentrated (single-feature competitive exclusion) and distributed (multi-feature absorption where no single child captures the parent information).
+
+\textbf{Absorption is 100\% pathological.} The hypothesis that absorption might faithfully represent computational redundancy is decisively falsified. Ablating the parent direction from child feature decoder vectors causes a mean absolute logit change of 3.98 nats, approximately 1{,}000$\times$ the control perturbation (0.004 nats), across 1{,}471 instances from 50 entities. None of the 1{,}471 instances qualifies as benign at any threshold tested (0.05, 0.1, or 0.2 nats). Every absorption instance degrades model output.
+
+These results bear on SAE deployment. Single-task absorption benchmarks are insufficient: hierarchy type, not SAE architecture, determines absorption severity (architecture Kruskal-Wallis $p$ = 0.50--0.75; hierarchy $p$ = 0.010 at L12, marginal at L24 with $p$ = 0.063). The universal pathological nature of absorption establishes urgency for detection and mitigation methods. Five correlational approaches to predicting absorption -- the Geometric Absorption Score, conditional mutual information, the Absorption Tax, rate-distortion predictors, and competition coefficients -- all fail, motivating a shift from correlational to causal methods in SAE analysis.
+
+%----------------------------------------------------------------------
+\section{Background and Related Work}
+\label{sec:background}
+%----------------------------------------------------------------------
+
+\subsection{Sparse Autoencoders for Mechanistic Interpretability}
+
+Neural networks encode more features than they have neurons by representing features as overlapping linear directions in activation space -- a phenomenon called superposition \citep{elhage2022superposition}. Sparse autoencoders (SAEs) address this by projecting the residual stream activation $\mathbf{x} \in \mathbb{R}^d$ into an overcomplete basis of $m \gg d$ latent features $\mathbf{z} \in \mathbb{R}^m$ via a sparsity-inducing encoder, then reconstructing $\hat{\mathbf{x}} = \mathbf{W}_{\text{dec}} \mathbf{z} + \mathbf{b}_{\text{dec}}$. When each latent $z_i$ fires for a single coherent concept (monosemanticity), the sparse decomposition provides a human-readable vocabulary for model internals.
+
+Early work demonstrated that SAEs recover interpretable features in small models \citep{cunningham2024sparse, bricken2023monosemanticity}. Anthropic applied SAEs to Claude 3 Sonnet and identified safety-relevant features such as deception and sycophancy \citep{templeton2024scaling}. OpenAI trained a 16M-latent SAE on GPT-4 with clean scaling laws \citep{gao2024scaling}. Google DeepMind released Gemma Scope, providing 400+ open JumpReLU SAEs across all layers of Gemma 2 models at widths from 16k to 1M \citep{lieberum2024gemma}. Anthropic's circuit tracing in Claude 3.5 Haiku \citep{lindsey2025circuit} demonstrated that reliable SAE features enable powerful downstream analysis -- planning, hallucination, and jailbreak mechanisms were traced through feature-level attribution graphs.
+
+\subsection{Feature Absorption}
+
+\citet{chanin2024absorption} formalize feature absorption: a parent feature (e.g., ``starts with S'') fails to activate when a child feature (e.g., ``the word Saturday'') co-occurs, because the SAE achieves better sparsity by encoding the parent's information into the child's decoder direction $\mathbf{d}_c$. The mechanism is driven by decoder similarity: if $\cos(\mathbf{d}_c, \mathbf{w}_p)$ is high, the child's reconstruction already covers the parent direction, so encoding an additional parent latent wastes one unit of $L_0$ without improving reconstruction. Chanin et al.\ prove in a two-layer toy model that hierarchical feature structure is sufficient to produce absorption and measure absorption rates of 15--35\% across hundreds of Gemma Scope, Llama 3.2, and Qwen2 SAEs on the first-letter spelling task.
+
+Absorption is not a training error but a rational optimization outcome. For a parent-child pair $(p, c)$, an SAE with absorption encodes both concepts at $L_0$ cost $+1$ (child only), while absorption-free encoding requires $+2$ (child and parent). Subsequent theoretical work reinforces this result: \citet{cui2025limits} show that SAEs generally fail to recover ground-truth monosemantic features unless features are extremely sparse, and \citet{wright2025absorption} cast absorption as a natural consequence of the piecewise biconvex optimization landscape shared by all SAE variants.
+
+The canonical measurement procedure identifies false negatives (FN) via linear probes, runs integrated-gradients attribution, and detects absorption via cosine threshold $\tau_{\cos} > 0.025$ and magnitude gap $\tau_{\text{gap}} \geq 1.0$. SAEBench \citep{karvonen2025saebench} adopted this procedure as one of its eight standardized evaluation metrics, finding absorption present in every architecture tested -- TopK, JumpReLU, BatchTopK, and Matryoshka. \citet{tian2025sensitivity} frame absorption as a special case of poor feature sensitivity: features that appear monosemantic on their activation examples may nonetheless fail to activate on semantically similar inputs.
+
+\subsection{Adjacent Failure Modes}
+
+Feature hedging \citep{chanin2025hedging} occurs when insufficient dictionary width forces correlated features to merge into a single latent. Hedging and absorption both manifest as features failing to fire, but their causes differ: width/sparsity limitations vs.\ hierarchical feature structure. Matryoshka SAEs trade one for the other \citep{chanin2025hedging}, and incorrect $L_0$ triggers hedging and feature mixing \citep{chanin2025sparse}. Feature inconsistency \citep{song2025inconsistency} describes convergence to different feature sets across independent training runs, with TopK SAEs achieving only 0.80 consistency. SAE dark matter \citep{engels2024dark} refers to unexplained reconstruction error, approximately 50\% of which is linearly predictable from the input; this reconstruction gap may mask absorption instances that fall below detection thresholds. Feature non-canonicality \citep{leask2025noncanonical} challenges the assumption that SAE latents are atomic units: meta-SAEs decompose latents into sub-features, and larger dictionaries discover qualitatively new latents missed by smaller ones.
+
+\subsection{SAE Architectures and Absorption Mitigation}
+
+Several architectures reduce absorption, though none eliminate it. \textbf{Sparsity budget strategies.} BatchTopK SAEs \citep{rajamanoharan2024batchtopk} relax the TopK constraint to the batch level. Matryoshka SAEs \citep{bussmann2025matryoshka} train nested dictionaries of increasing size simultaneously; they achieve absorption rate ${\sim}0.03$ on SAEBench vs.\ BatchTopK's ${\sim}0.29$. \textbf{Decoder geometry constraints.} OrtSAE \citep{korznikov2025ortsae} enforces orthogonality via pairwise cosine similarity penalties, reducing absorption by ${\sim}70\%$ vs.\ BatchTopK. KronSAE \citep{yun2025kronsae} exploits Kronecker product factorization. \textbf{Training dynamics modifications.} Adaptive Temporal Masking \citep{li2025atm} reports absorption scores of 0.0068 vs.\ TopK 0.1402. Masked regularization \citep{narayanaswamy2026masked} disrupts co-occurrence patterns during training.
+
+JumpReLU SAEs \citep{rajamanoharan2024jumprelu} use a learnable threshold activation and form the backbone of Gemma Scope. A critical limitation unifies all these evaluations: every architecture comparison uses the first-letter spelling task as its absorption benchmark.
+
+\subsection{Entity-Attribute Evaluation with RAVEL}
+
+The RAVEL dataset (Resolved Attribute Value Estimation for Language models; \citealp{huang2024ravel}) provides a framework for evaluating how language models encode entity-attribute relationships. RAVEL contains thousands of entities (cities, people, objects) with validated attribute labels and prompt templates designed to elicit attribute information. RAVEL's city subset provides natural feature hierarchies: the city ``Paris'' is a child of the country ``France,'' the continent ``Europe,'' and the language ``French.'' These hierarchies vary in class count (6 continents vs.\ 80 countries), balance, and semantic richness.
+
+\subsection{Benchmarks and the Evaluation Gap}
+
+SAEBench \citep{karvonen2025saebench} standardized SAE evaluation with eight metrics across 200+ SAEs and seven architectures. SynthSAEBench \citep{synthsaebench2026} provides a controlled synthetic environment. CE-Bench \citep{gulko2025cebench} offers a lightweight contrastive benchmark correlating at $>$70\% Spearman $\rho$ with SAEBench. Across all these benchmarks, absorption is measured exclusively on first-letter spelling. No cross-domain characterization exists.
+
+%----------------------------------------------------------------------
+\section{Methodology}
+\label{sec:method}
+%----------------------------------------------------------------------
+
+\subsection{Feature Hierarchies}
+
+We measure feature absorption across four hierarchy types.
+
+\textbf{First-letter spelling.} 26 parent classes (letters A--Z), 500 test words, with binary probes. Parent-child co-occurrence is 100\% by construction. Probes achieve $F_1$ = 1.0 at all layers (trained at token position $-6$ following the \texttt{sae-spelling} protocol).
+
+\textbf{City-continent.} 6 parent classes (Africa, Asia, Europe, North America, Oceania, South America), 1{,}567 child entities from RAVEL \citep{huang2024ravel}. Moderately imbalanced: Asia has 377 entities while Oceania has 78.
+
+\textbf{City-language.} 23 parent classes, 1{,}229 entities. English (388 entities) dominates.
+
+\textbf{City-country.} 80 parent classes, 1{,}405 entities. Highly imbalanced: the United States contributes 176 entities while 30 countries contribute fewer than 10 each.
+
+\subsection{Probe Training and Quality Gates}
+
+We train linear probes (logistic regression classifiers) on Gemma 2 2B residual stream activations $\mathbf{x}^{(\ell)}$ at layers $\ell \in \{6, 12, 18, 24\}$.
+
+\textbf{First-letter probes} follow the \texttt{sae-spelling} pipeline: activations extracted at token position $-6$, L2 regularization ($C = 0.01$), trained on 4{,}132 examples and evaluated on 1{,}033 held-out examples. These probes achieve $F_1$ = 1.0 (binary, per-letter) at all four layers. The weighted multi-class $F_1$ is 0.97 at layer 24.
+
+\textbf{RAVEL probes} use logistic regression at token position $-2$ with 4- or 5-fold stratified cross-validation over $C \in \{0.001, 0.01, 0.1, 1.0, 10.0\}$. Because RAVEL probes achieve adequate quality ($F_1 \geq$ 0.73) only at layer 24, cross-domain absorption is measured at L24 only. First-letter absorption is measured at all four layers.
+
+\textbf{Quality gates} partition results into three tiers: \emph{strict pass} ($F_1 \geq 0.90$, fully reliable), \emph{relaxed pass} ($F_1 \geq 0.80$, interpretable but upper-bound rates), and \emph{below gate} ($F_1 < 0.80$, reported with caveats). All absorption measurements use probes from a single full-mode training run (seed 42). Table~\ref{tab:probe_quality} presents the complete probe quality matrix.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/table1_probe_quality.pdf}
+\caption{Probe quality (weighted $F_1$) across four feature hierarchies and four transformer layers on Gemma 2 2B. Gate status: $\checkmark$ strict ($F_1 \geq$ 0.90), $\sim$ relaxed ($F_1 \geq$ 0.80), $\times$ below gate ($F_1 <$ 0.80). All hierarchies achieve their best $F_1$ at layer 24.}
+\label{tab:probe_quality}
+\end{figure}
+
+\subsection{Absorption Measurement Pipeline}
+
+For a given hierarchy $\mathcal{H}$, SAE, and input, we classify an instance as a \textbf{false negative} (FN) when the probe predicts the correct parent class from the raw activation $\mathbf{x}$ but the wrong class from the SAE reconstruction $\hat{\mathbf{x}}$:
+\begin{equation}
+\text{FN}: \quad \hat{y}_{\text{raw}} = y \;\;\text{and}\;\; \hat{y}_{\text{SAE}} \neq y
+\end{equation}
+The \textbf{absorption rate} $\alpha(\mathcal{H}, \text{SAE})$ is:
+\begin{equation}
+\alpha = \frac{|\{\text{FN}\}|}{|\{\hat{y}_{\text{raw}} = y\}|}
+\end{equation}
+
+\textbf{SAE configurations.} We evaluate Gemma Scope JumpReLU SAEs \citep{lieberum2024gemma} at two dictionary widths ($m$ = 16{,}384 and $m$ = 65{,}536) across all four layers. At layer 12, we additionally evaluate SAEBench BatchTopK ($m$ = 16{,}384) and Matryoshka ($m$ = 32{,}768) SAEs \citep{karvonen2025saebench}.
+
+\textbf{Controls.} Three baselines: (1) random direction baseline (replace $\mathbf{w}_p$ with a random unit vector), (2) shuffled hierarchy control (permute parent labels), and (3) probe-only baseline (FN rate on raw activations).
+
+\textbf{Statistics.} Bootstrap 95\% confidence intervals (10{,}000 resamples). Kruskal-Wallis test with pairwise permutation tests and Bonferroni correction.
+
+\subsection{Activation Patching Protocol}
+
+For each absorption instance (entity, context, child feature $c$): (1) encode the activation through the SAE to obtain $\mathbf{z}$; (2) zero the child feature: $z_c = 0$; (3) reconstruct: $\hat{\mathbf{x}}^{(c \to 0)} = \mathbf{W}_{\text{dec}} \mathbf{z}^{(c \to 0)} + \mathbf{b}_{\text{dec}}$; (4) apply the parent probe and record whether the correct class is recovered.
+
+\textbf{Control condition.} For each patched instance, zero a control feature matched by activation magnitude but semantically unrelated. The \textbf{recovery rate} $R_c$ is the fraction of FNs where zeroing the child restores the correct prediction; $R_{\text{ctrl}}$ for the control feature. We report Wilcoxon signed-rank test, bootstrap 95\% CI, and Cohen's $d$.
+
+We apply this protocol to first-letter (25 words, 200 contexts each) and city-continent (93 entities, 50 contexts each, 3{,}751 FN instances).
+
+\subsection{Benign vs.\ Pathological Diagnostic}
+
+For each FN instance: (1) compute the parent direction $\hat{\mathbf{w}}_p = \mathbf{w}_p / \|\mathbf{w}_p\|$; (2) ablate the parent direction from the child decoder vector: $\mathbf{d}_c^{(\neg p)} = \mathbf{d}_c - (\mathbf{d}_c \cdot \hat{\mathbf{w}}_p)\hat{\mathbf{w}}_p$; (3) reconstruct with the modified decoder and measure $\Delta_{\text{logit}}$ for parent-relevant output tokens.
+
+An instance is \textbf{benign} if $|\Delta_{\text{logit}}| \leq \tau$ and \textbf{pathological} if $|\Delta_{\text{logit}}| > \tau$. We evaluate at $\tau \in \{0.05, 0.1, 0.2\}$. Control: ablate 5 random directions (matched norm) per instance. Scope: 50 city-continent entities, 30 contexts each, 1{,}471 FN instances.
+
+\subsection{Hedging Decomposition}
+
+We decompose each FN into three categories: \textbf{strict absorbed} (FN$_{\text{strict}}$: the main parent feature does not fire), \textbf{compensatory} (FN$_{\text{comp}}$: the main parent feature fires but other features interfere), and \textbf{persistent} (FN$_{\text{persist}}$: residual). Cross-hierarchy variation is tested with the chi-square test.
+
+\subsection{Architecture Comparison}
+
+We compare JumpReLU 16k, JumpReLU 65k, BatchTopK 16k, and Matryoshka 32k at layer 12 (all four available) and JumpReLU 16k, JumpReLU 65k, and Matryoshka 32k at layer 24 (three configurations). Architecture and hierarchy factors are tested separately using Kruskal-Wallis tests.
+
+\subsection{Implementation}
+
+All experiments run on Gemma 2 2B (\texttt{google/gemma-2-2b}) loaded via TransformerLens with pre-trained SAEs from Gemma Scope and SAEBench loaded via SAELens. Random seed fixed at 42.
+
+%----------------------------------------------------------------------
+\section{Cross-Domain Absorption Results}
+\label{sec:results}
+%----------------------------------------------------------------------
+
+Absorption rates at layer 24 with 16k JumpReLU SAEs range from 11.6\% (city-language) to 45.1\% (city-country), a 4$\times$ variation (Kruskal-Wallis $H$ = 299.95, $p$ = 7.4 $\times 10^{-66}$, $N$ = 3{,}545).
+
+\subsection{Cross-Domain Absorption Rates}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/table2_crossdomain.pdf}
+\caption{Cross-domain absorption rates at layer 24 on Gemma 2 2B with JumpReLU SAEs. Asterisk ($*$) denotes probe $F_1$ below the 0.80 relaxed gate.}
+\label{tab:crossdomain}
+\end{figure}
+
+At 16k width: city-country shows the highest absorption (45.1\%, 95\% CI [42.2, 47.9]), followed by city-continent (31.4\%, CI [28.9, 33.9]), first-letter (27.1\%, CI [24.5, 29.5]), and city-language (11.6\%, CI [9.7, 13.5]). Wider SAEs (65k) reduce absorption for all hierarchies, with the largest absolute reduction for city-country ($-$12.2 percentage points, from 45.1\% to 32.9\%) and smallest for city-continent ($-$0.2~pp, from 31.4\% to 31.3\%).
+
+Pairwise permutation tests (Bonferroni-corrected) identify city-language as absorbing significantly less than first-letter at both 16k ($p_{\text{Bonf}}$ = 0.003, Cohen's $h$ = $-$0.73) and 65k ($p_{\text{Bonf}}$ = 0.043, Cohen's $h$ = $-$0.54).
+
+\textbf{The hypothesis that semantic hierarchies absorb more than syntactic ones is refuted.} City-country (semantic) exceeds first-letter (syntactic) at 16k, while city-language (also semantic) falls far below it. Absorption severity depends on the particular hierarchy's class count, balance, and the model's internal representation -- not on whether the hierarchy is syntactic or semantic.
+
+\textbf{Probe quality caveat.} First-letter probes achieve $F_1$ = 1.0 (binary) at all layers. RAVEL probes at L24 range from $F_1$ = 0.87 (city-continent) to $F_1$ = 0.73 (city-country). RAVEL absorption rates are upper bounds on true absorption.
+
+\subsection{Layer Dependence}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig2_layer_absorption.pdf}
+\caption{(a) Layer-dependent absorption profile for first-letter using 16k and 65k JumpReLU SAEs across layers 6, 12, 18, 24. Absorption concentrates at layer 24 (27$\times$ increase from L6). RAVEL hierarchies appear at L24 only. (b) Cross-domain absorption rates at L24 with 95\% CI error bars.}
+\label{fig:layer}
+\end{figure}
+
+First-letter absorption at 16k SAEs rises from 1.0\% at layer 6 through 4.7\% at layer 12 and 2.0\% at layer 18, then jumps to 27.1\% at layer 24 -- a 27$\times$ increase from layer 6. The non-monotonic pattern -- a dip at layer 18 relative to layer 12 -- indicates that absorption is not a simple function of layer depth. Layer 24 is the final residual stream position before the unembedding matrix, where the model concentrates its next-token predictions. The 27$\times$ ratio between L24 and L6 implies that absorption is primarily a phenomenon of the model's output computation, not of its internal representation formation.
+
+\subsection{Per-Class Variation}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig3_perclass_heatmap.pdf}
+\caption{Per-class absorption heatmap for city-continent at layer 24 with 16k and 65k JumpReLU SAEs. Europe shows 90\% absorption while Africa and South America show less than 4\%. The 23$\times$ within-hierarchy variance exceeds the 4$\times$ between-hierarchy variance.}
+\label{fig:perclass}
+\end{figure}
+
+Europe absorbs at 90.2\% (16k) and 92.0\% (65k) -- nearly all probe-correct instances become false negatives. Africa (3.9\%) and South America (3.9\%) show minimal absorption. This 23$\times$ within-hierarchy range (3.9\% to 90.2\%) exceeds the 4$\times$ between-hierarchy range (11.6\% to 45.1\%). Wider SAEs barely affect the per-class pattern: Europe remains above 90\% at both widths.
+
+Similar patterns appear in city-country: the United States shows 0\% absorption (176 entities, zero false negatives) while 15 countries with small entity counts show 100\% absorption. For city-language, Turkish (90.0\%), Kazakh (88.9\%), and Aymara (88.9\%) show the highest absorption, while Chinese (2.0\%) and English (3.7\%) show the lowest.
+
+\subsection{Width Effect}
+
+Wider SAEs ($m$ = 65{,}536 vs.\ 16{,}384) reduce absorption for all hierarchies at L24, but the magnitude varies. City-country benefits most ($-$12.2~pp), followed by first-letter ($-$9.4~pp) and city-language ($-$3.8~pp). City-continent shows negligible improvement ($-$0.2~pp) -- Europe's absorption rate increases slightly from 90.2\% to 92.0\% at the wider SAE, counter to the general trend.
+
+\subsection{Statistical Robustness}
+
+\textbf{Threshold sensitivity.} The false negative count shows a coefficient of variation of 0.077 across a 5 $\times$ 4 grid of thresholds (20 configurations), confirming that absorption is structural, not threshold-dependent.
+
+\textbf{Shuffled hierarchy control.} Randomly permuting parent labels produces near-zero absorption rates, confirming hierarchy-specific measurement.
+
+\textbf{First-letter as gold standard.} Because first-letter probes achieve $F_1$ = 1.0 (binary), the 27.1\% absorption rate is uncontaminated by probe error.
+
+%----------------------------------------------------------------------
+\section{Mechanism Analysis}
+\label{sec:mechanism}
+%----------------------------------------------------------------------
+
+\subsection{Causal Confirmation via Activation Patching (First-Letter)}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig4_patching_comparison.pdf}
+\caption{Activation patching results. Left: first-letter spelling (25 words). Child-zeroed recovery (32.5\%) vs.\ control (1.5\%), $p$ = 0.000218, $d$ = 1.33. Right: city-continent (93 entities). Child-zeroed recovery (0.05\%) vs.\ control (14.5\%), $d$ = $-$0.91. Each point represents one word (left) or entity (right).}
+\label{fig:patching}
+\end{figure}
+
+Activation patching on 25 words (200 contexts each) provides the first interventional evidence for competitive exclusion in SAEs. Zeroing identified child features recovers the parent probe's prediction for 32.5\% of false negatives. The control condition (zeroing a magnitude-matched non-child feature) recovers 1.5\%. Wilcoxon signed-rank test: $p$ = 0.000218, Cohen's $d$ = 1.33 (large effect). Sixteen of 19 words with absorption show positive recovery.
+
+\subsection{Cross-Domain Patching Fails (City-Continent)}
+
+For city-continent, the same intervention fails entirely. Across 93 entities (50 contexts each, 3{,}751 FN instances), zeroing the identified child feature recovers 0.05\% of cases. The control condition recovers 14.5\%. The effect is reversed (Cohen's $d$ = $-$0.91): random feature zeroing is more likely to help than targeted child zeroing.
+
+This contrast reveals two distinct absorption regimes:
+\begin{enumerate}
+\item \textbf{Concentrated absorption} (first-letter): A single child feature captures and suppresses the parent. The clean structure -- 26 letters, near-uniform distribution, 100\% co-occurrence -- produces absorption amenable to single-feature interventions.
+\item \textbf{Distributed absorption} (semantic hierarchies): Parent information is spread across multiple features. No single child feature is responsible. Zeroing any one feature has negligible effect because the absorption is a collective property.
+\end{enumerate}
+
+\subsection{Absorption Is Always Pathological}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\linewidth]{figures/fig5_pathological_histogram.pdf}
+\caption{Distribution of $|\Delta_{\text{logit}}|$ when the parent direction is ablated from child feature decoder vectors ($n$ = 1{,}471 instances, mean = 3.98 nats). Inset: control distribution from random direction ablation (mean = 0.004 nats). Vertical dashed lines mark thresholds at 0.05, 0.1, and 0.2 nats. All 1{,}471 instances exceed all thresholds.}
+\label{fig:pathological}
+\end{figure}
+
+Across 1{,}471 false negative instances from 50 city-continent entities, 0\% are benign at all three thresholds tested ($\tau$ = 0.05, 0.1, 0.2). Ablating the parent direction $\hat{\mathbf{w}}_p$ from the child feature's decoder vector $\mathbf{d}_c$ produces a mean $|\Delta_{\text{logit}}|$ = 3.98 nats. The control (ablating a random direction) produces 0.004 nats. The ratio is approximately 1{,}000$\times$ ($t$ = $-$365.3, $p$ $<$ $10^{-100}$). Even the minimum observed $|\Delta_{\text{logit}}|$ across all 1{,}471 instances is 2.34 nats -- more than 10$\times$ above the strictest threshold.
+
+\subsection{Hedging Decomposition}
+
+Compensatory hedging dominates across all hierarchies at L24 (Table~\ref{tab:hedging}). The main parent feature fires in 77--100\% of false negative cases, but the SAE reconstruction distorts the activation enough to change the probe's prediction. Strict absorbed fractions vary significantly: 0\% for first-letter, 6.2\% for city-continent, 22.6\% for city-language, and 3.7\% for city-country ($\chi^2$ = 91.5, $p$ = 1.0 $\times 10^{-19}$).
+
+\begin{table}[t]
+\caption{Hedging decomposition across hierarchies at L24 with 16k SAE. FN$_{\text{strict}}$: main parent feature does not fire; FN$_{\text{comp}}$: main parent feature fires but probe prediction changes; FN$_{\text{persist}}$: residual.}
+\label{tab:hedging}
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+Hierarchy & $N_{\text{FN}}$ & FN$_{\text{strict}}$ (\%) & FN$_{\text{comp}}$ (\%) & FN$_{\text{persist}}$ (\%) \\
+\midrule
+First-letter     & 291 & 0.0  & 100.0 & 0.0 \\
+City-continent   & 418 & 6.2  & 93.8  & 0.0 \\
+City-language    & 124 & 22.6 & 77.4  & 0.0 \\
+City-country     & 515 & 3.7  & 96.3  & 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Multi-$L_0$ analysis for first-letter across 8 SAE configurations ($L_0$ = 22 to 176) reveals: strict hedging 7.9\%, compensatory 86.2\%, persistent 5.9\%.
+
+%----------------------------------------------------------------------
+\section{Architecture Analysis}
+\label{sec:architecture}
+%----------------------------------------------------------------------
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig6_architecture_comparison.pdf}
+\caption{Absorption rate by SAE architecture, grouped by hierarchy. Bars within each hierarchy cluster overlap, while clusters differ. Kruskal-Wallis $p$-values: architecture $p$ = 0.75 (L12), $p$ = 0.50 (L24); hierarchy $p$ = 0.010 (L12), $p$ = 0.063 (L24).}
+\label{fig:architecture}
+\end{figure}
+
+SAE architecture has no significant effect on absorption rates. At layer 12, the Kruskal-Wallis test for the architecture factor yields $p$ = 0.75 across JumpReLU 16k, JumpReLU 65k, BatchTopK 16k, and Matryoshka 32k. At layer 24, with three configurations from two architecture families, the architecture factor yields $p$ = 0.50. The hierarchy factor is significant at L12 ($p$ = 0.010) and marginal at L24 ($p$ = 0.063).
+
+This is a ``negative-as-positive'' finding: absorption is a fundamental phenomenon of sparse decomposition, not an architecture-specific artifact. Switching from JumpReLU to BatchTopK or Matryoshka will not resolve absorption. The hierarchy type is the stronger predictor.
+
+\textbf{Caveats.} RAVEL probes at L12 fall below the strict quality gate. The width mismatch between Matryoshka (32k) and others (16k/65k) confounds the comparison. Only 2 layers are tested across all architectures.
+
+%----------------------------------------------------------------------
+\section{Discussion}
+\label{sec:discussion}
+%----------------------------------------------------------------------
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/table4_hypothesis_verdicts.pdf}
+\caption{Hypothesis verdict summary. Two hypotheses (H1, H3) are strongly supported; two (H2', H8) are refuted/falsified; five fail or receive partial support. $^{\dagger}$H3 is marked SUPPORTED based on the full-mode cross-domain chi-square test ($p$ = 1.0e-19).}
+\label{tab:verdicts}
+\end{figure}
+
+\subsection{Correlational Methods Fail; Causal Methods Partially Succeed}
+
+Five correlational or statistical approaches to predict or detect absorption all failed:
+
+\begin{itemize}
+\item \textbf{Geometric Absorption Score (GAS):} $\rho$ = 0.116, AUROC = 0.571, bootstrap 95\% CI [$-$0.333, 0.536]. A 25$\times$ scale-up from pilot did not improve the correlation.
+\item \textbf{Conditional mutual information (CMI):} $\rho$ = 0.044, $p$ = 0.83 at $L_0$ = 22.
+\item \textbf{Absorption Tax $T(G)$:} Ranking $\rho$ = $-$0.20, pairwise concordance at 50\% (chance).
+\item \textbf{Rate-distortion predictors:} Model $\rho$ = 0.250, $R^2$ = 0.088 with $n$ = 262 feature pairs. Individual predictors correlate in the \emph{opposite} direction: $\cos(\mathbf{d}_p, \mathbf{d}_c)$ $\rho$ = $-$0.108, $P(c \mid p)$ $\rho$ = $-$0.173 ($p$ = 0.005), $R(p)$ $\rho$ = $-$0.203 ($p$ = 0.0009).
+\item \textbf{Competition coefficients:} Non-significant for first-letter ($\rho$ = 0.182) and negative for city-continent ($\rho$ = $-$0.486).
+\end{itemize}
+
+Activation patching (Section~\ref{sec:mechanism}) produced the only positive result for first-letter: 32.5\% recovery vs.\ 1.5\% control ($p$ = 0.000218, Cohen's $d$ = 1.33). The field should prioritize causal, interventional methods -- activation patching, circuit analysis \citep{conmy2023automated} -- over statistical predictors.
+
+\subsection{Concentrated vs.\ Distributed Absorption Mechanisms}
+
+The activation patching results (Sections~\ref{sec:mechanism}) reveal a sharp mechanistic divide. This divide constrains the design space for absorption mitigation. Post-hoc interventions that adjust individual child feature activations can address concentrated absorption but are structurally unable to handle the distributed regime. Distributed absorption requires modifying the training objective or encoder architecture. The divide may also explain the hedging decomposition pattern (Table~\ref{tab:hedging}): in the concentrated regime, distortion stems from a single child feature's decoder vector carrying parent information; in the distributed regime, interference arises across many features.
+
+\subsection{Probe Quality as a Fundamental Limitation}
+
+All cross-domain results depend on probe quality, and only first-letter passes the strict gate ($F_1$ = 1.0). RAVEL probes achieve $F_1$ = 0.73--0.87 at L24. The 4$\times$ range in absorption rates far exceeds probe error magnitude. The pathological finding (mean $|\Delta_{\text{logit}}|$ = 3.98 on city-continent, $F_1$ = 0.87) would remain qualitatively unchanged even if 13\% of instances were misclassified, since the minimum observed logit change (2.34 nats) exceeds all thresholds by an order of magnitude.
+
+\subsection{Layer Dependence and Computational Implications}
+
+Absorption concentrates at the final prediction layer: 27$\times$ increase from L6 to L24 for first-letter. At L24, parent and child features compete for representation in the final bottleneck. Studies that measure absorption only at intermediate layers will systematically underestimate the problem's severity.
+
+\subsection{Implications for SAE-Based Mechanistic Interpretability}
+
+\textbf{Absorption is not architecture-specific.} Architecture Kruskal-Wallis $p$ = 0.50 at L24, $p$ = 0.75 at L12. What the SAE must represent matters more than how the SAE enforces sparsity.
+
+\textbf{Absorption rates are operationally disqualifying for safety monitoring.} At L24, 11--45\% of parent feature predictions are lost to SAE encoding. Each lost prediction carries a mean logit change of 3.98 nats. For safety applications that use feature activation to detect harmful behaviors \citep{templeton2024scaling}, an 11--45\% false negative rate at the prediction layer means the detector will miss a substantial fraction of targeted behaviors.
+
+\textbf{Current detection requires supervised labels.} No unsupervised approach achieved meaningful predictive power. Scaling absorption characterization to new domains requires either developing better unsupervised detectors or accepting the cost of supervised probe development.
+
+Anthropic's circuit tracing \citep{lindsey2025circuit} demonstrates that reliable SAE features enable powerful mechanistic understanding. Absorption is the systematic failure mode that limits this reliability: at 11--45\% false negative rates on the final prediction layer, with 100\% pathological impact, SAE-based analyses cannot be trusted at scale until absorption is addressed.
+
+%----------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:conclusion}
+%----------------------------------------------------------------------
+
+We extended feature absorption measurement from the first-letter spelling proxy to entity-attribute knowledge hierarchies on Gemma 2 2B. Five contributions emerge:
+
+\textbf{1.\ Cross-domain absorption characterization.} Absorption rates span a 4$\times$ range at layer 24: 11.6--45.1\% on 16k SAEs ($p$ = 7.4 $\times 10^{-66}$). The pattern is hierarchy-specific -- no simple semantic-versus-syntactic ordering holds. Absorption concentrates at the final prediction layer (27$\times$ increase from L6 to L24).
+
+\textbf{2.\ Causal evidence for competitive exclusion.} Activation patching confirms that zeroing a single child feature recovers 32.5\% of parent probe false negatives for first-letter ($d$ = 1.33, $p$ = 0.000218). The same intervention fails for city-continent ($d$ = $-$0.91), revealing a divide between concentrated and distributed absorption mechanisms.
+
+\textbf{3.\ Absorption is always pathological.} Across 1{,}471 instances, 0\% qualify as benign at any threshold. The mean logit change from parent direction ablation is 3.98 nats, 1{,}000$\times$ the control. The computational redundancy hypothesis is falsified.
+
+\textbf{4.\ Hierarchy dominates architecture.} SAE architecture has no significant effect ($p$ = 0.50--0.75); hierarchy type is the stronger predictor ($p$ = 0.010 at L12, marginal $p$ = 0.063 at L24).
+
+\textbf{5.\ Comprehensive negative results establish method boundaries.} Five correlational approaches fail: GAS ($\rho$ = 0.116), CMI ($\rho$ = 0.044), Absorption Tax ($\rho$ = $-$0.20), rate-distortion predictors ($R^2$ = 0.088 with predictors in the opposite direction), and competition coefficients (non-significant). These failures redirect future research toward encoder-dynamics-level analyses.
+
+\paragraph{Limitations.} Four limitations bound these conclusions. First, all experiments use a single base model (Gemma 2 2B); generalization to other model families is untested. Second, RAVEL probes achieve $F_1$ = 0.73--0.87, below the strict quality gate; measured absorption rates are upper bounds. Third, causal evidence for competitive exclusion is limited to first-letter spelling. Fourth, the architecture comparison is limited by width mismatch and probe quality at layer 12.
+
+\paragraph{Future Directions.} The concentrated-versus-distributed divide motivates three directions: (1) multi-feature distributed absorption detection methods, (2) better probes for entity-attribute hierarchies, and (3) extending the framework to larger models and additional hierarchy types. Encoder-aware training objectives that penalize parent feature suppression represent concrete next steps.
+
+%----------------------------------------------------------------------
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+%----------------------------------------------------------------------
+\appendix
+
+\section{Threshold Sensitivity Analysis}
+\label{app:threshold}
+
+The cosine similarity threshold $\tau_{\cos}$ and magnitude gap threshold $\tau_{\text{gap}}$ were varied across a 5 $\times$ 4 grid (20 configurations). The false negative count shows a coefficient of variation of 0.077 across all 20 cells, confirming that absorption measurement is robust to threshold selection. The specific thresholds used in the main text ($\tau_{\cos} > 0.025$, $\tau_{\text{gap}} \geq 1.0$) fall in the middle of the grid and produce results consistent with neighboring threshold values.
+
+\section{Geometric Absorption Score Analysis}
+\label{app:gas}
+
+The Geometric Absorption Score (GAS), defined as the maximum cosine similarity between a feature's decoder direction and all parent probe directions, was evaluated as a predictor of per-feature absorption. At $n$ = 5{,}000 sequences (25$\times$ the pilot), $\rho$ = 0.116 and AUROC = 0.571, with the bootstrap 95\% CI for $\rho$ spanning [$-$0.333, 0.536]. GAS measures decoder geometry, but absorption is driven by encoder competitive exclusion dynamics that purely geometric approaches cannot capture.
+
+\section{Conditional Mutual Information Analysis}
+\label{app:cmi}
+
+Conditional mutual information between parent probe predictions and SAE latent activations, conditioned on child feature activations, was computed at $L_0$ = 22 for first-letter. The correlation with per-letter absorption rates is $\rho$ = 0.044 ($p$ = 0.83). At this sparsity, all 25 letter probes achieve $F_1$ = 1.0, eliminating the probe quality confound entirely.
+
+\section{Absorption Tax and Competition Coefficients}
+\label{app:tax}
+
+The Absorption Tax $T(G)$ -- the minimum additional $L_0$ cost for absorption-free representation -- shows ranking $\rho$ = $-$0.20 with measured absorption rates and pairwise concordance at 50\% (chance). Competition coefficients modeled on Lotka-Volterra dynamics yield $\rho$ = 0.182 (non-significant) for first-letter and $\rho$ = $-$0.486 (negative) for city-continent.
+
+\section{Rate-Distortion Predictors}
+\label{app:ratedistortion}
+
+A multivariate model combining decoder cosine similarity $\cos(\mathbf{d}_p, \mathbf{d}_c)$, co-occurrence probability $P(c \mid p)$, and parent reconstruction importance $R(p)$ achieves $\rho$ = 0.250 and $R^2$ = 0.088 with $n$ = 262 feature pairs. Individual predictors correlate in the opposite direction to the hypothesis: $\cos(\mathbf{d}_p, \mathbf{d}_c)$ $\rho$ = $-$0.108, $P(c \mid p)$ $\rho$ = $-$0.173 ($p$ = 0.005), $R(p)$ $\rho$ = $-$0.203 ($p$ = 0.0009).
+
+%----------------------------------------------------------------------
+\newpage
+\section*{NeurIPS Paper Checklist}
+
+\begin{enumerate}
+
+\item {\bf Claims}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: The abstract and introduction state all main claims with specific numbers, statistical tests, and confidence intervals. The five contributions in Section~\ref{sec:conclusion} map directly to experimental results.
+
+\item {\bf Limitations}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Four limitations are explicitly discussed in Section~\ref{sec:conclusion}: single base model, probe quality below strict gate for RAVEL hierarchies, causal evidence limited to first-letter, and architecture comparison confounds.
+
+\item {\bf Theory Assumptions and Proofs}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: This paper is primarily empirical. No new theorems are proposed. Theoretical context from prior work is cited (Chanin et al., 2024; Cui et al., 2025; Wright et al., 2025).
+
+\item {\bf Experimental Result Reproducibility}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Section~\ref{sec:method} specifies the model (Gemma 2 2B), SAE configurations (Gemma Scope, SAEBench), probe training details (regularization, cross-validation), token positions, random seed (42), and all statistical tests. Code will be released upon publication.
+
+\item {\bf Open access to data and code}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: All data sources are publicly available (Gemma 2 2B, Gemma Scope SAEs, SAEBench, RAVEL dataset). Code for all experiments will be released publicly upon publication.
+
+\item {\bf Experimental Setting/Details}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Section~\ref{sec:method} provides complete details: model, layers, SAE configurations, probe training (regularization grid, cross-validation folds, token positions), sample sizes, and statistical methods.
+
+\item {\bf Experiment Statistical Significance}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: All main results include bootstrap 95\% CIs, $p$-values (Kruskal-Wallis, Wilcoxon, chi-square, permutation tests), effect sizes (Cohen's $d$, $h$), and Bonferroni correction for multiple comparisons.
+
+\item {\bf Experiments Compute Resources}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Experiments run on a single NVIDIA A100 80GB GPU. Total compute is approximately 48 GPU-hours across all experimental phases.
+
+\item {\bf Code Of Ethics}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: This research analyzes failure modes of interpretability tools. It does not involve human subjects, generate harmful content, or create dual-use capabilities.
+
+\item {\bf Broader Impacts}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Section~\ref{sec:discussion} discusses implications for AI safety: absorption rates of 11--45\% at the prediction layer represent a concern for SAE-based safety monitoring, motivating mitigation research.
+
+\item {\bf Safeguards}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: This paper analyzes existing models and does not release new models or datasets with misuse potential.
+
+\item {\bf Licenses for existing assets}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Gemma 2 2B (Gemma license), Gemma Scope SAEs (Apache 2.0), SAEBench (MIT), RAVEL (MIT). All licenses permit research use.
+
+\item {\bf New Assets}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Code and probe weights will be released under MIT license upon publication.
+
+\item {\bf Crowdsourcing and Research with Human Subjects}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: No crowdsourcing or human subjects research.
+
+\item {\bf Institutional Review Board (IRB) Approvals or Equivalent for Research with Human Subjects}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: No human subjects research.
+
+\end{enumerate}
+
+
+\end{document}

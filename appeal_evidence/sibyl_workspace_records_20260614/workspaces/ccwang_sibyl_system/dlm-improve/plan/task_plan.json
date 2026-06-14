@@ -1,0 +1,611 @@
+{
+  "tasks": [
+    {
+      "id": "setup_throughput_stack",
+      "name": "吞吐栈与批量推理验证",
+      "description": "复用 batched_dlm_utils.py 与 setup_env_verify.py，验证 LLaDA-8B-Instruct 在 RTX PRO 6000 上的 attention backend、torch.compile 可用性、safe max batch size、峰值显存与 tokens/sec。若 flash_attention_2 不可用，则自动退回 sdpa 并记录原因。任何正式 benchmark 前必须先完成此任务。",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/results/setup_throughput_verification.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "script",
+          "name": "batched_dlm_utils",
+          "path": "iter_001/exp/scripts/batched_dlm_utils.py"
+        },
+        {
+          "type": "script",
+          "name": "setup_env_verify",
+          "path": "iter_001/exp/scripts/setup_env_verify.py"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Attention backend / compile / batch-size / throughput summary",
+          "columns": [
+            "backend",
+            "compile",
+            "safe_batch_size",
+            "tokens_per_sec",
+            "peak_vram_mb"
+          ],
+          "paper_section": "appendix"
+        },
+        {
+          "type": "line_plot",
+          "description": "Throughput scaling as batch size increases",
+          "x": "batch_size",
+          "y": "tokens_per_sec",
+          "paper_section": "appendix"
+        }
+      ],
+      "pilot": {
+        "samples": 1,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "LLaDA-8B loads successfully; safe batch size is auto-detected; actual attention backend is recorded; throughput measurement succeeds. Preferred pass: safe_batch_size >= 16 for prompt<=512 and gen<=256, otherwise log blocker explicitly."
+      }
+    },
+    {
+      "id": "protocol_repair",
+      "name": "协议修复与 held-out 划分",
+      "description": "建立 held-out calibration split、answer extraction audit、actual compute logging schema，并明确是否直接使用 lm-evaluation-harness 或仅复用其 benchmark 约定。该任务负责修复上一轮的 calibration leakage、extractor 漂移和 nominal-vs-actual compute 问题。",
+      "type": "analysis",
+      "depends_on": [
+        "setup_throughput_stack"
+      ],
+      "expected_output": "exp/results/protocol_repair.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 25,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        },
+        {
+          "type": "dataset",
+          "name": "math500",
+          "path": "shared/datasets/math500"
+        },
+        {
+          "type": "script",
+          "name": "full_llada_gsm8k",
+          "path": "iter_001/exp/scripts/full_llada_gsm8k.py"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Protocol checklist and audit outcomes",
+          "columns": [
+            "component",
+            "status",
+            "evidence"
+          ],
+          "paper_section": "appendix"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Held-out calibration split is created from non-headline data; answer extraction audit is documented; each method result schema includes actual_nfe, latency_sec, tokens_per_sec, batch_size, peak_vram_mb, attention_backend, and compile_enabled."
+      }
+    },
+    {
+      "id": "baseline_standard_dnb",
+      "name": "Standard 与 DNB 基线复现",
+      "description": "在修复后的协议下复现 Standard-64 与 DNB-84，建立 honest compute baseline，并记录 exact match、actual NFE、latency、TPS、batch 配置。该任务同时验证全量 GSM8K pipeline 没有 extractor 或 batching 偏差。",
+      "type": "baseline",
+      "depends_on": [
+        "protocol_repair"
+      ],
+      "expected_output": "exp/results/baseline_standard_dnb.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 35,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        },
+        {
+          "type": "script",
+          "name": "full_llada_gsm8k",
+          "path": "iter_001/exp/scripts/full_llada_gsm8k.py"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Reasoning baseline table for Standard-64 and DNB-84",
+          "columns": [
+            "method",
+            "accuracy",
+            "actual_nfe",
+            "latency_sec",
+            "tokens_per_sec"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Both methods finish on 100 GSM8K samples with clean compute logs; Standard-64 accuracy is in a sane range (>=30%); DNB-84 does not fail due to infrastructure or extractor drift."
+      }
+    },
+    {
+      "id": "baseline_prophet",
+      "name": "Prophet 强基线复现",
+      "description": "复现 Prophet-style early stop / early commit baseline，作为 speed-first strongest comparator。要求在同一 batching/compute logging 框架下记录速度与质量，避免只做名义步数对比。",
+      "type": "baseline",
+      "depends_on": [
+        "protocol_repair"
+      ],
+      "expected_output": "exp/results/baseline_prophet.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 35,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Prophet vs Standard-64 speed/quality comparison",
+          "columns": [
+            "method",
+            "accuracy",
+            "latency_sec",
+            "tokens_per_sec",
+            "stop_ratio"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Prophet completes with actual stop/commit statistics logged and shows at least one of: lower latency than Standard-64 or no more than 2% absolute accuracy drop on pilot GSM8K."
+      }
+    },
+    {
+      "id": "baseline_core",
+      "name": "CORE 强基线复现",
+      "description": "复现或近似复现 CORE-style context-robust remasking。优先使用公开实现；若实现不兼容，则构建最小 context-perturbation proxy 并在结果中显式标注为 proxy。该任务是 revision 类方法的最关键对比。",
+      "type": "baseline",
+      "depends_on": [
+        "protocol_repair"
+      ],
+      "expected_output": "exp/results/baseline_core.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CORE-style baseline quality/compute summary",
+          "columns": [
+            "method",
+            "accuracy",
+            "actual_nfe",
+            "latency_sec",
+            "tokens_per_sec"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Ranking overlap between CORE target set and entropy target set",
+          "paper_section": "analysis"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Official CORE or a clearly labeled proxy runs end-to-end on GSM8K pilot with compute logs; target ranking is non-degenerate; if proxy is used, the approximation gap is documented in the output."
+      }
+    },
+    {
+      "id": "diagnostic_calibration_heldout",
+      "name": "Held-out calibration 诊断",
+      "description": "在独立 calibration split 上测量 ECE、ranking drift、raw entropy 与 calibrated entropy 的误差预测能力，并分析其与 revision benefit 的关系。该任务只服务于诊断，不驱动 headline control logic。",
+      "type": "analysis",
+      "depends_on": [
+        "protocol_repair"
+      ],
+      "expected_output": "exp/results/diagnostic_calibration_heldout.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "gsm8k_calibration_split",
+          "path": "shared/datasets/gsm8k_calibration"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Reliability curves on held-out calibration split",
+          "x": "predicted_confidence_bin",
+          "y": "actual_accuracy",
+          "paper_section": "analysis"
+        },
+        {
+          "type": "scatter",
+          "description": "Raw entropy / calibrated entropy / instability vs observed error",
+          "x": "signal_value",
+          "y": "is_error",
+          "paper_section": "analysis"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Held-out calibration produces at least one interpretable signal among ECE, ranking drift, or revision-benefit correlation. If all diagnostic signals are flat, calibration is downgraded further in the paper outline."
+      }
+    },
+    {
+      "id": "tiger_signal_screen",
+      "name": "TIGER 信号筛选：instability vs entropy",
+      "description": "用最小 pilot 比较 Random revision、Raw-Entropy revision、Instability-guided revision。目标不是追求最终 SOTA，而是判断新信号是否值得进入 full benchmark。若 instability 不优于 entropy，则方法主线直接进入 pivot 风险区。",
+      "type": "experiment",
+      "depends_on": [
+        "baseline_standard_dnb",
+        "diagnostic_calibration_heldout"
+      ],
+      "expected_output": "exp/results/tiger_signal_screen.json",
+      "candidate_id": "cand_tiger",
+      "gpu_count": 1,
+      "estimated_minutes": 35,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Signal screening results: random vs entropy vs instability",
+          "columns": [
+            "method",
+            "accuracy",
+            "actual_nfe",
+            "latency_sec",
+            "tokens_per_sec"
+          ],
+          "paper_section": "ablation"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Top-k target overlap and disagreement among revision signals",
+          "paper_section": "analysis"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Instability-guided revision beats raw-entropy revision by >=1% absolute on GSM8K pilot, or matches it with lower actual compute / smaller remask budget. Otherwise mark H1 as likely failed."
+      }
+    },
+    {
+      "id": "tiger_gating_boundary",
+      "name": "TIGER task gating 与 code 边界验证",
+      "description": "比较 ungated TIGER 与 gated TIGER 在 reasoning pilot 和 HumanEval boundary pilot 上的行为。代码侧默认关闭 revision；仅当 cheap syntax guard 在 smoke test 中额外开销 <10% 且 parse success 提升时，才纳入 guarded variant。",
+      "type": "ablation",
+      "depends_on": [
+        "tiger_signal_screen"
+      ],
+      "expected_output": "exp/results/tiger_gating_boundary.json",
+      "candidate_id": "cand_tiger",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        },
+        {
+          "type": "dataset",
+          "name": "humaneval",
+          "path": "shared/datasets/humaneval"
+        },
+        {
+          "type": "script",
+          "name": "full_llada_humaneval",
+          "path": "iter_001/exp/scripts/full_llada_humaneval.py"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Gated vs ungated TIGER on reasoning and code boundary tasks",
+          "columns": [
+            "task",
+            "variant",
+            "metric",
+            "syntax_failure_rate",
+            "runtime_failure_rate"
+          ],
+          "paper_section": "analysis"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Gated TIGER stays within 1% of ungated TIGER on GSM8K pilot and reduces HumanEval syntax/runtime failure materially (>=20% relative) or improves pass@1 by >=3% absolute over ungated revision."
+      }
+    },
+    {
+      "id": "gsm8k_main_shortlist",
+      "name": "GSM8K 主结果：强基线 + TIGER",
+      "description": "在 full or near-full GSM8K 上对比 Standard-64、DNB-84、Prophet、CORE、Raw-Entropy Revision 与 TIGER。使用统一 batching、actual compute logging 和 answer extraction，主目标是判断 TIGER 是否真正击败至少一个强基线。",
+      "type": "experiment",
+      "depends_on": [
+        "baseline_standard_dnb",
+        "baseline_prophet",
+        "baseline_core",
+        "tiger_signal_screen"
+      ],
+      "expected_output": "exp/results/gsm8k_main_shortlist.json",
+      "candidate_id": "cand_tiger",
+      "gpu_count": 2,
+      "estimated_minutes": 55,
+      "multi_gpu_strategy": "DataParallel",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        },
+        {
+          "type": "script",
+          "name": "full_llada_gsm8k",
+          "path": "iter_001/exp/scripts/full_llada_gsm8k.py"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main GSM8K comparison table",
+          "columns": [
+            "method",
+            "accuracy",
+            "actual_nfe",
+            "latency_sec",
+            "tokens_per_sec",
+            "peak_vram_mb"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Compute-normalized Pareto frontier on GSM8K",
+          "x": "latency_sec",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "On GSM8K pilot, TIGER beats raw-entropy revision and at least one of Prophet or DNB. If not, do not scale TIGER to full reasoning benchmarks."
+      }
+    },
+    {
+      "id": "math500_transfer",
+      "name": "MATH500 迁移验证",
+      "description": "将 GSM8K shortlist 中表现最好的 reasoning methods 迁移到 MATH500。默认包含 Standard-64、DNB-84、Prophet、CORE 与 TIGER；若某方法在 GSM8K 已明显劣势，可降级为 optional runner。目标是阻止 '单 benchmark 正结果' 再次主导叙事。",
+      "type": "experiment",
+      "depends_on": [
+        "gsm8k_main_shortlist"
+      ],
+      "expected_output": "exp/results/math500_transfer.json",
+      "candidate_id": "cand_tiger",
+      "gpu_count": 2,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "DataParallel",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "math500",
+          "path": "shared/datasets/math500"
+        },
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "MATH500 transfer table for shortlisted reasoning methods",
+          "columns": [
+            "method",
+            "accuracy",
+            "actual_nfe",
+            "latency_sec"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "TIGER retains a non-trivial gain on MATH500 relative to raw-entropy revision and does not collapse versus both Prophet and DNB."
+      }
+    },
+    {
+      "id": "baseline_dcd_optional",
+      "name": "DCD 可选补充基线",
+      "description": "在 required baselines 和 TIGER 主线稳定后，追加 DCD 作为 deferred-commit family 的补充比较。此任务不阻塞主结论，但若成本低、表现强，可增强相关工作对照的完整性。",
+      "type": "baseline",
+      "depends_on": [
+        "baseline_standard_dnb"
+      ],
+      "expected_output": "exp/results/baseline_dcd_optional.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 35,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Optional DCD comparison row for the compute-normalized table",
+          "columns": [
+            "method",
+            "accuracy",
+            "actual_nfe",
+            "latency_sec"
+          ],
+          "paper_section": "appendix"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "DCD integrates cleanly into the same evaluation stack and produces a valid comparison row without blocking required tasks."
+      }
+    },
+    {
+      "id": "final_pareto_synthesis",
+      "name": "最终 Pareto 综合与 pivot 决策",
+      "description": "汇总 GSM8K、MATH500、HumanEval boundary 与 calibration diagnostic 的结果，形成 compute-normalized Pareto 视角下的最终判断：继续 TIGER method line，还是转向 diagnostic/benchmark paper。",
+      "type": "analysis",
+      "depends_on": [
+        "gsm8k_main_shortlist",
+        "math500_transfer",
+        "tiger_gating_boundary",
+        "diagnostic_calibration_heldout"
+      ],
+      "expected_output": "exp/results/final_pareto_synthesis.json",
+      "candidate_id": "cand_diag",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "artifact",
+          "name": "all_reasoning_results",
+          "path": "exp/results"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Final decision table: evidence for TIGER vs diagnostic pivot",
+          "columns": [
+            "criterion",
+            "status",
+            "evidence_path"
+          ],
+          "paper_section": "appendix"
+        },
+        {
+          "type": "line_plot",
+          "description": "Final Pareto frontier across shortlisted methods",
+          "x": "latency_sec",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Synthesis can state one of two unambiguous decisions with evidence: continue TIGER or pivot to cand_diag. No vague middle ground is allowed."
+      }
+    }
+  ]
+}

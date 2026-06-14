@@ -1,0 +1,99 @@
+{
+  "metadata": {
+    "iteration": 7,
+    "note": "Most tasks in this iteration are NOT pilot-phase tasks. They are targeted experiments and analyses designed to resolve specific blocking issues identified over 3 consecutive reviews. The 'pilot' fields in task_plan.json specify pass criteria for each task but these are full experiments, not exploratory pilots.",
+    "pilot_tasks": [
+      "validate_integration",
+      "partial_correlation_cmi",
+      "leave_one_out_cmi",
+      "threshold_sensitivity_report",
+      "control_failure_diagnosis"
+    ],
+    "full_experiment_tasks": [
+      "activation_patching_core_words",
+      "tightened_hedging",
+      "cmi_replication_l0_22"
+    ]
+  },
+  "gate_0_pilots": {
+    "validate_integration": {
+      "description": "Data integrity check across all source JSONs and paper.md",
+      "samples": "All JSON files in exp/results/full/",
+      "seed": 42,
+      "timeout": 3600,
+      "pass_criteria": "All mismatches identified; all 9 persistent core words named",
+      "go_nogo": "GO if script runs and produces validation report. Always GO -- no abort condition.",
+      "estimated_minutes": 90
+    },
+    "partial_correlation_cmi": {
+      "description": "Partial Spearman correlation controlling for probe F1",
+      "samples": 25,
+      "seed": 42,
+      "timeout": 1200,
+      "pass_criteria": "Partial rho computed; if |partial_rho| < 0.2, CMI result is substantially confounded",
+      "go_nogo": "Always GO. Result informs Section 6 framing.",
+      "estimated_minutes": 30
+    },
+    "leave_one_out_cmi": {
+      "description": "Jackknife sensitivity for CMI-absorption correlation",
+      "samples": 25,
+      "seed": 42,
+      "timeout": 600,
+      "pass_criteria": "All 25 leave-one-out rho values; max influence identified",
+      "go_nogo": "Always GO. Informs robustness discussion.",
+      "estimated_minutes": 20
+    },
+    "threshold_sensitivity_report": {
+      "description": "Extract and summarize existing threshold sensitivity data",
+      "samples": 20,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "Summary table generated; control failure diagnosis at strict thresholds",
+      "go_nogo": "Always GO. Data already exists.",
+      "estimated_minutes": 30
+    },
+    "control_failure_diagnosis": {
+      "description": "Analytical computation explaining why controls fail",
+      "samples": 1000,
+      "seed": 42,
+      "timeout": 1200,
+      "pass_criteria": "Random vector candidate counts computed; mechanistic explanation articulated",
+      "go_nogo": "Always GO.",
+      "estimated_minutes": 30
+    }
+  },
+  "gate_1_experiments": {
+    "activation_patching_core_words": {
+      "description": "Causal intervention: zero child features, check parent recovery",
+      "samples": 9,
+      "seed": 42,
+      "timeout": 3600,
+      "pass_criteria_go": "Patching completed for >=7/9 words; control shows no recovery",
+      "pass_criteria_positive": "Parent recovers for >=5/9 words -> competitive exclusion confirmed",
+      "pass_criteria_negative": "Parent recovers for 0-2/9 words -> metric miscalibration narrative strengthened",
+      "estimated_minutes": 60,
+      "abort_condition": "Cannot identify child features for >=4 words -> INVESTIGATE data pipeline before proceeding"
+    },
+    "tightened_hedging": {
+      "description": "Parent-specific latent check for hedging classification",
+      "samples": 657,
+      "seed": 42,
+      "timeout": 3600,
+      "pass_criteria_go": "Strict and permissive rates computed for all 25 letters",
+      "key_threshold": "Strict hedging rate. If >80%: headline validated. If <50%: major narrative revision needed.",
+      "estimated_minutes": 60,
+      "abort_condition": "Cannot load L0=176 SAE config -> FALLBACK to L0=82 (still has many more features than L0=22)"
+    },
+    "cmi_replication_l0_22": {
+      "description": "CMI estimation with perfect probes (all F1=1.0) at L0=22",
+      "samples": 10000,
+      "seed": 42,
+      "timeout": 4800,
+      "pass_criteria_go": "CMI estimated for all 25 letters at d'=10 with bootstrap CIs",
+      "pass_criteria_significant": "Bonferroni p < 0.05 at pre-registered d'=10 -> theoretical pillar secured",
+      "pass_criteria_nonsignificant": "Bonferroni p > 0.05 -> downgrade to exploratory, paper stands on empirical pillars",
+      "estimated_minutes": 60,
+      "abort_condition": "k-NN estimator numerical instability at L0=22 (higher-dimensional due to more active features) -> reduce d' candidates to {5, 10} only"
+    }
+  }
+}

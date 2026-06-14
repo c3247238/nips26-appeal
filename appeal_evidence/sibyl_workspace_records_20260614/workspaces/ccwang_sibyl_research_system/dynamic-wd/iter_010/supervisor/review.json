@@ -1,0 +1,92 @@
+{
+  "score": 6.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 6,
+    "experiments": 6,
+    "reproducibility": 7
+  },
+  "summary": "The paper has improved materially since iter_009. The three critical figure-table-text consistency issues (Figures 3a PMP-WD contamination, Figure 4 half_lambda BEM position, and the 0.49pp vs 0.25pp spread contradiction) have ALL been fixed in the main figures. Figures 2, 3, and 4 now show the correct 7 methods with data matching Tables 2, 4, and 5 -- verified by cross-checking all raw summary.json files against paper tables. The paper text is internally consistent with the tables. However, ONE residual data integrity issue remains: Figure 5 (diagnostic heatmap) shows half_lambda BEM = 0.000 while Table 6 reports BEM = 0.500. This is the same class of bug that plagued prior iterations. Beyond data integrity, the paper still suffers from: (1) no ImageNet experiments despite project constraints, (2) N=3 seeds with only 50% TOST pass rate for a null-result paper, (3) CSI listed as a contribution despite zero predictive value, and (4) NoBN ablation data exists but is not integrated. The score rises from 6.0 to 6.5 because the figure-table consistency fixes remove 3 critical issues from iter_009, but the remaining gaps prevent reaching 7.0+.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Figure 5 (diagnostic heatmap) shows half_lambda BEM = 0.000 while Table 6 in the paper text reports BEM = 0.500. This is a direct visual contradiction between a figure and a table. The scatter plot (Figure 4) correctly places half_lambda at BEM ~0.5, proving the table value is correct and the heatmap data is stale. This is the SAME class of bug flagged in iter_007/008/009 for Figure 4 -- it was fixed in the scatter plot but not propagated to the heatmap.",
+      "suggestion": "Regenerate Figure 5 (fig4_diagnostic_heatmap.png) from the same data source as Table 6. Verify half_lambda BEM = 0.500 in the heatmap. This is a 10-minute fix."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "No ImageNet experiments. Project constraints mandate ImageNet. Every comparable paper at top venues includes ImageNet or larger-scale validation. The Phi Invariance Conjecture makes claims about 'sufficiently overparameterized problems' but evidence is confined to CIFAR-10/100 with ResNet-20 (270K params) and VGG-16-BN (15M params). Section 6.4 acknowledges this limitation but acknowledgment does not substitute for missing experiments. This has been flagged for 5+ iterations without resolution.",
+      "suggestion": "Diagnose why previous ImageNet attempts failed (check data path, OOM, data loader). Run ImageNet-100 (100-class subset) with 3 methods (constant, CWD, no_wd) x 3 seeds x ResNet-50 = 9 runs. Even partial ImageNet results would raise the experiments score by 1 full point."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Statistical power remains insufficient for a null-result paper. N=3 seeds gives ~15-20% power to detect delta=0.5% effects. TOST confirms equivalence in only 6/12 comparisons at the lenient delta=1.0% margin. The paper claims 'all methods are statistically equivalent' but the evidence is 'we failed to reject the null at low power' for half the comparisons. A null-result paper requires a higher evidentiary burden than a positive-result paper.",
+      "suggestion": "Add 2 seeds (N=5 total) for the 4 key AdamW CIFAR-10 comparisons: constant, CWD, cosine, no_wd. Cost: 8 runs, ~2 GPU-hours. This roughly triples TOST power. Alternatively, be more precise: 'We confirmed formal equivalence (TOST, delta=1.0%) for 6 of 12 comparisons; the remaining 6 are underpowered rather than falsified.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "NoBN ablation data from iter_005 (constant: 87.74+/-0.21, CWD: 87.62+/-0.13) exists but is not in the paper. Section 6.2 discusses 'The Role of Batch Normalization' and hypothesizes that BN enables Phi Invariance under SGD. The NoBN data would directly test this hypothesis at zero compute cost. The NoBN spread (0.12pp) is narrower than VGG-16-BN (0.16pp), which would complicate the BN-mechanism narrative but strengthens the overall Phi Invariance story.",
+      "suggestion": "Integrate the NoBN data into Section 6.2 or as a supplementary table. If invariance holds without BN, revise the mechanistic discussion to acknowledge that CIFAR-scale overparameterization (not BN specifically) may be the primary driver."
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "CSI has arbitrary component weights (0.4, 0.3, 0.3), the sensitivity analysis tests only three nearly-identical weight sets, and the paper admits CSI does not predict accuracy (rho < 0.3, p > 0.3). Listing CSI as a contribution (Section 1.3, item 2) alongside BEM and AIS overstates its utility. CSI is a descriptive diagnostic, not a predictive tool.",
+      "suggestion": "Demote CSI from 'contribution' to 'exploratory diagnostic' in Section 1.3. State honestly: 'CSI captures coupling stability differences but does not predict accuracy outcomes in our experiments.' Consider presenting the three CSI components separately rather than as a weighted composite."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Section 5.7 (Cumulative Alignment Analysis) shows rho=-0.379 with p=0.121 and rho=0.045 with p=0.858. Both correlations are non-significant with N=18. The directional claim ('cumulative alignment may be a more informative measure') is drawn from two non-significant results, which is statistically inappropriate. This section adds a full page without adding evidence.",
+      "suggestion": "Keep the section but frame it as an explicit negative result: 'We examined whether alignment deviation predicts generalization gap and found no statistically significant relationship.' Remove the directional claim about cumulative vs worst-case unless significance is achieved. Alternatively, move to appendix."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "major",
+      "description": "Abstract claims '105 controlled experiments across 7 methods, 2 optimizers, 2 architectures, 2 datasets' which implies a full factorial design (7 x 2 x 2 x 2 x 3 = 168). The actual design is non-factorial: ResNet-20 gets 84 runs (full matrix); VGG-16-BN gets only 21 (SGD, CIFAR-10). A reviewer expecting VGG-16-BN AdamW or CIFAR-100 VGG results will be disappointed.",
+      "suggestion": "Revise abstract to decompose: '105 controlled experiments: 84 on ResNet-20 (7 methods x 2 optimizers x 2 datasets x 3 seeds) and 21 on VGG-16-BN (7 methods x SGD x CIFAR-10 x 3 seeds).' Explain the asymmetry briefly."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "The paper title 'Why Dynamic Weight Decay Methods Are Equivalent Under AdamW' makes a causal claim ('Why') that the paper does not support. The paper shows that methods produce equivalent accuracy (an empirical observation) and proposes a mechanistic hypothesis (adaptive scaling). It does not prove the causal mechanism.",
+      "suggestion": "Change 'Why' to 'When' or 'Whether': 'When Dynamic Weight Decay Methods Are Equivalent Under AdamW' or 'The Phi Invariance Conjecture: Dynamic Weight Decay Methods Are Equivalent Under AdamW.'"
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "Proposition 1 (composition closure: product of non-negative functions is non-negative) is trivially obvious and does not merit being labeled a 'Proposition.' This inflates the theoretical contribution appearance.",
+      "suggestion": "Downgrade to an inline remark: 'By construction, the element-wise product of two valid Phi modulators is itself a valid Phi modulator, enabling principled composition.'"
+    }
+  ],
+  "risks": [
+    "Scale limitation is the most likely first reviewer objection. CIFAR-10/100 are considered toy-scale by 2026 standards, and claims about 'modern deep learning' or 'sufficiently overparameterized problems' need evidence beyond 15M parameters.",
+    "The Figure 5 heatmap BEM bug (half_lambda at 0.000) undermines data integrity trust if a reviewer spots it alongside the correct Table 6 value.",
+    "NoBN data showing 0.12pp spread (narrower than VGG-16-BN with BN) may undermine the BN mechanism hypothesis in Section 6.2. However, NOT integrating known evidence is worse for credibility.",
+    "The null-result framing requires higher evidentiary standards than positive results. N=3 with 50% TOST pass rate is below that threshold.",
+    "Quality oscillation risk: lessons_learned.md shows score pattern 5.0->7.8->8.2->5.5->5.5->7.0->5.0->6.5->6.5->6.0. Gains come from experiments; crashes from rewrites. The next iteration should prioritize experiments (ImageNet, more seeds) and targeted figure fixes, NOT text rewrites."
+  ],
+  "evidence_gaps": [
+    "Figure 5 (heatmap) shows half_lambda BEM = 0.000; Table 6 says 0.500. Direct visual contradiction.",
+    "No ImageNet experiments despite project constraints and claims about 'modern deep learning.'",
+    "NoBN ablation data exists (iter_005) but is not integrated -- directly relevant to Section 6.2 BN mechanism discussion.",
+    "TOST equivalence confirmed for only 6/12 comparisons at delta=1.0%, yet paper claims 'all methods equivalent.'",
+    "Section 5.7 alignment analysis: both correlations non-significant (p=0.121, p=0.858), yet occupies a full section with directional conclusions.",
+    "CSI does not predict accuracy but is listed as a primary contribution."
+  ],
+  "what_would_raise_score": "Four actions would raise the score from 6.5 to ~8.0: (1) Fix Figure 5 heatmap BEM for half_lambda (10 minutes, removes last data integrity issue). (2) Run ImageNet-100 with 3 methods x 3 seeds x ResNet-50 = 9 runs (~6-8 GPU-hours). This eliminates the scale objection and is the single highest-ROI experiment. (3) Integrate NoBN data from iter_005 into Section 6.2 (zero compute, tests BN mechanism hypothesis). (4) Add 2 seeds for 4 key AdamW comparisons (8 runs, ~2 GPU-hours) to strengthen TOST power. Total: ~10 GPU-hours + 2 hours of figure/text work. The heatmap fix alone moves to 6.5 (clean); ImageNet moves to 7.5; NoBN + seeds moves to 8.0."
+}

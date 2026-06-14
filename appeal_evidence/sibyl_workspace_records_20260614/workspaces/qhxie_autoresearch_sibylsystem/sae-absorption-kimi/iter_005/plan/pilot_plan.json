@@ -1,0 +1,119 @@
+{
+  "pilot_overview": {
+    "purpose": "Validate experimental pipeline on SynthSAEBench-16k subset before committing to full 6-variant x 5-replicate experiment",
+    "dataset": "SynthSAEBench-16k subset: 1,024 features, 1M tokens",
+    "total_estimated_minutes": 30,
+    "go_criteria": "MultiScale shows absorption reduction vs. Baseline with Cohen's d > 0.5; metrics validate (random control MCC < 0.1); no training instability"
+  },
+  "pilot_tasks": [
+    {
+      "id": "pilot_baseline",
+      "name": "Pilot: Baseline ReLU SAE",
+      "description": "Train Standard ReLU SAE on 1,024-feature subset. Validate ground-truth absorption measurement pipeline.",
+      "config": {
+        "features": 1024,
+        "tokens": 1000000,
+        "architecture": "standard",
+        "activation_fn": "relu",
+        "l1_coefficient": 8e-5,
+        "l1_warm_up_steps": 1000,
+        "seed": 42
+      },
+      "metrics": ["absorption_rate", "feature_recovery_mcc", "reconstruction_mse", "l0_sparsity"],
+      "pass_criteria": {
+        "absorption_rate": "0.3-0.7 (reasonable range)",
+        "feature_recovery_mcc": "> 0.3 (learns structure)",
+        "reconstruction_mse": "< 2.0"
+      },
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "timeout_seconds": 900
+    },
+    {
+      "id": "pilot_topk",
+      "name": "Pilot: +TopK SAE",
+      "description": "Train TopK SAE (k=50) on same subset. Test if explicit k-sparsity affects absorption.",
+      "config": {
+        "features": 1024,
+        "tokens": 1000000,
+        "architecture": "topk",
+        "activation_fn": "topk",
+        "activation_fn_kwargs": {"k": 50},
+        "seed": 42
+      },
+      "metrics": ["absorption_rate", "feature_recovery_mcc", "reconstruction_mse", "l0_sparsity"],
+      "pass_criteria": {
+        "absorption_difference": "|TopK - Baseline| > 0.05 OR confirms null effect"
+      },
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "timeout_seconds": 900
+    },
+    {
+      "id": "pilot_multiscale",
+      "name": "Pilot: +MultiScale SAE",
+      "description": "Train MultiScale SAE on same subset. Critical pilot for H1---must show strong absorption reduction.",
+      "config": {
+        "features": 1024,
+        "tokens": 1000000,
+        "architecture": "multiscale",
+        "multiscale_levels": 2,
+        "seed": 42
+      },
+      "metrics": ["absorption_rate", "feature_recovery_mcc", "reconstruction_mse", "l0_sparsity", "hedging_score"],
+      "pass_criteria": {
+        "absorption_reduction": "Baseline - MultiScale > 0.1",
+        "cohens_d": "> 0.5"
+      },
+      "gpu_count": 1,
+      "estimated_minutes": 12,
+      "timeout_seconds": 900
+    },
+    {
+      "id": "pilot_random_control",
+      "name": "Pilot: Random decoder control",
+      "description": "Random decoder initialization without training. Validates metrics discriminate structure from randomness.",
+      "config": {
+        "features": 1024,
+        "random_decoder": true,
+        "train": false,
+        "seed": 42
+      },
+      "metrics": ["absorption_rate", "feature_recovery_mcc"],
+      "pass_criteria": {
+        "feature_recovery_mcc": "< 0.1",
+        "absorption_rate": "> 0.6"
+      },
+      "gpu_count": 0,
+      "estimated_minutes": 2,
+      "timeout_seconds": 300
+    }
+  ],
+  "decision_matrix": {
+    "GO": "All pilots pass criteria. MultiScale shows d > 0.5. Proceed to full 6-variant x 5-replicate experiment.",
+    "GO_WITH_REVISION": "MultiScale shows trend (d > 0.3) but not strong effect. Consider increasing training tokens or adjusting hyperparameters before full experiment.",
+    "NO_GO": "MultiScale shows no effect (d < 0.3) OR metrics fail validation (random control MCC > 0.3). Flag for strategic pivot to backup candidate (cand_a diagnostic paper or cand_c theory)."
+  },
+  "falsification_checks": [
+    {
+      "check": "Random control MCC > 0.3",
+      "meaning": "Metrics do not discriminate structure from randomness. Pipeline is broken.",
+      "action": "NO_GO - debug measurement code"
+    },
+    {
+      "check": "Baseline absorption < 0.2 or > 0.8",
+      "meaning": "Absorption rate is at floor or ceiling---no room to measure component effects.",
+      "action": "GO_WITH_REVISION - adjust L1 coefficient or feature count"
+    },
+    {
+      "check": "MultiScale absorption > Baseline absorption",
+      "meaning": "MultiScale increases absorption (opposite of prediction). H1 is falsified.",
+      "action": "NO_GO - pivot to diagnostic paper (cand_a)"
+    },
+    {
+      "check": "Training instability (NaN loss, all dead features)",
+      "meaning": "Hyperparameters or architecture config is wrong.",
+      "action": "GO_WITH_REVISION - fix config and re-run pilot"
+    }
+  ]
+}

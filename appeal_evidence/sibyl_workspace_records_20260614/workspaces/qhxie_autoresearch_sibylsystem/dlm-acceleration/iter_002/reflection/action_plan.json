@@ -1,0 +1,352 @@
+{
+  "iteration": 2,
+  "generated_at": "2026-04-15",
+  "review_round": 1,
+  "supervisor_score": 5.5,
+  "supervisor_verdict": "continue",
+  "issues_classified": [
+    {
+      "id": "C1",
+      "description": "IGSD confidence-partitioning mechanism provides zero measurable benefit at T_draft=32 (the primary operating point). tau=0.0 (no partitioning) and tau=0.9 produce identical GSM8K accuracy (49.5%). Yet the abstract and Contribution 3 still describe IGSD as 'inter-step KL divergence for adaptive step compression' and 'a training-free step scheduler that partitions denoising into draft and refine phases using inter-step KL divergence.' The iter_001 critic flagged the same issue; iter_002 confirms it. Evidence: igsd_ablation_refined.json, tau_sweep at T_draft=32, all tau values produce AccRet within 1.4pp.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Rewrite Contribution 3 to: 'IGSD is a simple draft-then-truncate scheme that achieves 1.71x speedup at 67.8% accuracy retention. The confidence-partitioning mechanism, while theoretically motivated by inter-step KL divergence, provides zero measurable accuracy benefit at T_draft=32.' Move KL motivation to a 'Design Rationale' subsection. Frame the null ablation as a finding. Rewrite abstract IGSD description accordingly. Estimated effort: 2 hr text edit. Verify: abstract and Contribution 3 do not claim IGSD's confidence gate improves accuracy; Section 4.4 presents the null result as a finding.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (abstract, Section 1.2 Contribution 3, Section 3.3, Section 4.4)"
+      ],
+      "issue_key": "analysis:a-abstract-accret-accuracy-adaptive-all-and-and:419b7a47669c"
+    },
+    {
+      "id": "C2",
+      "description": "All three pairwise compositions (M1+IGSD, M1+M3, M3+IGSD) -- the paper's central evidence -- are pilot-scale (100 GSM8K samples, 1 seed). The methodology specified 1319 GSM8K with 3 seeds. The iter_001 M1+M3 discrepancy (pilot Ortho=1.34 vs. full-scale Ortho=0.30, a 4.4x gap) is concrete proof that 100-sample Ortho estimates are unreliable. At 100 samples with ~45% accuracy, the 95% CI on AccRet is +/-22%, cascading into Ortho. Evidence: pairwise/m1_igsd_full.json (N=100, seed=42), pairwise/m1_m3_full.json (N=100, seed=42), pairwise/m3_igsd_full.json (N=100, seed=42).",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Rerun all three pairwise compositions at full GSM8K scale (1319 samples) with 3 seeds {42, 123, 456}. Report Ortho with bootstrap 95% CIs. Estimated GPU time: 8-10 hrs (can run 3 pairs x 3 seeds in parallel on available GPUs). If full-scale not feasible this iteration, prominently caveat all pairwise Ortho values as 'pilot estimates with +/-20% uncertainty' and add a dedicated 'Statistical Limitations' subsection. Verify: pairwise Ortho claims include sample size, seed count, and confidence intervals.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "exp/results/pairwise/m1_igsd_full.json",
+        "exp/results/pairwise/m1_m3_full.json",
+        "exp/results/pairwise/m3_igsd_full.json",
+        "writing/paper.md (Tables 4-5, Section 4.2, Section 4.3)"
+      ],
+      "issue_key": "experiment:a-accret-accuracy-all-are-are-at-cascading:2ab27e7586b2"
+    },
+    {
+      "id": "C3",
+      "description": "Inconsistent sample sizes across methods make cross-method QAS comparisons in Table 3 unreliable. M1: N=1319, 1 seed. IGSD: N=200, 1 seed. M3: N=100, 1 seed. Table 3 presents them side-by-side without adequate distinction. M3's 103.9% AccRet on N=100 has 95% CI [95%, 113%], while M1's 94.5% AccRet on N=1319 has 95% CI [92.9%, 96.1%]. Evidence: m1_pareto_full.json (N=1319), igsd_pareto_corrected.json (N=200), m3_pareto_full.json (N=100).",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Option A (preferred): Run all methods at full scale (1319 GSM8K, 3 seeds). Option B: Clearly annotate Table 3 with sample sizes per row, add a table footnote explaining statistical power differences, and add a 'Statistical Power' discussion. The N column exists but is easily missed. Add visual grouping by sample size tier. Estimated effort: Option A ~6 GPU hrs, Option B ~1 hr text edit. Verify: Table 3 contains explicit per-row sample size annotation or footnote.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (Table 3, Section 4.1)"
+      ],
+      "issue_key": "experiment:accret-accret-across-adequate-by-ci-ci-comparisons:b5252bf80f6f"
+    },
+    {
+      "id": "M1",
+      "description": "M1 (entropy-based KV caching) achieves only 1.16x measured speedup at eta=0.5 -- effectively a no-op. d2Cache kernel integration failed (15.2x overhead). The paper treats M1 as a fully functional 'acceleration axis' and presents M1+IGSD Ortho=0.96 as evidence of successful two-axis composition. In reality, M1+IGSD 2.75x speedup is essentially IGSD's 2.81x minus trivial entropy computation overhead (2.75/2.81=0.98x contribution from M1). Ortho=0.96 measures 'IGSD is not harmed by an overhead wrapper,' not 'two acceleration methods compose near-orthogonally.' Evidence: m1_pareto_full.json (1.16x speedup), m1_igsd_full.json (2.75x composed vs. igsd_pareto_corrected.json 2.81x standalone).",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add explicit caveats to every Ortho claim involving M1: 'M1+IGSD Ortho=0.96 reflects minimal interference from M1's 1.16x entropy-monitoring overhead, not composition of two high-speedup methods. M1's projected speedup (5-20x with kernel-level sparse attention) would need to be realized to test genuine two-axis composition.' Consider presenting M1 results as projected vs. measured throughout. Rewrite abstract M1+IGSD framing. Estimated effort: 2 hr text edit. Verify: every M1+IGSD claim includes the 1.16x caveat.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (abstract, Table 4, Section 4.2, Section 6.1)"
+      ],
+      "issue_key": "experiment:a-a-acceleration-acceleration-achieves-an-and-as:6269b62513d6"
+    },
+    {
+      "id": "M2",
+      "description": "M3 speedup of 1.68x is suspicious. Raw data shows M3 TPS ~50-52 vs. baseline ~58.5 TPS -- M3 is SLOWER per token. The 1.68x figure likely conflates per-token speed with output-length reduction (M3 generates shorter/more efficient outputs). The paper's TPS definition ('total generated tokens / wall-clock generation time') includes output length effects. This measurement ambiguity cascades into all M3-involving Ortho calculations. Evidence: m3_pareto_full.json (avg_tps=52.04), d2cache_integration.json (baseline tps=58.50).",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Clarify M3 speedup by reporting three separate metrics: (a) per-token latency (time per generated token), (b) average output length for M3 vs. baseline, (c) total wall-clock time per benchmark problem (per-sample latency). If M3 generates shorter outputs, reframe the 'speedup' as 'efficiency gain from output-length reduction.' Recalculate all M3-involving Ortho using per-sample latency rather than TPS. Estimated GPU time: 1 hr (re-analyze existing logs + optional short validation run). Verify: paper reports both TPS and per-sample latency for M3; Ortho calculations use consistent metric.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "exp/results/full_m3/m3_pareto_full.json",
+        "writing/paper.md (Section 3.4, Section 4.1, Table 3)"
+      ],
+      "issue_key": "experiment:all-ambiguity-avg_tps-baseline-baseline-calculations-cascades-clock:6206a85803a5"
+    },
+    {
+      "id": "M3",
+      "description": "Three-way composition results show high per-seed variance: GSM8K accuracy 45-58% (Max-Speed), per-seed Ortho 0.91-1.11. The composition verdict ('near-orthogonal' vs. 'synergistic') flips depending on seed. QAS CV is 8.1-8.3% across 3 seeds. No confidence intervals reported. Evidence: threeway_pareto_full.json per-seed data.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Report 95% bootstrap CIs for all three-way Ortho values. Acknowledge that per-seed range [0.91, 1.11] spans both near-orthogonal and synergistic classifications. Consider: the 0.8/1.0 thresholds are too fine-grained for this statistical resolution. Either use wider bins or report continuous Ortho with CIs instead of categorical labels. Estimated effort: 1 hr analysis + text edit. Verify: all three-way Ortho claims include CIs; categorical verdicts acknowledge the uncertainty.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (Table 5, Section 4.5)"
+      ],
+      "issue_key": "experiment:accuracy-across-composition-composition-confidence-cv-data-depending:0af5db072f8f"
+    },
+    {
+      "id": "M4",
+      "description": "MATH500 baseline accuracy is 11.1%, making all MATH500-derived metrics (AccRet, Ortho) noise-dominated. On 100 MATH500 samples, 3 correct answer fluctuations change AccRet by ~27%. The 'task-dependent' finding for M3+IGSD (MATH500 Ortho=0.76 vs GSM8K Ortho=0.96) is very likely noise. M3's MATH500 AccRet=2.349 (from 11.1% to 26.1%) may be partially noise. Evidence: all pairwise and individual result JSONs showing MATH500 baseline ~11%.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Report GSM8K-only results as the primary metric throughout. Relegate MATH500 to supplementary/appendix with explicit noise caveat: 'MATH500 results are unreliable due to the 11.1% baseline; 3-sample fluctuations produce ~27% AccRet swings on 100-sample evaluation.' The 'task-dependent' claim requires either much larger MATH500 sample sizes (500+) or a different benchmark with stronger baseline. Estimated effort: 2 hr restructuring. Verify: primary tables use GSM8K-only metrics; MATH500 is clearly labeled as supplementary.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (all tables, combined metric definition, task-dependent claims)"
+      ],
+      "issue_key": "experiment:accret-accret-accret-accuracy-all-all-and-answer:a5ba73954372"
+    },
+    {
+      "id": "M5",
+      "description": "M3 at wg=0.3 achieves 73/100 correct on GSM8K (seed 42). The full baseline at seed 42 achieves 73.3% on 1319 samples. If the 100-sample pilot subset baseline is also ~73%, then AccRet is ~100%, not 103.9%. The 103.9% figure is computed against the 3-seed mean baseline (71.2%), not the seed-42 pilot baseline. The claim 'M3 is the only quality-preserving accelerator' may be overstated. Evidence: m3_pareto_full.json, llada_baseline_full.json.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Report M3 AccRet relative to the same-seed, same-subset baseline. If the seed-42 100-sample baseline is 73%, M3 AccRet at 73% is 100.0%, not 103.9%. The distinction matters: 100% AccRet means 'no degradation' vs. 103.9% meaning 'quality improvement.' Run the same 100-sample subset through the baseline at seed 42 to obtain the exact reference. Estimated effort: 0.5 GPU hr. Verify: M3 AccRet computed against same-seed, same-subset baseline.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (Section 4.1, Table 3)"
+      ],
+      "issue_key": "analysis:accelerator-accret-achieves-achieves-against-also-at-at:1da82379c5a9"
+    },
+    {
+      "id": "M6",
+      "description": "Ortho metric degeneracy when one method has QAS near 1.0. For M1+IGSD, Ortho = QAS(M1+IGSD)/max(QAS(M1), QAS(IGSD)) = 1.34/1.40 = 0.96. Since QAS(M1) = 0.98 (near no-op), this reduces to QAS(M1+IGSD)/QAS(IGSD) = 'does adding M1 hurt IGSD?' -- a trivially expected outcome, not evidence of successful composition. The metric is designed for pairs where both methods contribute meaningfully. Evidence: review.json soundness issue.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Add a paragraph in Section 3.1 or Section 6 discussing Ortho metric limitations when one method has QAS near 1.0. Acknowledge: 'M1+IGSD Ortho=0.96 is better interpreted as M1 overhead is negligible when added to IGSD, rather than two acceleration axes compose near-orthogonally. Ortho is most informative when both methods contribute substantial speedup.' Consider defining a minimum QAS threshold (e.g., QAS > 1.2) for meaningful composition analysis. Estimated effort: 1 hr text edit. Verify: Ortho metric limitations discussed; M1+IGSD interpretation qualified.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (Section 3.1, Section 6)"
+      ],
+      "issue_key": "analysis:a-adding-both-composition-contribute-degeneracy-designed-does:7aa0138fa915"
+    },
+    {
+      "id": "M7",
+      "description": "Dream-7B cross-model validation is inflated. AccRet=125% on Dream-7B with 36% baseline is an artifact of low baseline: step truncation improves accuracy because Dream-7B's late-step refinement is counterproductive. QAS=2.18 on Dream-7B vs. 1.07 on LLaDA is entirely driven by this. Single-seed pilot (100 samples, seed 42) with SE=4.8pp at 36% baseline means AccRet CI spans from ~94% to ~156%. Evidence: dream7b_top5.json.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Reframe Dream-7B results: 'On Dream-7B, step truncation improves accuracy (suggesting late-step refinement is counterproductive), while on LLaDA it degrades accuracy (confirming refinement is productive). The composition mechanisms transfer but magnitudes are not comparable due to different baseline accuracies.' Do not present AccRet=125% as evidence of 'transferable composition patterns.' Estimated effort: 1 hr text edit. Verify: Section 5.1 does not claim AccRet>100% as evidence of method quality; it correctly attributes it to weak baseline.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (Section 5.1)"
+      ],
+      "issue_key": "analysis:7b-7b-7b-7b-accret-accret-accuracy-an:a0193d18e075"
+    },
+    {
+      "id": "M8",
+      "description": "Degenerate outputs visible in sample data (repetition loops 'ske ske ske...', truncated reasoning, whitespace flooding) at accept_rate 0.48-0.77. These degenerate outputs are counted as 'incorrect' in exact_match but are qualitatively different from well-formed wrong answers. The paper never analyzes output quality beyond pass/fail. Evidence: m1_igsd_full.json sample id=4, igsd_ablation_refined.json sample id=4.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Add degenerate output analysis subsection. Quantify: (a) fraction with repetition loops (>3 consecutive identical tokens), (b) fraction with premature truncation (<50 tokens), (c) correlation of accept_rate with output quality category. Include 2-3 qualitative examples. This strengthens the negative-result framing by showing IGSD degradation is systematic, not random. Estimated effort: 2 hr analysis + writing. Verify: paper contains degenerate output analysis with quantified rates.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (new subsection in Section 4 or 6)",
+        "exp/results/ (analysis script)"
+      ],
+      "issue_key": "analysis:accept_rate-analyzes-answers-are-are-as-at-beyond:139260af4ed6"
+    },
+    {
+      "id": "M9",
+      "description": "Composition taxonomy built on only 3 pairwise measurements with one being a near-no-op (M1+IGSD). Effective taxonomy has 2 real data points on 1 model. The claim 'first systematic composition taxonomy' is thin. Evidence: review.json novelty issue.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Either (a) add more method families (FastDLLM, SSD, Saber with backtracking) to strengthen the matrix -- estimated 15-20 GPU hrs, or (b) downgrade claim from 'taxonomy' to 'case study of three specific pairs with hypotheses for future validation.' Option B is realistic for this iteration. Estimated effort: 1 hr text edit for Option B. Verify: the claim strength matches the evidence base.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (abstract, Section 1.2)"
+      ],
+      "issue_key": "experiment:a-being-built-claim-composition-composition-data-effective:0ef5340eda4e"
+    },
+    {
+      "id": "M10",
+      "description": "The paper overclaims as 'first controlled factorial study' when execution is pilot-scale. A factorial study requires all combinations at full scale with replication. The paper achieved 3 pairwise at pilot scale (100 samples, 1 seed) + 5 three-way at pilot scale (100 samples, 3 seeds). M2 was excluded, reducing from 6 to 3 pairwise. Evidence: critique_writing.md, findings.json.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Soften to 'first systematic pilot study of training-free DLM acceleration composition' or 'first controlled comparison under a shared evaluation protocol.' Reserve 'factorial study' for full-scale experiments. Estimated effort: 30 min text edit. Verify: the abstract and Section 1.2 use appropriately hedged language.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (abstract, Section 1.2)"
+      ],
+      "issue_key": "writing:a-achieved-all-as-at-at-at-combinations:2c56df47be12"
+    },
+    {
+      "id": "m1",
+      "description": "Figure 2 (architecture diagram) and Figure 7 (KL divergence profile) are [TODO] placeholders. Specifications exist (fig2_architecture_desc.md, igsd_kl_profiles_raw.json). These are critical for reader comprehension and ablation evidence visualization. Evidence: paper.md lines 231, 324.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Generate Figure 2 from fig2_architecture_desc.md spec using TikZ or matplotlib. Generate Figure 7 from igsd_kl_profiles_raw.json (line plot with shaded std band, horizontal tau reference lines). Remove [TODO] markers. Estimated effort: 3 hr. Verify: fig2_architecture.pdf and fig7_kl_profile.pdf exist; no [TODO] tags in paper.md.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/figures/fig2_architecture.pdf",
+        "writing/figures/fig7_kl_profile.pdf",
+        "writing/paper.md"
+      ],
+      "issue_key": "writing:ablation-and-and-architecture-are-are-comprehension-critical:94ad77ecb374"
+    },
+    {
+      "id": "m2",
+      "description": "All citations remain as [CITE:xxx] placeholders. This blocks submission and makes proper attribution of prior work impossible. Evidence: paper.md throughout.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Replace all [CITE:xxx] with proper BibTeX entries. Source from arXiv/DBLP. Critical: LLaDA, EntropyCache, SSD, SSMD, Dream, Saber, FlashAttention, Qwen. Estimated effort: 2-3 hr. Verify: grep '[CITE:' paper.md returns zero.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md",
+        "writing/latex/references.bib"
+      ],
+      "issue_key": "writing:all-and-as-attribution-blocks-citations-cite-evidence:c4d11a5dcd63"
+    },
+    {
+      "id": "m3",
+      "description": "Editorial artifacts remaining in paper.md: line 47 parenthetical note about section renumbering, HTML comment blocks at lines 233-237 and 328-337, 'Figures and Tables' index at lines 442-457, [TODO] tags. Evidence: critique_writing.md.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Remove all editorial artifacts. Estimated effort: 30 min. Verify: no HTML comments, no [TODO] tags, no 'Figures and Tables' index section in paper.md.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md"
+      ],
+      "issue_key": "writing:about-and-and-artifacts-at-at-blocks-comment:c8fe7a2e22af"
+    },
+    {
+      "id": "m4",
+      "description": "N_gen undefined in CHR formula (line 147). r_accept vs alpha relationship unclear. 'Over 20 methods' in intro not counted precisely. Evidence: critique_writing.md.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Define N_gen after CHR formula: 'N_gen denotes the number of generation-token positions (excluding the prompt).' Clarify r_accept vs alpha relationship in Section 3.3. Count methods precisely in the introduction. Estimated effort: 30 min. Verify: N_gen defined; r_accept/alpha relationship explicit; method count precise.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (Sections 3.1-3.3, 1.1)"
+      ],
+      "issue_key": "writing:alpha-chr-counted-critique_writing-evidence-formula-in-in:70e67dae6ed7"
+    },
+    {
+      "id": "m5",
+      "description": "Baseline TPS varies across experiments: 58.5 (d2cache pilot), 33.8 (paper text), 31.0 (iter_001). Inconsistency in measurement protocol (generation-only vs. end-to-end, warmup handling). Evidence: critique_experiment.md.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Identify and document the canonical baseline TPS measurement protocol. State a single reference TPS with measurement conditions (generation-only, post-warmup, batch=1, fixed prompt length). Reconcile all speedup calculations using this reference. Estimated effort: 1 hr analysis + text. Verify: paper states a single canonical baseline TPS; all speedup ratios use the same reference.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (Section 3.5)"
+      ],
+      "issue_key": "experiment:across-baseline-critique_experiment-d2cache-end-end-evidence-experiments:fe9cabad5d02"
+    },
+    {
+      "id": "m6",
+      "description": "Batch sensitivity analysis (Section 5.3) is uninterpretable: reports M1+IGSD TPS at batch=4 (56) and batch=8 (34) without batch-specific baseline TPS. Accuracy increase at batch=4 (45%->50%) is unexplained and possibly artifactual. Evidence: batch_sensitivity.json.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Run LLaDA baseline at batch={1,4,8} on 100 GSM8K, seed 42. Report speedup relative to per-batch baselines. Investigate and explain the accuracy increase at batch=4. If artifactual, correct or move to appendix. Estimated GPU time: 0.5 hr. Verify: Section 5.3 contains baseline TPS for each batch size; accuracy anomaly explained.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "exp/results/batch_sensitivity/",
+        "writing/paper.md (Section 5.3)"
+      ],
+      "issue_key": "experiment:accuracy-analysis-and-and-artifactual-at-at-baseline:71cffe859417"
+    },
+    {
+      "id": "m7",
+      "description": "AR comparison uses HF Transformers, not an optimized serving engine. Qwen2.5-7B with vLLM would likely be 2-4x faster, widening the already devastating gap. The comparison is fair (same framework) but understates the practical gap. Evidence: review.json.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Add a sentence acknowledging: 'The HF-based comparison represents a conservative lower bound on the AR advantage; optimized serving (vLLM, TensorRT-LLM) would widen the gap further.' No additional experiment needed. Estimated effort: 15 min. Verify: Section 5.2 contains the caveat.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md (Section 5.2)"
+      ],
+      "issue_key": "experiment:7b-already-an-ar-be-but-comparison-comparison:a68f45d867d0"
+    },
+    {
+      "id": "m8",
+      "description": "M1/M3/IGSD naming is non-mnemonic. M2 excluded but numbering retained, adding confusion. Evidence: review.json writing issue.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Consider renaming to mnemonic labels (e.g., 'EntCache' for M1, 'ARGuide' for M3, 'IGSD' is already mnemonic) or add a quick reference table at the start of Section 3. Estimated effort: 1 hr (if renaming throughout) or 15 min (if adding reference table). Verify: reader can identify methods without flipping back to definitions.",
+      "status": "new",
+      "requires_system_change": false,
+      "files_affected": [
+        "writing/paper.md"
+      ],
+      "issue_key": "writing:adding-but-confusion-evidence-excluded-igsd-is-issue:ff3220818fb7"
+    }
+  ],
+  "issues_fixed": [
+    "I1-Wilcoxon (iter_001): Fabricated Wilcoxon p<0.05 removed. No statistical test claims without corresponding computation.",
+    "I2-tau0 (iter_001): tau=0.0 paradox resolved by actual experiment. CD-SSD(tau=0.0) = naive-T16 confirmed.",
+    "I3-Atlas (iter_001): Failure mode atlas numbers corrected to match raw JSON data.",
+    "I4-QAS (iter_001): QAS formula unified across all methods. No undisclosed penalty factors.",
+    "I5-Scope (iter_001): Scope claim corrected from 6-pair to 3-pair.",
+    "I6-Novelty (iter_001): IGSD/CD-SSD novelty claim corrected to acknowledge concurrent work.",
+    "I9-M3speed (iter_001): M3 speedup reporting partially unified (but new confound discovered -- see M2).",
+    "C1-alpha (iter_001 round 2): alpha=0.52 error corrected. Paper now uses measured values from experiment JSON.",
+    "CHR_refine measurement: Previously flagged as potentially fabricated in iter_001; now measured at 0.943 (chr_refine_measurement.json).",
+    "Dream-7B cross-model validation: Successfully downloaded and tested (iter_001 download failed).",
+    "Coding benchmarks: MBPP dropped, HumanEval relegated to supplementary (iter_001 degenerate benchmarks concern)."
+  ],
+  "success_patterns": [
+    "Honest negative results reporting: M2 NO_GO, d2Cache failure, AR comparison gap, IGSD null ablation, M1+M3 interference all reported transparently. Supervisor and reviewer both commend this. This intellectual honesty should be preserved and is a genuine paper strength.",
+    "Comprehensive experimental scope: 15 experiment groups covering individual Pareto, pairwise, three-way, cross-model, AR comparison, batch sensitivity, and ablation. This is thorough factorial design even if execution scale is insufficient.",
+    "Corrected QAS formula across all methods: iter_001's undisclosed 0.5x penalty removed. All methods now use consistent QAS = Speedup x AccRet. This eliminates a major integrity issue.",
+    "CHR_refine measurement validated: The refine-phase cache hit rate of 0.943 is now empirically measured (not analytically derived), resolving a key iter_001 concern about data fabrication.",
+    "Cross-model transfer to Dream-7B: Consistent qualitative pattern (M1+IGSD optimal, M3 counterproductive) across two architectures, despite magnitude inflation from low Dream-7B baseline.",
+    "Well-structured related work with Table 1 comparing published DLM acceleration protocols: useful community contribution independent of composition results."
+  ],
+  "systemic_patterns": [
+    "Pilot-scale execution for central claims persists across iterations: iter_001 ran pairwise at 200-sample/2-seed; iter_002 ran pairwise at 100-sample/1-seed. The methodology plans full-scale but execution consistently falls short. Root cause: no enforced minimum viable experiment specification. Fix: add hard gating rules -- 'pairwise Ortho claims require N>=500 and >=2 seeds.'",
+    "IGSD confidence gate null result detected in both iterations: iter_001 found tau=0.0 QAS 88.5% better; iter_002 confirmed tau=0.0 = tau=0.9 at T_draft=32. Yet the paper still frames IGSD as an algorithmic contribution. The ideation phase failed to pre-register the null hypothesis (IGSD vs. naive truncation) as the first experiment.",
+    "Figure generation remains the longest-standing blocker: Figure 2 has been missing since iter_001 round 1. Specifications and data exist but programmatic generation is consistently deferred. This must be treated as a blocking task with a dedicated GPU-free time allocation.",
+    "Citation placeholders accumulate: 37+ [CITE:xxx] persist from iter_001 through iter_002. This is a submission blocker that gets deferred each iteration.",
+    "Baseline TPS inconsistency propagates: Multiple baseline TPS values (31.0, 33.8, 58.5) exist without reconciliation. This creates ambiguity in all speedup and QAS calculations.",
+    "M1 implementation gap is structural: d2Cache failed in iter_002 with 15.2x overhead. No kernel-level M1 exists. This makes M1 a no-op that inflates the 'three axes' narrative. This has been flagged since iter_001 but no viable fix exists short of implementing FlashAttention sparse attention kernels."
+  ],
+  "quality_trajectory": "stagnant",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 78,
+    "total_gpu_idle_minutes": 55.0,
+    "bottleneck_stages": [
+      "pairwise compositions defaulted to pilot scale despite GPU availability",
+      "batch sensitivity run without batch-specific baselines (wasted experiment)",
+      "d2cache integration pilot took 54 min to confirm a 15.2x overhead failure (could have been detected in 10 min with a quick sanity check)"
+    ],
+    "suggestions": [
+      "Front-load critical ablations (IGSD vs. naive truncation) in Phase 1 before any composition experiments. If the core mechanism is inert, all downstream experiments should reflect this.",
+      "Specify and enforce minimum viable experiment sizes: N>=500, >=2 seeds for publication-grade claims. Pilot (N<500) claims must include CIs and hedged language.",
+      "Standardize baseline TPS in Phase 0 before any speedup experiments. Write a single canonical reference to a shared config file.",
+      "Batch experiments must include per-batch baselines. Do not report accelerated TPS without corresponding baseline TPS at the same batch size.",
+      "Parallelize figure generation (CPU-only) with GPU experiments instead of deferring to the end.",
+      "Run Dream-7B validation at N=500 if baseline accuracy <50%, to compensate for wide CIs at low accuracy."
+    ]
+  },
+  "recommended_focus": [
+    "PRIORITY 1 (CRITICAL, BLOCKING): Rerun pairwise compositions at full GSM8K scale (1319 samples, 3 seeds) for all 3 pairs. This is the single highest-impact improvement per supervisor review. Estimated: 8-10 GPU hrs. Should be started immediately.",
+    "PRIORITY 2 (CRITICAL, TEXT): Reframe IGSD contribution to reflect null ablation result. Rewrite Contribution 3, abstract, Section 3.3, Section 4.4. The confidence gate is inert -- acknowledge this honestly. Estimated: 2 hr text.",
+    "PRIORITY 3 (CRITICAL, TEXT): Add M1 caveats to all M1-involving Ortho claims. M1 is a 1.16x no-op; M1+IGSD composition is misleading without this context. Estimated: 2 hr text.",
+    "PRIORITY 4 (MAJOR, EXPERIMENT): Clarify M3 speedup measurement -- separate per-token speed from output-length effect. This affects all M3-involving QAS and Ortho. Estimated: 1 GPU hr.",
+    "PRIORITY 5 (MAJOR, TEXT): Add Statistical Limitations subsection to Section 6.4 with sample sizes, CIs, and the iter_001 pilot/full discrepancy as cautionary example. Estimated: 1 hr text.",
+    "PRIORITY 6 (MAJOR, TEXT): Generate missing Figure 2 (architecture) and Figure 7 (KL profile) from existing specs/data. Estimated: 3 hr (CPU only).",
+    "PRIORITY 7 (MAJOR, TEXT): Replace all [CITE:xxx] placeholders with BibTeX entries. Estimated: 2-3 hr.",
+    "PRIORITY 8 (MEDIUM, ANALYSIS): Add degenerate output analysis -- quantify repetition loops, truncated reasoning, whitespace flooding. Estimated: 2 hr.",
+    "PRIORITY 9 (MEDIUM, TEXT): Soften 'first controlled factorial study' to 'first systematic pilot study.' Reframe Dream-7B. Report GSM8K as primary metric. Estimated: 2 hr text.",
+    "PRIORITY 10 (MINOR): Remove editorial artifacts, define N_gen, reconcile r_accept/alpha, standardize baseline TPS. Estimated: 2 hr text."
+  ],
+  "suggested_threshold_adjustment": 7.0,
+  "suggested_max_iterations": 20
+}

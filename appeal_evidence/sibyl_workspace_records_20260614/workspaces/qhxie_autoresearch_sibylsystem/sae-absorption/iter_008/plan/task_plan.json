@@ -1,0 +1,254 @@
+{
+  "candidate_id": "absorption_tax_crossdomain",
+  "version": "2.0",
+  "round": 2,
+  "seed": 42,
+  "notes": "Iteration 9: FULL MODE plan based on iter_008 pilot consolidation (Synthesis Round 5). Paper restructured from THREE to TWO contributions: (1) Cross-domain absorption characterization, (2) Causal mechanism confirmation. GAS, CMI, Absorption Tax demoted to appendix. Three critical gaps: (a) probe quality at multiple layers, (b) activation patching at scale (n>=20), (c) multi-layer multi-SAE absorption measurement. Phase 0 blocking experiments completed in pilot -- scale up for statistical rigor. All inference-only on pre-trained SAEs. GPU: RTX PRO 6000 Blackwell (95GB VRAM). Total: ~9 GPU-hours, ~11 wall-clock hours.",
+  "completed_tasks": [],
+  "tasks": [
+    {
+      "id": "setup_env_check",
+      "name": "Environment Verification",
+      "description": "Verify environment is still functional from iter_008. Quick check: SAELens, TransformerLens, GPU, Gemma 2B model, RAVEL, sae_spelling. All confirmed working in iter_008 pilot, so this is a fast sanity check. Output: setup_check.json.",
+      "type": "setup",
+      "candidate_id": "shared",
+      "depends_on": [],
+      "expected_output": "exp/results/setup_check.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-scope-2b-pt-res-canonical",
+          "path": "shared/checkpoints/gemma-scope"
+        },
+        {
+          "type": "dataset",
+          "name": "ravel-city-entity",
+          "path": "shared/datasets/ravel"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All critical packages importable, GPU available, Gemma 2B loadable, RAVEL accessible, sae_spelling importable."
+      },
+      "visualizations": []
+    },
+    {
+      "id": "phase0_threshold_reporting",
+      "name": "Phase 0.4: Report Threshold Sensitivity Data from iter_001",
+      "description": "CPU-only analysis. The ablation_threshold_sensitivity.json (141KB, 5x4 grid: cosine thresholds {0.01, 0.02, 0.025, 0.03, 0.05} x magnitude gaps {0.5, 1.0, 1.5, 2.0}) was computed in iter_001 but NEVER reported. Load, parse, and determine: is the control failure threshold-dependent (fixable) or structural (fundamental to JumpReLU)? Generate summary table for appendix. This was attempted but FAILED in iter_008 -- ensure correct path and parsing this time.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [],
+      "expected_output": "exp/results/phase0/threshold_sensitivity_report.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {
+          "type": "result",
+          "name": "ablation_threshold_sensitivity",
+          "path": "iter_001/exp/results/full/ablation_threshold_sensitivity.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "5x4 grid parsed successfully. Summary table with interpretation per cell. Overall conclusion: threshold-dependent vs structural."
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Threshold sensitivity: cosine threshold x magnitude gap x control failure rate",
+          "x": "cosine_threshold",
+          "y": "magnitude_gap",
+          "z": "control_failure_rate",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "phase0_activation_patching_full",
+      "name": "Phase 0.1: Activation Patching at Scale (n>=20 words, 200 contexts)",
+      "description": "Scale up the causal absorption evidence from pilot (n=7 words, Wilcoxon p=1.0). MUST achieve statistical significance for paper. Pipeline: (1) Load Gemma 2B + Gemma Scope L12-16k SAE. (2) Identify >= 20 absorption pairs: start with 7 pilot words (eight, liked, lower, offer, often, other, under), then use integrated-gradients on first-letter FN tokens to find additional word-child pairs. (3) For each word x 200 input contexts: (a) Cache SAE activations, (b) Zero child feature, (c) Pass modified activations through remaining layers, (d) Check parent probe recovery. (4) Control: zero random non-child feature (matched activation magnitude) per context. (5) Statistical tests: Wilcoxon signed-rank (target p < 0.01), bootstrap 95% CI on recovery difference. (6) Cross-hierarchy: repeat for city-continent and city-language absorption pairs if probes pass quality gate. (7) Report per-word: absorption rate, recovery rate (child vs control), prob_change.",
+      "type": "experiment",
+      "candidate_id": "shared",
+      "depends_on": [],
+      "expected_output": "exp/results/phase0/activation_patching_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "comment_on_duration": "20+ words x 200 contexts x (child + control) = ~8000 forward passes. Each forward pass: full model + SAE encode/decode. With batch=8 on 95GB VRAM, ~1000 batches.",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        },
+        {
+          "type": "checkpoint",
+          "name": "gemma-scope-2b-pt-res L12-16k",
+          "path": "shared/checkpoints/gemma-scope"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 15 words processed with >= 100 contexts each. Recovery rate computed for child-zeroed and control. Wilcoxon p < 0.05 (relaxed pilot gate). If still p > 0.05 with n=15+: the effect may be too weak for statistical significance -- report with exact p-value and effect size."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Activation patching per word: recovery rate (child vs control)",
+          "columns": [
+            "word",
+            "letter",
+            "child_feature",
+            "n_contexts",
+            "absorption_rate",
+            "recovery_child",
+            "recovery_control",
+            "prob_change_child",
+            "prob_change_control"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "violin",
+          "description": "Recovery rate distribution: child-zeroed vs. control-zeroed",
+          "x": "condition",
+          "y": "recovery_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "phase4_consolidation",
+      "name": "Phase 4.2: Final Consolidation and Writing Gate",
+      "description": "Aggregate all experimental results into a comprehensive summary for writing. Pipeline: (1) Compile probe quality results: which hierarchies pass quality gate at which layers. (2) Compile cross-domain absorption rates with CIs and statistical tests. (3) Compile activation patching: final Wilcoxon p, recovery rate, effect size. (4) Compile tightened hedging per hierarchy. (5) Compile architecture comparison. (6) Compile appendix results: GAS (negative), CMI (negative), Absorption Tax (qualitative). (7) Compile threshold sensitivity from iter_001 data. (8) Update hypothesis verdicts for H1-H7. (9) Writing gate: go_write=true if primary contribution (cross-domain) has statistical evidence. (10) Generate per-paper-section result summaries.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [
+        "phase0_activation_patching_full",
+        "phase0_threshold_reporting"
+      ],
+      "expected_output": "exp/results/consolidation_summary.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "consolidation_summary.json with all hypothesis verdicts, writing gate decision, per-section result summaries, and negative results documentation."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Final hypothesis verdicts (H1-H7)",
+          "columns": [
+            "hypothesis",
+            "verdict",
+            "key_evidence",
+            "confidence",
+            "paper_section"
+          ],
+          "paper_section": "introduction"
+        }
+      ]
+    }
+  ],
+  "execution_order": [
+    [
+      "setup_env_check",
+      "phase0_threshold_reporting"
+    ],
+    [
+      "phase1_probe_training_full"
+    ],
+    [
+      "phase1_absorption_firstletter",
+      "phase0_activation_patching_full"
+    ],
+    [
+      "phase1_absorption_crossdomain",
+      "phase2_gas_full"
+    ],
+    [
+      "phase0_tightened_hedging_full",
+      "phase4_architecture_comparison",
+      "phase3_tax_qualitative"
+    ],
+    [
+      "phase4_consolidation"
+    ]
+  ],
+  "total_gpu_hours_estimate": 9,
+  "parallelization_note": "Wave 1: setup + threshold reporting (0 + 1 GPU, 15 min). Wave 2: probe training (1 GPU, 60 min -- CRITICAL PATH). Wave 3: first-letter absorption + activation patching (2 GPUs parallel, 60 min). Wave 4: cross-domain absorption + GAS (2 GPUs, 60 min). Wave 5: hedging + architecture + tax (3 tasks, 2 GPUs, 45 min). Wave 6: consolidation (CPU, 20 min). Total wall-clock: ~5.5 hours with 4 GPUs, ~8 hours with 1 GPU.",
+  "priority_order": {
+    "CRITICAL_BLOCKING": [
+      "setup_env_check",
+      "phase1_probe_training_full"
+    ],
+    "HIGH_PRIMARY": [
+      "phase1_absorption_firstletter",
+      "phase1_absorption_crossdomain",
+      "phase0_activation_patching_full"
+    ],
+    "MEDIUM": [
+      "phase0_tightened_hedging_full",
+      "phase4_architecture_comparison",
+      "phase0_threshold_reporting"
+    ],
+    "LOW_APPENDIX": [
+      "phase2_gas_full",
+      "phase3_tax_qualitative"
+    ],
+    "GATE": [
+      "phase4_consolidation"
+    ]
+  },
+  "fallback_decisions": {
+    "if_probes_still_below_gate_at_all_layers": "Relax quality gate to F1 >= 0.80 with documented caveat. If still failing: restrict to city-continent (6-class, simplest) and city-language (decent pilot F1=0.79). Report probe quality as limitation.",
+    "if_activation_patching_still_underpowered": "If Wilcoxon p > 0.05 even with n >= 20: report with exact p-value and effect size. The 14.3% vs 0.5% difference from pilot is still meaningful directional evidence even without statistical significance at n=20.",
+    "if_cross_domain_rates_reverse_with_better_probes": "If first-letter absorption becomes >= semantic hierarchies with quality probes: report as H2' falsified. This is still a publishable finding (probe quality matters more than hierarchy type).",
+    "if_jumprelu_advantage_disappears": "If JumpReLU no longer shows lowest absorption with quality probes: report architecture comparison as genuinely inconclusive. The single-task benchmark criticism still stands.",
+    "if_saebench_saes_not_available": "Restrict architecture comparison to JumpReLU across L0/width within Gemma Scope. Document BatchTopK/Matryoshka as future work.",
+    "if_gas_improves_with_10k_sequences": "If rho >= 0.3 with 10k sequences: promote GAS from appendix back to main text. However, pilot CI [-0.26, 0.52] suggests this is unlikely."
+  },
+  "paper_framing": {
+    "framing": "TWO_CONTRIBUTION_PAPER",
+    "contribution_1": "First cross-domain absorption characterization: semantic hierarchies show more absorption than first-letter spelling, reframing the entire absorption literature",
+    "contribution_2": "Causal mechanism confirmation: activation patching provides first interventional evidence for competitive exclusion; tightened hedging reveals loose classification is near-tautological",
+    "appendix_material": [
+      "GAS unsupervised detector (negative result, rho=0.12)",
+      "CMI theoretical pillar (negative result, rho=0.044)",
+      "Absorption Tax quantitative predictions (not supported, rho=0.08/0.16; qualitative direction reported)",
+      "Threshold sensitivity grid from iter_001 (5x4 grid, never previously reported)"
+    ],
+    "honest_negative_results": [
+      "GAS fails as absorption detector",
+      "CMI does not predict absorption",
+      "Absorption Tax quantitative predictions fail",
+      "H2 falsified (first-letter is NOT worst case -- positive finding)",
+      "H3 partial correlation test fails",
+      "H6 Matryoshka generalization inconclusive"
+    ]
+  },
+  "reusable_from_iter_008": {
+    "code": "iter_008/exp/code/ -- all 12 experiment scripts can be adapted to full-mode sample sizes",
+    "pilot_results": "iter_008/exp/results/ -- pilot consolidation provides baseline for full-mode comparisons",
+    "environment": "Confirmed working: gemma-2-2b, SAELens 6.39.0, sae_spelling, RAVEL, RTX PRO 6000"
+  }
+}

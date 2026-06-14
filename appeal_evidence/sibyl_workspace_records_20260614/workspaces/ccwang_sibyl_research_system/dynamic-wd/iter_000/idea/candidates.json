@@ -1,0 +1,78 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_aadwd",
+      "title": "Alignment-Aware Dynamic Weight Decay: Cumulative Contraction Theory and Practical Algorithms",
+      "status": "front_runner",
+      "summary": "Continuous alignment-aware dynamic weight decay with three-layer theory: (1) time-varying SGDW convergence preservation, (2) cumulative contraction stability bound replacing worst-case alignment, (3) stochastic proxy transfer. Conservative EMA-smoothed algorithm with O(d) overhead.",
+      "hypotheses": [
+        "H1: Time-varying lambda_t = O(gamma_t^2) preserves O(T^{-1/2}) convergence rate",
+        "H2: Cumulative alignment-weighted stability bound is strictly tighter than worst-case",
+        "H3: EMA-smoothed mini-batch alignment proxy has Pearson r > 0.85 with full-batch",
+        "H4: AADWD matches or exceeds best fixed WD with wider hyperparameter plateau",
+        "H5: Alignment signal adds value beyond random temporal variation"
+      ],
+      "pilot_focus": "Tier 0: Validate delta_hat_t proxy reliability (H3). Tier 1: Core comparison of 7 methods on ResNet20/CIFAR-10 with 3 seeds (H4).",
+      "key_risks": [
+        "delta_hat_t proxy too noisy at B=128",
+        "CWD matches empirical performance, weakening practical contribution",
+        "Theorem 4.1 (cumulative contraction) proof may not close"
+      ],
+      "differentiators": [
+        "vs. CWD: continuous alignment, global theory, convergence rate guarantees",
+        "vs. AlphaDecay: per-step dynamic, alignment-based, convergence theory",
+        "vs. Sun et al.: time-varying decay, cumulative (not worst-case) alignment"
+      ]
+    },
+    {
+      "candidate_id": "cand_empirical",
+      "title": "Systematic Characterization of Gradient-Parameter Alignment Dynamics in Deep Learning",
+      "status": "backup",
+      "summary": "Purely empirical study: first comprehensive characterization of delta_t evolution across architectures, datasets, optimizers, and WD settings. Provides the empirical foundation the field currently lacks. Low risk, moderate impact.",
+      "hypotheses": [
+        "Alignment shows systematic phase-dependent structure across diverse settings",
+        "Per-layer alignment disaggregation reveals qualitatively different behaviors",
+        "Alignment variance correlates with generalization gap across models"
+      ],
+      "pilot_focus": "Multi-architecture alignment tracking on CIFAR and ImageNet-subset.",
+      "key_risks": [
+        "Limited novelty if alignment turns out trivially constant",
+        "Impact limited to empirical observation without algorithmic contribution"
+      ],
+      "differentiators": [
+        "First systematic study of alignment dynamics in training",
+        "Provides empirical validation/falsification for Sun et al. theory"
+      ]
+    },
+    {
+      "candidate_id": "cand_llm",
+      "title": "Alignment-Aware Weight Decay for Transformer Pre-training",
+      "status": "backup",
+      "summary": "Applied variant: per-layer alignment-aware WD for AdamW in LLM pre-training. NanoGPT/LitGPT experiments (60M-350M). No convergence theory; purely practical contribution targeting the LLM community.",
+      "hypotheses": [
+        "Per-layer alignment-aware WD improves perplexity over uniform WD in transformer pre-training",
+        "Attention and FFN layers exhibit distinct alignment dynamics requiring different decay schedules",
+        "Dynamic alignment-aware WD combined with AlphaDecay module selection yields best results"
+      ],
+      "pilot_focus": "NanoGPT 60M on OpenWebText with per-layer alignment tracking.",
+      "key_risks": [
+        "AdamW preconditioning may wash out alignment signal",
+        "Requires longer experiments (2-4h per run)",
+        "Competition with AlphaDecay on the same target (LLM pre-training)"
+      ],
+      "differentiators": [
+        "Dynamic per-step alignment vs. AlphaDecay's static spectral analysis",
+        "Direct application to highest-impact setting (LLM)"
+      ]
+    }
+  ],
+  "decision_rationale": "The front-runner (AADWD) is selected because it occupies a unique theoretical niche: the first convergence + generalization theory for continuous alignment-aware dynamic weight decay in nonconvex SGD. The theoretical contributions (Theorems 3.1, 4.1, 5.1) are independently valuable even if experiments show marginal empirical gains. The backup candidates address the two main failure modes: if the alignment proxy is unreliable (pivot to empirical study) or if CIFAR-scale experiments lack impact (pivot to LLM focus). Research focus mode (FOCUSED) retains the empirical backup as a safe fallback and the LLM variant as a high-impact pivot.",
+  "perspectives_weighted": {
+    "theoretical": "Highest weight. The three-layer proof architecture is the backbone of the proposal. Augmented Lyapunov analysis, cumulative contraction framework, and proxy transfer are all technically novel.",
+    "pragmatist": "High weight. The tiered experimental plan, specific code structure, and risk mitigation strategies are directly adopted. The conservative algorithm variant is the primary practical instantiation.",
+    "empiricist": "High weight. The Tier 0 go/no-go gate, CWD baseline requirement, 3-seed minimum, and norm-matched ablation are all incorporated. The random-time-varying-WD ablation is added as H5.",
+    "contrarian": "Medium-high weight. The concerns about proxy noise, hyperparameter explosion, CWD competition, and CIFAR limitations are all acknowledged and addressed through experimental design and risk mitigation. The reframing advice (robustness story if accuracy gains are marginal) is adopted.",
+    "innovator": "Medium weight. The cumulative contraction framework (Proposal 3) and momentum-debiased alignment (Proposal 4) both inform the theoretical direction. However, the more speculative ideas (entropy force, sliding mode control, NTK connection) are deferred to future work to maintain focus.",
+    "interdisciplinary": "Medium weight. The Kalman filtering idea for delta_t estimation is noted as a fallback if EMA proves insufficient. The dual-timescale design (from synaptic scaling) and PID-controller analogy inform the algorithm variants but are not adopted as the primary rule to keep complexity manageable."
+  }
+}

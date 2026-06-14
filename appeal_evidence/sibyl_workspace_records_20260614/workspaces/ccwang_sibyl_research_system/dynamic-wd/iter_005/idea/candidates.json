@@ -1,0 +1,94 @@
+{
+  "iteration": 7,
+  "date": "2026-03-18",
+  "synthesizer": "sibyl-synthesizer (Sonnet 4.6)",
+  "candidates": [
+    {
+      "candidate_id": "cand_stability_control",
+      "title": "Stability-Optimal Control Theory of Dynamic Weight Decay",
+      "status": "front_runner",
+      "summary": "Prove that alignment-aware WD (binary masking) has a stability cost (Theorem 1) that exceeds alignment benefit in small-batch BN networks; derive the PMP-optimal WD schedule (Theorem 3/PMP-WD) as proportional feedback control on the gradient-to-weight ratio, independently derived from both stochastic PMP and RG beta function theory; add Proposition 1 (EMA aggregation requirement for alignment noise at batch≤256). Validate empirically across ρ regimes (0.05, 0.5, 5.0), architectures (ResNet-20, VGG-16-BN), and optimizer types (AdamW vs SGD with matched ρ). The null result (constant WD wins at standard ρ) is the central theoretical prediction of Theorem 1.",
+      "hypotheses": [
+        "H1: ρ-regime boundary ρ* ∈ [1,5] separates invariant and sensitive WD regimes",
+        "H2: Binary masking stability cost > alignment benefit iff AIS < (Cσ²/n)·ΔCSI/λ̄",
+        "H3: PMP-WD outperforms constant at high-ρ and high-ρ regimes where stability cost is negligible",
+        "H4: Alignment signal requires EMA smoothing (k≥10) for reliable signal at batch=128",
+        "H5: Multi-architecture (VGG) null result at standard ρ",
+        "H6: 3.7× SGD/AdamW sensitivity ratio is primarily ρ-driven"
+      ],
+      "pilot_focus": "P0-A: VGG parallelization (6 methods × 3 seeds, immediate); P0-B: rho_high full sweep; P0-D: matched-ρ SGD completion; P1-A: PMP-WD pilot at ρ=5.0 (contingent on Gate 2)",
+      "theory_path": "Theorem 1: Sun et al. stability recursion + binary mask variance analysis (3 new lemmas); Theorem 2: Grönwall layer-wise CSI bound; Theorem 3: Riccati equation PMP-WD + RG beta function independent derivation (Remark 3.1); Proposition 1: Contrarian alignment noise analysis",
+      "novelty_scores": {
+        "theorem_1": "9/10 — no prior formal binary masking suboptimality bound",
+        "theorem_2": "8/10 — layer-wise CSI generalization bound, incremental extension of Sun et al.",
+        "theorem_3_pmp_wd": "8/10 — dual derivation (PMP + RG) of optimal WD feedback; differentiates from Defazio's AdamC (feedforward vs state-feedback)",
+        "proposition_1": "7/10 — alignment noise design constraint; no prior characterization of minimum aggregation horizon"
+      },
+      "risks": [
+        "PMP-WD ≈ constant even at high ρ (30% probability) — mitigated: Theorems 1+2 remain valid even without PMP-WD advantage",
+        "rho_high (ρ=5.0) shows null result (30%) — mitigated: reframe as 'invariance is surprisingly robust to ρ' — strengthens BN mechanism claim",
+        "Theorem 1 proof gap in independence assumption A3 (25%) — mitigated: weaken to conditional result",
+        "VGG other methods show divergence > 0.5% (10%) — interesting positive finding if seen; investigate architecture mechanism"
+      ],
+      "paper_score_range": "7.5-8.5 (depending on experimental outcomes)"
+    },
+    {
+      "candidate_id": "cand_spwd",
+      "title": "Spectral-Phase-Transition Weight Decay (SPWD): Rank Velocity Feedback",
+      "status": "backup",
+      "summary": "A WD scheduler conditioned on the rate-of-change of per-layer stable rank (rank velocity v_t). Unlike all existing dynamic WD methods that use gradient-space signals (δ̂_t, ‖g_t‖), SPWD uses a weight-space structural signal (d[‖W‖_F²/‖W‖₂²]/dt). This is the first method to exploit the phase-transition character of WD-driven rank minimization. Addresses the Contrarian's noise concern: stable rank norms are computed as scalars (less susceptible to high-dimensional cosine similarity noise than δ̂_t). If primary candidate's PMP-WD shows no advantage, pivot to SPWD as the novel algorithm. If both work, present SPWD as a complementary structural-feedback approach in a Section 5.8 ablation.",
+      "hypotheses": [
+        "H1-SPWD: SPWD outperforms constant WD on SGD CIFAR-10 ResNet-20 (Phi-non-invariant regime)",
+        "H2-SPWD: SPWD produces faster rank collapse to lower effective rank than constant WD",
+        "H3-SPWD: WD peaks in SPWD correlate with local maxima of |v_t| (rank velocity peaks)"
+      ],
+      "pilot_focus": "P1-B: SGD CIFAR-10 ResNet-20 × 3 seeds × 200 epochs (18 GPU-hours); compare vs constant, CWD, SWD",
+      "theory_path": "Truong & Truong (2026) logarithmic-delay norm hierarchy transitions; Galanti et al. (2022) WD as rank regularizer; Yunis et al. (2024) spectral dynamics; phase-transition tracking via susceptibility analog (|drank/dt|)",
+      "novelty_score": "8/10 — AlphaDecay (NeurIPS 2025) uses static per-module spectral density; SPWD uses dynamic rank velocity. No prior work uses rank velocity as WD feedback.",
+      "risks": [
+        "Rank velocity too noisy at epoch level (35%) — mitigated: EMA with β=0.9 + power iteration for stable rank",
+        "SPWD shows no benefit over constant WD even on SGD (30%) — falsifiable negative result that still contributes to the paper",
+        "Compute budget insufficient for P1-B (15%) — mitigated: 18 GPU-hours fits in current available compute"
+      ],
+      "paper_score_range": "If primary fails: same as front-runner with SPWD replacing PMP-WD (7.0-8.0); if both work: additional 0.3-0.5 score boost"
+    }
+  ],
+  "dropped_candidates": [
+    {
+      "candidate_id": "cand_empirical_characterization",
+      "title": "Pure Empirical ρ-Regime Characterization",
+      "status": "dropped",
+      "reason": "Absorbed into the front-runner as the experimental component. The ρ-regime map is now Section 5.4 of the front-runner paper, not a separate candidate. Without Theorem 1-3, a pure empirical paper is 'just a list of null results' per the Contrarian."
+    },
+    {
+      "candidate_id": "cand_qa_wd",
+      "title": "QA-WD (Quadratic Alignment Weight Decay) from RG Beta Function",
+      "status": "dropped",
+      "reason": "Absorbed into Theorem 3 as an independent derivation (Remark 3.1 / Appendix). λ* = β₀·δ̂²_t is the RG beta function fixed point; it converges with PMP-WD in the moderate-alignment regime. Including QA-WD as a separate algorithm would dilute the paper's algorithmic focus. Retained as theoretical validation in Appendix."
+    },
+    {
+      "candidate_id": "cand_pid_wd",
+      "title": "PID-Weight Decay (Proportional-Integral Alignment Controller)",
+      "status": "dropped",
+      "reason": "Absorbed into Discussion as a 'directions' mention. The P+I formulation (λ_t = λ_P·(1−δ_t) + λ_I·μ_t) adds a third hyperparameter pair relative to PMP-WD and requires separate convergence analysis. Not pursued given compute/writing constraints."
+    },
+    {
+      "candidate_id": "cand_gerwinal_center_wd",
+      "title": "Germinal Center Weight Decay Algorithm",
+      "status": "dropped",
+      "reason": "Absorbed as a biologically-motivated special case of PMP-WD/QA-WD in Discussion section. Not a separate contribution."
+    },
+    {
+      "candidate_id": "cand_mdl_rlct_wd",
+      "title": "MDL/RLCT-Grounded Effective-Dimension WD",
+      "status": "dropped",
+      "reason": "RLCT requires expensive second-order computation; not well-defined during training. Future work direction only."
+    },
+    {
+      "candidate_id": "cand_phase_transition",
+      "title": "Phase-Transition-Aware WD via Grokking Pressure",
+      "status": "dropped",
+      "reason": "Practical signals are computationally prohibitive; no tractable algorithm."
+    }
+  ]
+}

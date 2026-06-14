@@ -1,0 +1,124 @@
+{
+  "score": 6.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 5.5,
+    "experiments": 6,
+    "reproducibility": 5
+  },
+  "summary": "The paper presents a compelling null result (Phi Invariance under AdamW) supported by a well-organized taxonomy and rigorous statistical methodology. The Phi Modulator Framework, while primarily notational, provides genuine organizational value, and the AdamW-vs-SGD contrast is scientifically interesting. However, four unresolved critical issues prevent a higher score. (1) DATA PROVENANCE MISMATCH: Table 2 uses iter_003 data (constant=90.13, from seeds 90.48/90.03/89.89) while PMP-WD and Figure 8 use iter_006 data (constant=89.80, from seeds 89.72/90.15/89.54). The cross-iteration shift (0.33pp) EXCEEDS the paper's claimed inter-method spread (0.25pp), meaning batch-to-batch variance is larger than the signal being characterized. This is a fatal soundness flaw. (2) NO APPENDIX WITH PROOFS: 5th consecutive iteration with zero proofs for 4 theorems. A theory-heavy paper with dangling 'Appendix A' references will be desk-rejected. (3) NO IMAGENET: CIFAR-only scale is insufficient for a paper claiming implications for 'modern deep learning.' (4) LYAPUNOV CERTIFICATE CONTRADICTION: V_t empirically increases, contradicting Theorem 1. Section 5.7 claims 'band narrows rapidly' but the critic confirms Figure 8 shows no narrowing. These four issues are the same ones flagged in the prior review (iter_007 score: 6.5). No progress has been made on any of them, which is why the score remains 6.5 rather than improving.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Data provenance mismatch between iterations remains unfixed. Table 2 reports constant AdamW CIFAR-10 = 90.13 +/- 0.31, sourced from iter_003 (seeds: 90.48, 90.03, 89.89). PMP-WD results in Section 5.7/Figure 8 come from iter_006 instrumented reruns, where the SAME constant configuration yields 89.80 +/- 0.31 (seeds: 89.72, 90.15, 89.54). The 0.33pp shift between identical configurations run in different iterations is LARGER than the paper's headline finding of 0.25pp total inter-method spread. This means the paper's central claim -- that methods are equivalent within a 0.25pp band -- is confounded by uncontrolled inter-batch variance that exceeds the claimed signal. The reader cannot know whether the 'spread' reflects method differences or code/environment differences between iterations.",
+      "suggestion": "Rerun ALL 7 methods on CIFAR-10 AdamW ResNet-20 using the iter_006 instrumented codebase (3 seeds each = 21 runs, ~6 GPU-hours). Use a single consistent data source for all numbers reported in the paper. This is the highest-priority fix."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Section 5.7 claims 'the band narrows rapidly during training, converging to a tight interval by epoch 50' and 'this narrowing explains Phi Invariance.' The critic independently confirmed that Figure 8 (certified_band.png) shows chaotic oscillating lines with no visible narrowing -- the band appears roughly constant width throughout. This is a factual discrepancy between the text and the figure. If the band does not narrow, the central theoretical explanation for Phi Invariance collapses. Additionally, V_t (the Lyapunov function) empirically INCREASES throughout training, contradicting Theorem 1's guarantee V_{t+1} <= V_t. The paper hand-waves this as 'dominated by mu_t*||w_t||^2 term' but never provides the decomposition.",
+      "suggestion": "Three actions required: (1) Visually verify certified_band.png -- if the band does not narrow, revise Section 5.7 text to match reality. (2) Decompose V_t = f(w_t) + mu_t*||w_t||^2 and plot both components separately to explain why V_t increases overall while loss decreases. (3) If the Lyapunov certificate is vacuous in practice, state this honestly and restrict its applicability to the theoretical setting (SGD with learning rate < 1/L)."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "No appendix with proofs exists despite the paper referencing 'Appendix A' for Theorem 1 proof and 'Appendix A.3' for CSI sensitivity analysis. This is the 5th consecutive iteration where this has been flagged. The paper states 4 theorems, 2 propositions, and defines 3 metrics with formal mathematical claims. A theory-heavy paper at NeurIPS/ICML with zero proofs will be desk-rejected. The lessons_learned.md explicitly calls this out as a blocking issue.",
+      "suggestion": "Write Appendix A with: (A.1) Lyapunov stability certificate derivation for Theorem 1; (A.2) Certified band construction; (A.3) Theorem 2 (Cumulative Alignment Bound) proof; (A.4) PMP-WD costate derivation; (A.5) CSI weight sensitivity analysis. Estimated effort: 4-6 hours. This is non-negotiable for any venue submission."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "No ImageNet experiments despite the project constraints mandating them and the proposal explicitly planning Phase 4 for ImageNet/ResNet-50 (72 GPU-hours). Every comparable paper at top venues includes larger-scale validation. CIFAR-10/100 are toy-scale by 2026 standards. The paper claims implications for 'modern deep learning' and 'billion-parameter language models' but has zero evidence beyond 270K and 15M parameter models. The lessons_learned.md notes 'two iterations of blind failure' on ImageNet with no diagnosis.",
+      "suggestion": "At minimum, use ImageNet-100 (100-class subset): 3 methods (constant, CWD, no_wd) x 3 seeds x ResNet-50 = 9 runs in ~6-8 GPU-hours. Even a partial result dramatically strengthens the paper. Diagnose why previous ImageNet attempts failed (OOM? data path?) before attempting again."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "Theory-experiment optimizer mismatch: ALL theoretical results (Phi framework SGD update in Eq. 3, Lyapunov analysis, PMP-WD costate derivation, certified band construction) assume SGD dynamics. ALL primary experiments use AdamW. The Phi Invariance Conjecture itself is about AdamW behavior, but the theoretical machinery that supposedly explains it is derived for SGD. This gap is never discussed in the paper. A reviewer reading both Sections 3 and 5 will immediately notice.",
+      "suggestion": "Add to Section 6.4: 'Our theoretical analysis (Theorems 1-4) is derived under SGD dynamics. The Lyapunov stability certificate applies to the SGD update rule; extending it rigorously to AdamW's bias-corrected moment estimates and per-parameter adaptive step sizes remains open. The Phi Invariance Conjecture is an empirical observation about AdamW that our SGD-based theory motivates but does not formally prove. The SGD experiments in Section 5.2 provide the closest match to the theoretical setting.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "PMP-WD appears in Figure 3 (ResNet-20 panel) and Figure 8 (certified band) but is NOT in Table 1 (method catalog), Table 2 (main results), or Table 3 (statistical tests). The paper claims '7 methods' but PMP-WD would make it 8. Its p-value against constant (p=0.12 per prior reviews) is not reported, hiding the fact that PMP-WD is also not statistically significant. The method definition is only mentioned in passing in Section 5.7.",
+      "suggestion": "Either: (a) formally add PMP-WD to Table 1 with its phi definition, include it in Tables 2/3/6, and update the experiment count to 8 methods / 126+ experiments, or (b) remove PMP-WD from all figures and text. Half-measures create inconsistency."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Theorem 2 validation shows rho=-0.379, p=0.121 (NOT statistically significant). Section 5.8 now reports this honestly ('Neither correlation is statistically significant'), which is improved from prior iterations. However, the paper still lists Theorem 2 in its formal contribution list and frames the directional difference as suggestive. With N=18 and p>0.1, the cumulative alignment bound is an unvalidated theoretical claim, not a contribution supported by evidence.",
+      "suggestion": "Demote Theorem 2 from a numbered contribution to a 'theoretical observation' or 'proposition.' State explicitly: 'We derive the cumulative alignment bound as a theoretical improvement over worst-case analysis, but our empirical validation (N=18) is underpowered to confirm its predictive superiority.' This honest framing is appropriate for a null-result paper."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Statistical power remains insufficient for a null-result paper claiming formal equivalence. N=3 seeds gives ~15-20% power for TOST at delta=0.5%. Only 6/12 comparisons confirm equivalence even at the lenient delta=1.0%. For the paper's headline claim ('all methods are statistically equivalent'), the evidence is weak: failing to reject the null at N=3 is not the same as confirming equivalence. The TOST results partially address this, but the pass rate (50%) undermines the 'all equivalent' narrative.",
+      "suggestion": "Add 2 seeds (total N=5) for the 4 key comparisons (constant, CWD, cosine, no_wd) on CIFAR-10 AdamW. Cost: 8 additional runs, ~2 GPU-hours. This roughly triples TOST power at delta=0.5%. Alternatively, pool across architectures/datasets where theoretically justified."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The NoBN ablation data from iter_005 (constant: 87.74 +/- 0.21, CWD: 87.62 +/- 0.13) exists but is absent from the paper. The NoBN spread (0.12pp) is NARROWER than VGG-16-BN (0.16pp), which would undermine the paper's 'BN provides alternative Phi Invariance mechanism' narrative. If confirmed with all methods, this suggests the narrow spread is a property of CIFAR difficulty / model capacity, not specifically of BN. The paper's discussion of BN in Section 6.2 is speculative without this ablation.",
+      "suggestion": "Run full NoBN ablation (7 methods x 3 seeds on SGD ResNet-20-NoBN, CIFAR-10) or include existing partial data. If NoBN spread is also narrow, revise the mechanistic explanation: Phi Invariance on CIFAR may be a scale phenomenon (model capacity >> dataset complexity), not a BN or AdamW-specific effect. This would actually strengthen the paper by providing a more nuanced understanding."
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "CSI has arbitrary weights (w1=0.4, w2=0.3, w3=0.3) and the paper admits it does not predict accuracy (rho < 0.3, p > 0.3). A metric that combines disparate quantities with arbitrary weights and fails to predict the outcome variable has questionable diagnostic value. The 'sensitivity analysis' testing three nearly-identical weight sets is insufficient validation. CSI occupies significant paper real estate (definition, table, discussion) for zero predictive value.",
+      "suggestion": "Either: (a) present the three CSI components separately without combining them (the raw components -- CV of weight norms, condition number, CV of effective LR -- may individually be more interpretable), (b) find a setting where CSI is predictive (perhaps under SGD), or (c) demote CSI from a 'contribution' to an 'exploratory tool' and reduce its discussion footprint."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "major",
+      "description": "Abstract-body scope disconnect. Abstract claims '7 methods, 2 optimizers, 2 architectures, 2 datasets, 105 experiments.' The framing '7 x 2 x 2 x 2 x 3' implies full factorial (168 runs), but VGG-16-BN is only tested with SGD/CIFAR-10 (21 runs), not AdamW or CIFAR-100. The actual design is: 84 ResNet-20 + 21 VGG-16-BN = 105. This is misleading to readers who expect a full factorial design.",
+      "suggestion": "Rewrite abstract to: '105 controlled experiments: 84 on ResNet-20 (7 methods x 2 optimizers x 2 datasets x 3 seeds) plus 21 on VGG-16-BN (7 methods x SGD x CIFAR-10 x 3 seeds).' Be explicit about the non-factorial design."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "Figure 3 (multi_arch_comparison.png) uses different method sets in the two panels. ResNet-20 shows {No WD, Constant, Cosine, CWD, SWD, PMP-WD} while VGG-16-BN shows {No WD, Constant, Cosine, CWD, SWD, Half-lambda, Random Mask}. Comparing spreads (0.25pp vs 0.16pp) across different method sets is invalid -- the VGG panel might show wider spread if PMP-WD were included, or narrower for ResNet if it used the same methods.",
+      "suggestion": "Regenerate Figure 3 with identical method sets in both panels, or compute and report the spread using only the common methods (No WD, Constant, Cosine, CWD, SWD)."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "Half_lambda BEM discrepancy: Table 6 reports BEM=0.500 for half_lambda, which is mathematically correct. However, the prior critic review flagged BEM=0.000. The current paper appears to have fixed this in the table, but if the diagnostic heatmap figure (Figure 5) was generated from old data, it may still show BEM=0.000. Visual verification of Figure 5 is needed to confirm consistency.",
+      "suggestion": "Verify that Figure 5 (fig4_diagnostic_heatmap.png) shows BEM=0.500 for half_lambda, matching Table 6. If the figure was generated from cached/old data, regenerate it."
+    }
+  ],
+  "risks": [
+    "Data provenance mismatch (0.33pp inter-batch shift > 0.25pp inter-method spread) undermines the paper's central empirical claim. Until all results come from a single consistent codebase and run, the null result is not credible.",
+    "Scale limitation is the most predictable reviewer objection. CIFAR-10/100 results will be dismissed as 'already informally known' without larger-scale validation.",
+    "The Lyapunov certificate (Theorem 1) is empirically vacuous if V_t increases. This undermines the entire theoretical framework's credibility unless the contradiction is honestly addressed.",
+    "5 iterations of missing proofs suggests the appendix may never be written. A theory paper without proofs is not submittable.",
+    "NoBN ablation data may collapse the BN-specific mechanistic explanation, requiring a narrative revision from 'BN/AdamW mechanism' to 'CIFAR-scale phenomenon.'"
+  ],
+  "evidence_gaps": [
+    "Cross-iteration data discrepancy: iter_003 constant=90.13 vs iter_006 constant=89.80 (0.33pp shift, exceeds claimed 0.25pp inter-method spread). Paper mixes both without acknowledgment.",
+    "No appendix with proofs for any of the 4 theorems or 2 propositions.",
+    "No ImageNet or large-scale experiments.",
+    "Lyapunov function V_t increases empirically; decomposition into components never performed.",
+    "Certified band 'narrowing' claimed in text but not visible in Figure 8.",
+    "Theory-experiment optimizer mismatch (SGD theory, AdamW experiments) never discussed.",
+    "NoBN ablation data exists (iter_005) but is not in the paper.",
+    "PMP-WD absent from Tables 1/2/3 despite appearing in Figures 3/8.",
+    "Figure 3 uses different method sets in the two panels, invalidating the cross-architecture spread comparison.",
+    "L (smoothness constant) estimation method undocumented; certified band construction unreproducible."
+  ],
+  "what_would_raise_score": "Five actions would collectively raise the score from 6.5 to ~8.0: (1) HIGHEST PRIORITY: Rerun all 7 methods on CIFAR-10/CIFAR-100 AdamW ResNet-20 with the iter_006 instrumented code for data provenance consistency (~8 GPU-hours). This fixes the critical soundness flaw. (2) Write Appendix A with proofs for Theorems 1-4 (~6 hours writing). (3) Add ImageNet-100 experiments (3 methods x 3 seeds, ~6-8 GPU-hours) or diagnose and fix ImageNet failures. (4) Honestly address V_t contradiction by decomposing into components and revising Section 5.7 text to match what Figure 8 actually shows. (5) Add 2 seeds for key comparisons to strengthen TOST equivalence testing (~2 GPU-hours). Total: ~18 GPU-hours + ~8 hours writing. Score trajectory: data provenance fix alone would raise soundness from 5.5 to 7.0; appendix would raise reproducibility from 5 to 7; ImageNet would raise experiments from 6 to 7.5."
+}

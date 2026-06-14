@@ -1,0 +1,224 @@
+{
+  "tasks": [
+    {
+      "id": "setup_model",
+      "name": "Verify Qwen2.5-Math-7B-Instruct availability",
+      "description": "Download and cache the model, verify it loads correctly on Blackwell GPU",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "shared/models/qwen2.5-math-7b",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 1,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Model loads and generates coherent output"
+      }
+    },
+    {
+      "id": "g0_baseline",
+      "name": "G0 Baseline: Single-pass evaluation",
+      "description": "Evaluate Qwen2.5-Math-7B on MATH 200 with k=1 (single pass). Establish P_∞ baseline.",
+      "type": "baseline",
+      "depends_on": [
+        "setup_model"
+      ],
+      "expected_output": "exp/results/g0_baseline.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Accuracy > 40% OR consistent with published results"
+      },
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "Token count distribution",
+          "x": "token_count",
+          "y": "count",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "g1_saturation",
+      "name": "G1 Saturation: k=1,2,4,8,16 multi-sample",
+      "description": "Sample each problem k times (k=1,2,4,8,16), fit Arrhenius model P_k = P_∞(1-exp(-k/k₀))",
+      "type": "experiment",
+      "depends_on": [
+        "g0_baseline"
+      ],
+      "expected_output": "exp/results/g1_saturation.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Exponential fit R² > 0.85"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Saturation curves: P_k vs k for sample problems",
+          "x": "k",
+          "y": "accuracy",
+          "paper_section": "theory"
+        },
+        {
+          "type": "scatter",
+          "description": "Actual vs predicted accuracy from Arrhenius fit",
+          "x": "actual",
+          "y": "predicted",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "g2_consistency",
+      "name": "G2 Consistency: Ea from answer consistency",
+      "description": "Track answer consistency trajectory, estimate Ea from convergence rate",
+      "type": "experiment",
+      "depends_on": [
+        "g1_saturation"
+      ],
+      "expected_output": "exp/results/g2_consistency.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Spearman(Ea_estimate, Ea_actual) > 0.5"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Consistency-based Ea vs actual k₀",
+          "x": "consistency_ea",
+          "y": "saturation_k0",
+          "paper_section": "theory"
+        }
+      ]
+    },
+    {
+      "id": "g3_routing",
+      "name": "G3 Routing: Validate Ea-based threshold",
+      "description": "Classify problems by Ea threshold, validate single-pass accuracy on low-Ea problems",
+      "type": "experiment",
+      "depends_on": [
+        "g2_consistency"
+      ],
+      "expected_output": "exp/results/g3_routing.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Single-pass accuracy > 75% on low-Ea problems"
+      },
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Ea distribution by MATH difficulty level",
+          "x": "level",
+          "y": "ea",
+          "paper_section": "theory"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Single-pass accuracy: low-Ea vs high-Ea problems",
+          "x": "ea_category",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_h1",
+      "name": "Analysis H1: Arrhenius fit quality",
+      "description": "Evaluate exponential vs power-law vs logarithmic fit using AIC/BIC",
+      "type": "analysis",
+      "depends_on": [
+        "g1_saturation"
+      ],
+      "expected_output": "exp/results/analysis_h1.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Exponential R² > 0.85 OR documented as falsified"
+      }
+    },
+    {
+      "id": "analysis_h2",
+      "name": "Analysis H2: Ea-difficulty correlation",
+      "description": "Compute Spearman correlation between Ea and MATH difficulty level",
+      "type": "analysis",
+      "depends_on": [
+        "g2_consistency"
+      ],
+      "expected_output": "exp/results/analysis_h2.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Spearman > 0.4 OR documented as falsified"
+      }
+    },
+    {
+      "id": "analysis_h3",
+      "name": "Analysis H3: Single-pass threshold",
+      "description": "ROC analysis to find optimal Ea threshold, measure accuracy above/below",
+      "type": "analysis",
+      "depends_on": [
+        "g3_routing"
+      ],
+      "expected_output": "exp/results/analysis_h3.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Low-Ea accuracy > 75% OR documented as falsified"
+      }
+    }
+  ],
+  "shared_resources": [
+    {
+      "type": "dataset",
+      "name": "MATH",
+      "path": "shared/datasets/math_test_200"
+    },
+    {
+      "type": "model",
+      "name": "Qwen2.5-Math-7B-Instruct",
+      "path": "shared/models/Qwen2.5-Math-7B-Instruct"
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_f_v2",
+      "title": "Absorption is a Sparsity Phenomenon: Re-evaluating Architectural Claims in Sparse Autoencoders",
+      "status": "front_runner",
+      "summary": "Use SynthSAEBench-16k ground-truth synthetic data to isolate which architectural components actually reduce absorption. SURPRISING FINDING: TopK sparsity (k=50) reduces absorption by 78% with Cohen's d = 5.51, while orthogonality achieves only 2.7% (d = 0.14). The L0-absorption correlation is r ~ -0.99, suggesting absorption is primarily a sparsity-level phenomenon, not architecture-specific. First component-isolated causal analysis with reframed conclusion.",
+      "hypotheses": [
+        "H1 (REVISED): TopK sparsity is the dominant driver of absorption reduction (Cohen's d > 2.0 vs. baseline)",
+        "H2 (NEW): Absorption rate is primarily determined by L0 sparsity level, not architectural choice",
+        "H3 (NEW): Orthogonality penalties have negligible effect on absorption (d < 0.5), contradicting OrtSAE's 65% claim",
+        "H4 (REVISED): L0-absorption relationship transfers to real LLM SAEs (Kendall's tau > 0.6)"
+      ],
+      "pilot_focus": "Baseline + TopK + MultiScale on SynthSAEBench-1k subset. COMPLETED: TopK 83.8% reduction, MultiScale 75.3% reduction, Orthogonality 2.7% reduction.",
+      "time_estimate_gpu_hours": 1.5,
+      "novelty_score": 9,
+      "feasibility_score": 8,
+      "impact_score": 9,
+      "key_papers_to_beat": [
+        "Bussmann et al. 2025 (Matryoshka SAE, reports absorption reduction but no component isolation)",
+        "Korznikov et al. 2025 (OrtSAE, claims 65% absorption reduction from orthogonality; our data shows 2.7%)",
+        "Chanin & Garriga-Alonso 2026 (SynthSAEBench, introduces benchmark but no component isolation)"
+      ],
+      "evidence_from_pilot": {
+        "topk_absorption_reduction_pct": 78.0,
+        "topk_cohens_d": 5.51,
+        "orthogonality_absorption_reduction_pct": 2.7,
+        "orthogonality_cohens_d": 0.14,
+        "l0_absorption_correlation": -0.99,
+        "hedging_invariant": true,
+        "mcc_degenerate": true
+      }
+    },
+    {
+      "candidate_id": "cand_a",
+      "title": "The SAEBench Absorption Metric: A Confounded Proxy with a Small Learned-Structure Signal",
+      "status": "backup",
+      "summary": "Narrow diagnostic paper focusing on three robust findings from prior iterations: co-occurrence confound (H3), ceiling effect (H5), and model dependence (H6). Zero GPU cost.",
+      "hypotheses": [
+        "H3: Non-hierarchy co-occurrence pairs produce higher absorption than true hierarchies (Cohen's d = -1.79, p = 0.003)",
+        "H5: All probe AUROCs = 1.0, collapsing the absorption formula to 1.0 - k_sparse_acc",
+        "H6: GPT-2 shows near-zero absorption where Pythia shows substantial values"
+      ],
+      "pilot_focus": "Re-analysis of existing iter_002/003 data (5 min CPU)",
+      "time_estimate_gpu_hours": 0,
+      "novelty_score": 7,
+      "feasibility_score": 9,
+      "impact_score": 7,
+      "pivot_trigger": "L0-matched ablation shows sparsity is sole driver and reviewers find contribution too incremental"
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "The Rate-Distortion Origin of Feature Absorption: A Combinatorial Bound",
+      "status": "backup",
+      "summary": "Prove a general theorem that absorption is inevitable under sparsity for tree-structured hierarchies, with explicit depth-dependent bound. Validate on synthetic hierarchical data. Provides theoretical grounding if empirical results show sparsity is sole driver.",
+      "hypotheses": [
+        "Absorption rate increases monotonically with sparsity penalty lambda",
+        "Deeper tree nodes are absorbed before shallower nodes",
+        "Real SAEs with higher L0 show lower absorption rates"
+      ],
+      "pilot_focus": "Synthetic 3-level binary tree (7 features) x 3 lambda values",
+      "time_estimate_gpu_hours": 0.5,
+      "novelty_score": 7,
+      "feasibility_score": 6,
+      "impact_score": 7,
+      "pivot_trigger": "L0-matched ablation confirms sparsity is sole driver; reviewers request theoretical grounding"
+    },
+    {
+      "candidate_id": "cand_e",
+      "title": "Lateral Inhibition Prevents Feature Absorption: A Neural-Circuit-Inspired SAE Architecture",
+      "status": "backup",
+      "summary": "Implement LCA-style lateral inhibition in SAE encoder (active latents suppress competitors proportional to decoder cosine similarity). Test absorption reduction vs. Standard, TopK, and Matryoshka. Constructive proposal if reviewers demand more than component analysis.",
+      "hypotheses": [
+        "LCA-SAE achieves lower absorption than Standard and TopK with equivalent sparsity",
+        "Structured inhibition (true Gram matrix) outperforms random inhibition control",
+        "Optimal inhibition strength eta exists that minimizes absorption without reconstruction loss"
+      ],
+      "pilot_focus": "1 SAE architecture (LCA-SAE) vs. Standard on GPT-2 small, 5 iterations",
+      "time_estimate_gpu_hours": 1.5,
+      "novelty_score": 8,
+      "feasibility_score": 5,
+      "impact_score": 7,
+      "pivot_trigger": "Reviewers request constructive proposal beyond component analysis; or main experiment shows null results for all existing components"
+    },
+    {
+      "candidate_id": "cand_h",
+      "title": "TopK Dose-Response: Optimal Sparsity for Absorption Control",
+      "status": "backup",
+      "summary": "Characterize the absorption-sparsity dose-response curve by training TopK SAEs with k in {10, 25, 50, 100, 200, 500, 1000}. Identify Pareto-optimal k that minimizes absorption while preserving reconstruction and minimizing dead latents. Practical guidance for practitioners.",
+      "hypotheses": [
+        "Absorption rate increases monotonically with k",
+        "Dead latent rate decreases monotonically with k",
+        "There exists a Pareto-optimal k that balances absorption, reconstruction, and dead latents"
+      ],
+      "pilot_focus": "TopK with k in {10, 25, 50, 100, 200, 500} on SynthSAEBench-1k",
+      "time_estimate_gpu_hours": 0.5,
+      "novelty_score": 7,
+      "feasibility_score": 8,
+      "impact_score": 8,
+      "pivot_trigger": "Reviewers accept sparsity reframing but request practical guidance on 'what k to use'"
+    }
+  ],
+  "synthesis_metadata": {
+    "round": "iter_005_post_pilot_post_result_debate",
+    "prior_decision": "PROCEED with REFRAMING",
+    "prior_confidence": 0.72,
+    "perspectives_available": ["innovator", "pragmatist", "contrarian", "interdisciplinary", "theoretical", "empiricist"],
+    "perspectives_missing": [],
+    "result_debate_perspectives": ["optimist", "skeptic", "strategist", "methodologist", "comparativist", "revisionist"],
+    "perspectives_weighted_highest": ["empiricist", "result_debate_synthesis"],
+    "perspectives_weighted_strong": ["contrarian", "skeptic"],
+    "perspectives_weighted_moderate": ["theoretical", "pragmatist"],
+    "perspectives_weighted_lower": ["innovator", "interdisciplinary"],
+    "key_anomalies_addressed": [
+      "TopK_dominance_d_5.51_vs_MultiScale_hypothesis",
+      "Orthogonality_null_d_0.14_vs_OrtSAE_65pct_claim",
+      "L0_absorption_correlation_r_0.99",
+      "Hedging_invariant_refutes_tradeoff_hypothesis",
+      "MCC_degenerate_overcomplete_dictionary"
+    ],
+    "narrative_reframe": "From 'Which architectural component reduces absorption?' to 'Is absorption a sparsity phenomenon masquerading as an architectural one?'",
+    "prior_work_synthesized": [
+      "Chanin & Garriga-Alonso 2026 (SynthSAEBench)",
+      "Bussmann et al. 2025 (Matryoshka SAE)",
+      "Korznikov et al. 2025 (OrtSAE)",
+      "Chanin et al. 2024 (original absorption metric)",
+      "Karvonen et al. 2025 (SAEBench)",
+      "Korznikov et al. 2026 (random baselines)",
+      "Cui et al. 2025 (theoretical limits)",
+      "Tang et al. 2025 (spurious minima)"
+    ],
+    "novelty_verification_summary": "Novelty claims verified: (1) No prior work isolates SAE architectural components for absorption reduction on ground-truth data. (2) No prior work tests the sparsity-mediation hypothesis (L0-matched comparison). (3) First null result for orthogonality on absorption (d=0.14 vs. OrtSAE's claimed 65%). (4) First demonstration that TopK's effect (d=5.51) dwarfs all other components. (5) Web search confirms no prior paper performs component-isolated causal analysis on SynthSAEBench.",
+    "result_debate_verdict": "PROCEED with REFRAMING. Quality score 7/10. Unanimous agreement to continue. Core finding (TopK d=5.51) is exceptionally robust. Key revision: research question reframes from 'which architecture?' to 'is absorption a sparsity phenomenon?'. L0-matched ablation is critical control.",
+    "evidence_driven_revisions": {
+      "H1_MultiScale_to_TopK": "Data shows TopK d=5.51 >> all others. Original MultiScale hypothesis revised.",
+      "H2_ranking_refuted": "Observed: TopK >> Orthogonality. Predicted: MultiScale > Orthogonality > TopK > Gating.",
+      "H3_hedging_refuted": "Hedging ~0.24 constant across variants. No trade-off observed.",
+      "H5_MCC_refuted": "MCC ~0.21-0.22 across ALL variants including Random. Degenerate metric.",
+      "H2_sparsity_mediation_added": "L0-absorption correlation r~-0.99 suggests sparsity is operative variable.",
+      "H3_orthogonality_null_added": "d=0.14 directly contradicts OrtSAE's 65% claim."
+    }
+  }
+}

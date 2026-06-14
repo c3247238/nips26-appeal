@@ -1,0 +1,57 @@
+{
+  "score": 6.4,
+  "verdict": "revise",
+  "summary": "The paper has a credible diagnostic reframing and the headline tables are numerically supported by the current result artifacts, but the quality gate is still blocked by aggregate-only evidence, underspecified signal-audit definitions, and incomplete uncertainty accounting. I used exp/results/final_pareto_synthesis.json as the representative summary because exp/results/summary.md is absent, and cross-checked the manuscript against gsm8k_main_shortlist.json, diag_signal_gap_audit.json, diag_math500_shortlist.json, diag_humaneval_guard_boundary.json, and the earlier pilot summary.",
+  "issues": [
+    {
+      "stage": "experiments",
+      "category": "evidence",
+      "severity": "critical",
+      "description": "The central diagnostic thesis is still supported mainly by single-seed, small-slice aggregates. The proposal explicitly requires benefit buckets as mechanism evidence (idea/proposal.md:113-125), and the paper itself lists benefit buckets plus seed checks as future work rather than delivered evidence (writing/paper.md:142-146). Current headline evidence remains GSM8K n=100 seed=42, MATH500 n=100, and HumanEval n=50 (exp/results/gsm8k_main_shortlist.json:5-15; exp/results/diag_math500_shortlist.json:5-20; exp/results/diag_humaneval_guard_boundary.json:6-27).",
+      "suggestion": "Add a benefit-bucket audit and at least one seed-sensitivity spot-check for the headline pairwise comparisons, or further soften the mechanism and task-dependence claims."
+    },
+    {
+      "stage": "analysis",
+      "category": "definition",
+      "severity": "major",
+      "description": "The signal audit is not defined cleanly enough for external review. The paper states that calibration is the strongest observer with d(s)=0.6225 (writing/paper.md:89-99), but the underlying audit defines that number as held-out |entropy_error_corr| rather than as a direct calibration metric such as ECE (exp/results/diag_signal_gap_audit.json:13-18; exp/results/diagnostic_calibration_heldout.json:8-14).",
+      "suggestion": "Define d(s) and g(s) explicitly in the paper, separate calibration quality from entropy-error correlation, and rename the audit row if needed so reviewers cannot read it as metric conflation."
+    },
+    {
+      "stage": "results",
+      "category": "robustness",
+      "severity": "major",
+      "description": "The manuscript does not directly explain the shrink from the earlier stronger pilot revision story to the current diagnostic-only framing. Earlier pilot assets reported CARD-84=0.43 and CARD-68=0.41 on GSM8K, while the final synthesis pivots because TIGER only ties entropy at 0.39 and still trails CORE at 0.46 (exp/history/pilots_pre_tiger_1773250838/pilot_summary.json:72-87; exp/results/final_pareto_synthesis.json:5-18,21-43). Without an explicit shrinkage narrative, reviewers may suspect instability or cherry-picking.",
+      "suggestion": "Add one frank paragraph or appendix note explaining the pilot-to-shortlist shrinkage and why the paper now rejects a method-forward claim."
+    },
+    {
+      "stage": "methodology",
+      "category": "fairness",
+      "severity": "major",
+      "description": "The honest-compute protocol is promising but still under-justified as a fairness standard. The paper reports actual NFE, latency, batch size, backend, and compile status (writing/paper.md:52-54,72-83), yet it does not explain why actual NFE is the primary normalization axis when systems settings differ sharply across methods, especially CORE batch_size=1 versus revision batch_size=32 and baseline compile differences (exp/results/gsm8k_main_shortlist.json:7-20,21-45).",
+      "suggestion": "State the normalization philosophy explicitly and add an appendix-grade runtime-lineage/fairness table showing which differences are treated as algorithmic versus implementation-level confounds."
+    },
+    {
+      "stage": "writing",
+      "category": "artifact_consistency",
+      "severity": "minor",
+      "description": "The writing pipeline is not fully synchronized. writing/paper.md still contains a Figure 2 TODO placeholder (writing/paper.md:60-64), while writing/latex/main.tex already has a rendered protocol figure (writing/latex/main.tex:75-99).",
+      "suggestion": "Keep the markdown and LaTeX artifacts aligned so the review trail and final manuscript tell the same story."
+    }
+  ],
+  "risks": [
+    "Top-tier reviewers may see the paper as strategically correct but empirically under-closed because the mechanism evidence is still aggregate-only.",
+    "The task-dependence claim may be judged as over-generalized from boundary slices rather than fully validated across tasks.",
+    "The observer-versus-controller contribution may be challenged on definitional grounds if calibration, entropy correlation, and controller gain are not disentangled more carefully.",
+    "Reproducibility confidence may drop if runtime-lineage and fairness metadata remain implicit rather than appendix-grade.",
+    "If pilot-to-current shrinkage is not disclosed directly, reviewers may suspect narrative selection rather than honest scope control."
+  ],
+  "evidence_gaps": [
+    "No benefit-bucket analysis for harmed, fixed, and no-effect revision cases.",
+    "No seed-sensitivity or variance estimate for the headline GSM8K comparisons.",
+    "No explicit derivation and interpretation section for d(s) and g(s) in the manuscript.",
+    "No appendix-grade runtime fairness / asset-lineage table despite the paper's evaluation-first framing.",
+    "No direct discussion of pilot-to-current shrinkage from the earlier stronger CARD/TIGER story to the final diagnostic framing.",
+    "The generic PPL-diversity tradeoff check is not applicable to the current GSM8K/MATH500/HumanEval suite, and the paper does not make a diversity claim."
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "pilot_config": {
+    "samples": 1000,
+    "seed": 42,
+    "timeout_seconds": 900,
+    "model": "gpt2-small",
+    "layer": 8,
+    "sae_source": "gpt2-small-res-jb",
+    "dataset": "openwebtext",
+    "dataset_samples": 1000,
+    "device": "cuda",
+    "batch_size": 8,
+    "max_sequence_length": 128
+  },
+  "pilots": [
+    {
+      "id": "p1_uad_gpt2",
+      "name": "UAD Feasibility on GPT-2 Small",
+      "description": "Test co-occurrence-based unsupervised absorption detection on GPT-2 Small with pre-trained JumpReLU SAE. Build phi coefficient correlation matrix, run hierarchical clustering, validate against first-letter collision labels.",
+      "objective": "Verify UAD achieves F1 >= 0.5 on GPT-2 Small within 15 minutes using 1k tokens.",
+      "steps": [
+        "Load GPT-2 Small via TransformerLens",
+        "Load pre-trained JumpReLU SAE (gpt2-small-res-jb, layer 8, d_SAE=24,576)",
+        "Extract feature activation matrix on 1k OpenWebText tokens",
+        "Filter dead features (zero activation across all tokens)",
+        "Compute phi coefficient correlation matrix for top 100 most active features",
+        "Run hierarchical agglomerative clustering (Ward linkage, 50 clusters)",
+        "Identify same-cluster feature pairs",
+        "Validate against known first-letter collision pairs (from Iteration 1: feature 18486 -> c,i,o,p,u)",
+        "Compute precision, recall, F1"
+      ],
+      "pass_criteria": [
+        "F1 >= 0.5 compared to first-letter collision labels",
+        "Recall >= 0.5 (must detect most true collisions)",
+        "Total runtime < 15 minutes",
+        "No fatal errors in pipeline"
+      ],
+      "fail_action": "If F1 < 0.5, try alternative clustering methods (spectral, DBSCAN) or correlation metrics (mutual information, Jaccard). If still failing, mark UAD as high-risk and consider pivot to candidate B (general co-occurrence tool).",
+      "expected_output": "exp/pilots/p1_uad_gpt2_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15
+    },
+    {
+      "id": "p2_dfda_gpt2",
+      "name": "DFDA Feasibility on GPT-2 Small",
+      "description": "Train tiny MLP to predict absorbed parent feature activation from child feature activation on known collision pairs from GPT-2 Small.",
+      "objective": "Verify DFDA achieves >5% mean per-pair residual MSE improvement within 15 minutes.",
+      "steps": [
+        "Load GPT-2 Small and pre-trained SAE (same as P1)",
+        "Identify 4 known absorbed pairs from Iteration 1 (parent=c, children=i,o,p,u via feature 18486)",
+        "Build training dataset: collect tokens where child fires but parent does not",
+        "For each pair, train tiny MLP: input=1 (child activation), hidden=64, output=1 (parent residual)",
+        "At inference: add MLP(child_activation) to parent_activation",
+        "Evaluate: per-pair residual MSE (predicted vs actual parent activation)",
+        "Measure reconstruction MSE change",
+        "Report mean improvement across pairs"
+      ],
+      "pass_criteria": [
+        "Mean per-pair residual MSE improvement > 5%",
+        "Reconstruction MSE change < 10%",
+        "MLP training converges within 5 minutes",
+        "Total runtime < 15 minutes"
+      ],
+      "fail_action": "If no improvement, try larger MLP (256 hidden) or different loss function (huber loss). If compensation hurts reconstruction, mark DFDA as infeasible and focus paper on UAD only.",
+      "expected_output": "exp/pilots/p2_dfda_gpt2_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15
+    },
+    {
+      "id": "p3_uad_gemma",
+      "name": "UAD Feasibility on Gemma-2B",
+      "description": "Test UAD on Gemma-2B with pre-trained SAE from GemmaScope. Same protocol as P1 but on larger model.",
+      "objective": "Verify UAD pipeline works on Gemma-2B and achieves F1 >= 0.45 within 15 minutes.",
+      "steps": [
+        "Load Gemma-2B via TransformerLens",
+        "Load pre-trained SAE from GemmaScope (layer 8, width 16k or 24k)",
+        "Extract feature activation matrix on 1k tokens",
+        "Filter dead features",
+        "Compute phi coefficient correlation matrix for top 100 features",
+        "Run hierarchical clustering (Ward, 50 clusters)",
+        "Identify same-cluster pairs",
+        "Validate against first-letter features if detectable",
+        "Compute precision, recall, F1"
+      ],
+      "pass_criteria": [
+        "F1 >= 0.45 (lower threshold for cross-model pilot)",
+        "Pipeline completes without errors",
+        "Total runtime < 15 minutes"
+      ],
+      "fail_action": "If Gemma-2B SAE loading fails, skip to Pythia-2.8B pilot. If F1 < 0.45 but pipeline works, proceed with caveat and increase sample size for full experiment.",
+      "expected_output": "exp/pilots/p3_uad_gemma_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "notes": "This is the critical cross-model validation pilot. If SAE loading fails, immediately try Pythia-2.8B."
+    }
+  ],
+  "pilot_decision_matrix": {
+    "all_pass": "Proceed with all full experiments (E1-E9). Full steam ahead on cand_a.",
+    "p1_p2_pass_only": "Proceed with GPT-2 Small focused experiments (E1, E2, E5, E6, E7, E8). Skip Gemma/Pythia cross-validation. Paper scopes to GPT-2 Small with multi-seed robustness.",
+    "p1_pass_only": "UAD works but DFDA fails. Proceed with UAD-only experiments (E1-E4, E7). Paper focuses on unsupervised detection without compensation claim.",
+    "p2_pass_only": "DFDA works but UAD F1 is marginal. Re-tune UAD hyperparameters (cluster count, correlation metric). If still marginal, consider candidate B (general co-occurrence tool).",
+    "p3_fails": "Gemma-2B validation fails. Try Pythia-2.8B. If both fail, scope paper to GPT-2 Small only with explicit limitation discussion.",
+    "none_pass": "REFINE: Both UAD and DFDA pilots fail. Consider pivot to candidate B (general co-occurrence analysis), candidate C (absorption stability across seeds), or candidate D (absorption as quality diagnostic)."
+  },
+  "go_no_go_gates": [
+    {
+      "gate": "G1",
+      "condition": "P1 (UAD GPT-2) F1 >= 0.5",
+      "if_passed": "Proceed to full UAD experiments on GPT-2 Small",
+      "if_failed": "Re-tune UAD hyperparameters (clustering method, correlation metric, feature count). If still failing after 2 attempts, PIVOT."
+    },
+    {
+      "gate": "G2",
+      "condition": "P3 (UAD Gemma-2B) F1 >= 0.45 OR Pythia-2.8B equivalent >= 0.45",
+      "if_passed": "Proceed with cross-model full experiments (E3, E4)",
+      "if_failed": "If F1 >= 0.4 but < 0.45, proceed with caveat and larger sample size. If F1 < 0.4, scope paper to GPT-2 Small only."
+    },
+    {
+      "gate": "G3",
+      "condition": "P2 (DFDA GPT-2) mean improvement >= 5%",
+      "if_passed": "Proceed to DFDA scaling (E5)",
+      "if_failed": "Downgrade DFDA to supplementary. Paper focuses on UAD only."
+    }
+  ],
+  "shared_pilot_resources": {
+    "model_gpt2": "gpt2-small",
+    "model_gemma": "google/gemma-2b",
+    "model_pythia": "EleutherAI/pythia-2.8b",
+    "sae_gpt2": "gpt2-small-res-jb",
+    "device": "cuda",
+    "batch_size": 8,
+    "max_sequence_length": 128,
+    "dataset": "openwebtext",
+    "dataset_samples": 1000
+  },
+  "pilot_to_full_scaling": {
+    "tokens": "1k (pilot) -> 10k (full)",
+    "features": "100 (pilot) -> 500 (full)",
+    "clusters": "50 (pilot) -> 50 (full, same)",
+    "dfda_pairs": "4 (pilot) -> 8+ (full)",
+    "seeds": "1 (pilot) -> 3 (full)",
+    "models": "1 (pilot) -> 3 (full, if cross-validation succeeds)"
+  }
+}

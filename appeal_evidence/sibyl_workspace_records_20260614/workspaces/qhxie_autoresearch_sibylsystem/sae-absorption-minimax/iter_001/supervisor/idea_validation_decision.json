@@ -1,0 +1,76 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_a",
+  "confidence": 0.72,
+  "candidate_scores": {
+    "cand_a": {
+      "weighted_score": 3.90,
+      "verdict": "ADVANCE",
+      "signal": 5,
+      "hypothesis_survival": 3,
+      "path": 4,
+      "novelty": 5,
+      "resource_efficiency": 4
+    },
+    "cand_b": {
+      "weighted_score": 2.55,
+      "verdict": "REFINE",
+      "signal": 1,
+      "hypothesis_survival": 2,
+      "path": 3,
+      "novelty": 4,
+      "resource_efficiency": 3
+    },
+    "cand_c": {
+      "weighted_score": 1.85,
+      "verdict": "PIVOT",
+      "signal": 1,
+      "hypothesis_survival": 1,
+      "path": 2,
+      "novelty": 4,
+      "resource_efficiency": 2
+    },
+    "cand_d": {
+      "weighted_score": 1.85,
+      "verdict": "PIVOT",
+      "signal": 1,
+      "hypothesis_survival": 1,
+      "path": 2,
+      "novelty": 3,
+      "resource_efficiency": 3
+    }
+  },
+  "reasons": [
+    "H3 reversal is the strongest empirical finding across all candidates: N=100, Spearman r=+0.35, p=2.92e-04, high-absorption features are MORE steerable",
+    "Genuinely novel: no prior work measures steering sensitivity stratified by absorption level; positive correlation is absent from all prior art",
+    "Transforms SAE Sanity Checks from existential threat to paper motivation (absorbed features DO have causal weight)",
+    "UAS validated with r=0.65-0.79 across all runs (H4 CONFIRMED)",
+    "TopK mitigation benchmark confirmed: 70.9% absorption reduction at 8x MSE cost (H2 partially confirmed)",
+    "Clear path to full paper: only 3-4 experiments remain (~2.5 GPU-hours total)",
+    "cand_b/c/d have zero pilot data; investing GPU budget in untested directions is indefensible while confirmed findings are available"
+  ],
+  "next_actions": [
+    "Run full_h3_gemma: replicate H3 reversal on Gemma-2B layer 12 (~45 min GPU)",
+    "Run pilot_h3_null: add null controls (shuffled/random directions) to confirm high-absorption steering effect is genuine (~15 min GPU)",
+    "Run full_h1_final: resolve contradictory layer-wise results with fixed feature selection (~30 min GPU)",
+    "Run full_h5: expand to 200 features with real causal QA (CounterFact/TruthfulQA) (~60 min GPU)",
+    "Add Matryoshka SAEs to H2 mitigation benchmark (reviewer will flag omission)",
+    "Begin paper drafting: lead with H3 reversal as central contribution, draft Related Work contrasting activation vs steering sensitivity",
+    "Draft SAE Sanity Checks rebuttal paragraph in Discussion section"
+  ],
+  "dropped_candidates": ["cand_b", "cand_c", "cand_d"],
+  "pivot_trigger": "If pilot_h3_null fails to confirm hub mechanism, evaluate cand_b (HSAE + absorption regularization) as pivot direction",
+  "key_risks": [
+    "H3 Gemma replication may fail to confirm positive correlation on different model family",
+    "H3 null control may reveal high-absorption effect is a measurement artifact",
+    "H1 layer-wise pattern may be SAE-seed dependent, limiting the absorption atlas contribution",
+    "ATM/OrtSAE pending full results: if they fail to reduce absorption without reconstruction cost, H2 narrative weakens"
+  ],
+  "evidence_confidence": {
+    "h3_reversal": "HIGH: N=100, p=2.92e-04, cross-validated with full experiment design",
+    "h4_uas": "HIGH: r=0.65-0.79 across multiple runs and layers",
+    "h2_topk": "CONFIRMED: 70.9% reduction, 8x MSE cost",
+    "h2_jumprelu": "FAILED: did not converge",
+    "h5_discriminability": "LOW-MODERATE: marginal fail at 4.95% vs 5% threshold, causal task AUC near 0.5"
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "score": 6.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7.5,
+    "soundness": 5.5,
+    "experiments": 6,
+    "reproducibility": 6
+  },
+  "summary": "The paper proposes a genuinely novel PID-style taxonomy for dynamic weight decay methods, mapping alignment-based (CWD), constraint-based (CPR), and scheduling-based (SWD) methods to specific gain configurations (K_p, K_i, K_d). The conceptual contribution is real -- no prior work makes this connection. Cross-validation confirms all CIFAR-10 accuracy numbers match phase1_diagnostic/summary.json exactly; all ImageNet accuracy numbers match individual result JSON files (CPR 74.742+/-0.042, FixedWD 71.722+/-0.360, UDWDC 69.933+/-0.199, CWD 70.66 single seed). However, the score drops from the prior review's 7.0 because multiple integrity issues remain unfixed after being flagged: (1) the CWD K_d mapping claim in Table 1 is directly contradicted by the paper's own fitting data (K_d=0.000, scale=0.500); (2) AIS=0.566 has negative LOO-CV R^2=-0.18 and is computed from only 6 data points, rendering it statistically meaningless; (3) CSI formula is internally inconsistent (4 contradictory definitions, negative values impossible under any stated formula); (4) ImageNet is 12/40 complete with BEM uncomputable. These were all flagged in iter_014 but not addressed in the paper. UDWDC performs below NoWD on CIFAR-10 and below FixedWD on all benchmarks. The paper's honest reporting of negative results is a strength, but the unfixed data integrity issues push the score below 7.0.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "CWD gain-mapping in Table 1 claims 'K_d > 0, Derivative only' but the paper's own fitting data (unifying_table.md, 200-epoch, 3-seed) reports K_p=0.0000, K_i=-0.0000, K_d=-0.0000 with offset=-5.014e-5, scale=0.5000. The 4.71% fitting error is achieved entirely via the scale=0.5 parameter (WD magnitude halving), not via any PID gain. This means the PID taxonomy's mapping for CWD is empirically wrong -- CWD does NOT operate as a derivative controller in the fitted model. The paper's central Table 1 contains a claim directly contradicted by its own experiment output. This has been flagged for 2+ iterations without correction.",
+      "suggestion": "Revise Table 1 and Section 3.2 narrative. The honest interpretation: CWD's 4.71% fit is explained by scale=0.5 (effective 50% WD reduction), not by K_d alignment feedback. State: 'CWD's empirical behavior under our per-layer fitting is dominated by WD magnitude reduction (scale=0.5) rather than derivative gain K_d; the alignment mask operates through magnitude halving rather than per-layer error feedback in our model.' This actually reinforces Section 6.3's magnitude confound discussion."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "AIS=0.566 (Section 4.3 and abstract) is computed from only 6 data points (6 WD configurations). The 95% confidence interval for Spearman rho with n=6 is approximately +/-0.71, meaning the CI includes zero. The LOO-CV R^2 is negative (-0.18 from metrics_results.json loo_cv_r2_alpha_bar), confirming zero out-of-sample predictive power. The paper presents AIS as a validated diagnostic metric with a specific numerical value (0.566, r_alpha_gengap=0.698), but these numbers are statistically meaningless at n=6 and fail cross-validation (LOO-CV negative). This is not fabrication but it is scientifically inappropriate to present a correlation from 6 data points without reporting the wide CI and the negative LOO-CV R^2.",
+      "suggestion": "Either: (a) Run the AIS computation on the 200-epoch phase3_alignment/informativeness data with more configurations to get a statistically powered estimate, or (b) report AIS=0.566 with the explicit caveat: 'n=6, 95% CI includes zero, LOO-CV R^2=-0.18; this is preliminary evidence requiring validation at larger sample size.' Remove the r=0.698 claim unless it can be verified against a larger dataset. Do not present AIS as a validated metric until the sample size supports it."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Section 4.2 contains four contradictory CSI formulas: (1) CSI_temporal = 1/Var_t[lambda_eff^l] (always positive or infinity); (2) CSI_normalized = CSI_raw / CSI_raw_FixedWD; (3) 'normalization relative to max observed CSI with FixedWD = 1.0'; (4) Table 6 caption: CSI = 1/(1 + Var_t[lambda/mean]). None of these four can produce -5.75 (UDWDC CSI_temporal from metrics_results.json). The paper's central numerical finding about UDWDC instability (CSI_combined=-2.41) rests on a value whose generating formula is undisclosed. Any reviewer who checks the stated formulas against the reported values will immediately flag this.",
+      "suggestion": "Identify the actual code that produced the refined CSI values. Standardize to a single formula: CSI = 1/(1 + CV^2) where CV = std/mean of effective WD, computed over last 25% of training. This formula produces values in (0, 1] and FixedWD = 1.0 by construction. If UDWDC's instability needs a different metric, introduce a new named metric (e.g., WD Coefficient of Variation) rather than using CSI with an undisclosed formula."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "ImageNet experiments are 12/40 complete. SWD, DefazioCorrective, NoWD have zero 90-epoch results; CWD has 1 seed; UDWDC-v2 has zero ImageNet results. BEM -- the paper's primary novel metric -- cannot be computed for ImageNet without a NoWD baseline. The paper presents Table 5 as 'primary large-scale evidence for the framework' but covers only 4 of 7 methods. The absence of NoWD means the paper's core metric is undemonstrable at the largest scale. This was flagged in iter_014 and earlier iterations.",
+      "suggestion": "Complete at minimum: NoWD (3 seeds, needed for BEM denominator), CWD (2 additional seeds for valid CI), UDWDC-v2 (3 seeds for consistency). This is approximately 8 additional 90-epoch runs (~24 GPU-hours on 2 GPUs). Until complete, add explicit footnote to Table 5: 'ImageNet BEM is not computable due to absent NoWD baseline; SWD, DefazioCorrective not run at this scale.'"
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "Theorem 1, Proposition 2, and Proposition 3 are stated as formal theoretical results but no proofs or proof sketches appear anywhere in the paper. Theorem 1 claims 'strictly tighter generalization bounds' -- a strong quantitative claim requiring formal derivation. Proposition 3 claims 'our experiments verify the anti-correlation on ResNet-50' but no figure or table in the paper shows per-layer r_l* vs delta_l* anti-correlation data. These have been flagged for 6+ iterations without resolution.",
+      "suggestion": "Fastest path: demote Theorem 1 to 'Conjecture 1' and Propositions 2-3 to 'Hypothesis 2-3'. Remove 'Theoretical analysis' from Contribution 4 in the introduction. This is a 30-minute text edit that resolves the issue honestly. Alternatively, provide full proofs in an appendix."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "CPR's dominant performance (+3.02 pp over FixedWD on ImageNet) uses 2.3x the WD budget (1.20 vs 0.52). Budget-matched controls (FixedWD at lambda matching CPR's total WD budget) were planned and executed at 2-epoch pilot scale only. Without full-scale budget-matched controls, the paper cannot distinguish whether CPR's gains come from better WD allocation (the integral control narrative) or simply from stronger regularization. This is the most important missing experiment for the paper's core mechanistic claim.",
+      "suggestion": "Run FixedWD at lambda=2e-4 and lambda=3e-4 for 90 epochs with 3 seeds each (6 runs, ~18 GPU-hours). If FixedWD at higher lambda matches CPR, conclude 'CPR works through stronger regularization, not better allocation.' If CPR still leads, the integral control narrative is supported."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The CWD vs. halved-lambda ablation has been flagged as 'essential future work' for 3+ iterations and as P0 priority in lessons_learned.md but has never been executed. FixedWD at lambda=5e-5 on CIFAR-10 with 3 seeds would take ~1 GPU-hour and would definitively resolve whether CWD's behavior is due to alignment information or WD magnitude reduction. This is the highest information-per-GPU-hour experiment remaining.",
+      "suggestion": "Execute immediately: FixedWD at lambda=5e-5, CIFAR-10, 200 epochs, 3 seeds. If it matches CWD (90.32%), alignment masking has no value at this lambda scale; if CWD is better, alignment carries information. Report the result in Section 6.3."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "UDWDC-v2's WD budget of 98,599 (~205,000x FixedWD's 0.48) is an implementation artifact: floor clipping applies lambda_min=0.1*lambda_base to all 65 layers including 41 BN/bias layers. The paper acknowledges 'future work should restrict UDWDC to weight layers only' but reports v2 results as a 'stability-fixed variant' without fixing the BN layer bug. This is a one-line code fix (exclude BN/bias from control loop) that has been flagged repeatedly. Reporting knowingly-incorrect v2 results as a contribution is a credibility problem.",
+      "suggestion": "Fix UDWDC-v2 to exclude BN/bias parameters from the control loop. Rerun CIFAR-10 diagnostic (3 seeds, ~3 GPU-hours). Report the corrected v2 results. The current 205,000x budget anomaly makes all v2 BEM values meaningless."
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "The paper title 'Unified Feedback Control Framework' and abstract claim 'all four traditions implicitly manipulate a single quantity' are overstated: 2/5 methods (SWD 45.81%, DefazioCorrective 37.56%) fail the unification test, and CWD's fit is explained by scale=0.5 rather than K_d gain. This means only 1 of 5 methods (CPR at 9.57%) is genuinely captured by the PID gain parameters. The 'unified framework' unifies CPR and describes the scope limitations for the other 4 methods.",
+      "suggestion": "Revise the title to emphasize taxonomy and diagnostic framework rather than unification. Example: 'A PID-Style Taxonomy and Diagnostic Benchmark for Dynamic Weight Decay Methods.' Update abstract: 'CWD and CPR are captured by the control law to <10% fitting error; scheduling-based methods fall outside the per-layer feedback paradigm, delineating the framework's scope.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "ImageNet std values use population std (ddof=0) rather than sample std (ddof=1). With N=3-5, the difference is meaningful. FixedWD: population std=0.360, sample std=0.402 (5 seeds). UDWDC: population std=0.199, sample std=0.244 (3 seeds). CPR: population std=0.042, sample std=0.051 (3 seeds). The paper consistently uses population std which underestimates uncertainty.",
+      "suggestion": "Switch to sample std (ddof=1) throughout. Update Table 5 and abstract: FixedWD becomes 71.72+/-0.40 (5 seeds), UDWDC becomes 69.93+/-0.24 (3 seeds), CPR becomes 74.74+/-0.05 (3 seeds)."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Figure 1 uses 10-epoch pilot data (seed 42 only) to illustrate the paper's central claim that all methods converge toward shared rho*. The full 200-epoch diagnostic data from phase1_diagnostic exists with 3 seeds and would provide stronger evidence. Using pilot data for the primary claim figure weakens the presentation.",
+      "suggestion": "Regenerate Figure 1 using 200-epoch phase1_diagnostic trajectories with 3-seed mean and std bands."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Batch size 432 with DDP across 2 GPUs uses a non-standard configuration. The learning rate scaling rule is not stated. Linear scaling from standard 256-batch recipe would give eta_0 ~ 0.169, but the paper uses eta_0 = 0.1. This affects rho*(t) calculation and makes the ImageNet setup harder to reproduce or compare with standard baselines.",
+      "suggestion": "Add a footnote in Section 5.1 explaining the batch size choice and LR scaling decision. State explicitly why eta_0=0.1 was used rather than linearly-scaled LR."
+    }
+  ],
+  "risks": [
+    "CWD K_d=0.000 in fitting data directly contradicts Table 1 K_d>0 claim -- any reviewer checking the fitting results will reject",
+    "AIS=0.566 from n=6 with negative LOO-CV R^2 will not survive peer review scrutiny",
+    "CSI formula inconsistency (4 contradictory definitions, undisclosed formula producing negative values) blocks reproducibility",
+    "ImageNet BEM uncomputable (NoWD absent) undermines the paper's primary evaluation metric at its largest scale",
+    "UDWDC-v2 BN layer bug produces 205,000x WD budget anomaly, contaminating all v2 results",
+    "Theorem proofs absent for 6+ iterations -- theory-focused reviewers will flag immediately"
+  ],
+  "evidence_gaps": [
+    "CWD vs. halved-lambda ablation (FixedWD at lambda=5e-5, CIFAR-10, 3 seeds) -- flagged P0 for 3+ iterations, never run",
+    "Budget-matched FixedWD for ImageNet (lambda=2e-4 and 3e-4, 90 epochs, 3 seeds each)",
+    "NoWD ImageNet 90-epoch baseline (needed for BEM)",
+    "CWD ImageNet additional 2 seeds (needed for valid CI)",
+    "UDWDC-v2 with BN/bias exclusion fix (corrected implementation)",
+    "AIS validation with larger sample size or cross-validated estimate",
+    "CSI recomputation from 200-epoch data with single consistent formula",
+    "Theorem 1 proof or explicit demotion to conjecture",
+    "Proposition 3 verification figure (per-layer r_l* vs delta_l* scatter)"
+  ],
+  "what_would_raise_score": "To reach 7.0: Fix the CWD K_d mapping claim (acknowledge scale=0.5 explains the fit), report AIS with proper caveats (n=6, CI includes zero, negative LOO-CV), and standardize CSI to one formula. To reach 7.5: Complete the halved-lambda ablation, fix UDWDC-v2 BN bug, and demote theorems to conjectures. To reach 8.0: Complete ImageNet NoWD baseline (enabling BEM), add budget-matched FixedWD controls, and provide full proofs for theoretical claims. The taxonomy contribution is genuinely 8.0-level work, but data integrity issues (CWD K_d, AIS, CSI formula) drag the overall score below 7.0."
+}

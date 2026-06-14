@@ -1,0 +1,97 @@
+{
+  "score": 6,
+  "verdict": "revise",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 5,
+    "experiments": 5,
+    "reproducibility": 5
+  },
+  "summary": "The paper makes a genuine methodological contribution in introducing the factorial decomposition for isolating encoder vs decoder contributions to absorption. The encoder dominance finding (80x larger than decoder effect) and the capacity-pressure mechanism (lower L0 -> higher absorption) are real and interesting. However, three critical weaknesses undermine the strength of these contributions: (1) post-hoc criterion revision for H_Mech destroys confirmatory status and renders the primary result exploratory, (2) metric inconsistency across experiments prevents reliable cross-experiment comparison, and (3) the synthetic-only validation at d_model=128 provides limited evidence for real-world LLM SAE behavior. The negative results (steering, safety) are honestly reported, but the safety analysis uses a saturating metric (97% absorption for both groups) that makes the null result uninterpretable. A score of 6 reflects that the work has merit and genuine findings but requires another iteration to address these fundamental issues.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Post-hoc criterion revision for H_Mech: The original pass criteria (B approx D and C approx A) failed on 14 of 15 runs (93.3%). Criteria were revised to encoder effect > 0.5 and decoder effect < 0.1 after observing the data. This revision was not pre-registered and the paper itself acknowledges it should be interpreted as exploratory rather than confirmatory. This is not a minor issue -- the entire H_Mech contribution (the paper's primary empirical claim) rests on this revised criterion.",
+      "suggestion": "Pre-register the revised criteria in a public registry (e.g., OSF) before running the full experiment, OR reframe H_Mech as exploratory/pilot-scale evidence for the encoder hypothesis and conduct a new experiment with the revised criteria as the official stopping rule."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Three different absorption metrics used across experiments without established equivalence: factorial decomposition uses 'overlap fraction', multi-seed validation uses 'Jaccard overlap', and safety analysis uses 'cosine-based proportional absorption'. Section 3.3 acknowledges this but does not resolve it. Table 1 presents results from all three metrics as if they are comparable, which they are not. This means the paper cannot make cross-experiment claims (e.g., that encoder effect is 80x larger than decoder effect) on a unified scale.",
+      "suggestion": "Either (a) pick one canonical metric and recompute all experiments, or (b) split Table 1 into metric-specific sections and remove all cross-experiment numerical comparisons. At minimum, Table 1 should clearly label which metric each row uses."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Random SAE baselines show zero variance (std ~0 across all 5 seeds in multiseed_validation.json), meaning the random absorption rate is deterministic for a given initialization. This is highly suspicious and suggests either (a) the random SAE produces identical activation patterns regardless of seed, or (b) the absorption measurement itself has no sensitivity to the random SAE's actual state. The paper uses this zero-variance baseline to compute Cohen's d > 10, which is mathematically misleading when one distribution has zero variance.",
+      "suggestion": "Investigate why random SAEs produce zero-variance absorption. If this is a measurement artifact, recalculate effect sizes with appropriate variance estimates. If it is genuine determinism, acknowledge it explicitly and use a different baseline (e.g., trained SAE with shuffled labels) that provides a non-zero variance comparison."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Safety-critical feature analysis (H_Safe) uses a saturating metric: both safety and non-safety groups show ~97% absorption (0.967 vs 0.968). At 97%, there is essentially no dynamic range to detect differences. The Mann-Whitney p=0.989 null result is uninterpretable as evidence of 'no safety-specific absorption' because the metric cannot distinguish between safety and non-safety even if differences existed.",
+      "suggestion": "Use a different absorption metric with better dynamic range for the safety analysis. Alternatively, analyze whether the 3% non-absorbed features are systematically non-safety features, which would indicate a real (if small) safety specificity."
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "The held-out generalization correlation (r=0.998) is based on only 5 data points (n=1 held-out hierarchy per seed). With 5 seeds, the correlation coefficient has at most 3 degrees of freedom and a mathematically fragile point estimate. The paper presents this as 'perfect generalization' but the confidence interval could be wide given the tiny sample.",
+      "suggestion": "Increase the number of held-out hierarchies per seed (e.g., n=3-5) to obtain a more reliable correlation estimate. Report the confidence interval explicitly for the r=0.998 claim."
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "Section 3.5 (methodology) promises a one-way ANOVA across all completed variants in the Results, but this is never reported. The paper focuses on pairwise effect sizes instead, which is more appropriate given low power, but the unfulfilled promise undermines credibility.",
+      "suggestion": "Either (a) add the ANOVA to the Results section and report it with appropriate caveats about low power, or (b) remove the promise from Section 3.5 methodology."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The capacity-pressure mechanism (lower L0 -> higher absorption) is a genuinely interesting finding, but the paper does not distinguish between two explanations: (a) encoder capacity pressure forces absorption, versus (b) the TopK activation at lower L0 creates a different sparsity pattern that incidentally resembles absorption. The mechanism claim is post-hoc.",
+      "suggestion": "Add a diagnostic test distinguishing capacity-pressure absorption from TopK artifact. Compare with a JumpReLU SAE at equivalent L0 to see if the L0 relationship holds. If it only holds for TopK, the mechanism interpretation changes."
+    },
+    {
+      "stage": "review",
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "The paper uses d_model=128 throughout all synthetic experiments. This is far below real LLM residual stream dimensions (768 to 12,288). The factorial decomposition finding (encoder effect >> decoder effect) may not replicate at scale: encoder-decoder dynamics could fundamentally change when the overcomplete dictionary is orders of magnitude larger than the model dimension. The paper acknowledges this as a limitation but does not provide any d_model scaling validation.",
+      "suggestion": "Add a d_model=512 validation point to establish whether the encoder dominance finding scales. Explicitly acknowledge d_model=128 as a pilot-scale choice and justify it as such."
+    },
+    {
+      "stage": "review",
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The paper claims the core contribution is 'first factorial decomposition' and 'encoder dominance,' but Oursland (2026) theoretically derives encoder-decoder asymmetry, and the encoder-decoder decomposition is implicit in how SAEs are trained. The paper's contribution is the empirical quantification, not the discovery itself.",
+      "suggestion": "Restate the contribution more precisely as 'first empirical quantification of encoder-decoder asymmetry via controlled factorial decomposition' to avoid overclaiming novelty."
+    },
+    {
+      "stage": "review",
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "The synthetic hierarchy generator is described but not open-sourced. The absorption measurement code (Jaccard overlap computation) is not provided. Without these, independent reproduction is not possible.",
+      "suggestion": "Release the synthetic hierarchy generator code and absorption measurement code as open source."
+    }
+  ],
+  "risks": [
+    "If the H_Mech criterion revision is not pre-registered, reviewers may treat the central finding as exploratory rather than confirmatory, significantly weakening the paper's contribution.",
+    "The d_model=128 synthetic experiments may not generalize to real LLM SAEs at 768-12288 dimensions, meaning the encoder dominance finding could be an artifact of small-scale synthetic data.",
+    "The 97% saturation in safety analysis means the paper cannot make strong claims about absorption universality -- the metric simply cannot detect differences at that scale.",
+    "Without open-sourced code for the hierarchy generator and absorption measurement, the paper's claims cannot be independently verified."
+  ],
+  "evidence_gaps": [
+    "No validation at d_model > 128 to confirm encoder dominance scales to realistic dimensions",
+    "No diagnostic to distinguish capacity-pressure mechanism from TopK artifact",
+    "No confidence interval reported for the r=0.998 held-out generalization correlation",
+    "No comparison with non-TopK architectures (JumpReLU, Matryoshka) to test whether encoder dominance is architecture-specific",
+    "No analysis of whether the 3% non-absorbed features in H_Safe are systematically non-safety, which would actually support the universality claim"
+  ],
+  "what_would_raise_score": "Pre-register the H_Mech revised criteria and replicate the factorial experiment with those criteria as the official stopping rule (this would change the status from exploratory to confirmatory). Add d_model=512 validation to establish scaling behavior. Replace the saturating safety metric with one that has dynamic range to detect differences. Release synthetic hierarchy generator and absorption measurement code for reproducibility."
+}

@@ -1,0 +1,73 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_composeaccel",
+  "confidence": 0.72,
+  "candidate_scores": {
+    "cand_composeaccel": {
+      "weighted_score": 3.60,
+      "verdict": "ADVANCE",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 4, "evidence": "M1+IGSD Ortho=0.96 near-orthogonal; three-way Ortho~1.02 (3 seeds); M1+M3 interference confirmed (Ortho=0.41); clear composition taxonomy"},
+        "hypothesis_survival": {"weight": 0.25, "score": 3, "evidence": "H2 partially falsified (M1+M3 interference); H3 confirmed (IGSD composable); H4 confirmed (task-dependent); H6 refuted (monotonic KL, not inverted-U); IGSD partition no QAS benefit"},
+        "path_to_full_result": {"weight": 0.20, "score": 4, "evidence": "14/14 tasks completed; 5 three-way configs x 3 seeds validated; Dream-7B cross-model done; AR comparison done; remaining: full-scale validation + paper writing"},
+        "novelty": {"weight": 0.15, "score": 3, "evidence": "Novelty 6/10; SlowFast and Fast-dLLM already compose 2 axes; KLASS uses same KL signal; but no 3-axis factorial with quantified Ortho"},
+        "resource_efficiency": {"weight": 0.10, "score": 4, "evidence": "All 14 tasks on 1-2 GPUs, ~20 hours total; full validation ~14 hours additional"}
+      }
+    },
+    "cand_convergence_theory": {
+      "weighted_score": 1.20,
+      "verdict": "DROP",
+      "reason": "Core contribution preempted by Chen & Cai (2505.21400) with tight information-theoretic bounds"
+    },
+    "cand_order_first": {
+      "weighted_score": 1.30,
+      "verdict": "DROP",
+      "reason": "LogicDiff achieves +38.7pp on GSM8K, completely superseding the >10pp target; Flexibility Trap identifies the same problem"
+    },
+    "cand_multigrid": {
+      "weighted_score": 2.50,
+      "verdict": "RESERVE_FOR_FUTURE",
+      "reason": "Highest novelty (8/10) but no pilot data; implementation complexity high (feasibility 5/10); if ComposeAccel reveals that KV caching and token selection are highly complementary, multigrid unification becomes a natural follow-up"
+    }
+  },
+  "key_findings": {
+    "positive": [
+      "M1+IGSD near-orthogonal (Ortho=0.91-0.96): KV cache reuse and step reduction are truly orthogonal acceleration axes",
+      "Three-way composition stable across 3 seeds (QAS CV < 8.2%) with Ortho~1.02 when M3 guidance disabled",
+      "Dream-7B cross-model validation shows 4/5 pattern agreement -- composition patterns are architecture-general",
+      "CHR_refine=94.3% empirically confirmed, supporting the M1+IGSD synergy mechanism (frozen tokens create cache-friendly patterns)",
+      "Task-dependent recipes confirmed: M3 best for reasoning, IGSD best for speed, M1+IGSD best combined QAS"
+    ],
+    "negative": [
+      "d2Cache kernel integration yields 0.42x HF baseline (NO_GO); M1 speedup remains projected not measured",
+      "M1+M3 shows interference (Ortho=0.41, speedup < 1.0x) -- quality-first composition hypothesis H2 partially falsified",
+      "IGSD confidence partitioning provides no QAS benefit (tau=0.0 QAS=1.20 > tau=0.9 QAS=1.03)",
+      "KL divergence profile is monotonically increasing, not inverted-U -- H6 refuted",
+      "AR baseline dominates DLM by 2x+ in both speed and accuracy",
+      "Best three-way speedup is modest (~1.7x at 63% accuracy retention)",
+      "Batch sensitivity: composition Ortho degrades from 0.86 (bs=1) to 0.52 (bs=8)"
+    ],
+    "surprising": [
+      "iter_001 M1+M3 pilot showed Ortho=1.339 (synergy) but iter_002 corrected measurement shows Ortho=0.41 (interference) -- previous result was artifact of flawed metric",
+      "IGSD without confidence partition (tau=0.0) outperforms IGSD with partition -- the partition mechanism is harmful",
+      "M3 (AR guidance) preserves or improves accuracy on reasoning tasks but causes overall slowdown when composed with M1 (combined speedup < 1.0x)"
+    ]
+  },
+  "refinements_for_full_experiments": [
+    "Reframe IGSD as 'reduced-step decoding' rather than 'speculative denoising with confidence partition'. Acknowledge KLASS explicitly.",
+    "Update paper narrative: composition taxonomy and Ortho metric are the main contribution, not headline speedup numbers",
+    "Be transparent about M1 implementation gap (d2Cache 0.42x vs projected 1.5-2.5x based on CHR measurements)",
+    "Revise H2: M1+M3 interference is a more interesting finding than the original quality-first dominance hypothesis",
+    "Frame DLM acceleration as closing DLM-AR gap for users who choose DLMs for bidirectional generation, not competing with AR speed",
+    "Report IGSD partition negative result prominently -- it challenges the speculative decoding paradigm for DLMs"
+  ],
+  "next_actions": [
+    "Run full-scale validation (1319 GSM8K + 500 MATH500, seeds=[42,123,456]) for top 3 three-way configs and M1+IGSD pairwise",
+    "Write paper with revised framing: composition taxonomy as main contribution",
+    "Include honest AR comparison showing DLM acceleration narrows but does not close the gap",
+    "Report negative findings prominently: H6 refuted, IGSD partition harmful, M1+M3 interference"
+  ],
+  "dropped_candidates": ["cand_convergence_theory", "cand_order_first"],
+  "reserved_candidates": ["cand_multigrid"],
+  "timestamp": "2026-04-15"
+}

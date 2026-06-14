@@ -1,0 +1,160 @@
+{
+  "task_id": "analysis_main",
+  "timestamp": "2026-04-29T01:41:44.923248",
+  "iteration": 3,
+  "overall_assessment": {
+    "uad_works": false,
+    "proxy_valid": true,
+    "recommendation": "PIVOT to negative result paper: 'Why co-occurrence clustering cannot detect feature absorption'"
+  },
+  "findings": {
+    "collision_proxy_valid": {
+      "status": "CONFIRMED",
+      "experiment": "P1 + F4",
+      "finding": "Collision rate (top-k feature overlap) is a valid proxy for true absorption rate",
+      "evidence": {
+        "p1_spearman_r": 0.7106690545187014,
+        "p1_bootstrap_ci": [
+          0.2192645048267573,
+          0.8866586276648859
+        ],
+        "f4_spearman_r": 0.868633402045869,
+        "f4_bootstrap_ci": [
+          0.780453785845356,
+          0.9379468612955366
+        ],
+        "f4_n_pairs": 56,
+        "hierarchies_tested": [
+          "numbers",
+          "punctuation"
+        ]
+      },
+      "conclusion": "Collision rate correlates strongly with true absorption (r=0.71-0.87) across multiple hierarchy types"
+    },
+    "uad_fails": {
+      "status": "CONFIRMED_NEGATIVE",
+      "experiment": "P2 + P3 + F2",
+      "finding": "UAD (co-occurrence clustering) cannot detect hierarchical absorption in pre-trained SAE",
+      "evidence": {
+        "p2_f1": 0.0,
+        "p2_precision": 0.0,
+        "p2_recall": 0.143,
+        "p2_true_positives": 1,
+        "p2_false_positives": 4154,
+        "p3_uad_f1": 0.00048053820278712154,
+        "p3_same_cluster_random_f1": 0.00048053820278712154,
+        "p3_uad_equals_random": true,
+        "f2_best_variant": {
+          "detected_pairs": 3243,
+          "precision": 0.0018501387604070306,
+          "recall": 0.8571428571428571,
+          "f1": 0.0036923076923076922,
+          "true_positives": 6,
+          "false_positives": 3237,
+          "false_negatives": 1,
+          "ground_truth_pairs": 7
+        },
+        "f2_full_uad_f1": 0.00048053820278712154
+      },
+      "conclusion": "UAD F1 = 0.00048, identical to same-cluster random baseline. The clustering step provides zero value."
+    },
+    "ablation_insight": {
+      "status": "DISCOVERY",
+      "experiment": "F2",
+      "finding": "K-means clustering on phi vectors achieves 6/7 true positives (85.7% recall) but near-zero precision",
+      "evidence": {
+        "kmeans_f1": 0.0036923076923076922,
+        "kmeans_precision": 0.0018501387604070306,
+        "kmeans_recall": 0.8571428571428571,
+        "kmeans_true_positives": 6,
+        "kmeans_false_positives": 3237
+      },
+      "conclusion": "Clustering approach matters, but even the best variant has F1=0.0037 due to massive false positives"
+    }
+  },
+  "root_cause": {
+    "primary": "Absorption features are mutually exclusive at the token level",
+    "explanation": "Features that absorb the same parent concept (e.g., 'four', 'five', 'six' all absorbed by feature 24189) fire on DIFFERENT tokens representing different child concepts. They never activate on the same token.",
+    "why_uad_fails": "UAD uses co-occurrence clustering (phi coefficient) to find features that fire TOGETHER. But absorption features fire on mutually exclusive instances of a parent concept, so their co-occurrence is near zero.",
+    "why_proxy_works": "Collision rate (top-k feature overlap) measures structural similarity of feature responses, not co-occurrence. Two child concepts may share the same absorbing feature in their top-k responses even though they never appear together."
+  },
+  "paper_positioning": {
+    "title_suggestion": "Why Co-occurrence Clustering Cannot Detect Feature Absorption in Sparse Autoencoders",
+    "contribution_type": "Negative result with constructive insight",
+    "key_contributions": [
+      "Empirical demonstration that UAD (co-occurrence clustering) fails to detect hierarchical absorption (F1=0.0005)",
+      "Validation that collision rate IS a valid proxy for absorption (Spearman r=0.87, CI=[0.78, 0.94])",
+      "Identification of root cause: token-level mutual exclusivity of absorption features",
+      "Proposed alternative approaches: decoder weight similarity, causal intervention"
+    ],
+    "honest_limitations": [
+      "Only tested on GPT-2 Small with gpt2-small-res-jb SAE",
+      "Only 7 ground truth absorption pairs (small sample)",
+      "Collision rate proxy tested on 56 pairs across 2 hierarchy types",
+      "No causal validation of proposed alternatives"
+    ]
+  },
+  "results_table": [
+    {
+      "experiment": "P1: Collision Proxy (First Letters)",
+      "n_pairs": 10,
+      "spearman_r": 0.711,
+      "status": "PASS",
+      "notes": "Proxy metric validated"
+    },
+    {
+      "experiment": "P2: UAD Reproduction",
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.143,
+      "status": "FAIL",
+      "notes": "F1=0, only 1/7 TP"
+    },
+    {
+      "experiment": "P3: Random Baseline",
+      "uad_f1": 0.0005,
+      "random_f1": 0.0001,
+      "same_cluster_f1": 0.0005,
+      "status": "FAIL",
+      "notes": "UAD = same-cluster random"
+    },
+    {
+      "experiment": "F2: UAD Ablations",
+      "best_variant": "kmeans",
+      "best_f1": 0.0037,
+      "best_recall": 0.8571,
+      "status": "FAIL",
+      "notes": "Even best variant has F1=0.0037"
+    },
+    {
+      "experiment": "F4: Extended Collision Correlation",
+      "n_pairs": 56,
+      "spearman_r": 0.869,
+      "ci_95": [
+        0.78,
+        0.938
+      ],
+      "status": "PASS",
+      "notes": "Strong correlation across hierarchies"
+    },
+    {
+      "experiment": "F5: False Positive Analysis",
+      "n_detected": 4155,
+      "n_fp": 4154,
+      "precision": 0.000241,
+      "status": "NEGATIVE",
+      "notes": "99.98% false positive rate"
+    }
+  ],
+  "go_no_go": {
+    "g1_collision_proxy": "PASS - Collision rate is a valid proxy (r=0.87)",
+    "g2_uad_reproduce": "FAIL - UAD cannot detect absorption (F1=0)",
+    "g3_random_baseline": "FAIL - UAD equals random baseline"
+  },
+  "pilot_decision": {
+    "recommendation": "PIVOT",
+    "reason": "Core UAD method fails. Collision rate proxy is valid but UAD cannot exploit it.",
+    "new_direction": "Negative result paper on co-occurrence clustering limitations + constructive proposals for alternative approaches"
+  },
+  "runtime_seconds": 0.0007731914520263672
+}

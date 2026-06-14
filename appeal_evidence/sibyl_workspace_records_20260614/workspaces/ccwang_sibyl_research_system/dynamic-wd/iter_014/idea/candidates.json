@@ -1,0 +1,160 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_udwdc",
+      "title": "Gradient-to-Weight Ratio Homeostasis: A Unified Feedback Control Framework and Diagnostic Benchmark for Dynamic Weight Decay",
+      "status": "front_runner",
+      "summary": "All major dynamic WD methods are special cases of a single PID-style feedback control law that regulates the per-layer gradient-to-weight ratio rho_t toward a target trajectory rho*(t) = eta_t / tau. UDWDC algorithm with proportional control, prescriptive target trajectory, and three standardized evaluation metrics (BEM, CSI, AIS). Extended theoretical analysis: contraction-rate separation theorem, geometry-corrected alignment principle, layer-differentiated equilibria.",
+      "hypotheses": [
+        "H1: Unified control law subsumes CWD, SWD, CPR, Defazio as special-case gain settings",
+        "H2: Theory-derived rho*(t) = eta_t/tau matches or exceeds grid-searched fixed WD",
+        "H3: Alignment signal quality is batch-size-dependent; binary CWD preferred at b<=256",
+        "H4: Alignment-modulated WD is budget-efficient when Var[delta_t] > 0",
+        "H5: Per-layer r* anti-correlates with per-layer delta* under alignment-modulated WD",
+        "H6: Average alignment predicts generalization better than worst-case alignment",
+        "H7: Temporal predictability gate - alignment carries genuine geometric information"
+      ],
+      "pilot_focus": "Framework validated: 7/7 unit tests pass, 7/7 methods run, ImageNet data loads. Next: CIFAR full comparison + temporal predictability gate.",
+      "pilot_status": "setup_complete",
+      "novelty_score": 7,
+      "key_strengths": [
+        "Grounded in proven results (Defazio steady-state, Wang-Aitchison EMA scaling)",
+        "Computationally efficient: only per-group norms, no SVD",
+        "Prescriptive: rho*(t) derivable from first principles, zero new hyperparameters",
+        "Strong unifying power across 4 sub-traditions with clean parameter mapping table",
+        "Multiple falsifiable predictions enabling rigorous validation",
+        "Fairest comparison to date: all methods under matched conditions"
+      ],
+      "key_risks": [
+        "PID analogy may be descriptive but not prescriptive",
+        "Continuous alignment noisy at small batch (addressed by batch-size conditioning)",
+        "Budget-efficiency theorem depends on alignment variance > 0",
+        "CPR may be functionally equivalent and hard to beat"
+      ],
+      "perspectives_weighted": {
+        "pragmatist": "HIGH - proportional-only controller for simplicity, practical benchmark focus, why-weight-decay repo as base",
+        "contrarian": "HIGH - batch-size noise analysis shapes algorithm design, CWD ablation controls (random-mask, halved-WD)",
+        "empiricist": "HIGH - pre-registered falsification criteria, temporal predictability gate, matched-conditions comparison",
+        "theoretical": "MEDIUM - contraction-rate separation theorem, geometry-corrected alignment principle, per-layer equilibria",
+        "innovator": "MEDIUM - PID framework concept, Fisher-weighted WD reserved as Alternative 2",
+        "interdisciplinary": "LOW - bio-inspired noise-robust design reserved as Alternative 4"
+      }
+    },
+    {
+      "candidate_id": "cand_spectral_homeostatic",
+      "title": "Spectral-Homeostatic Weight Decay via Renormalization Group Flow",
+      "status": "backup",
+      "summary": "Two-factor WD strategy: temporal schedule driven by spectral condition number kappa(t) via RG flow, and per-parameter modulation via homeostatic alignment. Independent of PID unification and alignment SNR.",
+      "hypotheses": [
+        "Spectral condition number kappa(t) drives an optimal non-monotone WD schedule",
+        "The two factors (temporal + per-parameter) are substantially independent (correlation < 0.5)",
+        "Non-monotone schedule outperforms monotone on ResNet-50/ImageNet"
+      ],
+      "pilot_focus": "Track kappa(t) during ResNet-50/ImageNet training under standard schedules.",
+      "novelty_score": 8,
+      "key_strengths": [
+        "Higher raw novelty, fewer close prior works",
+        "SVD signal fundamentally different from alignment",
+        "Survives if alignment signal is uninformative"
+      ],
+      "key_risks": [
+        "SVD computation overhead at scale",
+        "Non-monotone schedule may not hold empirically",
+        "Partial overlap with AlphaDecay (NeurIPS 2025)"
+      ]
+    },
+    {
+      "candidate_id": "cand_fisher_wd",
+      "title": "Fisher-Informed Weight Decay: Geometry-Aware Regularization via Natural Gradient Alignment",
+      "status": "backup",
+      "summary": "Apply WD as natural gradient: scale per-parameter decay by inverse Fisher information (1/sqrt(v_t) in Adam). Zero computational overhead. Clean information-geometric motivation. WARNING: FAdam (2024, arXiv:2405.12807) already conceptually proposes Fisher-weighted WD as natural gradient. EWC (2017) uses Fisher-diagonal per-parameter decay. Novelty significantly reduced upon thorough search.",
+      "hypotheses": [
+        "Fisher-weighted WD outperforms uniform WD by 0.2%+ on CIFAR-100 and ImageNet",
+        "Fisher heterogeneity across parameters correlates with improvement magnitude",
+        "Fisher-weighted WD reduces or eliminates the cold posterior effect"
+      ],
+      "pilot_focus": "Measure Fisher information heterogeneity across parameters in ResNet-20 and ViT-S/16.",
+      "novelty_score": 6,
+      "novelty_revised_reason": "FAdam (2024) already proposes Fisher-weighted natural-gradient WD; EWC (2017) uses Fisher-diagonal per-parameter decay. Core idea is NOT genuinely unexplored. Revised from 9 to 6.",
+      "key_strengths": [
+        "One-line modification, zero overhead",
+        "Clean theoretical motivation from information geometry + Bayesian shrinkage",
+        "Independent of PID framework",
+        "Isolated ablation study of FAdam's WD component could still be valuable"
+      ],
+      "key_risks": [
+        "FAdam (2024) substantially anticipates the core idea -- CRITICAL collision",
+        "EWC (2017) establishes Fisher-diagonal per-parameter decay mechanism",
+        "Noisy v_t may cause over-decay on rare features",
+        "Improvement magnitude may be too small to detect",
+        "James-Stein connection is suggestive but not watertight"
+      ]
+    },
+    {
+      "candidate_id": "cand_falsification",
+      "title": "Does Gradient-Weight Alignment Carry Marginal Information for Weight Decay? A Pre-Registered Falsification Study",
+      "status": "backup",
+      "summary": "Purely empirical contribution: pre-registered falsification study testing whether alignment carries genuine geometric information for WD decisions. First quantitative AIS measurement. Temporal predictability gate. CWD vs random-mask vs halved-WD ablation.",
+      "hypotheses": [
+        "Average alignment predicts generalization better than worst-case alignment",
+        "Alignment is NOT fully time-recoverable (temporal predictability gate)",
+        "CWD outperforms both random-50%-mask and halved-WD (alignment IS informative)"
+      ],
+      "pilot_focus": "Temporal predictability gate on ResNet-20/CIFAR-10.",
+      "novelty_score": 6,
+      "key_strengths": [
+        "Stands regardless of theory: valuable positive or negative",
+        "Pre-registered design with explicit falsification criteria",
+        "No wasted compute -- same experiments as front-runner"
+      ],
+      "key_risks": [
+        "Effect sizes may be too small to detect",
+        "Reduced novelty post-GWA (NeurIPS 2025)",
+        "Negative results harder to publish"
+      ]
+    }
+  ],
+  "synthesis_metadata": {
+    "iteration": 14,
+    "date": "2026-03-25",
+    "perspectives_synthesized": 6,
+    "debate_round": "initial (no prior debate, Codex unavailable)",
+    "pilot_evidence": true,
+    "pilot_status": "setup_framework_complete",
+    "novelty_searches_conducted": 18,
+    "novelty_collisions_found": 25,
+    "exact_matches": 0,
+    "key_decision": "Front-runner is cand_udwdc (PID unification) with pragmatist simplification: proportional-only controller, zero new hyperparameters. Innovation candidates (Fisher WD, spectral-homeostatic) reserved as high-novelty backups. Falsification study integrated into front-runner as ablation experiments.",
+    "perspectives_weighted_most": [
+      {
+        "perspective": "pragmatist",
+        "reason": "Proportional-only controller, matched-conditions benchmark, implementation feasibility assessment -- shaped the algorithm design to be minimal and the paper structure to be robust regardless of whether UDWDC beats CWD"
+      },
+      {
+        "perspective": "contrarian",
+        "reason": "Batch-size noise analysis fundamentally shapes algorithm design (binary vs continuous recommendation), CWD ablation controls (random-mask, halved-WD) are the critical experiments"
+      },
+      {
+        "perspective": "empiricist",
+        "reason": "Pre-registered falsification criteria, temporal predictability gate, matched-conditions comparison, and statistical methodology define the evaluation rigor"
+      }
+    ],
+    "perspectives_partially_integrated": [
+      {
+        "perspective": "theoretical",
+        "reason": "Contraction-rate separation theorem and geometry-corrected alignment integrated. Jensen direction issue acknowledged and scoped to stagewise schedules.",
+        "what_was_dropped": "Full Lyapunov analysis for per-step adaptive lambda_t (too restrictive assumptions); Norm-geometry duality for Muon/Shampoo (scope limited to Adam)"
+      },
+      {
+        "perspective": "innovator",
+        "reason": "Fisher-weighted WD elevated to Alternative 2 (highest novelty backup). Thermodynamic analysis downgraded from core contribution to discussion/future work -- intractable entropy estimation makes it non-load-bearing.",
+        "what_was_dropped": "Multi-scale Lyapunov WD (prohibitive SVD cost, CPR already occupies the niche)"
+      },
+      {
+        "perspective": "interdisciplinary",
+        "reason": "Dead-zone and Hill-function cooperativity reserved as Alternative 4 (noise-robust design). The mechanostat dead zone and quorum sensing cooperativity are genuinely novel but add too many hyperparameters for the front-runner.",
+        "what_was_dropped": "Dissipative structures interpretation (decorative, reduces to Defazio's known results)"
+      }
+    ]
+  }
+}

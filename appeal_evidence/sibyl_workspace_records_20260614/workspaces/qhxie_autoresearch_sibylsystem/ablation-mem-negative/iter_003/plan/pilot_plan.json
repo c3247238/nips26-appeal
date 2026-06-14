@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "iteration": 3,
+  "project": "ablation-mem-negative",
+  "plan_date": "2026-04-28",
+  "status": "ALL_PILOTS_COMPLETE",
+  "pilot_config": {
+    "model": "gpt2-small",
+    "sae_source": "gpt2-small-res-jb",
+    "layer": 8,
+    "dataset": "openwebtext",
+    "dataset_samples": 1000,
+    "device": "cuda",
+    "batch_size": 8,
+    "max_sequence_length": 128,
+    "seed": 42,
+    "timeout_seconds": 900,
+    "features_analyzed": 500,
+    "n_clusters": 50
+  },
+  "completed_pilots": [
+    {
+      "id": "p1_collision_proxy_validation",
+      "name": "P1: Collision Rate - Absorption Rate Proxy Validation",
+      "status": "PASSED",
+      "result": {
+        "spearman_r": 0.7106690545187014,
+        "pearson_r": 0.7329717449374555,
+        "bootstrap_ci_95": [0.2192645048267573, 0.8866586276648859],
+        "n_pairs": 10,
+        "gt_pairs_detected": 10,
+        "runtime_seconds": 25.3
+      },
+      "pass_criteria": {
+        "r_ge_0.3": true,
+        "at_least_5_gt_pairs": true,
+        "runtime_under_15min": true
+      },
+      "interpretation": "Collision rate is a valid proxy for absorption rate. Strong positive correlation with bootstrap CI excluding zero."
+    },
+    {
+      "id": "p2_uad_reproduce",
+      "name": "P2: UAD Reproducibility Validation",
+      "status": "FAILED",
+      "result": {
+        "precision": 0.0,
+        "recall": 0.14285714285714285,
+        "f1": 0.0,
+        "true_positives": 1,
+        "false_positives": 4154,
+        "false_negatives": 6,
+        "runtime_seconds": 149.3
+      },
+      "pass_criteria": {
+        "f1_ge_0.5": false,
+        "recall_ge_0.8": false
+      },
+      "interpretation": "UAD fails to detect hierarchical absorption. Only 1/7 true positives. Root cause: token-level mutual exclusivity."
+    },
+    {
+      "id": "p3_random_baseline",
+      "name": "P3: Random Baseline Validation",
+      "status": "FAILED",
+      "result": {
+        "uad_f1": 0.00048053820278712154,
+        "same_cluster_random_f1": 0.00048053820278712154,
+        "global_random_f1": 0.0001102626591882312,
+        "uad_equals_same_cluster_random": true,
+        "runtime_seconds": 151.3
+      },
+      "pass_criteria": {
+        "global_random_f1_lt_0.05": true,
+        "uad_minus_global_ge_0.3": false
+      },
+      "interpretation": "UAD F1 is IDENTICAL to same-cluster random F1. The clustering step provides zero value. All UAD complexity is irrelevant."
+    }
+  ],
+  "overall_decision": {
+    "recommendation": "PIVOT",
+    "reason": "Core UAD method fails structurally. Collision rate proxy is valid but UAD cannot exploit it.",
+    "new_direction": "Negative result paper: 'Why Co-occurrence Clustering Cannot Detect Feature Absorption' with constructive proposals for alternatives."
+  },
+  "key_findings": [
+    "Collision rate IS a valid proxy (r=0.71 pilot, r=0.87 full)",
+    "UAD fails catastrophically (F1=0.00048, identical to random)",
+    "Root cause: absorption features are mutually exclusive at token level",
+    "All ablation variants fail similarly - problem is structural, not hyperparameter-related"
+  ],
+  "future_pilot_proposals": [
+    {
+      "id": "decoder_similarity_pilot",
+      "name": "Decoder Weight Similarity Pilot (Candidate B)",
+      "description": "Compute decoder cosine similarity for 100 pairs (7 known absorption + 93 random). Expected runtime <15 min.",
+      "trigger": "If negative result paper is well-received or next iteration begins",
+      "estimated_minutes": 15,
+      "gpu_count": 1
+    },
+    {
+      "id": "causal_intervention_pilot",
+      "name": "Causal Intervention Pilot (Candidate D)",
+      "description": "Test 10 known absorption pairs + 10 random with activation patching. Expected runtime <30 min.",
+      "trigger": "If decoder similarity shows promise but needs causal validation",
+      "estimated_minutes": 30,
+      "gpu_count": 1
+    }
+  ]
+}

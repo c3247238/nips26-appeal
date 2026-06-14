@@ -1,0 +1,76 @@
+{
+  "score": 7.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7.5,
+    "soundness": 7.5,
+    "experiments": 7.5,
+    "reproducibility": 7.0
+  },
+  "summary": "This iteration represents a genuine breakout from the 6.5 plateau. All six blocking experiments identified in previous reviews have been executed and integrated into the paper: activation patching (0/8 recovery), tightened hedging (6.2% strict vs 98.6% permissive), CMI replication at L0=22 (rho=0.044, null), partial correlation (rho=-0.328, p=0.118), leave-one-out sensitivity (max |delta rho|=0.088), threshold sensitivity (CV=0.077, 20/20 cells show control failure), and control failure diagnosis (23.0% of decoder columns as candidates for a random vector). Data validation (84/85 claims match, 1 missing-data) confirms numerical integrity. The paper now has three well-supported pillars: (1) metric non-transfer with structural explanation (candidate explosion + 0/8 activation patching), (2) L0 phase transition (42.85% to 0.84%, cross-layer CV<10%), and (3) CMI non-replication honestly reported with complete confound control chain. The title, Section 6, and CMI language have been appropriately downgraded from prior overclaiming. Negative results (4/7 hypotheses falsified) remain exemplary. Two issues prevent a score of 8.0: the activation patching sample (n=8) is small and may not generalize, and the confound decomposition narrative requires careful reading to distinguish strict (6.2%) from permissive (98.6%) hedging rates. The two-interpretation framework (Section 7.2) is a mature addition. The paper is now at borderline-accept quality for a top venue.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "ACTIVATION PATCHING SAMPLE SIZE (n=8). The 0/8 parent recovery result is the paper's strongest causal evidence, but 8 words yield a 95% CI of [0%, 36.9%] for the true recovery rate. A reviewer could argue that 8 words -- 5 of which are high-frequency function-adjacent words (other, often, offer, under, until) -- are not representative of the full false-negative population (186 at L0=82, 656 at L0=22). The wide CI means the data are consistent with up to ~37% competitive exclusion in the population. This is acknowledged in Section 7.5 but the paper's central narrative relies heavily on this result.",
+      "suggestion": "The most impactful improvement for the next iteration would be scaling activation patching to all 186 FN tokens at L0=82. If logistically infeasible, patching a stratified random sample of 30-50 FN tokens from diverse letters would substantially narrow the CI and strengthen the causal claim. Also discuss the word-frequency confound explicitly: high-frequency words may have unusual encoding because the model dedicates specialized features to them."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "CONFOUND DECOMPOSITION NARRATIVE COMPLEXITY. The paper presents both permissive (98.6%) and strict (6.2%) hedging rates, which is correct. However, the dramatic difference between these two numbers may confuse readers. The permissive rate (98.6%) appears in the Abstract and Introduction as the headline, while the strict rate (6.2%) appears in Table 4 and Section 4.4. A reader encountering 98.6% first and 6.2% later may struggle to reconcile them. The 93.8% of FN tokens where NONE of the 5 parent-associated latents fire even at L0=176 are neither permissive-hedging nor strict-hedging -- they are 'persistent encoding failures.' This third category is the dominant one but is not clearly named.",
+      "suggestion": "Consider a three-category decomposition in the narrative: (a) strict hedging (6.2% -- specific parent latents recover), (b) diffuse resolution (92.4% -- tokens stop being FN at high L0 but NOT through parent-specific latents), (c) persistent core (1.4% -- FN at all L0 values). This tripartite framing avoids the misleading contrast between 98.6% and 6.2% and gives each category a clear mechanistic interpretation."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "SINGLE MODEL FAMILY LIMITATION UNDERSOLD. All experiments use Gemma 2 2B with Gemma Scope JumpReLU SAEs. The control failure, hedging dominance, and L0 phase transition are established on exactly one model. While acknowledged in Section 7.5, the practical impact is understated: all three findings could be specific to Gemma 2 2B's residual stream geometry (d_model=2304) and Gemma Scope's specific JumpReLU training procedure. The candidate explosion argument (23% of decoder columns at cos >= 0.025) depends on d_model; at d_model=768 (GPT-2), the expected fraction would differ. The paper does not compute this comparison.",
+      "suggestion": "Add a brief analytical calculation: what fraction of decoder columns would a random vector identify at cos >= 0.025 in R^768 vs R^2304? This requires no experiments -- just the concentration-of-measure formula. If the fraction is substantially lower at d_model=768, this explains both why the metric works on GPT-2 and fails on Gemma 2 2B, strengthening the structural explanation."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "FN COUNT DISCREPANCY (656 vs 657) UNRESOLVED. The paper uses 656 in Table 4 and activation patching sections (from tightened_hedging.json), but the data validation report records 657 FN at L0=22 from confound_decomposition_multi_l0.json. The difference (1 token) arises from vocabulary filtering (1195 vs 1196 tested). While scientifically negligible, a reviewer who cross-checks will notice the inconsistency. The data validation report flags this as MEDIUM severity.",
+      "suggestion": "Add a footnote in Section 3.2 or 4.4 explaining: 'The FN count is 656 using the 1,196-word vocabulary (tightened hedging protocol) and 657 using the 1,195-word vocabulary (confound decomposition protocol). The difference of 1 token reflects vocabulary filtering criteria and does not affect any conclusion.'"
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "minor",
+      "description": "LETTER G OUTLIER IN STRICT HEDGING. Letter G accounts for 19/41 strict-hedging cases (46% of all strict hedging from a single letter). The paper notes this in Section 4.4 but does not investigate why G is anomalous. If G has unusual decoder geometry or an unusually strong parent-latent representation, this would provide mechanistic insight.",
+      "suggestion": "Add 1-2 sentences explaining or speculating about the G anomaly. Check whether G's parent probe has unusually high cosine similarity to specific latents, or whether G's letter frequency or word distribution is distinctive."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "CMI REPLICATION AT L0=22 USES PILOT DATA. The CMI replication results come from pilots/cmi_replication_l0_22.json (mode: PILOT). While the key result (rho=0.044, p=0.835) is clear, using pilot-mode data for a central finding creates an asymmetry with the L0=82 CMI analysis which uses full data. The dimension sensitivity results (d'=20: rho=0.248, d'=30: rho=0.410, d'=50: rho=0.483) also come from this pilot run.",
+      "suggestion": "If a full-mode CMI replication has not been run, note in the Methods that the L0=22 analysis used the same k-NN parameters and bootstrap procedure as L0=82 but on the pilot corpus subset. The null result is robust enough that pilot vs full is unlikely to change the conclusion, but transparency is important."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "THRESHOLD SENSITIVITY TABLE USES DIFFERENT RATES FROM MAIN ANALYSIS. Table 3 in the paper reports rates from 11.81% to 15.10%, while the threshold_sensitivity_summary.json reports rates from 11.81% to 15.10% on 576 tested words. The main analysis at L0=82 uses 1,203 or 1,195 words. The threshold sensitivity data comes from iter_006 with a smaller vocabulary (likely only quality-gated letters). This vocabulary difference is not noted.",
+      "suggestion": "Add a footnote to Table 3 explaining the vocabulary basis for the threshold sensitivity analysis and why it differs from the main analysis vocabulary."
+    }
+  ],
+  "risks": [
+    "The n=8 activation patching result, while clean (0/8 recovery, 0/65 control spurious activations), has a 95% CI wide enough to be consistent with substantial competitive exclusion in the broader population. A hostile reviewer could dismiss the causal evidence as underpowered.",
+    "The paper argues that L0 is the primary control parameter, but cannot distinguish whether increasing L0 reduces genuine absorption or simply reduces the metric's false-negative rate by improving probe quality. At L0=176, probe F1=1.0 for all letters; at L0=22, probe F1=1.0 because probes are trained at L0=22. The confound between L0, probe quality, and absorption remains partially entangled.",
+    "The single-model limitation is real: if the candidate explosion (23% at cos >= 0.025) is specific to d_model=2304, the paper's practical recommendation to 'validate on each new architecture' may be seen as obvious rather than novel.",
+    "The CMI section, even honestly downgraded to 'exploratory,' occupies substantial space for a null result. Some reviewers may view it as wasted page budget that could be used for deeper analysis of the positive findings."
+  ],
+  "evidence_gaps": [
+    "Activation patching at scale: patching all 186 FN tokens at L0=82 (or a stratified sample of 50) would resolve the central uncertainty about competitive exclusion prevalence.",
+    "Analytical calculation of expected candidate fraction at d_model=768 (GPT-2 scale) to explain why the metric works there but fails at d_model=2304.",
+    "Investigation of the letter G anomaly in strict hedging (90.5% vs 3.5% for other letters).",
+    "Full-mode (not pilot) CMI replication at L0=22 for consistency with the L0=82 analysis.",
+    "Cross-model validation: testing the L0 phase transition on Gemma 2 9B or 27B (with available Gemma Scope SAEs) would establish generality."
+  ],
+  "what_would_raise_score": "To reach 8.0 (Accept): (1) Scale activation patching to >= 30 FN tokens from diverse letters, narrowing the CI on competitive exclusion prevalence. If 0/30 show recovery, the CI narrows to [0%, 11.6%], which is decisive. (2) Add the analytical d_model comparison (cos distribution at 768 vs 2304 dimensions) to strengthen the structural explanation. (3) Resolve the 656/657 FN discrepancy with a footnote. (4) Investigate and explain the letter G strict-hedging anomaly. These four actions together would make the paper a clear accept: strong metric audit with causal evidence, clean L0 phase transition, and honestly reported negative CMI results."
+}

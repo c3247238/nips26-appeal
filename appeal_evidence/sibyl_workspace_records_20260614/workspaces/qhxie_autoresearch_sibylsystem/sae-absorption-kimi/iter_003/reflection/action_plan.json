@@ -1,0 +1,160 @@
+{
+  "issues_classified": [
+    {
+      "description": "Random-SAE semantic-hierarchy absorption reported as 0.352 (identical to Standard SAE) in Table 1, abstract, and throughout the paper, but the actual experimental data (semantic_hierarchy_pythia_results.json) shows Random mean=0.175. The non-hierarchy control is reported as 0.416 but actual data shows 0.233. This appears to be a copy-paste error inherited from iter_003's estimated data.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Update Table 1 with correct Random SAE scores: semantic-hierarchy=0.175, non-hierarchy=0.233. Update abstract, Section 3.1, Section 3.5, Section 4.3, and conclusion to reflect the corrected values. Reframe the finding: 'The Random SAE achieves semantic-hierarchy absorption of 0.175, below the Standard SAE's 0.352 but within the range of trained architectures (0.064-0.359). The first-letter task correctly distinguishes trained from random (0.030 vs 0.026), but the semantic adaptation shows reduced sensitivity to learned structure.'",
+      "status": "new",
+      "issue_key": "experiment:random-sae-data-error-0.352-vs-0.175"
+    },
+    {
+      "description": "Cohen's d=-1.68 reported in abstract and Section 3.3, but e3_ttest_results.json shows d=-1.7944989617096718. This inconsistency has persisted across iter_002, iter_003, and iter_004.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Use the correct value d=-1.794 consistently throughout the paper. Update abstract, Section 3.3, Section 4.2, and any other references. Add Cohen's d to statistical_analysis_summary.md so future writers can find it easily.",
+      "status": "recurring",
+      "issue_key": "experiment:cohens-d-inconsistency-1.68-vs-1.794"
+    },
+    {
+      "description": "The construct-validity test (H1) has n=7 trained SAEs, producing a bootstrap 95% CI [-0.389, 0.981] that spans nearly the entire correlation range. The abstract prominently features the point estimate (r=0.463) without sufficient emphasis on the uncertainty.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Lead with inconclusiveness in the abstract: 'The Pearson correlation is r=0.463, but the 95% confidence interval [-0.389, 0.981] is too wide for confident inference.' De-emphasize the point estimate and emphasize the uncertainty. Add a power analysis statement: 'Detecting r=0.6 with 80% power at alpha=0.05 requires n~19 architectures.'",
+      "status": "recurring",
+      "issue_key": "experiment:h1-underpowered-n7-wide-ci"
+    },
+    {
+      "description": "All 10 semantic hierarchies achieve perfect probe AUROC=1.0 on residual activations (80/80 scores). This ceiling effect means the absorption formula's numerator is bounded by (1.0 - acc_sae), minimizing absolute absorption scores. The paper mentions this as a limitation but does not address whether the ceiling effect itself invalidates the metric adaptation.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add sensitivity analysis: compute what absorption scores would be with residual AUROC=0.9 or 0.8 instead of 1.0. Show whether the relative architecture ranking changes. Acknowledge explicitly that the perfect probe ceiling effect may inflate apparent absorption differences. This can be done analytically without additional GPU time.",
+      "status": "recurring",
+      "issue_key": "experiment:perfect-probe-ceiling-effect-unaddressed"
+    },
+    {
+      "description": "The GPT-2 replication shows near-zero absolute scores (Standard: 0.000 hierarchy, 0.025 non-hierarchy; TopK: 0.003 hierarchy, 0.098 non-hierarchy). The paper interprets this as 'model-specific behavior,' but an alternative is that the metric adaptation simply doesn't work on GPT-2.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add discussion of alternative explanations: (1) GPT-2 SAEs may be better quality or differently structured, (2) the hook location differs (resid_pre vs resid_post), (3) GPT-2's representations may handle these hierarchies differently. Acknowledge that the GPT-2 replication is exploratory and near-zero scores could indicate metric adaptation failure, not just model differences.",
+      "status": "new",
+      "issue_key": "experiment:gpt2-near-zero-alternative-explanations"
+    },
+    {
+      "description": "The non-hierarchy control pairs include 'tree-wood' and 'river-water,' which involve meronymy (part-whole) or strong thematic relationships---arguably types of hierarchical structure. This blurs the hierarchy-specificity test.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Discuss this limitation explicitly: 'Some non-hierarchy pairs (tree-wood, river-water) involve meronymy or strong thematic relationships that may share structural properties with hierarchies. Future work should use more clearly non-hierarchical pairs (e.g., randomly paired words from different semantic domains).'",
+      "status": "recurring",
+      "issue_key": "experiment:nonhierarchy-control-boundary-blurring"
+    },
+    {
+      "description": "The paper does not apply multiple comparison correction across H1-H3 and various tests within each. At alpha=0.05 with ~8 reported tests, ~0.4 false positives are expected. The hierarchy specificity result (p=0.0032) would survive Bonferroni correction (0.0032 * 8 = 0.026 < 0.05), but this is not reported.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Apply Bonferroni or Benjamini-Hochberg correction across all reported tests and report corrected p-values. Explicitly state that the hierarchy specificity result survives correction---this would actually strengthen the claim. Update statistical_analysis.py to include multiple comparison correction automatically.",
+      "status": "recurring",
+      "issue_key": "analysis:no-multiple-comparison-correction"
+    },
+    {
+      "description": "Figure references use .pdf extension (fig2_scatter.pdf, fig3_specificity.pdf, fig4_robustness.pdf) but actual files are .png. This will cause LaTeX compilation errors.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Update all figure references to match actual file extensions (.png). Either regenerate figures as PDFs or update all references to .png. Verify that all referenced figures exist in the expected locations.",
+      "status": "recurring",
+      "issue_key": "writing:figure-extension-mismatch-pdf-vs-png"
+    },
+    {
+      "description": "The paper mentions 'open-source replication materials' but does not provide a code repository URL or data release location.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Include a link to the code repository in the abstract or introduction, or state 'Code and data will be released upon publication.'",
+      "status": "recurring",
+      "issue_key": "reproducibility:no-code-repository-url"
+    },
+    {
+      "description": "The paper uses k=10 for k-sparse probing, chosen to match the median active latents at tau_fs=0.03. But it does not test whether k=10 is appropriate for all architectures or hierarchies.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Add brief sensitivity analysis testing k in {5, 10, 20, 50} on a subset of architectures, or acknowledge as limitation: 'The fixed k=10 threshold may not be optimal for all architectures; architecture-specific k selection could refine the analysis.'",
+      "status": "recurring",
+      "issue_key": "experiment:k10-sensitivity-untested"
+    },
+    {
+      "description": "The system lacks a pre-writing data integrity gate that automatically verifies all numbers in the paper against their source JSON files. The Random-SAE error and Cohen's d inconsistency would have been caught by such a check.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Create a pre-writing verification script that: (1) extracts all numeric claims from the paper markdown, (2) compares them against source JSON files, (3) flags any mismatches. Run this script automatically before LaTeX compilation. The script should check Table 1 values against per_architecture_scores, statistical claims against statistical_analysis_summary.json, and figure captions against generated figure metadata.",
+      "status": "new",
+      "requires_system_change": true,
+      "issue_key": "system:missing-pre-writing-data-integrity-gate"
+    },
+    {
+      "description": "Reflection recommendations from previous iterations (multiple comparison correction, ceiling effect analysis, k-sensitivity) have been repeatedly flagged but never addressed. The reflection -> experiment pipeline is broken.",
+      "category": "pipeline",
+      "severity": "medium",
+      "suggestion": "Ensure that reflection action_plan.json recommendations are automatically fed into the next iteration's planning stage. Specifically: (1) statistical_analysis.py must include multiple comparison correction, (2) experiment design must include ceiling effect sensitivity analysis, (3) pilot gates must check for these items before full execution.",
+      "status": "recurring",
+      "requires_system_change": true,
+      "issue_key": "pipeline:reflection-recommendations-not-propagated"
+    },
+    {
+      "description": "The paper's experimental breadth is thin: one model (Pythia-160M), one layer (layer 8), 10 shallow hierarchies (single-level parent-child), and only 2 architectures on GPT-2. Reviewers may ask for more breadth.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "For next iteration, prioritize: (1) adding 2-3 more SAE architectures to strengthen H1 (e.g., additional trainers from SAELens), (2) testing 1-2 deeper hierarchies (3-4 levels), (3) adding a second base model with non-zero scores (e.g., Gemma-2-2B). These are the highest-impact additions per the supervisor's 'what would raise score' guidance.",
+      "status": "new",
+      "issue_key": "experiment:thin-experimental-breadth"
+    }
+  ],
+  "issues_fixed": [
+    "Goodhart's Law framing overreach was removed---paper now presents honest construct-validity study",
+    "All estimated data (PCA SAE, low-cooccurrence pairs) was removed from the paper",
+    "E2 proxy metrics mislabeled as 'downstream utility' were removed",
+    "E4 underpowered Welch test and broken margin formula were removed",
+    "Iter_003 framing catastrophe (promise vs delivery mismatch) was fixed by honest reframing",
+    "H2 factual error about TopK was fixed---paper now correctly states all architectures show the reversal",
+    "Random-SAE encoder/decoder contradiction from iter_002 was fixed in iter_003 and remains correct"
+  ],
+  "success_patterns": [
+    "Honest negative result reporting continues: H2 rejection is reported without spin, with specific statistics",
+    "Successful reframing from Goodhart's Law back to construct-validity study---the paper now matches its content",
+    "All data in iter_004 is real (no estimates), unlike iter_003",
+    "Writing quality is strong: specific numbers throughout, clear structure, hypothesis-driven Results section",
+    "The abstract is a model of clarity---every claim backed by a specific number (per writing review score 8/10)",
+    "Architecture ranking preservation (Matryoshka < PAnneal < Gated < JumpRelu < TopK < BatchTopK) is consistent",
+    "Transparent raw data in JSON enables verification",
+    "Bootstrap CIs for small-n inference are appropriate and well-executed"
+  ],
+  "systemic_patterns": [
+    "Data integrity issues recur across iterations: Cohen's d wrong in iter_002-004, Random-SAE values wrong in iter_003-004",
+    "Reflection recommendations are not automatically propagated to experiment code (multiple comparison correction missing for 4 iterations)",
+    "Pre-writing verification is manual and error-prone: no automated check compares paper numbers to source JSON",
+    "Cross-iteration data inheritance is risky: iter_004 inherited incorrect Random-SAE values from iter_003's estimates",
+    "Small sample size (n=7) for H1 is a persistent limitation that cannot be fixed without more architectures"
+  ],
+  "quality_trajectory": "improving",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 90,
+    "total_gpu_idle_minutes": 5.0,
+    "bottleneck_stages": [
+      "data_integrity_verification",
+      "latex_compilation"
+    ],
+    "suggestions": [
+      "Add pre-writing data integrity script (~2 min, zero GPU) to catch number mismatches before LaTeX compilation",
+      "Parallelize tau_fs robustness analysis across thresholds if multiple GPUs available",
+      "GPT-2 replication should include more architectures or be replaced with a more informative model"
+    ]
+  },
+  "recommended_focus": [
+    "Fix Random-SAE data error (0.352 -> 0.175) and reframe finding honestly",
+    "Fix Cohen's d inconsistency (-1.68 -> -1.794)",
+    "Add multiple comparison correction to statistical analysis",
+    "Add sensitivity analysis for probe ceiling effect",
+    "Add pre-writing data integrity verification script",
+    "Expand experimental breadth: more architectures, deeper hierarchies, second base model"
+  ],
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 20
+}

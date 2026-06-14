@@ -1,0 +1,123 @@
+{
+  "pilot_framework": "All pilots use samples=100, seeds=[42], timeout=900s unless noted",
+  "revision_note": "Updated 2026-04-03 to reflect iteration-1 hypothesis revisions and pilot completion status",
+
+  "completed_pilots": {
+    "pilot_tier0": {
+      "status": "DONE",
+      "result": "2.68% spread across 6 orderings, ResNet-18/CIFAR-10 5k, 10 epochs, 2 seeds. CJ→Crop→Flip best (28.04%), Flip→CJ→Crop worst (25.36%). Decision: GO.",
+      "output": "exp/results/pilots/tier0_results.json"
+    },
+    "tier1_pilot_all_blocks": {
+      "status": "DONE",
+      "result": "3/4 blocks with spread>0.5%: resnet18/cifar10=0.96%, resnet18/cifar100=0.88%, vit/cifar10=2.32%. vit/cifar100=0.25% (cautious). All results: 1 seed, 10 epochs, 100-sample subsets.",
+      "output": "exp/results/pilots/tier1_resnet18_cifar10_pilot.json (and cifar100, vit variants)"
+    },
+    "tier2_category_ordering_pilot": {
+      "status": "DONE",
+      "result": "interleaved_PG=0.2939, all_geo_first=0.2038, spread=9.01%. Single seed, 5k samples, 10 epochs. STRIKING but needs confirmation at 30 epochs.",
+      "output": "exp/results/pilots/tier2_category_ordering_pilot.json (remote path)"
+    },
+    "tier3_magnitude_pilot": {
+      "status": "DONE",
+      "result": "M5=0.35%, M9=0.88%, M14=0.00%. Inverted-U shape (H6) supported by pilot. Single seed only.",
+      "output": "exp/results/full/tier3_results.json"
+    },
+    "tier4a_nc_pixel_pilot": {
+      "status": "DONE",
+      "result": "rho=-0.20, p=0.68 — pixel-space NC_2 FALSIFIED (100 samples in 3072-D). Feature-space test required.",
+      "output": "exp/results/full/tier4a_nc.json"
+    },
+    "tier4b_infonce_pilot": {
+      "status": "DONE",
+      "result": "rho=+0.54 (CIFAR-10) and rho=-0.66 (CIFAR-100), both non-significant. Underpowered encoder (10 epochs). Full-scale required.",
+      "output": "exp/results/full/tier4b_mi.json"
+    },
+    "baselines_pilots": {
+      "status": "DONE",
+      "result": "All 5 baselines trained at pilot scale. RandAugment N=2 M=9 performs best. Used for sanity; full-scale required for paper.",
+      "output": "exp/results/pilots/baselines_cifar10_pilot.json"
+    }
+  },
+
+  "active_pilots": {
+    "tier2_confirmation_pilot": {
+      "task_id": "tier2_confirmation_pilot",
+      "candidate_id": "cand_a",
+      "purpose": "Gate before full Tier 2 investment. Validate whether the 9.01% category-ordering effect persists at 30 epochs and 2 seeds. Pilot (10 epochs, 5k, 1 seed) is insufficient statistical basis for a 100-run investment.",
+      "config": {
+        "model_A": "resnet18",
+        "model_B": "vit_small_patch4",
+        "dataset": "cifar10",
+        "epochs": 30,
+        "seeds": [42, 43],
+        "batch_size": 128
+      },
+      "orderings": {
+        "all_geo_first": ["Crop", "Flip", "Rotation", "ColorJitter", "Grayscale", "GaussianBlur"],
+        "all_photo_first": ["ColorJitter", "Grayscale", "GaussianBlur", "Crop", "Flip", "Rotation"],
+        "interleaved_GP": ["Crop", "ColorJitter", "Flip", "Grayscale", "Rotation", "GaussianBlur"],
+        "interleaved_PG": ["ColorJitter", "Crop", "Grayscale", "Flip", "GaussianBlur", "Rotation"],
+        "random_per_image": "shuffle per sample"
+      },
+      "pass_criteria": {
+        "primary": "interleaved_PG spread vs. all_geo_first > 1.0% on CIFAR-10/ResNet-18 (either seed)",
+        "secondary": "interleaved_PG spread > 0.5% on CIFAR-10/ViT-Small (either seed)",
+        "infrastructure": "All 5 orderings instantiate correctly with GaussianBlur and RandomRotation"
+      },
+      "decision_logic": {
+        "proceed_full_tier2": "Primary criterion passes: spread > 1%",
+        "proceed_cautiously": "Spread 0.5-1%: reduce full Tier 2 to 3 seeds instead of 5",
+        "redirect_budget": "Spread < 0.5% in both seeds: report pilot as preliminary, redirect budget to additional Tier 1 analysis (more seeds or ViT instability investigation)"
+      },
+      "estimated_time_min": 30,
+      "timeout_sec": 1800,
+      "output": "exp/results/pilots/tier2_confirmation_pilot.json"
+    },
+    "tier1_resnet18_cifar10_full_pilot": {
+      "task_id": "tier1_resnet18_cifar10_full",
+      "candidate_id": "cand_a",
+      "purpose": "10-epoch sanity pass before committing 5-seed x 200-epoch run. Verifies full-dataset training pipeline (50k samples), checkpoint saving, and per-epoch logging at production scale.",
+      "config": {
+        "model": "resnet18",
+        "dataset": "cifar10",
+        "train_subset_size": 100,
+        "epochs": 10,
+        "seeds": [42],
+        "save_checkpoint": true
+      },
+      "pass_criteria": "All 6 orderings run 10 epochs without error; checkpoint saved; per-epoch val_accuracy logged; spread > 0.0%",
+      "estimated_time_min": 15,
+      "timeout_sec": 900
+    },
+    "tier4a_feature_nc_pilot": {
+      "task_id": "tier4a_feature_nc",
+      "candidate_id": "cand_a",
+      "purpose": "Verify feature extraction pipeline from pretrained ResNet-18 works before 10k-sample full run. 100 samples is sufficient for pipeline validation.",
+      "config": {
+        "encoder": "resnet18_cifar10_200ep_checkpoint",
+        "samples": 100,
+        "projections_swd": 100,
+        "feature_dim": 512
+      },
+      "pass_criteria": "Feature extraction returns 512-D tensors; SWD computed for at least 1 pair; NC_2 > 0; no CUDA OOM",
+      "estimated_time_min": 5,
+      "timeout_sec": 300
+    }
+  },
+
+  "pilot_config_defaults": {
+    "samples": 100,
+    "seed": 42,
+    "timeout_sec": 900,
+    "epochs_pilot": 10,
+    "batch_size": 128
+  },
+
+  "global_pass_criteria": {
+    "tier1_full_go_criterion": "In pilot: all 6 orderings complete for all 4 blocks; spread > 0.0% in at least 3 blocks",
+    "tier2_go_criterion": "tier2_confirmation_pilot primary pass: spread > 1% on CIFAR-10/ResNet-18",
+    "tier3_go_criterion": "Best and worst orderings from tier1_analysis_full available; both orderings' accuracies differ by > 0.3%",
+    "tier4_go_criterion": "Tier 1 ResNet-18/CIFAR-10 200-epoch checkpoint available at expected path"
+  }
+}

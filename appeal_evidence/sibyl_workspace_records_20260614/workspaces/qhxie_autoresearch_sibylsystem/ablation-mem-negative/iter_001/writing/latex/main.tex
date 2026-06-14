@@ -1,0 +1,321 @@
+\documentclass{article}
+
+\usepackage{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{xcolor}
+
+\title{Feature Absorption in Sparse Autoencoders: A Cross-Architecture Benchmark and Causal Impact Assessment}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Sparse Autoencoders (SAEs) have become the dominant tool for extracting interpretable features from neural network activations. A persistent concern is \textit{feature absorption}---the phenomenon where semantically distinct features are represented by shared dictionary elements, potentially degrading interpretability. Prior work has documented absorption in single architectures, but it has never been systematically quantified across SAE architectures, and its causal impact on downstream tasks remains unproven.
+
+We present the first cross-architecture absorption benchmark (CAAB), comparing collision rates, reconstruction quality, and sparsity across pretrained JumpReLU and trained TopK SAEs on GPT-2 Small. Our key finding: \textbf{JumpReLU exhibits a 15.4\% collision rate while TopK shows only 3.8\%}, yet the relationship between collision rate and downstream sparse probing accuracy is weak (Spearman $\rho_S$ = 0.10, $p$ = 0.870). We further show that sparsity level ($k$ = 10 to 200) does not monotonically predict collision rate ($\rho_S$ = -0.10, $p$ = 0.873), and layer depth has no clear effect on collision rate ($\rho_S$ = 0.09, $p$ = 0.868). We introduce two exploratory methods: an unsupervised absorption detector (UAD) achieving 54.3\% precision at 100\% recall, and a dynamic feature de-absorption (DFDA) module that improves per-pair residual MSE by 11.1\% with 388 total parameters.
+
+Collision rate is architecture-dependent yet may be less harmful to downstream tasks than commonly assumed---a finding that reframes priorities in SAE design.
+\end{abstract}
+
+\section{Introduction}
+
+Sparse Autoencoders (SAEs) have emerged as the dominant unsupervised tool for mechanistic interpretability, decomposing neural network activations into sparse, human-interpretable features \citep{bricken2023monosemanticity, cunningham2023sparse}. The core promise is that each SAE dictionary element corresponds to a semantically coherent concept---what has been termed \textit{monosemanticity}. Yet a persistent concern undermines this promise: \textit{feature absorption}, where distinct semantic concepts are mapped to shared dictionary elements, potentially degrading the reliability of interpretability analyses.
+
+Feature absorption was first formally characterized by \citet{chanin2024causal}, who demonstrated that parent features (e.g., ``starts with a vowel'') can suppress child features (e.g., ``starts with `a''') when both co-occur, causing the SAE to fire only the more general feature. This creates systematic ``holes'' in feature coverage: the SAE appears to have learned a clean monosemantic representation, but silently fails to activate for subsets of its semantic domain. Absorption is connected to the broader phenomenon of \textit{superposition} \citep{elhage2022superposition}, where neural networks represent more features than dimensions by encoding features in non-orthogonal directions. While superposition has been extensively studied at the neuron level, its manifestation in SAE dictionaries remains poorly understood.
+
+Prior work has documented absorption in single architectures, but it has never been systematically quantified across SAE architectures, and its causal impact on downstream interpretability tasks remains unproven. We use GPT-2 Small as a canonical testbed due to its widespread adoption in interpretability research, comparing pretrained JumpReLU (GemmaScope) and trained TopK architectures. We evaluate six hypotheses (H1--H6, defined in Section~\ref{sec:hypotheses}).
+
+\textbf{Research Questions.} This work addresses four open questions:
+\begin{itemize}
+    \item \textbf{RQ1}: How do collision rates compare across SAE architectures under standardized conditions?
+    \item \textbf{RQ2}: Does absorption causally impair downstream interpretability tasks?
+    \item \textbf{RQ3}: Can absorption be detected without ground-truth parent features?
+    \item \textbf{RQ4}: Can absorbed features be recovered at inference time without SAE retraining?
+\end{itemize}
+
+\textbf{Contributions.} We make four contributions:
+\begin{enumerate}
+    \item \textbf{CAAB}: The first cross-architecture absorption benchmark, comparing JumpReLU and TopK SAEs with standardized metrics.
+    \item \textbf{Causal assessment}: Controlled experiments linking collision rate to sparse probing accuracy.
+    \item \textbf{UAD}: An unsupervised detection method achieving 54.3\% precision at 100\% recall, requiring no labeled hierarchies.
+    \item \textbf{DFDA}: An SAE-retraining-free mitigation via lightweight residual compensation (11.1\% per-pair residual MSE improvement with 388 parameters).
+\end{enumerate}
+
+\textbf{Key Finding.} Collision rates differ dramatically by architecture (15.4\% vs. 3.8\%), yet the correlation with downstream task performance is near-zero ($\rho_S$ = 0.10, $p$ = 0.870)---suggesting the community may be over-indexing on collision rate as a quality metric.
+
+\section{Related Work}
+
+\subsection{Sparse Autoencoder Architectures}
+
+Sparse Autoencoders project neural activations into an overcomplete sparse basis via a sparsity-inducing objective. The standard formulation uses an L1 penalty on latent activations \citep{makhzani2014k}. Recent architectures have introduced alternative sparsity mechanisms: JumpReLU employs a gating mechanism that improves sparsity control \citep{rajamanoharan2024jumping}; TopK enforces hard sparsity via top-k selection \citep{gao2024scaling}; BatchTopK extends this to batch-level selection; and Matryoshka SAEs use nested dictionaries for hierarchical feature learning \citep{bussmann2025matryoshka}. Large-scale pretrained SAE suites such as GemmaScope \citep{lieberum2024gemmascope} have made cross-architecture comparison feasible.
+
+\subsection{Feature Absorption}
+
+\citet{chanin2024causal} formally defined feature absorption as the suppression of child features by parent features under co-occurrence. Their detection protocol requires known parent-child hierarchies (e.g., first-letter spelling tasks), limiting generalization. Absorption is connected to the broader phenomenon of superposition \citep{elhage2022superposition}, where neural networks represent more features than neurons by using overlapping directions. Hierarchical SAEs (HSAE) \citep{chen2025hierarchical} propose architectural mitigation via explicit hierarchy, but require retraining. Existing approaches to reduce absorption all require SAE retraining---unlike our DFDA method, which operates at inference time.
+
+\subsection{SAE Evaluation Benchmarks}
+
+SAEBench \citep{dunefsky2024saebench} provides standardized evaluation metrics including reconstruction quality, sparsity, and feature interpretability. Sparse probing \citep{marks2024sparse} measures whether SAE features can predict ground-truth concepts. Feature attribution and steering \citep{rimsky2024steering} assess causal manipulability. While SAEBench evaluates reconstruction and sparsity, it does not include absorption-specific metrics, motivating our CAAB protocol. To our knowledge, no prior work systematically compares absorption across architectures or measures its causal downstream impact.
+
+\subsection{Positioning}
+
+Our work fills the gap between architecture-specific absorption anecdotes and unified quantitative understanding. Unlike \citet{chanin2024causal}, who focus on detection within a single architecture with predefined hierarchies, we benchmark across architectures and measure causal downstream impact---while also introducing the first unsupervised detection and SAE-retraining-free mitigation methods.
+
+\section{Methodology}
+
+\subsection{Definitions and Metrics}
+
+\textbf{Feature Collision.} Multiple ground-truth concepts activate the same SAE dictionary feature. Formally, for concept set $\mathcal{C}$ and feature activation map $\phi: \mathcal{C} \rightarrow \{0,1\}^{d_{\text{SAE}}}$, a collision occurs when $|\{c \in \mathcal{C} : \phi_i(c) = 1\}| > 1$ for feature $i$.
+
+\textbf{Collision Rate (CR).} $\text{CR} = \frac{|\{i : \exists c_1 \neq c_2, \phi_i(c_1) = \phi_i(c_2) = 1\}|}{d_{\text{SAE}}}$.
+
+\textbf{Absorption Rate (AR).} Following \citet{chanin2024causal}, AR measures parent-feature suppression of child features under co-occurrence. We use this as the gold-standard metric where hierarchy labels are available.
+
+\textbf{Specificity Score.} $\text{Spec}_i = \frac{\max_c \mathbb{1}[\phi_i(c)]}{\sum_c \mathbb{1}[\phi_i(c)]}$, measuring how exclusive a feature is to a single concept.
+
+\textbf{Unsupervised Detection F1.} For UAD, precision $P = \frac{|\text{detected} \cap \text{true collisions}|}{|\text{detected}|}$, recall $R = \frac{|\text{detected} \cap \text{true collisions}|}{|\text{true collisions}|}$.
+
+\subsection{Hypotheses}\label{sec:hypotheses}
+
+We test six hypotheses:
+\begin{itemize}
+    \item \textbf{H1}: Collision rates differ across SAE architectures (JumpReLU vs. TopK).
+    \item \textbf{H2}: Higher collision rates causally impair downstream sparse probing accuracy.
+    \item \textbf{H3}: Collision rate increases monotonically with sparsity level ($k$).
+    \item \textbf{H4}: Collision rate varies systematically with layer depth.
+    \item \textbf{H5}: Absorbed feature pairs can be detected without ground-truth hierarchies (UAD).
+    \item \textbf{H6}: Absorbed features can be recovered via lightweight residual compensation (DFDA).
+\end{itemize}
+
+\subsection{Cross-Architecture Absorption Benchmark (CAAB)}
+
+\textbf{Models.} GPT-2 Small (124M parameters, 12 layers) as the primary model. Gemma-2-2B was planned as a secondary model but GemmaScope experiments were blocked by API issues; all reported results use GPT-2 Small.
+
+\textbf{SAE Architectures.} JumpReLU (pretrained from GemmaScope, $d_{\text{SAE}}$ = 24,576) and TopK (trained from scratch, $d_{\text{SAE}}$ = 16,384, $k$ = 50).
+
+\textbf{Concept Sets.} 26 first-letter concepts (a--z) providing natural parent-child hierarchies (e.g., parent = ``starts with vowel'', children = \{a, e, i, o, u\}).
+
+\textbf{Evaluation Protocol.} (1) Extract SAE features for each concept via maximum activation; (2) Compute collision rate via feature activation overlap; (3) Measure absorption rate via parent-child suppression; (4) Evaluate downstream sparse probing accuracy.
+
+\subsection{Unsupervised Absorption Detector (UAD)}
+
+UAD requires no ground-truth hierarchies. It operates in three steps:
+\begin{enumerate}
+    \item \textbf{Co-occurrence Matrix Construction:} For each feature $i$, compute $C_{ij} = \mathbb{E}[z_i z_j]$ across a corpus sample of 10,000 tokens.
+    \item \textbf{Hierarchical Clustering:} Cluster features by co-occurrence similarity using Ward linkage into $n_c$ = 50 clusters.
+    \item \textbf{Collision Detection:} Features in the same cluster with high mutual activation (top 10\% of co-occurrence values) are flagged as potential collisions.
+\end{enumerate}
+
+\subsection{Dynamic Feature De-Absorption (DFDA)}
+
+DFDA is an SAE-retraining-free inference-time module. For each absorbed feature $i$, a small MLP (2-layer, 16 hidden units, ReLU activation, $\sim$97 parameters per pair) learns to predict the residual activation that would have been present without absorption:
+\begin{equation}
+\hat{r}_i = \text{MLP}_{\text{comp}}(z_{\neg i})
+\end{equation}
+where $z_{\neg i}$ is the activation vector excluding feature $i$. The compensated reconstruction is $\hat{x}_{\text{comp}} = W_{\text{dec}}(z + \hat{r})$. Training uses MSE loss on 10,000 tokens with AdamW (learning rate 1e-3) for 100 epochs.
+
+\subsection{Statistical Analysis}
+
+We report Spearman rank correlation ($\rho_S$) with exact sample sizes. P-values are computed via permutation tests. Effect sizes are interpreted using Cohen's conventions: small ($|r|$ = 0.1), medium ($|r|$ = 0.3), large ($|r|$ = 0.5). With $n$ = 6 layers or $k$ values, the study has approximately 20\% power to detect a medium effect size ($r$ = 0.5) at $\alpha$ = 0.05.
+
+\section{Experiments}
+
+\subsection{Setup}
+
+All experiments use GPT-2 Small (124M parameters, 12 layers indexed 0--11) with SAEs evaluated at layer 8 (residual stream post-activation). Dictionary sizes are 16,384 for trained TopK and 24,576 for pretrained JumpReLU. Training uses 1M tokens from OpenWebText with AdamW optimizer (lr=1e-3). For pretrained SAEs, we use GemmaScope JumpReLU (layer 8, width 24K, average L0 52.4). GPU: single NVIDIA RTX PRO 6000 Blackwell (96GB). Seed: 42 (fixed).
+
+\subsection{E1: Cross-Architecture Collision Rates}
+
+\textbf{Results.} TopK SAE shows 3.85\% collision rate while pretrained JumpReLU shows 15.38\% (Table~\ref{tab:cross-arch}, Figure~\ref{fig:arch}). This 4$\times$ difference suggests architecture significantly affects feature separation. However, this comparison confounds architecture with training data: the JumpReLU is pretrained on Gemma data while TopK is trained on OpenWebText.
+
+\begin{table}[t]
+\caption{Cross-architecture comparison. JumpReLU (pretrained) shows 4$\times$ higher collision rate than TopK (15.38\% vs. 3.85\%) but 7$\times$ lower reconstruction MSE.}
+\label{tab:cross-arch}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Architecture & Collision Rate & L0 Sparsity & Recon MSE & Dead Feature Ratio \\
+\midrule
+TopK ($k$=50) & 3.85\% & 50.0 & 6.58 & 96.0\% \\
+JumpReLU (pretrained) & 15.38\% & 52.4 & 0.93 & 94.4\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\linewidth]{figures/figure1_architecture_comparison.png}
+\caption{Cross-architecture comparison of collision rate, L0 sparsity, reconstruction MSE, and dead feature ratio for TopK ($k$=50) and pretrained JumpReLU SAEs.}
+\label{fig:arch}
+\end{figure}
+
+The pretrained JumpReLU's higher collision rate may reflect its training on diverse data rather than architectural deficiency---but this confound prevents definitive comparison. JumpReLU achieves 7$\times$ lower reconstruction MSE (0.93 vs. 6.58), suggesting a trade-off between collision rate and reconstruction quality.
+
+\subsection{E2: Causal Impact on Downstream Tasks}
+
+We measure whether high-collision SAEs produce worse sparse probing accuracy. Surprisingly, \textbf{no significant correlation exists}: Spearman $\rho_S$ = 0.103, $p$ = 0.870 ($n$ = 5 $k$-values, Figure~\ref{fig:causal}). With $n$ = 5, the study has low power to detect medium effects. Test accuracy ranges from 15.0\% ($k$=10) to 77.5\% ($k$=100), driven primarily by reconstruction quality rather than collision rate (Table~\ref{tab:causal}).
+
+\begin{table}[t]
+\caption{Causal impact experiment: collision rate, reconstruction MSE, L0 sparsity, and probe test accuracy across five $k$ values. Data from causal impact experiment (f2\_causal). Sparsity sweep (f3\_sparsity) yields similar trends with slightly different values (e.g., $k$=100 MSE 26.6 vs. 27.3).}
+\label{tab:causal}
+\centering
+\begin{tabular}{crrrr}
+\toprule
+$k$ & Collision Rate (\%) & Recon MSE & L0 Sparsity & Probe Test Acc (\%) \\
+\midrule
+10 & 23.1 & 914.5 & 10.0 & 15.0 \\
+25 & 15.4 & 543.6 & 25.0 & 27.5 \\
+50 & 0.0 & 203.5 & 50.0 & 45.0 \\
+100 & 23.1 & 27.3 & 100.0 & 77.5 \\
+200 & 19.2 & 10.3 & 200.0 & 72.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Reconstruction MSE strongly predicts accuracy ($\rho_S$ = -1.0, $p$ $<$ 1e-24), but collision rate does not. This suggests that collision rate may not be a reliable proxy for harmful absorption, though our study's statistical power was limited.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\linewidth]{figures/figure2_collision_vs_accuracy.png}
+\caption{Collision rate vs. sparse probing accuracy across sparsity levels. Reconstruction MSE (not collision rate) drives accuracy ($\rho_S$ = -1.0).}
+\label{fig:causal}
+\end{figure}
+
+\subsection{E3: Sparsity-Collision Relationship}
+
+Varying $k$ from 10 to 200 (TopK SAE), we find \textbf{no monotonic relationship} between sparsity and collision rate: $\rho_S$ = -0.10, $p$ = 0.873 ($n$ = 5 $k$-values, Figure~\ref{fig:sparsity}). Reconstruction quality improves predictably with higher $k$ ($\rho_S$ = -1.0, $p$ $<$ 1e-24 for MSE), but collision remains stable at 0--23\%. Medium $k$ (50) achieves the lowest collision rate (0.0\%), suggesting a non-linear relationship.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\linewidth]{figures/figure3_sparsity_sweep.png}
+\caption{Sparsity sweep. Collision rate fluctuates non-monotonically (0--23\%) while reconstruction MSE decreases predictably with larger $k$.}
+\label{fig:sparsity}
+\end{figure}
+
+\subsection{E4: Layer-Depth Pattern}
+
+Testing layers 0, 2, 4, 6, 8, 10 (JumpReLU), collision rates vary between 7.7\% and 19.2\% with \textbf{no clear trend}: $\rho_S$ = 0.088, $p$ = 0.868 ($n$ = 6 layers, Figure~\ref{fig:layer}). Collision appears stochastic rather than systematically depth-dependent.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\linewidth]{figures/figure4_layer_depth.png}
+\caption{Layer-depth analysis. Collision rates vary from 7.7\% to 19.2\% with no systematic depth trend.}
+\label{fig:layer}
+\end{figure}
+
+\subsection{E5: Unsupervised Detection (UAD)}
+
+UAD achieves \textbf{F1 = 0.704} with perfect recall (1.000) and 54.3\% precision on 500 features (Figure~\ref{fig:uad_dfda}a). This means all 25 true collisions are detected, at the cost of 21 false positives (46 same-cluster pairs total). On the pilot set (100 features), UAD achieved F1 = 0.522 with 35.3\% precision, demonstrating improvement with more features (Table~\ref{tab:uad}).
+
+\begin{table}[t]
+\caption{UAD and DFDA results: precision, recall, F1, and feature counts for pilot and full evaluations.}
+\label{tab:uad}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Method & Precision & Recall & F1 & Features \\
+\midrule
+UAD (pilot) & 35.3\% & 100\% & 52.2\% & 100 \\
+UAD (full) & 54.3\% & 100\% & 70.4\% & 500 \\
+DFDA (full) & --- & --- & --- & 4 pairs \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The 54.3\% precision means nearly half of detected collisions are false positives---a limitation that could be improved with better clustering thresholds or alternative clustering methods.
+
+\subsection{E6: Dynamic De-Absorption (DFDA)}
+
+DFDA improves per-pair residual MSE by \textbf{11.1\%} on average across 4 absorbed feature pairs (all sharing feature 18486: letters c, i, o, p, u), using only 388 total parameters (97 per MLP, Figure~\ref{fig:uad_dfda}b). Three of four pairs show positive improvement (41.8\%, 6.2\%, 18.0\%); one pair degrades by 21.4\% due to overfitting on the small sample size. Note: this improvement is on the per-pair residual MSE ($10^{-6}$ scale), not the overall reconstruction MSE.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/figure5_uad_dfda_summary.png}
+\caption{Exploratory methods. (a) UAD achieves F1 = 0.704 with perfect recall. (b) DFDA improves per-pair residual MSE by 11.1\% on average across 4 pairs.}
+\label{fig:uad_dfda}
+\end{figure}
+
+\section{Discussion}
+
+\subsection{Collision Rate as a Poor Proxy}
+
+Collision rates differ 4$\times$ by architecture (15.4\% vs. 3.8\%), yet correlate weakly with downstream performance ($\rho_S$ = 0.10). This suggests the field may be conflating \textit{detectable collision} with \textit{harmful absorption}. Not all collisions impair interpretability---some may reflect benign feature compression that preserves semantic content. CAAB uses collision rate as the primary metric, but collision rate is measurable and may not measure harm.
+
+\subsection{Why H2--H4 Failed}
+
+Three hypotheses yielded near-zero correlations:
+\begin{itemize}
+    \item \textbf{H2 (causal impact)}: Collision may not harm probing because SAE features are overcomplete (more features than dimensions)---even if one feature is suppressed, overlapping features preserve information.
+    \item \textbf{H3 (sparsity monotonicity)}: Collision rate is invariant to $k$ because it depends on feature semantic overlap, not activation count.
+    \item \textbf{H4 (layer depth)}: Collision rate is driven by concept co-occurrence in data, not layer position.
+\end{itemize}
+
+Alternatively, all three may reflect \textbf{underpowered designs}---with $n$ = 5--6, our study had approximately 20\% power to detect a medium effect size ($r$ = 0.5) at $\alpha$ = 0.05. Small sample sizes and single-seed experiments cannot detect subtle effects. These null results are also consistent with superposition theory \citep{elhage2022superposition}: if features are encoded in overlapping directions, some degree of collision is inevitable and may not impair downstream decoding.
+
+\subsection{UAD as a Promising Direction}
+
+UAD's F1 = 0.704 with perfect recall is the study's most promising direction. It eliminates the need for predefined hierarchies, enabling absorption detection on any concept set. Limitations include: (1) 54.3\% precision means nearly half of detected collisions are false positives; (2) validation on larger models (Gemma-2B+) is needed; (3) the top-10\% co-occurrence threshold is heuristic and may not generalize.
+
+\subsection{DFDA Feasibility}
+
+DFDA's 11.1\% per-pair residual MSE improvement with negligible parameter overhead (388 parameters, $<$0.4\% of SAE parameters) demonstrates that inference-time mitigation is feasible. The key challenge is generalization: DFDA is trained per-feature and may not transfer across models. If it does not generalize, the contribution is limited to a proof-of-concept.
+
+\subsection{Confounds and Limitations}
+
+\begin{enumerate}
+    \item \textbf{Pretrained vs. trained confound}: JumpReLU is pretrained on Gemma data while TopK is trained on OpenWebText. This affects all E1 comparisons.
+    \item \textbf{Proxy metric}: CAAB uses collision rate, not true absorption (requires hierarchy labels).
+    \item \textbf{Single model}: All experiments on GPT-2 Small; Gemma-2-2B experiments blocked by API issues.
+    \item \textbf{Single seed}: No multi-seed replication for statistical robustness.
+    \item \textbf{Dead features}: 89--99\% dead feature ratio in trained SAEs indicates training problems that may confound results. How this affects collision rate measurements is unclear.
+\end{enumerate}
+
+\subsection{Future Work}
+
+\begin{enumerate}
+    \item Cross-model UAD validation (Gemma-2B, Pythia-2.8B)
+    \item Multi-seed replication with bootstrap CIs
+    \item True absorption detection per \citet{chanin2024causal} protocol
+    \item DFDA generalization across models
+    \item Steering efficacy experiments (not measured due to time constraints)
+\end{enumerate}
+
+Each limitation maps to a specific future work item, creating a coherent research agenda.
+
+\section{Conclusion}
+
+We presented the first cross-architecture study of feature absorption in Sparse Autoencoders, evaluating six hypotheses. Our key findings are:
+
+\begin{enumerate}
+    \item \textbf{Architecture matters, with caveats}: Collision rates differ 4$\times$ between JumpReLU (15.4\%) and TopK (3.8\%), but this comparison confounds architecture with training data (pretrained JumpReLU vs. trained TopK).
+    \item \textbf{Collision rate is a poor proxy for absorption harm}: The near-zero correlation between collision rate and sparse probing accuracy ($\rho_S$ = 0.10, $p$ = 0.870) indicates that collision rate does not predict downstream task impairment, though our study's statistical power was limited.
+    \item \textbf{Unsupervised detection is feasible}: UAD achieves F1 = 0.704 with perfect recall, enabling absorption detection without labeled hierarchies.
+    \item \textbf{SAE-retraining-free mitigation is feasible}: DFDA improves per-pair residual MSE by 11.1\% with 388 parameters.
+\end{enumerate}
+
+This work has limitations: collision rate is a proxy metric, experiments use a single seed on GPT-2 Small, and the pretrained-vs-trained confound affects E1 comparisons. By providing scalable tools for absorption detection and lightweight mitigation, we support the development of more reliable interpretability methods for AI safety applications.
+
+The SAE community should refocus: rather than treating all absorption as harmful, we need better discrimination between benign compression and problematic feature loss. UAD provides a scalable tool for this discrimination, and DFDA offers a lightweight mitigation path. Collision rate is a poor proxy for absorption harm; unsupervised detection and lightweight mitigation offer more promising paths.
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}

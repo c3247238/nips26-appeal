@@ -1,0 +1,104 @@
+[
+  {
+    "stage": "writing",
+    "severity": "critical",
+    "description": "DTA 的标题地位与实证证据的根本矛盾。Contribution 1 仍标题为 'DTA'，Contribution 2 为 DTA 的理论框架 'VDTA'。但 DTA 在 Countdown-500 全规模测试中为 null result (4.8% vs 4.7% vanilla)。Section 3.4 仍声称 DTA+ReMDM '正交互补' 并推荐为 'production use'，但 DTA+ReMDM (3.6%) 是所有方法中最差的。论文实际贡献是 DMI + 谱系框架，不是 DTA。",
+    "suggestion": "Contribution 1 改为 'Information Augmentation Spectrum'，DMI 为核心实证贡献。DTA 整合到 'comprehensive empirical analysis' 中作为有启发性的 null result。删除 Section 3.4 'recommended for production use' 声明，添加 DTA+ReMDM degradation 讨论。"
+  },
+  {
+    "stage": "writing",
+    "severity": "critical",
+    "description": "VDTA 理论框架为无效方法提供理论保证。Proposition 1 声称 ELBO 单调性（基于强凸性假设，该假设对非凸 neural network loss 不成立），但 DTA 全规模 null result 意味着理论保证与实践完全脱节。Abstract 和 Contribution 2 仍突出 'ELBO monotonicity' 和 'theoretical guarantee'。",
+    "suggestion": "Proposition 1 降级为 'Conceptual Framework' 或 'Motivating Analysis'。Abstract: 'proving ELBO monotonicity' → 'providing a conceptual framework'。Section 3.2 开头声明理论与实践 gap（ELBO 改善 ≠ 准确率改善）。"
+  },
+  {
+    "stage": "experiment",
+    "severity": "critical",
+    "description": "缺少与最直接竞争方法 MetaState 和 CORE 的比较。MetaState 解决完全相同的 'Information Island' 问题；CORE 在 MBPP/LLaDA-8B 上实现 +9.2pp。论文引用了两者但无性能比较。",
+    "suggestion": "至少在 Discussion 中添加定性比较和 training-free 约束下的 tradeoff 讨论。理想情况下运行 CORE 实验（开源代码可用）。"
+  },
+  {
+    "stage": "experiment",
+    "severity": "major",
+    "description": "统计检验承诺未兑现。Section 4.1 承诺 'McNemar's test with Bootstrap 95% CIs and Bonferroni correction'，但 Table 1 和所有结果段落仅报告 mean ± std。Abstract 声称 DMI 'p < 0.05' 但未在 Results 中展示检验过程。7 方法的 pairwise 比较需要 Bonferroni 校正。",
+    "suggestion": "对 DMI vs vanilla、SCP vs vanilla、DMI vs SCP 执行 McNemar test + Bootstrap 95% CI。报告 Bonferroni 校正后的 p 值。确认 DMI 在校正后仍显著（6 comparisons, α = 0.008）。工作量: 4 小时。"
+  },
+  {
+    "stage": "writing",
+    "severity": "major",
+    "description": "4 个 TODO 图表 + 1 个 TODO 表格。Figure 1 (DTA overview), Figure 2 (Spectrum), Figure 3 (Token diagnostics), Figure 4 (LoRA norms) 均未生成。Table 5 (ablation) 未创建。实验驱动论文仅 1 个已生成 Figure。",
+    "suggestion": "优先生成 Figure 1, 2, 3（高影响力）。Figure 4 和 Table 5 可延后。工作量: 2 天。"
+  },
+  {
+    "stage": "writing",
+    "severity": "major",
+    "description": "论文篇幅严重超限。约 15,000 词正文，NeurIPS 限制约 6,000 词。需压缩 50% 以上，否则可能 desk reject。",
+    "suggestion": "将 Section 4.4 (Cross-Model), 4.5 (Scaling), Design Decisions 详情移至附录。Section 6.4 (18 Iterations) 压缩为 1 段。每个核心论点集中在一个位置。目标: 6,000 词正文 + 附录。工作量: 2 天。"
+  },
+  {
+    "stage": "writing",
+    "severity": "major",
+    "description": "Abstract Contribution 1 包含 MBPP pilot result (+12.5pp, N=16)。在论文自身记录 pilot 平均膨胀 24pp、且 DTA 在两个有全规模数据的 benchmark (Countdown, GSM8K partial) 上均为 null result 的情况下，在 Abstract 突出未验证的 pilot 结果是不当的。",
+    "suggestion": "从 Abstract Contribution 列表中移除 MBPP pilot result，或至少用 'preliminary pilot-scale signal, subject to documented pilot-to-full-scale inflation' 明确标记。"
+  },
+  {
+    "stage": "experiment",
+    "severity": "major",
+    "description": "DTA+ReMDM degradation (3.6%) 直接证伪 Section 3.4 的 '正交互补' 声明，但论文未分析根因。DTA+ReMDM 低于 DTA (4.8%)、ReMDM-conf (4.4%) 和 vanilla (4.7%)，seed 间方差最大 (1.2%)。",
+    "suggestion": "在 Discussion 中添加 1-2 段分析：可能的根因（remasking 的 token churning 破坏 DTA 的 MLM 训练信号？参数漂移在 remasking 引入的不稳定性下放大？）。删除或大幅修改 Section 3.4 的互补性叙事。"
+  },
+  {
+    "stage": "experiment",
+    "severity": "major",
+    "description": "GSM8K partial 全规模数据未整合到论文。full_scale_summary.json 包含: vanilla 29.6%, DTA 29.0%, DTA+ReMDM 24.5%, ReMDM-conf 21.3% (seed 42, partial)。DTA 在 GSM8K 上也是 null result，而 Table 2 pilot 数据给出相反信号。",
+    "suggestion": "在 Section 4.3 补充 GSM8K partial 全规模基线和 DTA 数据。讨论 pilot vs full-scale 差异（DTA pilot 12.5% → full ~29.0% ≈ vanilla），进一步验证 Section 6.4 Lesson 2。"
+  },
+  {
+    "stage": "experiment",
+    "severity": "medium",
+    "description": "Countdown 基线与文献报告值差距悬殊: vanilla Dream-7B 4.7% vs Dream 论文报告 16.0%。差距 >3x。论文未讨论。",
+    "suggestion": "在 Section 4.1 或脚注中讨论差距（可能原因: prompt 格式、样本集、步数配置差异）。强调所有方法使用同一 pipeline，相对比较有效。"
+  },
+  {
+    "stage": "writing",
+    "severity": "medium",
+    "description": "'Training-free' 术语用于执行推理时梯度更新的方法。Table (positioning) 将 DTA 标记为 'Training-free ✓'。技术上 DTA 是 'no pre-training required'，但 'training-free' 可能误导读者。",
+    "suggestion": "定义 'training-free' 为 '不需要额外的预训练或微调数据/步骤'，区别于 'optimization-free'。在 Section 2.2 或脚注中明确此定义。"
+  },
+  {
+    "stage": "writing",
+    "severity": "medium",
+    "description": "参考文献占位符: 多处 'arXiv:2505.xxxxx' 未替换为真实 arXiv ID。",
+    "suggestion": "替换所有占位符为真实 arXiv ID。"
+  },
+  {
+    "stage": "writing",
+    "severity": "medium",
+    "description": "SCP vs DMI 的 pairwise 比较缺乏统计检验。两者几乎相同 (9.1% vs 9.3%) 但成本差异 ~6x。确认无统计显著差异是 '浅层优于深层' 论点的关键支持。",
+    "suggestion": "执行 SCP vs DMI McNemar test，确认差异不显著，强化效率论点。"
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "Contribution 4 声称 'DTA shows task-dependent effectiveness'，但在两个有全规模数据的 benchmark 上 DTA 均为 null result。声明仅基于 N=16 pilot。",
+    "suggestion": "删除或重写为 'pilot-scale signals suggest potential task dependence, requiring full-scale validation'。"
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "Table 4 (Scaling) 完全基于 N=16 数据，非单调模式纯粹是采样噪声。整个 Section 4.5 展示无信息数据。",
+    "suggestion": "大幅压缩或移至附录。"
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "代码开源计划未提及。实验驱动论文无代码开源承诺降低可复现性评分。",
+    "suggestion": "补充代码开源承诺，指定预计开源时间或 GitHub repo。"
+  },
+  {
+    "stage": "experiment",
+    "severity": "minor",
+    "description": "Section 6.4 Lesson 1 讨论 PPL 不可靠性，引用与当前论文无直接关系的 Phase 1 PPL 实验。当前论文已完全使用准确率评估，PPL 讨论显得脱节。",
+    "suggestion": "压缩 Lesson 1 为 1-2 句或移至附录。"
+  }
+]

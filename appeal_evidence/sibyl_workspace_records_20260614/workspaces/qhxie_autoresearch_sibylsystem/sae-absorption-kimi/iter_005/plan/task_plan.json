@@ -1,0 +1,332 @@
+{
+  "tasks": [
+    {
+      "id": "setup_synthbench",
+      "name": "Setup SynthSAEBench-16k environment",
+      "description": "Install SAELens, verify SynthSAEBench-16k dataset availability, set up training infrastructure. Verify ground-truth hierarchy labels are accessible.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "Environment ready, dataset loaded, ground-truth hierarchy structure verified",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": []
+    },
+    {
+      "id": "pilot_baseline",
+      "name": "Pilot: Baseline ReLU SAE",
+      "description": "Train Standard ReLU SAE on SynthSAEBench-16k subset (1,024 features, 1M tokens). Measure ground-truth absorption rate, feature recovery MCC, reconstruction MSE, L0. Validate metrics work on synthetic data.",
+      "type": "baseline",
+      "depends_on": ["setup_synthbench"],
+      "expected_output": "pilot_baseline_results.json with absorption, MCC, MSE, L0",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "pilot": {
+        "samples": 1024,
+        "tokens": 1000000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate between 0.3-0.7 (reasonable range), MCC > 0.3 (learns structure), MSE < 2.0"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_topk",
+      "name": "Pilot: +TopK SAE",
+      "description": "Train TopK SAE (k=50) on same subset. Compare absorption vs. Baseline pilot. If effect size > 0.3, proceed with full experiment.",
+      "type": "experiment",
+      "depends_on": ["pilot_baseline"],
+      "expected_output": "pilot_topk_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "pilot": {
+        "samples": 1024,
+        "tokens": 1000000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption differs from Baseline by > 0.05 OR confirms null effect"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_multiscale",
+      "name": "Pilot: +MultiScale SAE",
+      "description": "Train MultiScale SAE on same subset. This is the critical pilot---if MultiScale does not show strong absorption reduction, reconsider H1.",
+      "type": "experiment",
+      "depends_on": ["pilot_baseline"],
+      "expected_output": "pilot_multiscale_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 12,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "pilot": {
+        "samples": 1024,
+        "tokens": 1000000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption reduction vs. Baseline > 0.1 with Cohen's d > 0.5"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_random_control",
+      "name": "Pilot: Random decoder control",
+      "description": "Initialize SAE with random decoder, do not train. Compute MCC and absorption on subset. Validates metrics discriminate structure from randomness.",
+      "type": "baseline",
+      "depends_on": ["setup_synthbench"],
+      "expected_output": "pilot_random_results.json",
+      "gpu_count": 0,
+      "estimated_minutes": 2,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "pilot": {
+        "samples": 1024,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "MCC < 0.1 AND absorption > 0.6"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_analysis",
+      "name": "Pilot analysis and go/no-go decision",
+      "description": "Compare pilot results across Baseline, TopK, MultiScale. Compute effect sizes. If MultiScale shows d > 0.5 and metrics validate, proceed to full experiment. Otherwise, flag for revision.",
+      "type": "analysis",
+      "depends_on": ["pilot_baseline", "pilot_topk", "pilot_multiscale", "pilot_random_control"],
+      "expected_output": "pilot_decision.json with go/no-go verdict",
+      "gpu_count": 0,
+      "estimated_minutes": 3,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Pilot absorption comparison (Baseline vs TopK vs MultiScale)",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "full_baseline",
+      "name": "Full: Baseline ReLU SAE (5 replicates)",
+      "description": "Train Standard ReLU SAE on full SynthSAEBench-16k (16,384 features, 10M tokens). 5 independent replicates with seeds 42-46. Compute absorption rate, MCC, MSE, L0, hedging.",
+      "type": "baseline",
+      "depends_on": ["pilot_analysis"],
+      "expected_output": "full_baseline_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": []
+    },
+    {
+      "id": "full_topk",
+      "name": "Full: +TopK SAE (5 replicates)",
+      "description": "Train TopK SAE on full SynthSAEBench-16k. 5 replicates. Compare absorption vs. Baseline.",
+      "type": "experiment",
+      "depends_on": ["pilot_analysis"],
+      "expected_output": "full_topk_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": []
+    },
+    {
+      "id": "full_multiscale",
+      "name": "Full: +MultiScale SAE (5 replicates)",
+      "description": "Train MultiScale SAE on full SynthSAEBench-16k. 5 replicates. Primary test of H1.",
+      "type": "experiment",
+      "depends_on": ["pilot_analysis"],
+      "expected_output": "full_multiscale_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 18,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": []
+    },
+    {
+      "id": "full_orthogonality",
+      "name": "Full: +Orthogonality SAE (5 replicates)",
+      "description": "Train SAE with decoder orthogonality penalty on full SynthSAEBench-16k. 5 replicates. Test H2 ranking.",
+      "type": "experiment",
+      "depends_on": ["pilot_analysis"],
+      "expected_output": "full_orthogonality_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": []
+    },
+    {
+      "id": "full_gating",
+      "name": "Full: +Gating SAE (5 replicates)",
+      "description": "Train Gated SAE on full SynthSAEBench-16k. 5 replicates. Test H2 ranking.",
+      "type": "experiment",
+      "depends_on": ["pilot_analysis"],
+      "expected_output": "full_gating_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": []
+    },
+    {
+      "id": "full_matryoshka",
+      "name": "Full: +Full Matryoshka SAE (5 replicates)",
+      "description": "Train Full Matryoshka SAE (TopK + MultiScale + hierarchical loss) on full SynthSAEBench-16k. 5 replicates. Test H3 (absorption-hedging trade-off) and component interactions.",
+      "type": "experiment",
+      "depends_on": ["pilot_analysis"],
+      "expected_output": "full_matryoshka_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": []
+    },
+    {
+      "id": "full_random_control",
+      "name": "Full: Random decoder control",
+      "description": "Random decoder on full SynthSAEBench-16k. No training. Validates metrics on full dataset.",
+      "type": "baseline",
+      "depends_on": ["pilot_analysis"],
+      "expected_output": "full_random_results.json",
+      "gpu_count": 0,
+      "estimated_minutes": 3,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": []
+    },
+    {
+      "id": "statistical_analysis",
+      "name": "Statistical analysis: ANOVA + effect sizes",
+      "description": "One-way ANOVA across 6 variants. Compute Cohen's d for each vs. Baseline. Tukey HSD post-hoc. Holm-Bonferroni correction. Mixed-effects model. Test H1, H2.",
+      "type": "analysis",
+      "depends_on": ["full_baseline", "full_topk", "full_multiscale", "full_orthogonality", "full_gating", "full_matryoshka", "full_random_control"],
+      "expected_output": "statistical_analysis_results.json",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate by variant with error bars (5 replicates)",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Effect sizes (Cohen's d) per component vs. Baseline with 95% CIs",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tradeoff_analysis",
+      "name": "Trade-off analysis: absorption vs. hedging vs. reconstruction",
+      "description": "Compute correlation between absorption and hedging across variants (H3). Identify Pareto frontier on absorption-reconstruction plot (H6). Test H5 (absorption-MCC correlation).",
+      "type": "analysis",
+      "depends_on": ["statistical_analysis"],
+      "expected_output": "tradeoff_analysis_results.json",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption vs. hedging across variants (H3)",
+          "x": "absorption_rate",
+          "y": "hedging_score",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Absorption vs. reconstruction MSE Pareto frontier (H6)",
+          "x": "absorption_rate",
+          "y": "reconstruction_mse",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "component_interaction",
+      "name": "Component interaction analysis",
+      "description": "Compare observed Full Matryoshka absorption to predicted additive effect: predicted = Baseline - (Baseline - MultiScale) - (Baseline - TopK). Test H9 (synergy vs. additivity vs. antagonism).",
+      "type": "analysis",
+      "depends_on": ["statistical_analysis"],
+      "expected_output": "interaction_analysis_results.json",
+      "gpu_count": 0,
+      "estimated_minutes": 3,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Observed vs. predicted Full Matryoshka absorption (additive model)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "training_dynamics",
+      "name": "Training dynamics: absorption emergence (Optional)",
+      "description": "Train Standard ReLU SAE with checkpointing every 10% of training. Measure absorption, MCC, MSE at each checkpoint. Test H8 (early emergence, irreversibility).",
+      "type": "experiment",
+      "depends_on": ["tradeoff_analysis"],
+      "expected_output": "training_dynamics_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate, MCC, MSE over training checkpoints",
+          "x": "training_progress",
+          "y": "metric_value",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "real_llm_validation",
+      "name": "Real-LLM validation: top component on Pythia-160M (Optional)",
+      "description": "Train Baseline + top-performing component from Experiment 1 on Pythia-160M activations. Measure first-letter absorption via SAEBench protocol. Compare with architecture leaderboard. Test H4 (synthetic-to-real transfer).",
+      "type": "experiment",
+      "depends_on": ["statistical_analysis"],
+      "expected_output": "real_llm_validation_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "candidate_id": "shared",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Synthetic component ranking vs. real-LLM architecture ranking",
+          "columns": ["Architecture", "Synthetic_Rank", "Real_LLM_Absorption", "Real_LLM_Rank"],
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "project": "sae-absorption-kimi",
+    "front_runner_candidate": "cand_f",
+    "total_tasks": 18,
+    "pilot_tasks": 5,
+    "full_tasks": 13,
+    "optional_tasks": 2,
+    "estimated_total_gpu_minutes": 163,
+    "estimated_total_cpu_minutes": 21,
+    "max_parallel_gpus": 6,
+    "primary_hypotheses": ["H1", "H2", "H3", "H4"],
+    "secondary_hypotheses": ["H5", "H6", "H7"],
+    "exploratory_hypotheses": ["H8", "H9"]
+  }
+}

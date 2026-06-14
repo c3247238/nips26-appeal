@@ -1,0 +1,93 @@
+{
+  "project": "dlm-acceleration",
+  "candidate_id": "cand_a",
+  "created": "2026-04-14",
+  "iteration": 1,
+  "pilot_config": {
+    "samples": 50,
+    "seeds": [
+      42
+    ],
+    "timeout": 1800
+  },
+  "purpose": "Iteration 1: Resolve tau=0.0 paradox + fix critical paper issues",
+  "tasks": [
+    {
+      "id": "pilot_tau0_comparison",
+      "name": "tau=0.0 vs naive T=16 Pilot (Paradox Resolution)",
+      "priority": 1,
+      "gate": true,
+      "description": "Compare CD-SSD(tau=0.9) vs CD-SSD(tau=0.0) vs naive-T16 vs M1+CD-SSD(tau=0.9) vs M1+naive-T16 on 50 GSM8K samples, seed=42. Key question: does tau=0.0 outperform naive T=16? Does M1+CD-SSD(tau=0.9) outperform M1+naive-T16?",
+      "dataset": {
+        "gsm8k": 50
+      },
+      "seed": 42,
+      "estimated_minutes": 25,
+      "gpu_required": true,
+      "code_file": "pilot_tau0_comparison.py",
+      "pass_criteria": "All 5 conditions measured; QAS values recorded for each",
+      "decision_rule": {
+        "tau0_beats_naiveT16": "CD-SSD acceptance gate has inherent value; mechanistic claim is justified",
+        "tau0_approx_naiveT16": "Accept gate adds no value; reframe CD-SSD as step-reduction method",
+        "M1_cdssd_beats_M1_naiveT16": "Synergy is specifically from frozen-token KV anchor effect",
+        "M1_naiveT16_ortho_gt_1": "Synergy comes from step-reduction + KV, not from CD-SSD frozen tokens"
+      },
+      "gpu_count": 1
+    },
+    {
+      "id": "full_tau0_comparison",
+      "name": "tau=0.0 vs naive T=16 Full Validation",
+      "priority": 2,
+      "gate": false,
+      "description": "Full validation of pilot results on 200 GSM8K, seeds {42, 123}. Run only after pilot confirms direction.",
+      "dataset": {
+        "gsm8k": 200
+      },
+      "seeds": [
+        42,
+        123
+      ],
+      "estimated_minutes": 90,
+      "gpu_required": true,
+      "code_file": "full_tau0_comparison.py",
+      "pass_criteria": "Both seeds complete; Ortho values computed for M1+naive-T16 vs M1+CD-SSD(tau=0.9)",
+      "gpu_count": 1
+    },
+    {
+      "id": "fix_paper_wilcoxon",
+      "name": "Remove fabricated Wilcoxon p<0.05 claim from paper",
+      "priority": 1,
+      "gate": false,
+      "description": "Find and remove the Wilcoxon signed-rank p<0.05 claim in paper.md and main.tex. Replace with multi-seed consistency statement (seed 42 Ortho=1.292, seed 123 Ortho=1.478 both confirm super-multiplicativity).",
+      "estimated_minutes": 30,
+      "gpu_required": false,
+      "code_file": null,
+      "pass_criteria": "No fabricated statistical claims in paper",
+      "gpu_count": 0
+    },
+    {
+      "id": "fix_paper_atlas_numbers",
+      "name": "Fix failure mode atlas numbers from actual Pareto data",
+      "priority": 2,
+      "gate": false,
+      "description": "Replace analytically-derived atlas values with actual values from Pareto JSON files in results/. Run from actual data.",
+      "estimated_minutes": 45,
+      "gpu_required": false,
+      "code_file": null,
+      "pass_criteria": "Atlas values match Pareto JSON files",
+      "gpu_count": 0
+    },
+    {
+      "id": "paper_revision_iteration1",
+      "name": "Paper revision incorporating tau=0.0 results and all fixes",
+      "priority": 3,
+      "gate": false,
+      "description": "Revise paper.md and main.tex to: (1) report tau=0.0 paradox results, (2) remove Wilcoxon, (3) fix atlas numbers, (4) clarify QAS penalty formula, (5) reframe CD-SSD contribution appropriately.",
+      "estimated_minutes": 120,
+      "gpu_required": false,
+      "code_file": null,
+      "pass_criteria": "Paper revision complete, all critical issues addressed",
+      "gpu_count": 0
+    }
+  ]
+}

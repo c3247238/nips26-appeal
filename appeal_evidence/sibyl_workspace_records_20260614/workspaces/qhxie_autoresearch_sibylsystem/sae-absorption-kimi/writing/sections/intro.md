@@ -1,0 +1,15 @@
+## Abstract
+
+Feature absorption, where parent features in semantic hierarchies are subsumed by child features under sparsity pressure, has been identified as a key pathology in Sparse Autoencoders (SAEs). A wave of architectural mitigations (Matryoshka SAE, OrtSAE, GBA) claims to reduce absorption, yet no study has systematically controlled for sparsity level (L0) when comparing architectures. We conduct the first systematic comparison controlling for sparsity level (L0), training six SAE variants on synthetic hierarchical data with known ground-truth absorption rates. Our results reveal that the apparent architectural advantage of TopK and Matryoshka SAEs is entirely confounded by sparsity: Baseline L1 cannot achieve the low L0 values enforced by TopK and Matryoshka, and even within Baseline, varying absorption via lambda sweep leaves feature recovery MCC essentially unchanged. Furthermore, a dose-response study falsifies the hypothesized causal link between absorption rate and downstream interpretability (feature recovery MCC remains flat at ~0.22 regardless of absorption). We conclude that controlling sparsity is essential before drawing architectural conclusions, and that the community's focus on absorption reduction may be misdirected.
+
+## 1. Introduction
+
+Sparse Autoencoders (SAEs) have emerged as the dominant tool for mechanistic interpretability of large language models [1]. By decomposing neural activations into sparse, human-interpretable features, SAEs promise to reveal the internal representations that drive model behavior. However, SAEs suffer from feature absorption [2]: under sparsity pressure, parent features in semantic hierarchies are subsumed by their child features, creating "holes" in feature coverage and undermining the reliability of SAE-based interpretability.
+
+The absorption phenomenon has catalyzed a wave of architectural innovations. Matryoshka SAE [3] uses nested multi-scale dictionaries to reduce absorption by ~90%. OrtSAE [4] enforces decoder orthogonality, claiming ~65% reduction. Other approaches include Gated SAE [5], JumpReLU SAE [6], and Hierarchical SAE [7]. Yet all these claims share a critical methodological gap: they compare architectures at their natural, often very different, sparsity levels (L0). TopK SAE with k=50 has L0≈50, while a standard L1-regularized baseline may have L0≈1000. Any observed difference in absorption may thus reflect sparsity rather than architecture.
+
+This paper addresses two questions:
+- **RQ1**: Does natural L0 confound cross-architecture absorption comparisons?
+- **RQ2**: Does absorption rate causally predict downstream interpretability performance?
+
+Our contributions are: (1) the first systematic demonstration that L0 is the dominant driver of absorption, with Baseline L1 unable to match the sparsity levels of TopK/Matryoshka; (2) a dose-response study falsifying the causal link between absorption and downstream interpretability; (3) evidence that the orthogonality penalty in OrtSAE has no effect on absorption.

@@ -1,0 +1,257 @@
+{
+  "tasks": [
+    {
+      "id": "diag_compute_curve_gsm8k",
+      "name": "GSM8K matched-compute compute curve",
+      "description": "基于已完成的 baseline 资产与统一 runtime contract，在 GSM8K 上补齐 matched actual compute 比较。目标是明确名义步数与实际 compute 的偏差是否改变 Standard / DNB / Prophet / CORE / Entropy / TIGER 的排序与 Pareto 位置。",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "exp/results/diag_compute_curve_gsm8k.json",
+      "candidate_id": "cand_diag",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        },
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "result",
+          "name": "gsm8k_main_shortlist",
+          "path": "current/exp/results/gsm8k_main_shortlist.json"
+        },
+        {
+          "type": "result",
+          "name": "baseline_core",
+          "path": "current/exp/results/baseline_core.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Matched-compute GSM8K comparison table",
+          "columns": [
+            "method",
+            "accuracy",
+            "actual_nfe",
+            "latency_sec",
+            "tokens_per_sec",
+            "batch_size"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Nominal vs actual compute gap by method",
+          "x": "method",
+          "y": "compute_gap_pct",
+          "paper_section": "analysis"
+        },
+        {
+          "type": "scatter",
+          "description": "Quality-speed Pareto frontier on GSM8K",
+          "x": "latency_sec",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least one key comparison changes qualitatively after actual-compute normalization, or a key method shows >10% mismatch between nominal and actual compute."
+      }
+    },
+    {
+      "id": "diag_signal_gap_audit",
+      "name": "GSM8K diagnostic-control gap 审计",
+      "description": "围绕 entropy、instability、calibration 构建 per-sample signal audit。目标是量化 signal 的 diagnostic quality 与其实际 control effectiveness 之间的差距，并输出支持主文 claim 的失败案例与相关性图。",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "exp/results/diag_signal_gap_audit.json",
+      "candidate_id": "cand_diag",
+      "gpu_count": 1,
+      "estimated_minutes": 35,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "gsm8k",
+          "path": "shared/datasets/gsm8k"
+        },
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "result",
+          "name": "diagnostic_calibration_heldout",
+          "path": "current/exp/results/diagnostic_calibration_heldout.json"
+        },
+        {
+          "type": "result",
+          "name": "tiger_signal_screen",
+          "path": "current/exp/results/tiger_signal_screen.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Signal quality vs revision gain scatter",
+          "x": "diagnostic_score",
+          "y": "revision_gain",
+          "paper_section": "analysis"
+        },
+        {
+          "type": "table",
+          "description": "Correlation summary for entropy / instability / calibration",
+          "columns": [
+            "signal",
+            "error_corr",
+            "benefit_corr",
+            "control_delta"
+          ],
+          "paper_section": "analysis"
+        },
+        {
+          "type": "heatmap",
+          "description": "Per-sample signal disagreement map",
+          "paper_section": "analysis"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least one signal has strong diagnostic quality (|corr| >= 0.4 or clear separation) while its realized control gain remains <=1% over entropy or standard."
+      }
+    },
+    {
+      "id": "diag_math500_shortlist",
+      "name": "MATH500 shortlist transfer",
+      "description": "在第二 reasoning benchmark 上复测 Standard、CORE-proxy、Entropy revision、TIGER 的相对排序。该任务不再服务于 TIGER 方法放大，而服务于 task-dependent revision 诊断主张。",
+      "type": "experiment",
+      "depends_on": [
+        "diag_compute_curve_gsm8k"
+      ],
+      "expected_output": "exp/results/diag_math500_shortlist.json",
+      "candidate_id": "cand_diag",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "math500",
+          "path": "shared/datasets/math500"
+        },
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "result",
+          "name": "gsm8k_main_shortlist",
+          "path": "current/exp/results/gsm8k_main_shortlist.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "MATH500 shortlist comparison",
+          "columns": [
+            "method",
+            "accuracy",
+            "actual_nfe",
+            "latency_sec",
+            "tokens_per_sec"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "GSM8K vs MATH500 ranking change",
+          "x": "method",
+          "y": "accuracy",
+          "paper_section": "analysis"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Either the ranking differs from GSM8K in an informative way, or the same diagnostic story replicates strongly enough to support task-dependent revision claims."
+      }
+    },
+    {
+      "id": "diag_humaneval_guard_boundary",
+      "name": "HumanEval guard boundary appendix",
+      "description": "把 code 结果固定为边界与附录证据：复测 Standard、Entropy revision、TIGER、Gated TIGER 的 parse/runtime/pass@1 行为，确认 cheap guard 是否只是局部保护，而非真正恢复整体能力。",
+      "type": "experiment",
+      "depends_on": [
+        "diag_signal_gap_audit"
+      ],
+      "expected_output": "exp/results/diag_humaneval_guard_boundary.json",
+      "candidate_id": "cand_diag",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "humaneval",
+          "path": "shared/datasets/humaneval"
+        },
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B-Instruct",
+          "path": "shared/checkpoints/llada-8b-instruct"
+        },
+        {
+          "type": "result",
+          "name": "tiger_gating_boundary",
+          "path": "current/exp/results/tiger_gating_boundary.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Code boundary comparison table",
+          "columns": [
+            "method",
+            "pass_at_1",
+            "syntax_failure_rate",
+            "runtime_failure_rate"
+          ],
+          "paper_section": "appendix"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Syntax vs runtime failure breakdown",
+          "x": "method",
+          "y": "failure_rate",
+          "paper_section": "appendix"
+        }
+      ],
+      "pilot": {
+        "samples": 50,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Gating improves syntax failure by >=10pp but still does not beat Standard pass@1, supporting boundary-only appendix positioning."
+      }
+    }
+  ]
+}

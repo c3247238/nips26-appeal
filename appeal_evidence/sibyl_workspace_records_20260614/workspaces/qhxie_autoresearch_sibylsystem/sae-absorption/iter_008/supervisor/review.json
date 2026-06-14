@@ -1,0 +1,90 @@
+{
+  "score": 7.0,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7.5,
+    "soundness": 6.5,
+    "experiments": 7.0,
+    "reproducibility": 7.0
+  },
+  "summary": "This iteration represents significant progress: the paper now has clean cross-layer absorption data (15-fold variation, unconfounded by probe quality), statistically significant cross-domain variation (Kruskal-Wallis p=0.005), strong interventional causal evidence (activation patching: 32.5% vs 1.5%, d=1.33), and a well-executed hedging decomposition (7.9% strict vs 86.2% compensatory). Numerical claims for the primary results (L0=22 hedging, activation patching, cross-domain rates) match raw data. Negative results (GAS, CMI, Absorption Tax) are reported with exemplary transparency. However, two issues prevent a score of 7.5 or above. FIRST, a factual error: the paper claims 'strict hedging rises to 12.3%' at L0=82, but the raw data (hedging_decomposition_full.json, L0_82_to_176) shows strict_hedging_pct = 0.0% -- zero strict hedging out of 74 FNs. This is a fabricated or erroneously sourced number that must be corrected. SECOND, the probe quality confound remains the paper's central weakness: RAVEL probes (best F1=0.843) are below the strict quality gate, and the paper cannot disentangle whether cross-domain rate differences reflect genuine hierarchy effects or probe quality artifacts. The paper acknowledges this transparently but does not perform the degraded-probe ablation that would resolve it. Additionally, activation patching is restricted to first-letter at L12, missing both the high-absorption L24 layer and all RAVEL hierarchies. The architecture comparison is underpowered (N=16 at L12 with the worst RAVEL probes). These gaps collectively keep the paper at Weak Accept territory -- interesting direction with real empirical content, but the confound structure limits the strength of the central cross-domain claim.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "FABRICATED OR ERRONEOUS HEDGING NUMBER AT L0=82. Section 5.2 states: 'At the more conservative base L0=82 with target L0=176 (2.1x multiplier), strict hedging rises to 12.3% while compensatory resolution drops to 78.4%.' The raw data file (hedging_decomposition_full.json, field L0_82_to_176) reports: strict_hedging=0, strict_hedging_pct=0.0%, compensatory=58, compensatory_pct=78.4%, persistent=16, persistent_pct=21.6%, total_fn=74. There is ZERO strict hedging at L0=82, not 12.3%. The 78.4% compensatory figure is correct. The persistent rate is 21.6%, not implied to be (100-12.3-78.4)=9.3%. The pilot phase0 data shows 3.66% strict hedging at L0=82 (3/82 FNs), which is also not 12.3%. The 12.3% figure appears in no source data file and may be a hallucination from writing generation.",
+      "suggestion": "Replace the L0=82 sentence with: 'At the more conservative base L0=82 with target L0=176 (2.1x multiplier), strict hedging drops to 0.0% (0/74 FNs), compensatory resolution is 78.4%, and persistent false negatives rise to 21.6%. The absence of any strict hedging at this base sparsity indicates that parent feature recovery becomes increasingly rare as the SAE operates closer to its designed L0.' This correction actually strengthens the paper's argument that loose hedging is near-tautological."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "PROBE QUALITY CONFOUND UNRESOLVED FOR CROSS-DOMAIN CLAIMS. The paper's central cross-domain contribution is that absorption rates differ significantly across hierarchy types (Kruskal-Wallis p=0.005). However, probe quality also differs substantially: first-letter F1=0.971, city-continent F1=0.843, city-country F1=0.789, city-language F1=0.823. Probe quality correlates with false negative rate at rho=-0.756 (p<0.001). The paper transparently reports this confound (Section 4.3) but cannot determine whether the cross-domain rate differences reflect genuine hierarchy effects or probe quality artifacts. The degraded-probe ablation described in Section 8.5 -- injecting calibrated label noise into first-letter probes to simulate RAVEL-level quality -- would resolve this and requires minimal compute. This experiment was identified as 'highest priority' future work but was not executed.",
+      "suggestion": "Execute the degraded-probe ablation before submission. Inject label noise into the first-letter probes at levels targeting F1=0.70, 0.80, 0.85, 0.90 and measure absorption rates at each level. If first-letter absorption rates drop to match RAVEL rates at matched probe quality, the cross-domain variation is primarily a probe artifact. If rates remain distinct, the hierarchy effect is genuine. This is the single highest-impact experiment for resolving the paper's central uncertainty."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "ACTIVATION PATCHING RESTRICTED TO FIRST-LETTER AT L12, MISSING THE HIGH-ABSORPTION REGIME. The causal evidence (32.5% recovery, d=1.33) is strong but limited to first-letter spelling at layer 12 (Gemma Scope JumpReLU 16k). Layer 12 shows only 5.7% absorption; the dominant signal is at layer 24 (34.5%). The paper acknowledges this mismatch (Section 8.4, limitation #2) and attributes it to experimental chronology (patching conducted before L24 spike was discovered). However, this means the paper's strongest causal evidence comes from its weakest absorption regime. Extending patching to L24 would test whether the causal mechanism operates where absorption is most severe. The paper claims 'activation patching at layer 12 confirms that child features causally suppress parent-class information' but this confirmation is in a 5.7% absorption context, not the 34.5% context that drives the headline finding.",
+      "suggestion": "Extend activation patching to L24 with the high-quality first-letter probe (F1=0.97). This would test whether the causal mechanism holds in the high-absorption regime. If recovery rates are similar or higher at L24, the causal evidence is substantially strengthened. If lower, it suggests that L24 absorption has a different character (e.g., more distributed, less amenable to single-feature ablation), which is itself an interesting finding."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "LETTER G DOMINATES STRICT HEDGING BUT IS NOT ADEQUATELY INVESTIGATED. In the L0=22 hedging decomposition (304 FNs), letter G accounts for 9/24 strict hedging cases (37.5%), with a per-letter strict rate of 64.3% (9/14 FNs for G are strict hedging). The next highest is letter A with 7/17 (41.2%). The mean strict hedging rate excluding G and A is approximately 2.9%. The paper does not compute hedging statistics with G excluded, nor investigate why G is anomalous. If the strict hedging claim (7.9%) is driven primarily by 1-2 letters, the phenomenon may reflect letter-specific SAE encoding rather than a general property of feature absorption.",
+      "suggestion": "Report strict hedging excluding letter G (and A) as a robustness check. Investigate G's anomaly: does the G parent latent have an unusual decoder direction, an unusually high cosine similarity to many child features, or an atypically low activation threshold? A few sentences of analysis would substantially strengthen the hedging decomposition finding."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "ARCHITECTURE COMPARISON UNDERPOWERED AND DOUBLY CONFOUNDED. The four-architecture comparison at L12 has N=16 observations, no significant effect (p=0.87), and RAVEL probes at F1=0.52-0.69 (their worst layer). The comparison is confounded by both sparsity (BatchTopK L0=20 vs JumpReLU L0=75-87) and probe quality. The paper correctly notes these limitations but still devotes an entire section (Section 6) to the results. At this sample size and confound level, the architecture comparison adds noise rather than signal. The finding that 'hierarchy type explains more variance than architecture choice' is undermined by the fact that architecture is tested at L12 while hierarchy is tested at L24 with better probes.",
+      "suggestion": "Either (a) downgrade Section 6 to a subsection with a clear caveat that the result is inconclusive, or (b) test at L24 where probes are best and absorption is highest. The current framing ('Architecture choice does not significantly affect absorption rates') overclaims from a null result with insufficient power."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "CROSS-DOMAIN ABSORPTION MEASURED AT L24 ONLY; LAYER-HIERARCHY INTERACTION UNCHARACTERIZED. RAVEL probes were measured only at L24, the best-performing layer. The paper claims both layer dependence and hierarchy dependence, but cannot characterize their interaction because RAVEL probes at L6/L12/L18 are too weak (F1=0.35-0.79). The pilot data at L12 suggested 'semantic hierarchies show higher absorption than first-letter' -- the opposite of the L24 finding. This suggests a crossover interaction that the paper acknowledges but cannot quantify. The L24-only RAVEL data means the cross-domain finding is really 'at the high-absorption layer, rates differ by hierarchy type' rather than 'rates differ across layers and hierarchies jointly.'",
+      "suggestion": "Be more precise in the abstract and claims: the cross-domain finding is established at L24 only. The layer-hierarchy interaction is suggestive but uncharacterized. Explicitly state that the pilot L12 finding (semantic > first-letter) reversed at L24 and that this crossover cannot be resolved without better RAVEL probes at intermediate layers."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "SINGLE MODEL FAMILY (Gemma 2 2B). All experiments use one model with one SAE family (Gemma Scope JumpReLU). The layer-dependent absorption pattern could reflect Gemma 2 2B's specific residual stream geometry rather than a general phenomenon. The paper discusses this in Section 8.4 (limitation #4) but does not provide even a rough analytical estimate of how model architecture might affect results.",
+      "suggestion": "Add a brief discussion of what model properties might moderate the layer effect. For instance: in models with more layers (Gemma 2 9B has 42 layers), does the absorption spike appear at the penultimate layer rather than a fixed index? This is a clear falsifiable prediction that costs nothing to state."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "minor",
+      "description": "ABSORPTION RATE METRIC IS CLASS-LEVEL, INFLATABLE FOR LARGE K. The absorption rate AR counts the fraction of K classes with at least one absorbed FN. For city-country (K=80), a single false positive in absorption detection for each class can inflate AR substantially. The paper notes this (Section 3.4) but does not report an instance-level absorption rate as a robustness check.",
+      "suggestion": "Report instance-level absorption rates (fraction of individual tokens with detected absorption, not fraction of classes) alongside the class-level AR. If both metrics tell the same story, this strengthens the finding. If they diverge, the divergence itself is informative."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "ACTIVATION PATCHING WORD SELECTION BIAS. Of 25 tested words, 18 were discovered via IG-guided search for tokens exhibiting large attribution gaps. This biases toward finding absorption. The paper acknowledges this (Section 5.1) but the 58.8% absorption rate (19/25) and the 32.5% recovery rate should not be interpreted as population estimates. The restricted analysis (12 words with raw accuracy >= 0.50, mean recovery 38.2%) partially addresses this but still uses the biased sample.",
+      "suggestion": "State more prominently that the recovery rate is conditional on the biased sample. The causal test is internally valid (zeroing child feature vs control) but the prevalence of absorption-amenable words in the full vocabulary is unknown."
+    }
+  ],
+  "risks": [
+    "The 12.3% strict hedging figure at L0=82 is contradicted by raw data (0.0%). If a reviewer cross-checks, this damages credibility of all numerical claims.",
+    "The probe quality confound is severe enough that a skeptical reviewer could dismiss the entire cross-domain contribution as 'you measured worse probes and got different rates, which is expected by construction.'",
+    "The activation patching result at L12 (5.7% absorption) may not generalize to L24 (34.5% absorption), where the failure mode is qualitatively different. The causal evidence and the headline finding are disconnected.",
+    "The architecture comparison (p=0.87) weakens the paper by presenting an inconclusive null result that consumes page budget and invites criticism about experimental design rather than adding value."
+  ],
+  "evidence_gaps": [
+    "Degraded-probe ablation: inject label noise into first-letter probes at F1 levels {0.70, 0.80, 0.85, 0.90} and measure whether absorption rates shift to match RAVEL rates. This is the single most important missing experiment.",
+    "Activation patching at L24: test whether the causal mechanism operates in the high-absorption regime that drives the headline finding.",
+    "Letter G investigation: compute strict hedging excluding G; examine G's parent latent properties. This costs minutes of analysis.",
+    "Instance-level absorption rates alongside class-level AR for robustness.",
+    "Cross-model validation: even a single additional model (Gemma 2 9B with Gemma Scope SAEs at comparable layers) would substantially strengthen generalizability."
+  ],
+  "what_would_raise_score": "To reach 7.5 (Borderline Accept): (1) Fix the 12.3% fabrication. (2) Execute the degraded-probe ablation at 3-4 noise levels to resolve the probe quality confound. (3) Extend activation patching to L24. (4) Investigate letter G in the hedging decomposition. To reach 8.0 (Accept): additionally (5) replicate the layer-dependent pattern on one additional model (Gemma 2 9B) and (6) provide instance-level absorption rates. Items 1-4 together would make the cross-domain claim defensible against the probe quality objection and connect the causal evidence to the high-absorption regime."
+}

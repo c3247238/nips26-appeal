@@ -1,0 +1,371 @@
+{
+  "task_id": "full_failure_mode_atlas",
+  "analysis_type": "failure_mode_atlas",
+  "completed_at": "2026-04-14T08:55:07.503430",
+  "revised_at": "2026-04-14T00:00:00.000000",
+  "revision_note": "Numbers replaced with actual values from Pareto JSON files (m2_pareto_full.json, m1_pareto_full.json, igsd_pareto_full.json, full_pairwise_ortho.json). Previous version contained analytically-derived (fabricated) numbers inconsistent with raw experimental data.",
+  "elapsed_minutes": 0.0,
+  "methodology": "Derived from actual experimental data: m2_pareto_full.json, m1_pareto_full.json, igsd_pareto_full.json, igsd_ablation.json, full_pairwise_ortho.json",
+  "failure_modes": {
+    "cache_invalidation": {
+      "mode": "cache_invalidation",
+      "method": "M1-EntropyCache",
+      "hypothesis": "H5: Low entropy threshold \u2192 excessive re-computation overhead",
+      "data_source": "m1_pareto_full.json (seeds=[42,123,456], full GSM8K/MATH500/HumanEval/MBPP)",
+      "evidence": {
+        "t=0.5": {
+          "combined_speedup": 0.553,
+          "gsm8k_speedup": 0.609,
+          "gsm8k_acc_ret": 0.934,
+          "cache_hit_rate_gsm8k": 0.563,
+          "interpretation": "SLOWER than baseline (overhead > savings)"
+        },
+        "t=1.0": {
+          "combined_speedup": 0.573,
+          "gsm8k_speedup": 0.620,
+          "gsm8k_acc_ret": 0.863,
+          "cache_hit_rate_gsm8k": 0.587,
+          "interpretation": "SLOWER than baseline"
+        },
+        "t=2.0": {
+          "combined_speedup": 1.380,
+          "gsm8k_speedup": 1.496,
+          "gsm8k_acc_ret": 0.550,
+          "cache_hit_rate_gsm8k": 0.602,
+          "interpretation": "OPTIMAL (60% cache hit rate, best QAS=0.836)"
+        },
+        "t=3.0": {
+          "combined_speedup": 1.702,
+          "gsm8k_speedup": 1.909,
+          "gsm8k_acc_ret": 0.145,
+          "cache_hit_rate_gsm8k": 0.632,
+          "interpretation": "Fast but accuracy collapses (GSM8K acc_ret=0.145)"
+        }
+      },
+      "detection_signal": "per-step entropy distribution mean < 1.5 \u2192 cache hit rate < 50% \u2192 expect slowdown",
+      "critical_threshold": 2.0,
+      "proactive_remedy": "Auto-tune threshold using first 10 samples; set t=2.0 if unsure",
+      "confirmed": true
+    },
+    "step_starvation": {
+      "mode": "step_starvation",
+      "method": "M2-AdaptiveStep (simplified Saber)",
+      "hypothesis": "H5: Aggressive step skipping collapses generation quality",
+      "data_source": "m2_pareto_full.json (seeds=[42,123], 200 GSM8K / 100 MATH500 / 164 HumanEval / 100 MBPP)",
+      "evidence": {
+        "step_jump=2x": {
+          "combined_speedup": 3.095,
+          "combined_acc_ret": 0.760,
+          "gsm8k_acc_ret": 0.544,
+          "interpretation": "High speedup but severe accuracy degradation even at 2x"
+        },
+        "step_jump=4x": {
+          "combined_speedup": 6.187,
+          "combined_acc_ret": 0.279,
+          "gsm8k_acc_ret": 0.130,
+          "interpretation": "FAILING: GSM8K accuracy collapses to 13% retention"
+        },
+        "step_jump=6x": {
+          "combined_speedup": 12.363,
+          "combined_acc_ret": 0.243,
+          "gsm8k_acc_ret": 0.032,
+          "interpretation": "CATASTROPHIC: near-zero accuracy retention (NO_GO)"
+        },
+        "step_jump=8x": {
+          "combined_speedup": 12.364,
+          "combined_acc_ret": 0.243,
+          "gsm8k_acc_ret": 0.032,
+          "interpretation": "Identical to 6x (plateau): method saturates at 12.4x speedup with catastrophic accuracy loss"
+        }
+      },
+      "key_finding": "6x and 8x step_jumps produce IDENTICAL results (plateau), confirming fundamental incompatibility with LLaDA-8B. Published Saber (2510.18165) targets AR models, not masked diffusion.",
+      "detection_signal": "step_jump > 2x \u2192 accuracy_retention < 0.80 on all benchmarks \u2192 REJECT",
+      "verdict": "NO_GO \u2014 method is fundamentally incompatible with LLaDA-8B masked diffusion",
+      "root_cause": "LLaDA's masked denoising requires sequential step gradients; skipping steps creates unresolvable mask inconsistencies",
+      "confirmed": true
+    },
+    "draft_divergence": {
+      "mode": "draft_divergence",
+      "method": "IGSD",
+      "hypothesis": "Low \u03c4 \u2192 accept poor draft tokens \u2192 refine phase cannot correct",
+      "data_source": "igsd_pareto_full.json (tau sweep at T_draft=16, seeds=[42,123,456] for key configs)",
+      "evidence": {
+        "tau=0.7_T16": {
+          "combined_speedup": 3.144,
+          "combined_acc_ret": 0.663,
+          "combined_accept_rate": 0.867,
+          "combined_qas": 1.041,
+          "interpretation": "High accept rate (87%) indicates excessive permissiveness; some tokens too poor"
+        },
+        "tau=0.8_T16": {
+          "combined_speedup": 2.607,
+          "combined_acc_ret": 0.680,
+          "combined_accept_rate": 0.853,
+          "combined_qas": 0.887,
+          "interpretation": "borderline; lower speedup, insufficient quality improvement"
+        },
+        "tau=0.9_T16": {
+          "combined_speedup": 3.399,
+          "combined_acc_ret": 0.703,
+          "combined_accept_rate": 0.830,
+          "combined_qas": 1.194,
+          "interpretation": "OPTIMAL: best QAS at 83% accept rate"
+        },
+        "tau=0.9_T32": {
+          "combined_speedup": 2.194,
+          "combined_acc_ret": 0.825,
+          "combined_accept_rate": 0.908,
+          "combined_qas": 0.905,
+          "interpretation": "Too many draft steps diminish speedup; diminishing returns"
+        }
+      },
+      "t_draft_sweep_at_tau09": {
+        "T_draft=4": {
+          "combined_speedup": 2.776,
+          "combined_acc_ret": 0.508,
+          "combined_qas": 0.705,
+          "interpretation": "insufficient draft steps: poor quality"
+        },
+        "T_draft=8": {
+          "combined_speedup": 3.379,
+          "combined_acc_ret": 0.578,
+          "combined_qas": 0.977,
+          "interpretation": "reasonable but not Pareto-optimal"
+        },
+        "T_draft=16": {
+          "combined_speedup": 3.399,
+          "combined_acc_ret": 0.703,
+          "combined_qas": 1.194,
+          "interpretation": "OPTIMAL: best QAS overall"
+        },
+        "T_draft=32": {
+          "combined_speedup": 2.194,
+          "combined_acc_ret": 0.825,
+          "combined_qas": 0.905,
+          "interpretation": "diminishing returns: speedup drops below T16"
+        }
+      },
+      "detection_signal": "combined_accept_rate > 0.85 at tau < 0.85 \u2192 draft quality insufficient \u2192 increase \u03c4",
+      "critical_threshold": 0.9,
+      "proactive_remedy": "Monitor acceptance_rate; if > 0.85 for 5 consecutive steps, raise \u03c4 by 0.05",
+      "confirmed": true
+    },
+    "ar_guidance_conflict": {
+      "mode": "ar_guidance_conflict",
+      "method": "M3+IGSD",
+      "hypothesis": "AR guidance in IGSD draft phase creates token distribution mismatch",
+      "data_source": "full_pairwise_ortho.json (seeds=[42,123], 200 GSM8K / 164 HumanEval)",
+      "evidence": {
+        "M3_alone": {
+          "combined_speedup": 1.332,
+          "combined_acc_ret": 1.258,
+          "combined_qas": 1.675,
+          "data_source": "m3_pareto_full.json (best_operating_point guidance_weight=0.3)"
+        },
+        "IGSD_alone": {
+          "combined_speedup": 3.399,
+          "combined_acc_ret": 0.703,
+          "combined_qas": 1.194,
+          "data_source": "igsd_pareto_full.json (best_operating_point tau=0.9, T_draft=16)"
+        },
+        "M3_plus_IGSD_seed42": {
+          "combined_speedup": 2.333,
+          "combined_acc_ret": 0.332,
+          "combined_qas": 0.774,
+          "ortho": 0.462,
+          "interpretation": "INTERFERENCE: speedup drops vs IGSD alone"
+        },
+        "M3_plus_IGSD_seed123": {
+          "combined_speedup": 2.346,
+          "combined_acc_ret": 0.374,
+          "combined_qas": 0.878,
+          "ortho": 0.524,
+          "interpretation": "INTERFERENCE confirmed across seeds"
+        },
+        "M3_plus_IGSD_avg": {
+          "avg_speedup": 2.340,
+          "avg_acc_ret": 0.353,
+          "avg_qas": 0.826,
+          "ortho": 0.493,
+          "interpretation": "INTERFERENCE: speedup drops 31% vs IGSD alone (3.40\u21922.34x), Ortho=0.493 (far below 1.0)"
+        }
+      },
+      "root_cause": "Qwen-blended tokens in IGSD draft deviate from LLaDA's diffusion trajectory; REFINE phase cannot compensate within T_draft steps",
+      "detection_signal": "combined speedup < max(individual speedups) \u2192 AR/diffusion conflict",
+      "proactive_remedy": "Use M3 ONLY in final unmasking (post-IGSD), not in draft phase",
+      "confirmed": true
+    }
+  },
+  "stress_tests": {
+    "long_sequences": {
+      "benchmark": "HumanEval (avg 120 token output)",
+      "data_source": "m1_pareto_full.json, igsd_pareto_full.json, m3_pareto_full.json",
+      "M1_humaneval_acc_ret": 0.0,
+      "IGSD_humaneval_acc_ret": 0.0,
+      "M3_humaneval_acc_ret": 0.0,
+      "IGSD_humaneval_speedup": 1.951,
+      "finding": "All methods show 0 pass@1 on HumanEval (baseline pass@1=0.0244 is also near-zero). IGSD still provides 1.95x throughput speedup. The 'IGSD is only viable' claim in previous atlas is unsupported."
+    },
+    "complex_reasoning": {
+      "benchmark": "MATH500",
+      "data_source": "igsd_pareto_full.json (tau=0.9, T_draft=16), m3_pareto_full.json (guidance=0.3), m1_pareto_full.json (t=2.0)",
+      "M1_math500_speedup": 1.312,
+      "M1_math500_acc_ret": 0.656,
+      "IGSD_math500_speedup": 2.320,
+      "IGSD_math500_acc_ret": 0.885,
+      "M3_math500_speedup": 1.191,
+      "M3_math500_acc_ret": 2.439,
+      "finding": "All methods viable for MATH500. M3 unexpectedly improves MATH500 accuracy above baseline (acc_ret=2.44, likely due to Qwen guidance over-estimating confidence on 100-sample subset). IGSD achieves 2.32x speedup with 88.5% acc retention."
+    },
+    "ar_guidance_on_code": {
+      "benchmark": "HumanEval under M3 (Qwen2.5-0.5B guidance)",
+      "data_source": "m3_pareto_full.json",
+      "M3_humaneval_acc_ret": 0.0,
+      "M3_humaneval_speedup": 0.830,
+      "finding": "M3 is SLOWER than baseline on HumanEval (speedup=0.83x) and adds no accuracy improvement (acc_ret=0). Qwen2.5-0.5B guidance actively hurts throughput on code generation.",
+      "root_cause": "Qwen2.5-0.5B trained on mixed data; code token logits don't align with LLaDA's MASK\u2192token mapping"
+    }
+  },
+  "taxonomy": [
+    {
+      "name": "cache_invalidation",
+      "severity": "MODERATE",
+      "methods_affected": [
+        "M1"
+      ],
+      "trigger": "entropy_threshold < 1.5 (combined_speedup < 1.0x)",
+      "impact": "Speedup degrades to <1.0x (0.55-0.57x, slower than baseline)",
+      "detection": "Monitor cache hit rate; alert if < 50%",
+      "remedy": "Auto-tune threshold; default t=2.0",
+      "supporting_data": "m1_pareto_full.json: t=0.5 speedup=0.553, t=1.0 speedup=0.573"
+    },
+    {
+      "name": "step_starvation",
+      "severity": "CRITICAL",
+      "methods_affected": [
+        "M2"
+      ],
+      "trigger": "ANY step_jump (failure occurs at step_jump=2x already)",
+      "impact": "Accuracy collapse: step_jump=2x acc_ret=0.76 (GSM8K=0.54), step_jump=4x+ acc_ret<0.28",
+      "detection": "Always check step_jump parameter before deployment; reject M2 for MDMs",
+      "remedy": "DO NOT use M2 on LLaDA-class MDMs",
+      "supporting_data": "m2_pareto_full.json: NO_GO verdict, all step_jumps fail accuracy threshold"
+    },
+    {
+      "name": "draft_divergence",
+      "severity": "MODERATE",
+      "methods_affected": [
+        "IGSD"
+      ],
+      "trigger": "combined_accept_rate > 0.85 (tau too low), or T_draft too short (<16)",
+      "impact": "QAS degrades: tau=0.8 T16 QAS=0.887 vs optimal tau=0.9 T16 QAS=1.194",
+      "detection": "Monitor per-step acceptance_rate during generation",
+      "remedy": "Use tau=0.9, T_draft=16 as default operating point",
+      "supporting_data": "igsd_pareto_full.json: tau=0.9 T_draft=16 achieves best QAS=1.194"
+    },
+    {
+      "name": "ar_guidance_conflict",
+      "severity": "MODERATE",
+      "methods_affected": [
+        "M3+IGSD"
+      ],
+      "trigger": "Combining AR-guided unmasking with speculative decoding in same pipeline",
+      "impact": "Speedup drops 31% (3.40\u21922.34x), QAS drops 31% (1.19\u21920.83), Ortho=0.493",
+      "detection": "Ortho < 0.95 in pairwise evaluation",
+      "remedy": "Use M3 and IGSD independently; prefer M1+IGSD (SYNERGY, Ortho=1.385)",
+      "supporting_data": "full_pairwise_ortho.json: M3+IGSD ortho=0.493, avg_qas=0.826 (both seeds confirm)"
+    }
+  ],
+  "m1_boundary_validation": {
+    "note": "Original atlas had AutoModelForMaskedLM error for M1 boundary probing. Actual M1 data comes from m1_pareto_full.json using LLaDA's native inference with entropy-based cache.",
+    "t2_boundary": {
+      "combined_speedup": 1.380,
+      "combined_qas": 0.836,
+      "status": "VIABLE (best operating point)"
+    },
+    "t3_boundary": {
+      "combined_speedup": 1.702,
+      "combined_qas": 0.523,
+      "status": "AVOID: higher speedup but QAS drops 37% vs t=2.0"
+    }
+  },
+  "igsd_stress_characterization": {
+    "source": "igsd_pareto_full.json (actual full Pareto sweep)",
+    "tau_sweep_at_T16": {
+      "tau=0.7": {
+        "combined_speedup": 3.144,
+        "combined_acc_ret": 0.663,
+        "combined_accept_rate": 0.867,
+        "combined_qas": 1.041,
+        "assessment": "below-optimal (high accept rate, QAS < tau=0.9)"
+      },
+      "tau=0.8": {
+        "combined_speedup": 2.607,
+        "combined_acc_ret": 0.680,
+        "combined_accept_rate": 0.853,
+        "combined_qas": 0.887,
+        "assessment": "FAILING relative to tau=0.9 (lower speedup AND lower QAS)"
+      },
+      "tau=0.9": {
+        "combined_speedup": 3.399,
+        "combined_acc_ret": 0.703,
+        "combined_accept_rate": 0.830,
+        "combined_qas": 1.194,
+        "assessment": "OPTIMAL"
+      }
+    },
+    "T_draft_sweep_at_tau09": {
+      "T_draft=4": {
+        "combined_speedup": 2.776,
+        "combined_qas": 0.705,
+        "assessment": "too short: draft quality poor"
+      },
+      "T_draft=8": {
+        "combined_speedup": 3.379,
+        "combined_qas": 0.977,
+        "assessment": "reasonable but not Pareto-optimal"
+      },
+      "T_draft=16": {
+        "combined_speedup": 3.399,
+        "combined_qas": 1.194,
+        "assessment": "OPTIMAL"
+      },
+      "T_draft=32": {
+        "combined_speedup": 2.194,
+        "combined_qas": 0.905,
+        "assessment": "diminishing returns: speedup drops 35% below T16"
+      }
+    },
+    "humaneval_behavior": "HumanEval pass@1 baseline is near-zero (0.0244); all methods show 0 pass@1. IGSD still provides 1.95x throughput speedup on HumanEval.",
+    "math500_behavior": "IGSD achieves 2.32x speedup with 88.5% accuracy retention on MATH500 (best of all methods)"
+  },
+  "data_consistency_notes": {
+    "m2_6x_vs_8x_plateau": "step_jump=6x and step_jump=8x produce nearly identical results (speedup 12.363 vs 12.364, acc_ret both 0.243). This is a genuine finding: M2 saturates at 6x jump on LLaDA-8B.",
+    "m3_math500_anomaly": "M3 shows acc_ret=2.44 on MATH500 (100 samples). Baseline MATH500 accuracy is only 11.07% (11/100), so any slight improvement is magnified. Likely a small-sample artifact.",
+    "igsd_qas_ablation_vs_pareto": "Ablation igsd_ablation.json reports tau=0.9 T16 QAS=0.956 on 200 GSM8K + 164 HumanEval, while igsd_pareto_full.json reports QAS=1.194 on 1319 GSM8K + 500 MATH500 + 164 HumanEval + 257 MBPP. Different benchmark compositions account for the difference.",
+    "previous_atlas_fabrication": "Previous atlas had: M2 J=2 speedup=2.1 (actual=3.095), J=4 speedup=5.8 (actual=6.187), J=4 acc_ret=0.51 (actual=0.279), IGSD tau=0.7 QAS=0.82 (actual=1.041), IGSD tau=0.8 QAS=0.95 (actual=0.887). M2 J=6 and J=8 results in old atlas were identical to 3 decimal places which reflected genuine plateau behavior, but the absolute values were wrong."
+  },
+  "summary": {
+    "n_failure_modes_identified": 4,
+    "critical_failure_modes": [
+      "step_starvation (M2 NO_GO at ALL step_jump values)"
+    ],
+    "moderate_failure_modes": [
+      "cache_invalidation (M1 t<2.0 combined_speedup<1.0x)",
+      "draft_divergence (IGSD tau<0.9 or T_draft!=16)",
+      "ar_guidance_conflict (M3+IGSD Ortho=0.493)"
+    ],
+    "safe_configurations": [
+      "IGSD at tau=0.9, T_draft=16: QAS=1.194, combined_speedup=3.40x",
+      "M1 at t=2.0: QAS=0.836, combined_speedup=1.38x",
+      "M1+IGSD: SYNERGY (Ortho=1.385), avg_qas=1.654, avg_speedup=5.13x"
+    ],
+    "deployment_recommendations": [
+      "Never deploy M2 on LLaDA-class MDMs (step_starvation is catastrophic at all step_jump values)",
+      "Always use M1 threshold >= 2.0 to avoid cache_invalidation overhead",
+      "For IGSD: use tau=0.9, T_draft=16 as default (best QAS Pareto point)",
+      "Avoid M3+IGSD combination (Ortho=0.493, INTERFERENCE confirmed in both seeds)",
+      "Preferred production config: M1+IGSD (QAS=1.654, SYNERGY confirmed, Ortho=1.385)"
+    ]
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "generated_at": "2026-04-13",
+  "round": "post-R4",
+  "total_items": 16,
+  "action_items": [
+    {
+      "id": "AI-01",
+      "priority": "critical",
+      "category": "writing",
+      "subject": "Fix EDA ordering claim — partial < early in median EDA",
+      "description": "Section 6.2 states 'EDA ordering (late > partial > early) holds at L12-65k (KW p=0.0002).' The data (phase2a_taxonomy.json) shows eda_ordering_holds=false for both configurations at all thresholds. At L12-65k threshold 0.3: partial median=0.652 < early median=0.668, violating late > partial > early. This is a factual error in the manuscript.",
+      "action": "Revise Section 6.2 to state accurately: 'The ordering late > early holds at all 5 tested thresholds for both configurations. The predicted full ordering late > partial > early fails: partial-type latents have lower median EDA than early-type latents at both configurations and all tested thresholds. This suggests the decoder-coverage threshold (tau) that separates early from partial latents does not correspond to EDA ordering — partial-type latents behave geometrically more like early-type latents than the taxonomy mechanism predicts.' Remove all references to 'EDA ordering holds.'",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-02",
+      "priority": "critical",
+      "category": "writing",
+      "subject": "Fix abstract DeLong comparison — +0.396 is L5-16k, not L12-16k",
+      "description": "Abstract: 'EDA achieves AUROC = 0.776 on Gemma Scope L12-16k... outperforming the decoder cosine baseline by +0.396 AUROC.' The +0.396 is from L5-16k (EDA=0.698 vs dec_cos=0.302). At L12-16k, the difference is +0.553 (EDA=0.776 vs dec_cos=0.224). The adjacent placement implies L12-16k is the configuration for the +0.396 claim.",
+      "action": "Revise abstract: 'EDA achieves AUROC = 0.776 on Gemma Scope L12-16k [0.700, 0.863], outperforming the decoder cosine baseline by +0.553 AUROC at L12-16k (DeLong p ≈ 0), and AUROC = 0.629 on GPT-2 Small L6 [0.561, 0.692] with exact Chanin et al. labels.' This correctly specifies the configuration for the baseline comparison.",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-03",
+      "priority": "critical",
+      "category": "novelty",
+      "subject": "Acknowledge EDA identity with SAEBench encoder_decoder_cosine_sim in manuscript",
+      "description": "EDA = 1 - cos(encoder_j, decoder_j) is confirmed identical to 1 - SAEBench encoder_decoder_cosine_sim (Pearson r=0.9999, confirmed by R4A with delta AUROC=0.0 on GPT-2). The Introduction states 'We introduce EDA' without disclosing this precedent. A reviewer familiar with SAEBench will reject this as a novelty problem.",
+      "action": "Add paragraph to Section 3.1 before the metric definition: 'The cosine similarity between encoder row j and decoder column j has been reported in SAEBench (Karvonen et al., 2025) under the label encoder_decoder_cosine_sim. EDA formalizes this existing observation with: (1) a formal lower bound theorem linking it to absorption degree (Theorem 1), (2) systematic AUROC evaluation against ground-truth absorption labels across configurations, and (3) operating-regime characterization across layers and widths. The metric formula is not novel; its theoretical grounding and empirical calibration are the paper's contributions.' Update Introduction to remove 'We introduce EDA' language.",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-04",
+      "priority": "critical",
+      "category": "analysis",
+      "subject": "Prove Theorem 1 formally or downgrade it",
+      "description": "Theorem 1 proof sketch is circular: it assumes 'by the delta-absorption definition, the gradient contribution pushes w_{e,j} away from d_j by an amount proportional to delta * ||d_c|| * sin(theta_{jc})' — this IS what needs to be proven, not assumed. delta is not formally defined. Appendix B is referenced twice but absent from paper.md.",
+      "action": "Option A (preferred): Write Appendix B with a formal proof. Define delta formally as the magnitude of the encoder gradient bias term from child-active inputs at a partial minimum. Derive the stationarity condition for w_{e,j} at a partial minimum of the biconvex SDL loss, isolate the child-active perturbation component perpendicular to d_j, bound its magnitude using delta and theta_{jc}, and convert to cosine distance to obtain the bound. Option B (if full proof is infeasible before submission): Downgrade Theorem 1 to 'Proposition 1 (Informal Bound)' and add a note: 'A formal proof requires specifying the biconvex SDL landscape geometry at partial minima; we leave this to future work. The bound is empirically consistent with SynthSAEBench results.' Also write Appendix B with at minimum the D-EDA conditioning analysis (ill-conditioning when d_SAE >> d_model).",
+      "effort": "high",
+      "depends_on": []
+    },
+    {
+      "id": "AI-05",
+      "priority": "critical",
+      "category": "experiment",
+      "subject": "Add full tau sensitivity table for taxonomy prevalence in Section 6.2",
+      "description": "The paper's central claim ('72-75% of absorbed latents are early-type') is highly tau-sensitive: at tau=0.2, L12-65k shows 32%/34%/34% split (no dominance). The main text does not show the full prevalence-vs-tau table, making the dominance claim appear more robust than it is.",
+      "action": "Add a 3-row table in Section 6.2 showing early/late/partial prevalence at tau={0.2, 0.25, 0.3, 0.35, 0.4} for both L12-16k and L12-65k. Revise the text to: 'At the canonical tau=0.3, early-type constitutes 72-75% of absorbed latents. As shown in Table X, this proportion is threshold-sensitive: at tau=0.2, early-type accounts for 32% at L12-65k, with all three subtypes approximately equally prevalent. We motivate tau=0.3 as [give scientific justification — e.g., calibrated as 6x the 95th percentile of random pairwise cosine similarities in the decoder dictionary, confirming tau=0.3 is well above random chance while remaining conservative].' If no scientific justification exists, qualify accordingly.",
+      "effort": "medium",
+      "depends_on": []
+    },
+    {
+      "id": "AI-06",
+      "priority": "critical",
+      "category": "experiment",
+      "subject": "Fix ITAC null test — apply ITAC to early-type latents",
+      "description": "Table 4 row 3 ('Early/Partial | 0.00% | NULL') describes baseline FN rates of early-type latents WITHOUT applying ITAC. ITAC was never applied to early-type latents. Claiming '0% FN reduction confirms selectivity' is misleading — 0% reduction when no correction is applied is a tautology, not a result.",
+      "action": "Apply ITAC to early-type latents: attempt D-EDA decomposition and parent candidate identification for n=12 early-type latents at L12-16k and n=47 at L12-65k. Expected: D-EDA finds 0 parent candidates for all early-type latents (by construction, since max_cos(d_k, v_p) < tau for all decoder columns). Report: 'When ITAC is applied to early-type latents, 0/N have identifiable parent decoder candidates (max_cos(d_k, v_p) < tau=0.3 for all k), confirming ITAC is structurally inapplicable to the early-absorption category by construction.' This IS the correct null test. If any parent candidates are found, apply ITAC and report FN change.",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-07",
+      "priority": "major",
+      "category": "experiment",
+      "subject": "Run taxonomy on GPT-2-L6 as third validation configuration",
+      "description": "Taxonomy analysis was only run on L12-16k (n=16, non-significant) and L12-65k (n=65). GPT-2-L6 has n_pos=67 absorbed latents with EXACT Chanin et al. labels — the most statistically powered and methodologically cleanest configuration in the paper. Running taxonomy on GPT-2-L6 would provide a cross-model third data point for the early-dominance claim.",
+      "action": "Run Phase 2 taxonomy pipeline (decode coverage lookup + EDA ordering) on GPT-2-L6 with the 67 exactly-labeled absorbed latents and tau={0.2, 0.3}. Report early/late/partial split and EDA ordering. If early dominance holds (~72-75%) at tau=0.3 in GPT-2, strengthen the claim: 'Early dominance replicates across Gemma 2B SAEs (L12: 72-75%) and GPT-2 Small L6 (YY%), providing cross-model evidence.' If early dominance does not hold, report as a configuration-dependent finding and downgrade the field-redirecting language.",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-08",
+      "priority": "major",
+      "category": "writing",
+      "subject": "Add clarifying sentence in Section 5.3 about rho=0.924 sample size discrepancy",
+      "description": "Section 5.3 reports intra-RAVEL rho=0.924 from n=6 SAE configs (R3 full experiment). The shuffled control was run on n=3 configs (R4B pilot). The R4B pilot coherence estimate is rho=0.667 for 3 configs (r4_writing_gate.json). A reviewer may question why the coherence evidence is not equally invalidated by the shuffled control.",
+      "action": "Add at the opening of Section 5.3: 'The intra-RAVEL coherence reported below derives from the full R3 cross-domain experiment (n=6 SAE configurations, phase3e_crossdomain_analysis.json), while the shuffled hierarchy control (Section 5.2) was run on a pilot subset of n=3 SAE configurations. The coherence result rho=0.924 is therefore not directly tested by the shuffled control, which targets absolute absorption rate validity rather than relative rank ordering across configurations. A pilot coherence estimate on the 3-configuration subset yields rho=0.667, suggesting the full-experiment rho=0.924 is sensitive to configuration selection and should be interpreted as conditional on replication with same-model probes.'",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-09",
+      "priority": "major",
+      "category": "writing",
+      "subject": "Fix Section 7.1 unsourced '56%' and '20x' figures",
+      "description": "Section 7.1 states: 'focusing on the top 5% of latents by EDA contains approximately 56% of absorbed latents (Prec@50 = 0.0035), reducing the supervised evaluation budget by 20x.' These figures are not derivable: top 5% of L12-16k = 819 candidates; 819 × 0.0035 = 2.87 absorbed; 2.87/16 = 18%, not 56%. The 20x reduction is unexplained.",
+      "action": "Replace with the correct derivation: 'At L12-16k, Prec@50 = 0.0035 — absorbed latents are 3.5x enriched in the top-50 EDA candidates versus random. For a 16k-width SAE, prioritizing the top 5% by EDA score (819 latents) for supervised inspection via the Chanin et al. metric reduces the inspection surface by 20x (819 vs 16,384 total), while providing a 3.5x enrichment in absorption prevalence. The absolute number of absorbed latents identified depends on the Prec@N curve, which follows from Table 1's AUROC values.'",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-10",
+      "priority": "major",
+      "category": "writing",
+      "subject": "Write Appendix B (D-EDA conditioning) and Appendix C (RAVEL probe details)",
+      "description": "Appendix B is referenced twice in the main text (Sections 3.3 and 7.1) but absent from paper.md. Appendix C (RAVEL probe accuracy table + shuffled control 9-row table) is absent. The review.md flagged both as critical submission blockers.",
+      "action": "Write Appendix B (1-2 paragraphs): 'The sparse projection in Equation (5) becomes ill-conditioned when d_SAE >> d_model because the decoder dictionary is highly overcomplete... [explain why LASSO on an overcomplete basis produces non-unique solutions and why the absorption vs. polysemanticity disambiguation breaks down]. Quantitatively, at d_SAE=65536 vs d_model=2304 (ratio 28x), the LASSO condition number is approximately [estimate]...' Write Appendix C: table of probe accuracies per hierarchy (city-continent, city-country, city-language), shuffled control result table (9 rows: 3 hierarchies × 3 SAE configs), and probe quality gate threshold comparison.",
+      "effort": "medium",
+      "depends_on": []
+    },
+    {
+      "id": "AI-11",
+      "priority": "major",
+      "category": "writing",
+      "subject": "Add AUPRC to Table 1 and discuss imbalanced evaluation",
+      "description": "AUROC is unreliable at positive-class prevalences < 1%. L12-65k (n_pos=16, prevalence 0.024%) and L19-16k/L19-65k all have extremely low prevalence. AUPRC values are computed in the JSON results but not reported in the main text. A reviewer familiar with imbalanced classification will question AUROC as the primary metric.",
+      "action": "Add AUPRC column to Table 1. Add a note in Section 4.1: 'At positive-class prevalences below 0.1% (L12-65k, L19-16k, L19-65k), AUROC becomes increasingly unreliable due to extreme negative-class dominance. We report AUPRC as a secondary metric for these configurations; the Prec@k enrichment factor is reported for all configurations in Section 7.1.' Discuss which configurations have sufficient n_pos for reliable AUROC measurement (n_pos >= 30 as a reasonable minimum).",
+      "effort": "medium",
+      "depends_on": []
+    },
+    {
+      "id": "AI-12",
+      "priority": "major",
+      "category": "writing",
+      "subject": "Clarify GPT-2-L6 canonical result (R3 n_pos=67 vs R4A n_pos=18)",
+      "description": "R3 Phase 5 reports GPT-2-L6 AUROC=0.629 [0.561, 0.692] with n_pos=67. R4A reports AUROC=0.650 [0.531, 0.761] with n_pos=18. The paper uses R3 result in Table 1. The discrepancy (n_pos 67 vs 18) needs explanation and the canonical result needs to be specified explicitly.",
+      "action": "Confirm which result is canonical (R3 appears more reliable: larger n_pos, wider word vocabulary). Add a footnote to Table 1: 'GPT-2-L6 result uses R3 Phase 5 parameters (n_words_per_letter=50, n=67 absorbed latents identified). R4A applied stricter parameters (n_pos=18) to confirm the direct-label pipeline. The R3 result is canonical due to higher n_pos.' Confirm that R3 and R4A used different word counts per letter and/or different ablation thresholds.",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-13",
+      "priority": "major",
+      "category": "experiment",
+      "subject": "Add scientific justification for tau=0.3 or explicitly present as a parameter choice",
+      "description": "The taxonomy threshold tau=0.3 lacks a pre-specified scientific basis. At tau=0.2, early absorption is 32% (no dominance); at tau=0.3, it is 72%. The central actionable claim changes by 2.25x depending on this choice. Post-hoc threshold selection to maximize the 'early dominance' finding would be p-hacking.",
+      "action": "Either (a) Compute the 95th percentile of random pairwise cosine similarities in the decoder dictionary for L12-16k and L12-65k. If this is approximately 0.05, then tau=0.3 is 6x above random chance and is defensible as a substantive threshold. Report this as the justification. Or (b) acknowledge tau=0.3 was selected for interpretability and report the full sensitivity table (AI-05), qualifying the dominance claim as 'at tau=0.3.' Do not present tau=0.3 as if it were pre-specified without a documented basis.",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-14",
+      "priority": "major",
+      "category": "writing",
+      "subject": "Add SynthSAEBench tautology disclaimer and resolve placeholder citation",
+      "description": "SynthSAEBench injects absorption as encoder-decoder rotation, so perfect EDA discrimination (AUROC=1.000) is tautological — it confirms EDA computes what it measures, not that EDA detects behavioral absorption. Citation 'synthasbench2026' is a placeholder. Also, DeLong test lacks a citation at first use.",
+      "action": "Add to Section 3.4: 'Note that SynthSAEBench injects absorption precisely as encoder-decoder rotation — the same geometric mechanism EDA measures. AUROC=1.000 on synthetic data confirms computational correctness, not that EDA detects behavioral absorption (Chanin et al.'s definition). The latter is tested in Section 4.' Resolve the SynthSAEBench citation: if constructed here, describe as 'a synthetic evaluation suite constructed for this work (construction in Appendix A)' without an external citation. Add DeLong & DeLong (1988) citation at first use in Section 4.1.",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-15",
+      "priority": "minor",
+      "category": "writing",
+      "subject": "Fix notation inconsistencies",
+      "description": "Multiple notation issues: (1) Spearman rho written as $\\rho$ throughout; notation.md specifies $\\rho_s$. (2) LASSO coefficient $\\mu$ in Section 3.3 not in notation.md. (3) Section 5.1 uses 'd_in = 2304' but notation.md uses d_model. (4) Table 4 labels 'WEAK' and 'NULL' undefined. (5) Polysemantic AUROC CI with n_pos=3 should be footnoted as unreliable.",
+      "action": "Replace all Spearman rho with $\\rho_s$. Add $\\mu$ to notation.md. Replace 'd_in' with 'd_model' in Section 5.1 (or add d_in to notation.md with explicit definition as SAE input dimension = d_model). Add footnote to Table 4 defining WEAK and NULL. Add footnote to Section 4.4 polysemantic AUROC: 'n_pos=3; CI unreliable, illustrative only.'",
+      "effort": "low",
+      "depends_on": []
+    },
+    {
+      "id": "AI-16",
+      "priority": "minor",
+      "category": "writing",
+      "subject": "Trim abstract to 200 words and align title with content",
+      "description": "Abstract is 247 words vs NeurIPS 200-word target. Title 'Where and When Encoder-Decoder Misalignment Signals Feature Absorption' promises a crisp answer that is not crisply delivered. No operating-regime summary table exists in the main text.",
+      "action": "Trim abstract by removing ITAC success/failure detail (keep one clause: 'ITAC correction achieves only 3.14% mean FN reduction, revealing late-type suppression exceeds linear recovery'). Remove code release sentence from abstract (move to Conclusion). Trim to 200 words. For the title: either add a one-line operating regime summary in Section 7.1 ('EDA is reliable at <= 16k-width SAEs in layers approximating the first 60% of depth; it fails at >= 65k width and deep layers') to fulfill the 'where and when' promise, or retitle to 'Characterizing SAE Feature Absorption: A Regime-Specific Detector and Three-Subtype Taxonomy' which more accurately reflects the two-contribution structure.",
+      "effort": "low",
+      "depends_on": []
+    }
+  ],
+  "priority_summary": {
+    "critical": 6,
+    "major": 8,
+    "minor": 2
+  },
+  "minimum_viable_submission_blockers": [
+    "AI-01: Fix EDA ordering claim (factual error — eda_ordering_holds=false in data)",
+    "AI-02: Fix abstract DeLong comparison configuration mismatch (factual error)",
+    "AI-03: Acknowledge SAEBench encoder_decoder_cosine_sim identity (novelty disclosure required)",
+    "AI-04: Prove Theorem 1 or downgrade + write Appendix B",
+    "AI-05: Add tau sensitivity table (central claim is threshold-contingent)",
+    "AI-14: Resolve SynthSAEBench citation placeholder + add DeLong citation"
+  ],
+  "high_impact_optional": [
+    "AI-07: Run taxonomy on GPT-2-L6 (cross-model third data point for early dominance — strongest available experiment)",
+    "AI-06: Fix ITAC null test (correct the 'validates selectivity' claim)",
+    "AI-11: Add AUPRC to Table 1 (proper metric for imbalanced setting)"
+  ]
+}

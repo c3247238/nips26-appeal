@@ -1,0 +1,208 @@
+{
+  "analyst": "novelty-checker",
+  "date": "2026-04-25",
+  "workspace": "/home/qhxie/AutoResearch-SibylSystem/workspaces/sae-absorption-minimax/current",
+  "iteration": 1,
+  "overall_novelty": "high",
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Tian et al. 2025. Measuring Sparse Autoencoder Feature Sensitivity. arXiv:2509.23717",
+          "overlap": "Measures 'feature sensitivity' as activation reliability on similar text. Uses similar terminology but measures fundamentally different quantity.",
+          "severity": "related_work",
+          "differentiation": "Tian et al. measures ACTIVATION sensitivity: will the feature fire on text similar to its activating examples? They explicitly avoid explanations and do NOT measure steering interventions, model output changes, absorption level, or the correlation between absorption and intervention effectiveness. cand_a measures STEERING sensitivity: how model outputs change when adding the feature direction to the residual stream. These are orthogonal quantities. The paper must include a dedicated Related Work paragraph making this distinction explicit.",
+          "action": "Read full Tian paper and draft Related Work paragraph contrasting activation sensitivity vs. steering sensitivity."
+        },
+        {
+          "paper": "Makelov et al. 2024. Towards Principled Evaluations of Sparse Autoencoders for Interpretability and Control. arXiv:2405.08366",
+          "overlap": "Three evaluation axes: approximation, control, interpretability. Introduces 'feature occlusion' concept (causally relevant concept overshadowed by higher-magnitude features). No absorption-stratified steering study.",
+          "severity": "related_work",
+          "differentiation": "Makelov et al. do NOT stratify features by absorption level. Their 'control' axis measures average intervention effectiveness across all features. They do NOT hypothesize that absorbed features are more steerable, nor do they measure the correlation. cand_a is the first to stratify by absorption and find a positive correlation. Feature occlusion is conceptually consistent with the hub feature hypothesis but does not predict positive steering correlation.",
+          "action": "Cite as evaluation framework background; note that feature occlusion concept aligns with hub hypothesis but does not predict steering-absorption correlation."
+        },
+        {
+          "paper": "Korznikov et al. 2026. Sanity Checks for Sparse Autoencoders: Do SAEs Beat Random Baselines? arXiv:2602.14111",
+          "overlap": "Random baselines match SAEs on causal editing (0.73 vs 0.72). Implies SAEs may not reliably decompose model mechanisms. Existential threat to absorption research.",
+          "severity": "threat_converted_to_asset",
+          "differentiation": "The H3 finding (absorbed features have HIGHER steering sensitivity, r=+0.35) directly rebuts the Sanity Checks. Where Sanity Checks finds random baselines match SAEs on causal editing, cand_a finds that absorbed features (a specific SAE-identified subset) have MORE steering sensitivity. This reframes Sanity Checks: the issue is not that SAEs are useless, but that absorbed features have a different causal signature than expected. Transform from existential threat to paper motivation.",
+          "action": "Lead with this rebuttal in the paper. Frame: 'SAEs DO recover causally relevant features, but absorbed features require a different interpretation strategy: they are hub-like directions with high residual stream leverage.'"
+        },
+        {
+          "paper": "Korznikov et al. 2025. OrtSAE: Orthogonal Sparse Autoencoders. arXiv:2509.22033",
+          "overlap": "OrtSAE trained on Gemma-2-2B, Pythia, GPT-2 -- multi-model coverage. BUT single-method only (OrtSAE vs vanilla SAE).",
+          "severity": "partial_overlap",
+          "differentiation": "Cand_a is the first to compare 5-6 methods (vanilla, TopK, JumpReLU, OrtSAE, ATM, Matryoshka) head-to-head across models and layers with downstream steering reliability. Gap is multi-method comparison, not multi-model coverage.",
+          "action": "Acknowledge OrtSAE's multi-model coverage; clearly frame cand_a's gap as multi-method head-to-head comparison."
+        },
+        {
+          "paper": "Bussmann et al. 2025. Matryoshka SAEs. arXiv:2503.17547",
+          "overlap": "Matryoshka SAEs reduce absorption architecturally via nested dictionaries. Must be included in benchmark.",
+          "severity": "partial_overlap",
+          "differentiation": "Must include as 6th method. Architectural approach vs. cand_a's benchmarking approach.",
+          "action": "Add Matryoshka SAEs to benchmark. Not including is an obvious reviewer flag."
+        },
+        {
+          "paper": "Chalnev et al. 2024. Improving Steering Vectors by Targeting SAE Features. arXiv:2411.02193",
+          "overlap": "SAE-TS uses SAEs to measure causal effects of steering vectors. Does not examine absorption.",
+          "severity": "related_work",
+          "differentiation": "SAE-TS targets specific features but treats all features equally. No absorption-stratified steering effectiveness studied."
+        },
+        {
+          "paper": "Marks et al. 2024. Sparse Feature Circuits. arXiv:2403.19647",
+          "overlap": "Discovers causal circuits via ablation. Treats all features equally.",
+          "severity": "related_work",
+          "differentiation": "No absorption focus; no absorption-stratified intervention effectiveness."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "The H3 reversal (absorbed features exhibit HIGHER steering sensitivity, Spearman r=+0.35, N=100) is genuinely novel. No prior work measures steering sensitivity stratified by absorption level. The positive correlation is absent from all prior art. UAS (r=0.65-0.79 vs supervised absorption) is novel as validated unsupervised geometry-based detection. Head-to-head 5-method benchmark with causal validation is absent. SAE Sanity Checks is transformed from threat to motivation via the H3 rebuttal.",
+      "most_novel_subcontributions": [
+        "H3 reversal: absorbed features exhibit higher steering sensitivity (r=+0.35, N=100) -- not present in any prior work",
+        "UAS validated: unsupervised geometry-based absorption detection (r=0.65-0.79) -- no prior work",
+        "Head-to-head 5-6 method benchmark with causal steering validation -- no prior work (OrtSAE multi-model/single-method; ATM single-model/single-layer)"
+      ],
+      "risks": [
+        "Must differentiate from Tian et al. explicitly in Related Work: activation sensitivity vs. steering sensitivity are orthogonal quantities",
+        "Matryoshka SAEs must be included in benchmark (reviewer will flag omission)",
+        "H3 follow-up replication needed (null controls, multiple alpha) to strengthen mechanism claim",
+        "UAS should be validated on held-out feature set before claiming as metric"
+      ]
+    },
+    {
+      "candidate_id": "cand_b",
+      "novelty_score": 7,
+      "collisions": [
+        {
+          "paper": "Luo et al. 2026. From Atoms to Trees (HSAE). arXiv:2602.11881",
+          "overlap": "HSAE discovers parent-child relationships and uses structural constraint loss to align them. Claims reduced absorption qualitatively.",
+          "severity": "partial_overlap",
+          "differentiation": "HSAE's structural constraint loss aligns parent-to-child directions but does NOT explicitly penalize absorption direction (child subsuming parent). Cand_b's child-parent cosine penalty targets the absorption signal specifically. Must clarify what HSAE's structural constraint does NOT capture about absorption."
+        },
+        {
+          "paper": "Korznikov et al. 2025. OrtSAE. arXiv:2509.22033",
+          "overlap": "OrtSAE penalizes ALL high-cosine-similarity pairs. Cand_b targets parent-child pairs specifically based on HSAE hierarchy.",
+          "severity": "partial_overlap",
+          "differentiation": "Specificity to parent-child pairs based on HSAE hierarchy is the key differentiator from OrtSAE."
+        },
+        {
+          "paper": "Bussmann et al. 2025. Matryoshka SAEs. arXiv:2503.17547",
+          "overlap": "Architectural absorption reduction via nested dictionaries.",
+          "severity": "partial_overlap",
+          "differentiation": "Architectural vs. regularizer-based approach. Differentiation clear but both address absorption."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "HSAE hierarchy + absorption regularization combination is technically novel. No prior work uses HSAE-discovered parent-child relationships as structural prior for absorption regularization. The hub mechanism hypothesis (if confirmed by cand_a H3 follow-up) strengthens cand_b significantly.",
+      "most_novel_subcontributions": [
+        "HSAE hierarchy + absorption regularization: technically novel mechanism"
+      ],
+      "risks": [
+        "Must clarify what HSAE's structural constraint does NOT capture about absorption",
+        "Pilot H_b1 first: are HSAE-identified child features actually more absorbed and more steerable?",
+        "Activate as pivot if H3 hub mechanism is confirmed"
+      ]
+    },
+    {
+      "candidate_id": "cand_c",
+      "novelty_score": 7,
+      "collisions": [
+        {
+          "paper": "Balagansky et al. 2025. HierarchicalTopK. arXiv:2505.24473",
+          "overlap": "2D Pareto frontier (sparsity-reconstruction) for SAEs. Pareto concept exists.",
+          "severity": "related_work",
+          "differentiation": "4D extension (adds absorption + steering sensitivity) is genuinely novel. H3 finding (absorbed=more steerable) makes steering sensitivity a natural Pareto dimension."
+        },
+        {
+          "paper": "Gao et al. 2024. Scaling SAEs. arXiv:2406.04093",
+          "overlap": "2D Pareto established for SAEs.",
+          "severity": "related_work",
+          "differentiation": "Background; 4D extension is novel."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "4D Pareto frontier (sparsity + reconstruction + absorption + steering sensitivity) is genuinely novel. The H3 finding makes steering sensitivity a natural fourth dimension. A compelling theoretical contribution if the 4D frontier reveals informative structure.",
+      "most_novel_subcontributions": [
+        "4D Pareto frontier for SAEs -- first to map absorption and steering sensitivity simultaneously"
+      ],
+      "risks": [
+        "Pilot H_c1 first: if absorption is uniformly Pareto-optimal (no tradeoff), the framing weakens",
+        "Must be theoretically rigorous: outline formal derivation of 4D surface",
+        "Cite HierarchicalTopK explicitly as 2D baseline"
+      ]
+    },
+    {
+      "candidate_id": "cand_d",
+      "novelty_score": 6,
+      "collisions": [
+        {
+          "paper": "Liu & Deng 2026. Beyond Activation Patterns: A Weight-Based Out-of-Context Explanation of SAE Features. arXiv:2601.22447",
+          "overlap": "Multi-metric feature scoring; evaluates feature interaction with all other features. Potential multi-metric evaluation framework overlap.",
+          "severity": "potential_partial_overlap",
+          "differentiation": "Could not access full paper. Abstract suggests focus on weight-based out-of-context explanations and feature interactions, not steering effectiveness. FRI's key claim (steering sensitivity as POSITIVE reliability component, per H3 finding) is likely distinct. MUST read full paper to confirm.",
+          "action": "Download and read 2601.22447 to confirm differentiation."
+        },
+        {
+          "paper": "Tian et al. 2025. Measuring SAE Feature Sensitivity. arXiv:2509.23717",
+          "overlap": "Individual feature quality metrics (sensitivity, specificity) exist.",
+          "severity": "related_work",
+          "differentiation": "Combination into practitioner-facing single FRI score is the novel contribution. Steering sensitivity as POSITIVE component (per H3) is the key differentiator."
+        },
+        {
+          "paper": "Makelov et al. 2024. Principled SAE Evaluations. arXiv:2405.08366",
+          "overlap": "Three evaluation axes. FRI adds steering sensitivity as positive component.",
+          "severity": "related_work",
+          "differentiation": "Makelov et al. are method-level; FRI is feature-level."
+        },
+        {
+          "paper": "SAEBench (Karvonen et al. 2025)",
+          "overlap": "Multi-metric SAE benchmark at method level.",
+          "severity": "related_work",
+          "differentiation": "FRI is per-feature, not per-method. Feature-level complement to method-level SAEBench."
+        }
+      ],
+      "recommendation": "proceed_with_repositioning",
+      "differentiation_notes": "Per-feature FRI combining steering sensitivity (positive), activation frequency, UAS (negative), specificity is a useful practitioner contribution. Steering sensitivity as a POSITIVE component (per H3 finding that absorbed=more steerable) is the key differentiator. Most compelling if paired with user validation (H_d2).",
+      "most_novel_subcontributions": [
+        "Per-feature FRI with steering sensitivity as positive component -- dual-nature treatment of absorption"
+      ],
+      "risks": [
+        "Download and read 2601.22447 to confirm no overlap with FRI",
+        "Define FRI formula precisely (proposal lists components but no aggregation method)",
+        "Pilot H_d1: FRI must outperform UAS alone on steering effectiveness",
+        "Add user study for H_d2 to validate human interpretability judgments"
+      ]
+    }
+  ],
+  "crosscutting_concerns": {
+    "tian_distinction": {
+      "priority": "critical",
+      "message": "Tian et al. (2509.23717) and cand_a use similar terminology ('sensitivity') but measure fundamentally different quantities. Tian measures ACTIVATION sensitivity (will the feature fire on similar text?). Cand_a measures STEERING sensitivity (how do model outputs change when adding the feature direction?). These are orthogonal. The paper MUST include an explicit Related Work paragraph contrasting the two.",
+      "specific_text_for_paper": "Tian et al. (2025) measure 'feature sensitivity' as the reliability with which an SAE feature activates on text similar to its activating examples. Their metric answers: will this feature fire on similar inputs? In contrast, our 'steering sensitivity' measures the magnitude of model output changes when we add a feature's direction to the residual stream via activation steering. This answers: what happens to the model's outputs when we intervene on this direction? Critically, these are orthogonal quantities -- a feature may activate reliably on similar text (high Tian sensitivity) but produce small output changes under steering (low steering sensitivity), or vice versa. We are the first to measure the correlation between absorption and steering sensitivity, finding a surprising positive relationship (r=+0.35) not predicted by activation sensitivity metrics."
+    },
+    "sanity_checks_rebuttal": {
+      "priority": "high",
+      "message": "The SAE Sanity Checks finding (random baselines match SAEs on causal editing, 0.73 vs 0.72) is transformed from existential threat to paper motivation by the H3 finding.",
+      "specific_text_for_paper": "The Sanity Checks for SAEs (Korznikov et al., 2026) finding that random baselines match fully-trained SAEs on causal editing tasks raises a foundational question: do SAEs reliably decompose model mechanisms? Our results provide an answer: absorbed features -- a specific SAE-identified subset -- exhibit HIGHER steering sensitivity than non-absorbed features (r=+0.35, p<2.9e-04). This demonstrates that SAEs DO recover causally relevant features, but the causal influence of absorbed features is distributed differently than non-absorbed features. Rather than rendering SAEs useless, our finding reframes the Sanity Checks challenge: absorbed features require a different interpretation strategy -- they are hub-like directions with high residual stream leverage, not dead or unreliable features."
+    },
+    "matryoshka_sae_benchmark": {
+      "priority": "high",
+      "message": "Matryoshka SAEs (Bussmann et al., 2025) must be included in the H2 benchmark. Omission will be flagged by reviewers.",
+      "action": "Add Matryoshka SAEs as the 6th method in the mitigation benchmark."
+    },
+    "liu_deng_2601_22447": {
+      "priority": "medium",
+      "message": "Liu & Deng (2026, arXiv:2601.22447) may overlap with cand_d's multi-metric approach. Must download and read to confirm differentiation.",
+      "action": "Download, read, and add collision analysis if overlap confirmed."
+    }
+  },
+  "summary": {
+    "proceed": ["cand_a", "cand_b", "cand_c"],
+    "proceed_with_caution": ["cand_d"],
+    "drop": [],
+    "front_runner": "cand_a",
+    "front_runner_justification": "The H3 reversal (absorbed features exhibit HIGHER steering sensitivity, r=+0.35, N=100) is the strongest novel contribution: scientifically surprising, genuinely novel, and transforms the SAE Sanity Checks existential threat into a paper motivation. UAS (validated, r=0.65-0.79) is a strong secondary contribution. The head-to-head mitigation benchmark with causal validation fills a clear gap. cand_b is the strongest backup if the hub mechanism hypothesis is confirmed by the H3 follow-up. cand_c is a strong theoretical contribution if the 4D Pareto frontier reveals informative structure."
+  }
+}

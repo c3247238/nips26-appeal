@@ -1,0 +1,122 @@
+{
+  "priority_1_blocking": [
+    {
+      "id": "A1",
+      "title": "Run ImageNet/ResNet-50 experiments",
+      "category": "experiment",
+      "effort": "~50 GPU-hours, ~6 wall-clock hours on 8 GPUs",
+      "description": "ImageNet is a hard project-level requirement (project memory). Run ResNet-50 on ImageNet-1K for {constant, cwd_hard, cosine_schedule, no_wd} × 3 seeds × 90 epochs using DDP on 8 GPUs. This directly tests the Phi Invariance Conjecture at scale and is the NeurIPS reviewer's top demand.",
+      "falsification_value": "If invariance holds on ImageNet, paper becomes NeurIPS-worthy. If it fails, the boundary condition is identified with precision."
+    },
+    {
+      "id": "A2",
+      "title": "Add AdamWN (target-norm axis) to CIFAR benchmark",
+      "category": "experiment",
+      "effort": "~3 GPU-hours, 6 runs (3 seeds × 2 datasets)",
+      "description": "Implement AdamWN: phi_i = max(0, 1 - tau/norm(theta_layer)) where tau = initial layer norm. Add to both AdamW and SGD benchmarks on CIFAR-10/100. This covers the target-norm axis and eliminates the four-axis coverage gap.",
+      "falsification_value": "If AdamWN shows different behavior (even if not more accurate), it validates CSI and adds a concrete counterexample to naive invariance claims."
+    }
+  ],
+  "priority_2_high": [
+    {
+      "id": "A3",
+      "title": "Increase seeds to 5+ for key AdamW comparisons",
+      "category": "experiment",
+      "effort": "~8 GPU-hours, 24 extra runs (2 extra seeds × 3 methods × 2 datasets)",
+      "description": "Run 2 additional seeds (e.g., 789, 1234) for {constant, no_wd, cwd_hard} on CIFAR-10 and CIFAR-100 under AdamW. Rerun TOST with delta=0.3% on these 5-seed comparisons. This brings MDE down to ~0.5% and makes the equivalence claim statistically defensible.",
+      "falsification_value": "If effects remain <0.3% at N=5, equivalence is confirmed. If some effects emerge in 0.3-0.5% range, the conjecture's precision is improved."
+    },
+    {
+      "id": "A4",
+      "title": "Add CIFAR-100 SGD full results table",
+      "category": "writing",
+      "effort": "~1 hour writing",
+      "description": "The sgd_baseline/cifar100/ directory has full data (7 methods × 3 seeds). Add a Table 5b (or extend Table 5) with all CIFAR-100 SGD results: mean, std, delta, p-value. The SWD significance result (p=0.036) deserves full documentation, not just an inline mention.",
+      "falsification_value": "N/A — this is a documentation fix for existing verified data."
+    },
+    {
+      "id": "A5",
+      "title": "Fix AIS threshold framing",
+      "category": "writing",
+      "effort": "~30 minutes",
+      "description": "Revise Section 3.4 AIS threshold language to distinguish 'alignment signal EXISTS in network' (AIS > 0.2) from 'CWD does NOT exploit more signal than random_mask' (CWD AIS ≈ random_mask AIS). The current framing says AIS > 0.2 means the signal is sufficient for improvement, then says CWD doesn't improve — a logical contradiction. New framing: AIS measures signal strength; CWD's AIS ≈ random_mask's AIS shows CWD doesn't selectively amplify the exploitable component.",
+      "falsification_value": "Prevents reviewer confusion and closes a logical gap."
+    },
+    {
+      "id": "A6",
+      "title": "Fix 'second-order perturbation' language",
+      "category": "writing",
+      "effort": "~20 minutes",
+      "description": "Replace 'second-order perturbation' (Sections 5.4, 6.1) with 'small first-order perturbation proportional to lambda'. The actual bound is O(lambda) in the WD coefficient, not O(lambda^2). Current language implies perturbation theory where corrections are quadratic in the small parameter.",
+      "falsification_value": "Prevents technically precise reviewers from flagging an imprecision."
+    },
+    {
+      "id": "A7",
+      "title": "Add SGD weight norm table",
+      "category": "writing",
+      "effort": "~30 minutes",
+      "description": "The mechanistic argument's strongest evidence (SGD no_wd weight norm 127.1 vs. constant 64.5 = 97% spread) exists in workspace data but has no table. Add Table 6 or an appendix table with SGD weight norms at convergence (7 methods × 2 datasets). Data is in sgd_baseline/*/summary.json fields final_weight_norm.",
+      "falsification_value": "Transforms an unverifiable inline claim into documented evidence."
+    }
+  ],
+  "priority_3_medium": [
+    {
+      "id": "A8",
+      "title": "Run WD warmup ablation (H2 Stability Condition)",
+      "category": "experiment",
+      "effort": "~2 GPU-hours, 5 runs",
+      "description": "Run CIFAR-10, ResNet-20, constant baseline with WD warmup from 0 to 5e-3 over K ∈ {1, 10, 50, 200, 1000} steps. Measure loss spike magnitude and training loss variance in first 1000 steps. Test whether K < K_critical (1/(lr*wd)) produces instability as predicted by the WD Stability Condition theorem.",
+      "falsification_value": "Provides empirical validation for the paper's only non-trivial theoretical prediction. Even a negative result (no violations found) tightens the conjecture."
+    },
+    {
+      "id": "A9",
+      "title": "Fix half_lambda BEM implementation",
+      "category": "experiment",
+      "effort": "~2 GPU-hours, 6 re-runs",
+      "description": "Re-implement half_lambda with phi=0.5 (phi constant at 0.5 for all parameters) instead of lambda=2.5e-4. Rerun 3 seeds × 2 datasets. This eliminates the BEM implementation bug disclosure footnote entirely and ensures Figure 3's BEM scatter uses pipeline-computed values.",
+      "falsification_value": "Eliminates a reproducibility gap and removes a distracting footnote."
+    },
+    {
+      "id": "A10",
+      "title": "Test CSI-accuracy correlation under SGD",
+      "category": "analysis",
+      "effort": "~2 hours analysis",
+      "description": "Compute Spearman rank correlation between CSI and accuracy under SGD (where methods do differ in accuracy). If CSI correlates with SGD rankings (rho > 0.5) but not AdamW rankings (rho < 0.3), this simultaneously validates CSI as a metric and supports the Phi Invariance Conjecture. Data already exists in sgd_baseline/.",
+      "falsification_value": "Converts CSI from 'uninformative metric' to 'valid metric whose failure to predict under AdamW is itself evidence for invariance.'"
+    },
+    {
+      "id": "A11",
+      "title": "Fix method naming inconsistency",
+      "category": "writing",
+      "effort": "~30 minutes",
+      "description": "Standardize: 'cosine-WD' in prose, 'cosine_schedule' in table headers and code. 'no-WD' in prose, 'no_wd' in headers. Apply consistently throughout paper.",
+      "falsification_value": "Cosmetic but eliminates reader friction and grep-based verification issues."
+    },
+    {
+      "id": "A12",
+      "title": "Add Appendix C (CSI sensitivity analysis) or remove reference to it",
+      "category": "writing",
+      "effort": "~2 hours",
+      "description": "Section 3.4 cites 'Appendix C' for CSI weight sensitivity analysis. The appendix does not exist. Either run the sensitivity analysis (vary w1 in [0.3, 0.5], observe rank correlation stability) and write Appendix C, or remove the reference.",
+      "falsification_value": "Closes a reproducibility gap where a stated verification cannot be done."
+    }
+  ],
+  "priority_4_low": [
+    {
+      "id": "A13",
+      "title": "Investigate wall-clock time anomaly",
+      "category": "experiment",
+      "effort": "~1 hour investigation",
+      "description": "The constant-WD method shows 600s for seed 123 but 2400s for seed 42 (4x variation). Determine whether this reflects GPU preemption during experiments, a logging error, or actual training time variation. Document the finding in the reproducibility section.",
+      "falsification_value": "If preemption, may have affected training quality of some runs — important for interpreting fine-grained accuracy differences."
+    },
+    {
+      "id": "A14",
+      "title": "Formalize the absorption mechanism as a lemma",
+      "category": "theory",
+      "effort": "~4 hours writing",
+      "description": "The absorption argument in Section 6.1 is qualitatively correct but informal. Formalize as Lemma 1: 'Under AdamW with parameters (beta1, beta2, eps) and weight decay lambda, the per-parameter WD contribution is bounded by ... relative to the gradient update, for any Phi modulator with phi_i in [0,1].' This provides a quantitative bound that makes the conjecture provable under assumptions about the gradient distribution.",
+      "falsification_value": "Elevates the paper from 'empirical conjecture' to 'theorem + empirical validation.' Changes the paper's theoretical status significantly."
+    }
+  ]
+}

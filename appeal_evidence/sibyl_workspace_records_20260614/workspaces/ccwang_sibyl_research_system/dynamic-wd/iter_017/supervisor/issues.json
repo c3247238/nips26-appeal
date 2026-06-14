@@ -1,0 +1,93 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "EFFECTIVE WD INFLATION CONFOUND STILL UNCONTROLLED (RECURRING FROM ITER_016): EqWD's phi_l(t) >= 1 means it systematically applies more total weight decay than FixedWD with the same lambda_base. The +0.38% ImageNet improvement could be entirely explained by higher effective regularization, not adaptive modulation. The paper acknowledges this in Section 5.6 (Limitations) and lists it as future work in the Conclusion, but the control experiment has never been run. This was flagged as critical in iter_016 and in the reflection's 'Must Improve' P0 list. The experiment costs ~9 GPU-hours and determines whether the paper's central claim ('adaptive per-layer modulation improves generalization') is valid or whether the real mechanism is simply 'more weight decay is better.' This confound makes the paper's core contribution unfalsifiable.",
+    "suggestion": "Measure the average effective lambda over EqWD training (from logged ratio trajectories or by re-running with logging). Run FixedWD at that average effective lambda with 3 seeds on ImageNet. If FixedWD at higher lambda matches EqWD (72.27%), the narrative must shift to 'EqWD automatically discovers optimal WD strength.' If EqWD still wins, the adaptive modulation claim is validated. Cost: ~9 GPU-hours. Priority: P0 -- do this before any other work."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "45-EPOCH IMAGENET NOT STATED IN EXPERIMENTAL SETUP (PARTIALLY FIXED FROM ITER_016): The cross-dataset figure now correctly labels '45 epochs' in its subtitle, and Section 5.3 mentions 'our 45-epoch training regime' in passing (line 989). However, the Experimental Setup section (Section 4.1) -- where readers look for training configuration -- still says only 'adopting an efficient training regime' without stating the epoch count. The Appendix also omits it. A reviewer reading Section 4.1 and the Appendix will not know the epoch count.",
+    "suggestion": "Add '(45 epochs total)' to the ImageNet training description in Section 4.1, immediately after 'step decay (10x reduction at epoch 30)'. Also add it to the Appendix training configuration. This is a zero-cost fix."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "NO ADAMW EXPERIMENTS (RECURRING FROM ITER_016): The paper uses SGDW exclusively. In 2026, AdamW is the dominant optimizer for virtually all transformer and many CNN pipelines.",
+    "suggestion": "Run one AdamW + EqWD experiment on CIFAR-100/ResNet-20 (3 seeds, ~30 min)."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "CIFAR-10 TABLE STILL MISSING EqWD (RECURRING FROM ITER_016): Table 7 lists CPR, FixedWD, DefazioCorrective, SWD, CWD, NoWD but does NOT include EqWD or CAWD.",
+    "suggestion": "Run EqWD and CAWD on CIFAR-10 (3 seeds, 200 epochs, ~1 GPU-hour total). Add them to Table 7."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "BETA=5.0 SINGLE-SEED CLAIM STILL UNVALIDATED (RECURRING FROM ITER_016): The paper reports beta=5.0 achieving 66.07% on CIFAR-100 (single seed) but the multi-seed default (beta=1.0) achieves 65.05%. A 1.02% gap demands multi-seed validation.",
+    "suggestion": "Run beta=5.0 with 3 seeds on CIFAR-100. Cost: ~30 min."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "AIS VALIDATED ONLY ON CIFAR, NOT IMAGENET (RECURRING FROM ITER_016): Ratio sufficiency is claimed based on CIFAR-100 data, but EqWD's advantage is on ImageNet.",
+    "suggestion": "Run AIS diagnostic on ImageNet/ResNet-50. Cost: ~3 GPU-hours."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "WD HEATMAP LAMBDA VALUES INCONSISTENT WITH STATED LAMBDA_BASE: Heatmap shows effective lambda_t in range 5.2e-4 to 6.2e-4, but lambda_base is stated as 1e-4. This implies phi_l(t) = 5.2-6.2x, contradicting the claim that modulation 'rarely exceeds 1.1' on CIFAR-100.",
+    "suggestion": "Verify what quantity the heatmap displays and resolve the discrepancy."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "RATIO TRAJECTORY FIGURE CONTRADICTS LAYER HETEROGENEITY NARRATIVE: After the initial transient, all layers converge to nearly identical r_t values (0.01-0.02) with minimal differentiation.",
+    "suggestion": "Show ImageNet/ResNet-50 ratio trajectories where layer heterogeneity should be more pronounced."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "LIMITED NOVELTY BEYOND DEFAZIO'S EQUILIBRIUM INSIGHT: EqWD is the simplest proportional controller on ratio deviation. No alternative formulations are tested.",
+    "suggestion": "Add ablation comparing additive form against at least one alternative (multiplicative, asymmetric). Differentiate more explicitly from Defazio's corrective term."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "VGG-16-BN RESULTS (62.81%) STILL ABNORMALLY LOW WITH NO BASELINES for comparison.",
+    "suggestion": "Add FixedWD and NoWD baselines on CIFAR-100/VGG-16-BN."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "90-EPOCH IMAGENET COMPARISON MISSING: 45-epoch regime produces results ~4% below standard, limiting comparability with published work.",
+    "suggestion": "Run 90-epoch comparison (EqWD + FixedWD + SWD, 3 seeds each). Cost: ~18 GPU-hours."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "BO HYPERPARAMETER DETAILS UNREPORTED: No information on which hyperparameters were searched, ranges, or selected values for baselines.",
+    "suggestion": "Add a table in appendix with BO details for each baseline."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "NO CODE RELEASE MENTIONED: For a practical method paper, code availability is expected at top venues.",
+    "suggestion": "Add a code availability statement."
+  }
+]

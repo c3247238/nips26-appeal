@@ -1,0 +1,142 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_crossdomain_causal_tax",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Chanin et al., 2024. A is for Absorption: Studying Feature Splitting and Absorption in Sparse Autoencoders. arXiv:2409.14507 (NeurIPS 2025)",
+          "overlap": "Defines feature absorption, provides toy model proof, measures absorption on first-letter spelling task across hundreds of SAEs. Establishes the absorption rate metric used in this proposal.",
+          "severity": "related_work",
+          "notes": "Foundational work that this proposal directly extends. No cross-domain measurement beyond first-letter spelling. No activation patching, no benign/pathological distinction, no rate-distortion predictor framework."
+        },
+        {
+          "paper": "Karvonen et al., 2025. SAEBench: A Comprehensive Benchmark for Sparse Autoencoders. arXiv:2503.09532 (ICML 2025)",
+          "overlap": "Includes absorption as one of 8 metrics in SAEBench. Uses RAVEL for disentanglement evaluation (separate metric from absorption). Architecture comparisons across JumpReLU, BatchTopK, Matryoshka.",
+          "severity": "related_work",
+          "notes": "SAEBench measures absorption ONLY on the first-letter spelling task. RAVEL is used for a separate disentanglement metric, NOT for absorption measurement. Architecture comparisons are on the spelling task only. This proposal's cross-domain extension is genuinely novel."
+        },
+        {
+          "paper": "Chanin et al., 2025. Feature Hedging: Correlated Features Break Narrow Sparse Autoencoders. arXiv:2505.11756",
+          "overlap": "Identifies feature hedging as complementary failure mode to absorption. Shows Matryoshka SAEs trade absorption for hedging. Balanced Matryoshka SAE with compound multiplier.",
+          "severity": "related_work",
+          "notes": "Studies the absorption-hedging tradeoff but does not systematically decompose false negatives into absorbed vs. hedged across different hierarchy types. The proposal's absorption-hedging decomposition per hierarchy type is novel."
+        },
+        {
+          "paper": "Bussmann et al., 2025. Learning Multi-Level Features with Matryoshka Sparse Autoencoders. arXiv:2503.17547 (ICML 2025)",
+          "overlap": "Matryoshka SAE reduces absorption rate (~0.03 vs BatchTopK ~0.29). Nested prefix loss creates hierarchy. Architecture comparison on first-letter task.",
+          "severity": "related_work",
+          "notes": "Architecture-focused. Absorption measured only on first-letter task. No cross-domain characterization."
+        },
+        {
+          "paper": "Luo et al., 2026. From Atoms to Trees: Building a Structured Feature Forest with Hierarchical Sparse Autoencoders. arXiv:2602.11881",
+          "overlap": "HSAE learns parent-child relationships. Evaluated on SAEBench absorption metric and RAVEL. Hierarchical organization of features.",
+          "severity": "partial_overlap",
+          "notes": "HSAE is an architectural solution that structures features hierarchically. Evaluated on SAEBench absorption (still first-letter task). Tests on RAVEL for disentanglement (not absorption). Does NOT measure cross-domain absorption rates on entity-attribute hierarchies. The proposal's contribution is measuring absorption itself across domains, not proposing a new architecture."
+        },
+        {
+          "paper": "Muchane et al., 2025. Incorporating Hierarchical Semantics in Sparse Autoencoder Architectures. arXiv:2506.01197",
+          "overlap": "H-SAE explicitly models semantic hierarchy. Tested on SAEBench first-letter absorption metric. Shows decreased absorption rate as width increases.",
+          "severity": "related_work",
+          "notes": "Another architectural solution. Absorption still measured only on first-letter task."
+        },
+        {
+          "paper": "Narayanaswamy et al., 2026. Improving Robustness In Sparse Autoencoders via Masked Regularization. arXiv:2604.06495",
+          "overlap": "Masking-based regularization to disrupt co-occurrence patterns during training. Reduces absorption and improves OOD robustness.",
+          "severity": "related_work",
+          "notes": "Training-time mitigation. Does not study absorption across semantic domains."
+        },
+        {
+          "paper": "Tian et al., 2025. Measuring Sparse Autoencoder Feature Sensitivity. arXiv:2509.23717",
+          "overlap": "Frames absorption as special case of poor feature sensitivity. Develops scalable sensitivity evaluation.",
+          "severity": "related_work",
+          "notes": "Different measurement lens (sensitivity vs. absorption rate). Does not study cross-domain variation."
+        },
+        {
+          "paper": "Shu et al., 2025. A Unified Theory of Sparse Dictionary Learning. arXiv:2512.05534",
+          "overlap": "Theoretical framework explaining absorption via piecewise biconvex optimization. Proposes feature anchoring.",
+          "severity": "related_work",
+          "notes": "Theoretical treatment with synthetic validation only. Does not study cross-domain absorption empirically. Feature anchoring is a mitigation, not characterization."
+        },
+        {
+          "paper": "SynthSAEBench, 2026. arXiv:2602.14687",
+          "overlap": "Studies feature absorption in hierarchical features using synthetic data with configurable hierarchy depth and co-occurrence.",
+          "severity": "partial_overlap",
+          "notes": "Synthetic setting with known ground truth. Does NOT study absorption on real LLM entity-attribute hierarchies. Validates that hierarchy structure affects absorption in synthetic models, which is consistent with the proposal's findings on real data."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "The proposal's core novelty -- measuring absorption on real entity-attribute hierarchies (city-country, city-continent, city-language) using RAVEL on Gemma 2 2B -- has NO direct prior work. Every published absorption measurement uses the first-letter spelling task exclusively. The finding that first-letter shows the LOWEST absorption (3.9%) while semantic hierarchies show higher rates (10.4%-53.4%) is unprecedented and inverts the field's assumptions. Secondary contributions (activation patching for causal confirmation, benign-vs-pathological diagnostic, tightened hedging classification) are also novel. The 'Absorption Tax' term and rate-distortion three-factor predictor framework have no prior art. The ecological competition framing has no precedent in the SAE literature. SynthSAEBench (2026) studies hierarchy effects synthetically but not on real LLM knowledge hierarchies."
+    },
+    {
+      "candidate_id": "cand_controlled_dictionary",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "SynthSAEBench, 2026. arXiv:2602.14687",
+          "overlap": "Evaluates Matching Pursuit SAE (MP-SAE) which uses a different encoding strategy (greedy residual projection) instead of feedforward encoder. Studies absorption with MP-SAE.",
+          "severity": "partial_overlap",
+          "notes": "MP-SAE varies the encoder while using a shared dictionary concept, but does NOT hold the dictionary constant. SynthSAEBench varies the SAE architecture, not the encoding method independently. The controlled dictionary experiment (fix decoder, vary encoder: feedforward vs. OMP vs. 2-pass) is a different and more controlled experimental design."
+        },
+        {
+          "paper": "Shu et al., 2025. A Unified Theory of Sparse Dictionary Learning. arXiv:2512.05534",
+          "overlap": "Analyzes SDL as piecewise biconvex optimization. Encoder and decoder analyzed as separate optimization blocks.",
+          "severity": "related_work",
+          "notes": "Theoretical analysis of encoder-decoder interaction. Does not propose a controlled experiment holding one constant."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "No prior work holds the decoder dictionary constant while systematically varying the encoder (feedforward vs. OMP vs. 2-pass) to determine whether absorption is an encoder or dictionary failure. MP-SAE exists but trains encoder and decoder jointly. The controlled dictionary experiment is a clean causal design that would directly answer whether absorption is caused by the amortization gap or the sparsity landscape."
+    },
+    {
+      "candidate_id": "cand_ecological_phase_transition",
+      "novelty_score": 9,
+      "collisions": [
+        {
+          "paper": "Tonolo et al., 2025. Generalized Lotka-Volterra model with sparse interactions. arXiv:2503.20887",
+          "overlap": "Studies Lotka-Volterra dynamics with sparse interactions and phase transitions.",
+          "severity": "related_work",
+          "notes": "Pure ecology paper. No connection to SAEs or feature absorption. The theoretical framework (LV competition dynamics) is borrowed from this domain but applied to a completely different problem."
+        },
+        {
+          "paper": "Chanin et al., 2024. A is for Absorption. arXiv:2409.14507",
+          "overlap": "Notes that absorption is driven by co-occurrence and decoder similarity. Provides the informal competition analogy.",
+          "severity": "related_work",
+          "notes": "Chanin et al. note the competition dynamic informally but do not formalize it as Lotka-Volterra, do not predict phase transitions, and do not identify limiting similarity thresholds."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "Zero prior work applies ecological Lotka-Volterra competition theory or phase transition frameworks to SAE feature absorption. The ecological competition analogy is entirely novel in this context. Phase transition prediction (sigmoid absorption probability with narrow transition width at critical cosine similarity theta*) has no precedent."
+    },
+    {
+      "candidate_id": "cand_absorption_aware_correction",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "LessWrong post: Looking for feature absorption automatically",
+          "overlap": "Discusses hacky post-hoc detection ideas: using encoder AND decoder directions to identify absorption.",
+          "severity": "related_work",
+          "notes": "Informal discussion of detection, not correction. No systematic post-hoc correction method proposed or evaluated."
+        },
+        {
+          "paper": "LessWrong post: Toy Models of Feature Absorption in SAEs",
+          "overlap": "Discusses tied-weight SAEs as potential mitigation. Notes that the community has not explored post-hoc correction.",
+          "severity": "related_work",
+          "notes": "Training-time mitigation (tied weights). Explicitly notes that post-hoc correction is unexplored."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "No published work proposes or evaluates a post-hoc correction method that re-activates absorbed parent features at inference time. All existing mitigations (Matryoshka, OrtSAE, ATM, KronSAE, masked regularization) are training-time modifications. The post-hoc approach is explicitly identified as an open direction in community discussions."
+    }
+  ],
+  "overall_novelty": "high",
+  "search_coverage": {
+    "arxiv_queries": 12,
+    "web_search_queries": 12,
+    "google_scholar_queries": 0,
+    "papers_reviewed": 50,
+    "search_date": "2026-04-15",
+    "note": "Google Scholar MCP tool was not available. Compensated with extensive WebSearch and arXiv coverage. Literature survey file (literature.md) with 50 references was also reviewed."
+  },
+  "key_finding": "The front-runner candidate (cand_crossdomain_causal_tax) has genuinely high novelty. Its core contribution -- cross-domain absorption characterization on entity-attribute hierarchies -- has NO direct prior work as of April 2026. All published absorption measurements use only the first-letter spelling task. The finding that first-letter is atypical (lowest absorption) is unprecedented. Secondary novelties (causal activation patching for absorption, benign-vs-pathological diagnostic, rate-distortion predictor framework, Absorption Tax concept) are all without prior art. Risk of collision is low given the specialized nature of the work and the empirical evidence already gathered in pilot experiments."
+}

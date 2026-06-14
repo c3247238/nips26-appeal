@@ -1,0 +1,140 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+/home/qhxie/AutoResearch-SibylSystem/workspaces/sae-absorption-minimax/.venv/lib/python3.12/site-packages/sae_lens/saes/sae.py:251: UserWarning: 
+This SAE has non-empty model_from_pretrained_kwargs. 
+For optimal performance, load the model like so:
+model = HookedSAETransformer.from_pretrained_no_processing(..., **cfg.model_from_pretrained_kwargs)
+  warnings.warn(
+
+PID: 1495018
+
+============================================================
+FULL H2: SAE Mitigation Benchmark
+============================================================
+Timestamp: 2026-04-26T08:52:17.064745
+Device: cuda:5, GPU: 5
+Model: gpt2-small, Layer: 8
+SAE Release: gpt2-small-res-jb
+Training tokens: 3,000,000, Eval tokens: 50,000
+Loading gpt2-small on cuda:5...
+Loaded pretrained model gpt2-small into HookedTransformer
+  d_model=768, n_layers=12
+Loading pre-trained vanilla SAE from gpt2-small-res-jb on cuda:5...
+  Vanilla SAE: d_sae=24576, architecture=standard
+
+Collecting text examples for training and evaluation...
+  Collecting 200 text examples...
+    50/200 examples...
+    100/200 examples...
+    150/200 examples...
+  Collected 200 examples in 3.8s
+
+  Evaluating Vanilla (pre-trained)...
+    L0 sparsity: 0.0030
+    Reconstruction MSE: 1.482142
+    Dead feature ratio: 0.0035
+    Mean absorption: 0.0150
+    Mean UAS: 0.736205
+
+============================================================
+Training TopK SAE
+============================================================
+  SAE: d_in=768, d_sae=24576, device=cuda:5
+  Collecting activation sample for initialization...
+  Initializing with 3018 activation vectors...
+  Training: 366 steps, 3 epochs, batch_size=64x128
+  Epoch 1 done: avg_loss=111.1242, avg_mse=111.1242, avg_l1=0.0156
+  Epoch 2 done: avg_loss=109.5187, avg_mse=109.5187, avg_l1=0.0159
+  Epoch 3 done: avg_loss=108.7199, avg_mse=108.7199, avg_l1=0.0165
+
+  Evaluating TopK SAE...
+    L0 sparsity: 0.0020
+    Reconstruction MSE: 108.067619
+    Dead feature ratio: 0.4017
+    Mean absorption: 0.0682
+    Mean UAS: 0.695590
+
+============================================================
+Training JumpReLU SAE
+============================================================
+  SAE: d_in=768, d_sae=24576, device=cuda:5
+  Collecting activation sample for initialization...
+  Initializing with 3018 activation vectors...
+  Training: 366 steps, 3 epochs, batch_size=64x128
+  Epoch 1 done: avg_loss=103.0428, avg_mse=103.0427, avg_l1=1.0851
+  Epoch 2 done: avg_loss=60.7854, avg_mse=60.7853, avg_l1=1.0847
+  Epoch 3 done: avg_loss=35.2265, avg_mse=35.2264, avg_l1=1.1062
+
+  Evaluating JumpReLU SAE...
+    L0 sparsity: 0.5087
+    Reconstruction MSE: 23.302145
+    Dead feature ratio: 0.0000
+    Mean absorption: 0.6274
+    Mean UAS: 5.186629
+
+============================================================
+Training OrtSAE
+============================================================
+  SAE: d_in=768, d_sae=24576, device=cuda:5
+  Collecting activation sample for initialization...
+  Initializing with 3018 activation vectors...
+  Training: 366 steps, 3 epochs, batch_size=64x128
+  Epoch 1 done: avg_loss=103.2019, avg_mse=103.2018, avg_l1=1.0683
+  Epoch 2 done: avg_loss=61.7655, avg_mse=61.7654, avg_l1=1.0685
+  Epoch 3 done: avg_loss=36.3133, avg_mse=36.3132, avg_l1=1.0910
+
+  Evaluating OrtSAE...
+    L0 sparsity: 0.5073
+    Reconstruction MSE: 24.400833
+    Dead feature ratio: 0.0000
+    Mean absorption: 0.6290
+    Mean UAS: 5.143004
+
+============================================================
+Training ATM SAE
+============================================================
+  SAE: d_in=768, d_sae=24576, device=cuda:5
+  Collecting activation sample for initialization...
+  Initializing with 3018 activation vectors...
+  Training: 366 steps, 3 epochs, batch_size=64x128
+  Epoch 1 done: avg_loss=102.3741, avg_mse=102.3740, avg_l1=1.0696
+  Epoch 2 done: avg_loss=60.7980, avg_mse=60.7979, avg_l1=1.0701
+  Epoch 3 done: avg_loss=35.4418, avg_mse=35.4417, avg_l1=1.0921
+
+  Evaluating ATM SAE...
+    L0 sparsity: 0.5083
+    Reconstruction MSE: 39.358864
+    Dead feature ratio: 0.0000
+    Mean absorption: 0.5744
+    Mean UAS: 5.749217
+
+============================================================
+SUMMARY: Mitigation Benchmark Results
+============================================================
+
+Variant                      L0    Recon MSE    Dead%   Absorption
+-----------------------------------------------------------------
+Vanilla (pre-trained)    0.0030     1.482142     0.3%       0.0150
+TopK SAE                 0.0020   108.067619    40.2%       0.0682
+JumpReLU SAE             0.5087    23.302145     0.0%       0.6274
+OrtSAE                   0.5073    24.400833     0.0%       0.6290
+ATM SAE                  0.5083    39.358864     0.0%       0.5744
+
+Absorption Comparison (trained vs TopK SAE baseline):
+Variant                  Absorption      vs TopK    Dead%    Recon MSE
+--------------------------------------------------------------------
+TopK SAE                     0.0682        +0.0%    40.2%     108.0676
+JumpReLU SAE                 0.6274      +820.6%     0.0%      23.3021
+OrtSAE                       0.6290      +822.9%     0.0%      24.4008
+ATM SAE                      0.5744      +742.7%     0.0%      39.3589
+
+H2 Assessment:
+  Baseline (Vanilla) absorption: 0.0150
+  Best trained: OrtSAE (absorption=0.6290)
+  H2 criteria (>0.5 absorption, <5% dead, MSE<50): PASS
+    JumpReLU SAE: absorption=0.6274, dead=0.0%, MSE=23.3021
+    OrtSAE: absorption=0.6290, dead=0.0%, MSE=24.4008
+    ATM SAE: absorption=0.5744, dead=0.0%, MSE=39.3589
+
+Results saved to: /home/qhxie/AutoResearch-SibylSystem/workspaces/sae-absorption-minimax/current/exp/results/full/h2_mitigation_benchmark.json
+
+Task completed: full_h2

@@ -1,0 +1,89 @@
+{
+  "overall_recommendation": "CONDITIONAL_GO",
+  "selected_candidate_id": "cand_a",
+  "phase": "multi_pilot",
+  "timestamp": "2026-04-13T22:23:34.073129",
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "go_no_go": "CONDITIONAL_GO",
+      "confidence": 0.55,
+      "supported_hypotheses": ["H_EDA_baseline_validated", "H_concept_latents_reliable"],
+      "failed_assumptions": [
+        "ASI_AUROC_gt_0.55",
+        "RD_AUROC_gt_0.55",
+        "cross_domain_absorption_existence_proof"
+      ],
+      "key_metrics": {
+        "pilot_A_ASI_AUROC": 0.4764,
+        "pilot_A_RD_AUROC": 0.4103,
+        "pilot_A_EDA_AUROC": 0.6810,
+        "pilot_A_n_pos": 71,
+        "pilot_A_lambda_rd": 0.02039,
+        "pilot_A_l0_empirical": 49.04,
+        "C1_first_letter_F1": 0.820,
+        "C1_noun_proper_F1": 0.987,
+        "C1_animate_inanimate_F1": 1.0,
+        "C1_n_passing_hierarchies": 4,
+        "C2_first_letter_absorption_rate": 0.0,
+        "C2_animate_absorption_rate": 0.0,
+        "C2_noun_proper_absorption_rate": 0.0,
+        "C2_overall_go_nogo": "NO_GO"
+      },
+      "notes": "Phase A: EDA pipeline validated (AUROC=0.681). ASI and RD threshold fail. Phase C1: 4 hierarchies pass F1 gate. Phase C2: NO_GO — concept latents are properly active (no absorption) in animate/proper_noun/first_letter hierarchies. The measurement approach needed 3 iterations to converge on v3 (empirical concept latent discovery). Key finding: SAE concept latents DO fire for concept words (absorption_rate=0.0, mean_max_act~16-22). Cross-domain absorption not detected with current approach. Recommendation: redesign C.2 to measure child-feature suppression (traditional absorption definition)."
+    }
+  ],
+  "design_review_flags": [
+    "ASI_AUROC_below_0.55: 0.4764 — frequency ratio formulation unstable at low base rates",
+    "RD_AUROC_below_0.55: 0.4103 — lambda=1/L0 too small, need threshold calibration",
+    "CRITICAL_C2: Decoder cosine alignment fails to identify semantic concept latents (mean_act~0 despite cos_sim~0.25). Must use empirical activation-based discovery.",
+    "C2_NO_GO: Cross-domain absorption existence proof not established. Animate/proper_noun concept latents ARE active for concept words (no absorption detected). Traditional first-letter absorption is different mechanism.",
+    "C2_DESIGN_ISSUE: The correct measurement for C.2 should track child-feature suppression (does 'dog' specific SAE feature fail to fire because 'animate' parent absorbs it?), NOT parent-latent non-activation."
+  ],
+  "pilot_tasks_completed": {
+    "task_A_pipeline": {
+      "status": "DONE",
+      "go_nogo": "NO_GO (EDA: CONDITIONAL_GO)",
+      "output": "exp/results/pilots/pilot_A_pipeline.json"
+    },
+    "task_B1_decoder_geometry": {
+      "status": "DONE",
+      "output": "exp/results/pilots/pilot_B1_decoder_geometry.json"
+    },
+    "task_B1_eda_decomposition": {
+      "status": "DONE",
+      "go_nogo": "NO_GO (INFORMATIVE)",
+      "output": "exp/results/pilots/pilot_B1_eda_decomposition.json",
+      "l6_eda_auroc": 0.6589,
+      "l6_eda_cohens_d": 0.5335,
+      "key_finding": "Contrary to revised H1: DECODER is more aligned with letter probe than encoder (diff=-0.244, p~0). EDA arises from decoder specialization while encoder is less specialized. Encoder still has stronger letter-probe alignment than non-letter encoders. At L10, EDA reverses (AUROC=0.227) - letter features are MORE co-aligned."
+    },
+    "task_B2_scaling_curve": {
+      "status": "DONE",
+      "output": "exp/results/full/B2_scaling_curve.json"
+    },
+    "task_C1_probe_training": {
+      "status": "DONE",
+      "go_nogo": "GO",
+      "output": "exp/results/full/C1_probe_training.json",
+      "passing_hierarchies": ["first_letter", "city_country_binary", "noun_proper", "animate_inanimate"],
+      "note": "city_country_binary fails shuffle gate"
+    },
+    "task_C2_cross_domain_absorption": {
+      "status": "DONE",
+      "go_nogo": "NO_GO",
+      "output": "exp/results/pilots/pilot_C2_cross_domain_absorption.json",
+      "version": "v3",
+      "key_finding": "Concept latents are reliably active (absorption_rate=0.0 for animate/proper/letter-c). No cross-domain absorption detected with parent-latent-suppression approach."
+    }
+  },
+  "pipeline_status": {
+    "model_load": "OK",
+    "sae_load": "OK",
+    "probe_training": "OK (4 hierarchies passing)",
+    "concept_latent_discovery_v1": "FAIL (decoder cosine alignment, mean_act~0)",
+    "concept_latent_discovery_v3": "OK (empirical differential activation, mean_act 16-22)",
+    "cross_domain_absorption_measurement": "NO_SIGNAL (absorption_rate=0.0 for all clean hierarchies)",
+    "results_saved": "OK"
+  }
+}

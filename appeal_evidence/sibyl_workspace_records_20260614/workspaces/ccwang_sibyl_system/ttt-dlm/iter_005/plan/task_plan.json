@@ -1,0 +1,676 @@
+{
+  "meta": {
+    "revision": "v3-dual-track",
+    "date": "2026-03-11",
+    "iteration": 5,
+    "rationale": "Complete restructure: IGGD + COBA as co-equal primary tracks, DaL conditional on D0c+D0d diagnostics. Driven by: (1) IGGD pilot +5pp strongest positive signal in 22+ iterations, (2) all training-based methods show null/negative results, (3) extrinsic vs endogenous information framework convergence across 3 debate rounds.",
+    "completed_tasks": ["setup_env", "impl_ttt_layer", "pilot_feasibility", "pilot_signal_quality", "pilot_quick_eval", "alt_a_pilot", "baseline_remdm", "pilot_entropy"],
+    "pilot_config": {
+      "samples": 100,
+      "seeds": [42],
+      "timeout_sec": 900
+    },
+    "tracks": {
+      "A": {"name": "IGGD", "status": "primary", "unconditional": true},
+      "C": {"name": "COBA", "status": "primary", "unconditional": true},
+      "B": {"name": "DaL", "status": "conditional", "prerequisite": "D0c r>0.3 AND D0d Delta_I>0.1"}
+    }
+  },
+  "tasks": [
+    {
+      "id": "iggd_n300_verify",
+      "name": "Phase 0: IGGD n=300 Verification on GSM8K",
+      "description": "Replicate alt_a_pilot result at n=300 for statistical significance. Run Info-Gain Soft (tau=1.0) on Dream-7B, GSM8K first 300 problems, 128 denoising steps, seed 42. Compute accuracy, paired bootstrap p-value (n=1000 resamples), Cohen's d, and Distinct-1/2/3. Also run vanilla baseline on same 300 samples for paired comparison. This is the single most important experiment — determines whether IGGD is the primary paper track.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/iggd_n300_gsm8k.json",
+      "candidate_id": "cand_iggd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"},
+        {"type": "dataset", "name": "gsm8k", "path": "shared/datasets/gsm8k"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "IGGD-Soft accuracy >= vanilla + 3% absolute on GSM8K-300 AND p<0.05 (paired bootstrap)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "IGGD n=300 verification results",
+          "columns": ["Method", "GSM8K-300 Acc", "Delta", "p-value", "Cohen's d", "Distinct-2"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "vanilla_baselines",
+      "name": "Phase 0: Vanilla Baselines (GSM8K-300, ARC-C-300, HumanEval-164)",
+      "description": "Establish rigorous vanilla Dream-7B baselines on all three primary benchmarks. Standard denoising (128 steps), seed 42. These numbers serve as the reference for ALL subsequent method comparisons. Record accuracy, time/sample, FLOPs, Distinct-1/2/3, peak memory. Save per-sample predictions for paired bootstrap.",
+      "type": "baseline",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/vanilla_baselines.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"},
+        {"type": "dataset", "name": "gsm8k", "path": "shared/datasets/gsm8k"},
+        {"type": "dataset", "name": "arc_challenge", "path": "shared/datasets/arc_challenge"},
+        {"type": "dataset", "name": "humaneval", "path": "shared/datasets/humaneval"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 benchmarks produce valid accuracy numbers; GSM8K-300 baseline consistent with prior measurement (34% +/- 5%)"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "diag_d0c_d0d",
+      "name": "Phase 0: D0c Target Alignment + D0d Delta_I Probe (DaL Diagnostics)",
+      "description": "Two diagnostic experiments to determine DaL's fate. D0c: sweep 11 DaL configurations (gate_init x meta_lr x steps), measure SSL loss improvement and GSM8K-50 accuracy for each, compute Pearson r. D0d: train linear probe predicting masked tokens from cross-step vs single-step hidden states, compute Delta_I ≈ probe accuracy gap × log(vocab_size) at mask ratios {0.1, 0.3, 0.5, 0.7, 0.9}. Also measure cosine similarity between TTT output and backbone output (extrinsic information probe). Decision: r<0.1 → KILL DaL; r>0.3 AND Delta_I>0.1 → PROCEED.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/diag_d0c_d0d.json",
+      "candidate_id": "cand_dal",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "comment_time": "11 configs × (1-5K training + GSM8K-50 eval) + Delta_I probe. On single 98GB GPU with Dream-7B, each config ~15-30 min. Total ~6-8h wall-clock.",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"},
+        {"type": "dataset", "name": "openwebtext_10k", "path": "shared/datasets/openwebtext_10k"},
+        {"type": "dataset", "name": "gsm8k", "path": "shared/datasets/gsm8k"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "D0c: Pearson r > 0.3 across >=10 configs. D0d: Delta_I > 0.1 bits/token at mask ratios [0.3, 0.7]."
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "D0c: SSL loss improvement vs task accuracy across DaL configurations",
+          "x": "ssl_loss_delta_pct",
+          "y": "accuracy_delta_pct",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "D0d: Delta_I across mask ratios",
+          "x": "mask_ratio",
+          "y": "delta_i_bits_per_token",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "coba_d_axis",
+      "name": "Phase 0: COBA D-Axis Grid (Dream-7B, GSM8K-300)",
+      "description": "Characterize depth-scaling for Dream-7B. Run vanilla denoising at D={32, 64, 128, 256, 512} steps, W=1, on GSM8K first 300 problems. Record accuracy, wall-clock time, FLOPs per D value. Fit log-linear model: quality = alpha*log(D) + gamma. This provides the backbone of the COBA framework and identifies where D-scaling saturates.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/coba_d_axis.json",
+      "candidate_id": "cand_coba",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "max_batch_size_hint": "auto-detect",
+      "comment_time": "5 D values × 300 samples. D=512 is the bottleneck (~4x time of D=128). Total ~5-7h.",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"},
+        {"type": "dataset", "name": "gsm8k", "path": "shared/datasets/gsm8k"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 5 D values produce valid accuracy; accuracy monotonically non-decreasing with D (or identifies saturation point)"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "D-scaling: accuracy vs denoising steps",
+          "x": "denoising_steps",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "D-scaling: accuracy vs FLOPs",
+          "x": "flops",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "iggd_tau_sweep",
+      "name": "Phase 1A: IGGD Adaptive Tau Sweep",
+      "description": "Test 4 tau configurations on GSM8K-100: (1) fixed tau=0.5, (2) fixed tau=1.0 (baseline from pilot), (3) fixed tau=2.0, (4) adaptive 3-phase schedule (tau=2.0 at r>0.7, tau=0.5 at r in [0.3,0.7], tau=1.0 at r<0.3). Compare accuracy, and select best tau for subsequent experiments. Also run on ARC-C-100 and HumanEval-100 to check generalization.",
+      "type": "experiment",
+      "depends_on": ["iggd_n300_verify"],
+      "expected_output": "exp/results/pilots/iggd_tau_sweep.json",
+      "candidate_id": "cand_iggd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 40,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Adaptive tau >= fixed tau=1.0 on at least 1/3 benchmarks; best tau identified for A2 composition"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Tau sweep results across 3 benchmarks",
+          "columns": ["Tau Config", "GSM8K-100", "ARC-C-100", "HumanEval-100"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Accuracy vs tau temperature on GSM8K",
+          "x": "tau",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "iggd_acfg_compose",
+      "name": "Phase 1A: IGGD + A-CFG Joint Composition Search",
+      "description": "Test A-CFG + IGGD composition with 4 (tau, rho) configurations: {(0.5, 0.5), (1.0, 0.5), (1.0, 1.0), (2.0, 1.0)}. Evaluate on GSM8K-100, ARC-C-100, HumanEval-100. Compare against individual methods (best IGGD, A-CFG alone). Report whether composition is additive, sub-additive, or super-additive. A-CFG implementation from iter 4 code (logit reweighting based on conditional vs unconditional predictions).",
+      "type": "experiment",
+      "depends_on": ["iggd_tau_sweep"],
+      "expected_output": "exp/results/pilots/iggd_acfg_compose.json",
+      "candidate_id": "cand_iggd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Best composition >= better individual method + 2% on at least 2/3 benchmarks"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Composition study: IGGD x A-CFG interaction",
+          "columns": ["Method", "tau", "rho", "GSM8K-100", "ARC-C-100", "HumanEval-100"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Accuracy heatmap over (tau, rho) parameter space",
+          "x": "tau",
+          "y": "rho",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "iggd_full_bench",
+      "name": "Phase 1A: IGGD Full Benchmark (Best Config, n=full)",
+      "description": "Evaluate best IGGD configuration (from tau sweep + composition) on full benchmarks: GSM8K-1319, HumanEval-164, ARC-C-1172. Run with seed 42. Report accuracy with 95% CI (bootstrap), Cohen's d, Distinct-1/2/3, FLOPs, wall-clock time. This is the primary result table for Track A. Also evaluate A-CFG alone and best IGGD+A-CFG composition on same full benchmarks.",
+      "type": "experiment",
+      "depends_on": ["iggd_acfg_compose"],
+      "expected_output": "exp/results/full/iggd_full_bench.json",
+      "candidate_id": "cand_iggd",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "comment_time": "3 methods × 3 full benchmarks. With 2 GPUs, ~4-6h wall-clock. Exceeds 60 min because full GSM8K-1319 alone takes ~60min per method.",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"},
+        {"type": "dataset", "name": "gsm8k", "path": "shared/datasets/gsm8k"},
+        {"type": "dataset", "name": "humaneval", "path": "shared/datasets/humaneval"},
+        {"type": "dataset", "name": "arc_challenge", "path": "shared/datasets/arc_challenge"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "IGGD >= vanilla + 2% on at least 2/3 full benchmarks with p<0.05"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Table 1: IGGD full benchmark results",
+          "columns": ["Method", "GSM8K", "HumanEval", "ARC-C", "FLOPs", "Time(s)", "Distinct-2"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "iggd_composition_extended",
+      "name": "Phase 1A: Extended Composition Study (IGGD + Soft-Masking + RCR)",
+      "description": "Systematic study of how training-free methods compose beyond A-CFG. Test: (1) IGGD + Soft-Masking (embedding enrichment), (2) IGGD + RCR (mask pattern), (3) A-CFG + RCR, (4) Triple stack: A-CFG + IGGD + RCR. Evaluate on GSM8K-100. Report additive vs sub-additive interactions. Classify each combination by extrinsic vs endogenous information contribution.",
+      "type": "experiment",
+      "depends_on": ["iggd_acfg_compose"],
+      "expected_output": "exp/results/pilots/iggd_composition_extended.json",
+      "candidate_id": "cand_iggd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All compositions produce valid results; at least one composition outperforms best individual method"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Method composition interaction matrix",
+          "columns": ["Combination", "Axes", "GSM8K-100", "Interaction Type"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "coba_w_axis",
+      "name": "Phase 1C: COBA W-Axis Grid (Dream-7B, GSM8K-300)",
+      "description": "Characterize width-scaling for Dream-7B. Run D=128 (fixed), W={1, 2, 4, 8, 16}, on GSM8K-300 and HumanEval-164. Selection: majority vote for GSM8K, pass@W for HumanEval. Record accuracy, wall-clock, FLOPs per W value. Fit regression: quality = beta*log(W) + gamma.",
+      "type": "experiment",
+      "depends_on": ["coba_d_axis"],
+      "expected_output": "exp/results/pilots/coba_w_axis.json",
+      "candidate_id": "cand_coba",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 55,
+      "max_batch_size_hint": "auto-detect",
+      "comment_time": "W=16 requires 16 parallel generations per sample. With 2 GPUs, batch W samples. Total ~4-6h.",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"},
+        {"type": "dataset", "name": "gsm8k", "path": "shared/datasets/gsm8k"},
+        {"type": "dataset", "name": "humaneval", "path": "shared/datasets/humaneval"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 5 W values produce valid results; majority vote improves with W on at least GSM8K"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "W-scaling: accuracy vs parallel samples",
+          "x": "W",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "coba_full_grid",
+      "name": "Phase 2C: COBA Full D x W Grid (25 configs, 3 benchmarks)",
+      "description": "Full 5x5 grid: D={32,64,128,256,512} x W={1,2,4,8,16} on GSM8K-300, HumanEval-164, ARC-C-300. Fit joint model: quality(D,W) = alpha*log(D) + beta*log(W) + gamma per task. Report R-squared. Identify Pareto-optimal configurations at each FLOPs budget. Compare task-specific optimal allocations (H_COBA: reasoning favors D, code favors W).",
+      "type": "experiment",
+      "depends_on": ["coba_d_axis", "coba_w_axis"],
+      "expected_output": "exp/results/full/coba_full_grid.json",
+      "candidate_id": "cand_coba",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "comment_time": "25 grid points × 3 benchmarks. Many already computed from D-axis and W-axis. Incremental: ~15 new configs. With 2 GPUs: ~6-8h.",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 25 grid points evaluated; regression R² > 0.5 on at least 2/3 benchmarks"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "COBA D x W accuracy grid per benchmark (Table 3)",
+          "x": "D",
+          "y": "W",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Pareto frontier: accuracy vs FLOPs per task",
+          "x": "flops",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "coba_method_overlay",
+      "name": "Phase 2C: COBA Method Overlay (IGGD + A-CFG on D x W Grid)",
+      "description": "Overlay best IGGD and A-CFG configurations on the COBA grid. For Pareto-optimal (D, W) points, run with IGGD and A-CFG+IGGD. Measure whether training-free methods shift the Pareto frontier upward. This unifies Track A and Track C results.",
+      "type": "experiment",
+      "depends_on": ["coba_full_grid", "iggd_full_bench"],
+      "expected_output": "exp/results/full/coba_method_overlay.json",
+      "candidate_id": "cand_coba",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 55,
+      "max_batch_size_hint": "auto-detect",
+      "comment_time": "~8-10 Pareto-optimal points × 2 methods × 3 benchmarks. ~4-6h with 2 GPUs.",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "IGGD shifts Pareto frontier upward at >= 2 operating points"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Pareto frontier: vanilla vs IGGD vs IGGD+A-CFG overlay",
+          "x": "flops",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "iggd_mechanistic",
+      "name": "Phase 2A: IGGD Mechanistic Analysis (Per-Step Conditional MI)",
+      "description": "For 100 GSM8K samples, record per-step information gain: at each denoising step t, compute IG(i) for all masked positions, record the selected positions, and measure how much conditional MI is actually gained. Verify submodularity (diminishing returns). Compare IG trajectories for correct vs incorrect final answers. Also compute: (1) empirical (1-1/e) approximation ratio, (2) correlation between step-level IG and step-level accuracy delta.",
+      "type": "analysis",
+      "depends_on": ["iggd_full_bench"],
+      "expected_output": "exp/results/full/iggd_mechanistic.json",
+      "candidate_id": "cand_iggd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 40,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "IG trajectory recorded for 100 samples; submodularity verified (diminishing returns in >80% of sequences)"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Per-step conditional MI trajectory (correct vs incorrect answers)",
+          "x": "denoising_step",
+          "y": "information_gain",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Cumulative information gain showing submodularity",
+          "x": "step",
+          "y": "cumulative_ig",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "iggd_cross_backbone",
+      "name": "Phase 2A: IGGD Cross-Backbone Validation (LLaDA-8B)",
+      "description": "Run best IGGD configuration on LLaDA-8B backbone. Evaluate on GSM8K-300, ARC-C-300. Compare improvement delta (IGGD vs vanilla) between Dream-7B and LLaDA-8B. Verify IGGD transfers across backbone architectures (Dream is AR-initialized, LLaDA is native diffusion). Critical for generalizability claim.",
+      "type": "experiment",
+      "depends_on": ["iggd_full_bench"],
+      "expected_output": "exp/results/full/iggd_llada.json",
+      "candidate_id": "cand_iggd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "LLaDA-8B-Instruct", "path": "shared/checkpoints/llada-8b-instruct"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "IGGD shows improvement over vanilla LLaDA-8B on at least 1/2 benchmarks"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Cross-backbone: Dream-7B vs LLaDA-8B with IGGD",
+          "columns": ["Backbone", "Method", "GSM8K", "ARC-C", "Delta"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "dal_gate_repair",
+      "name": "Phase 1B (Conditional): DaL Gate Repair + 5K Training",
+      "description": "CONDITIONAL ON D0c+D0d PASS. Train DaL-MLP on Dream-7B for 5K steps with revised gate (sigmoid(-2) init, gate_lr=10x meta_lr). K=4 unrolling, meta_lr=1e-4. Track gate value every 500 steps. Intermediate checkpoints at 2K, 4K, 5K with GSM8K-50 evaluation. Phase scheduling: skip TTT at mask ratio > 0.7. Early stop if gate < 0.05 at 2K steps.",
+      "type": "experiment",
+      "depends_on": ["diag_d0c_d0d"],
+      "expected_output": "exp/results/pilots/dal_gate_repair_5k.json",
+      "candidate_id": "cand_dal",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "openwebtext_10k", "path": "shared/datasets/openwebtext_10k"},
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Gate >= 0.10 by 5K steps AND GSM8K-50 accuracy >= vanilla - 2%"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Gate value trajectory during training",
+          "x": "training_step",
+          "y": "gate_value",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "dal_phase1_eval",
+      "name": "Phase 1B (Conditional): DaL GSM8K-200 GO/NO-GO",
+      "description": "CONDITIONAL ON gate_repair PASS. Evaluate best DaL checkpoint on GSM8K-200. Compare against vanilla. This is the hard GO/NO-GO gate for Track B. Requirement: >=+2% absolute at p<0.10 (n=200). Failure here kills DaL permanently and redirects all GPUs to Track A + C.",
+      "type": "experiment",
+      "depends_on": ["dal_gate_repair"],
+      "expected_output": "exp/results/pilots/dal_phase1_eval.json",
+      "candidate_id": "cand_dal",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 35,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "DaL >= vanilla + 2% absolute on GSM8K-200 AND p<0.10 (paired bootstrap)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "DaL Phase 1 GO/NO-GO results",
+          "columns": ["Method", "GSM8K-200 Acc", "Delta", "p-value", "Gate Value"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "dal_update_rules",
+      "name": "Phase 2B (Conditional): DaL Update Rule Ablation",
+      "description": "CONDITIONAL ON Phase 1B PASS. Train 4 DaL variants (Linear, MLP, Momentum, GRU) on Dream-7B for 5K steps each. Same parameter budget (+/-10%). Evaluate on GSM8K-100, ARC-C-100, HumanEval-100. Report accuracy, gate values, overhead. Identify best update rule for main experiments.",
+      "type": "experiment",
+      "depends_on": ["dal_phase1_eval"],
+      "expected_output": "exp/results/full/dal_update_rules.json",
+      "candidate_id": "cand_dal",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "comment_time": "4 variants × (5K training + 3 benchmark evals). With 2 GPUs running 2 variants in parallel: ~8-12h total.",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 4 variants train successfully; at least 1 variant > vanilla + 2% on >= 2/3 benchmarks"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Update rule comparison across benchmarks",
+          "columns": ["Update Rule", "GSM8K-100", "ARC-C-100", "HumanEval-100", "Gate", "Overhead"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "dal_flops_fair",
+      "name": "Phase 2B (Conditional): DaL FLOPs-Fair Compute Tradeoff",
+      "description": "CONDITIONAL ON dal_update_rules finding a winning variant. For best DaL variant and vanilla: evaluate on GSM8K at matched FLOPs budgets equivalent to {64, 128, 256, 512} denoising steps. DaL splits FLOPs between denoising and TTT (1 TTT step ≈ 2.5 denoising steps). Tests H_ortho: does TTT provide orthogonal compute value?",
+      "type": "experiment",
+      "depends_on": ["dal_update_rules"],
+      "expected_output": "exp/results/full/dal_flops_fair.json",
+      "candidate_id": "cand_dal",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "DaL outperforms Dense Denoising at >= 1 FLOPs budget"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Accuracy vs FLOPs: Dense Denoising vs DaL",
+          "x": "total_flops",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "sota_comparison",
+      "name": "Phase 3: Full SOTA Comparison (All Methods, All Benchmarks, 3 Seeds)",
+      "description": "Final comparison table: Vanilla, IGGD-Best, A-CFG, IGGD+A-CFG, ReMDM, and (conditional) DaL-Best on all 6 benchmarks: GSM8K-full, MATH500-full, HumanEval-full, MBPP-full, ARC-C-full, Countdown. Run with 3 seeds (42, 123, 456). Report mean +/- 95% CI, Cohen's d, Holm-Bonferroni corrected p-values. Include FLOPs, wall-clock time, peak memory for each method.",
+      "type": "experiment",
+      "depends_on": ["iggd_full_bench", "coba_method_overlay"],
+      "expected_output": "exp/results/full/sota_comparison.json",
+      "candidate_id": "shared",
+      "gpu_count": 4,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "comment_time": "~5 methods × 6 benchmarks × 3 seeds = 90 evaluations. Inference-only. With 4 GPUs: ~8-12h. Exceeds 60 min per single GPU run but parallelizes well.",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B-Instruct", "path": "shared/checkpoints/dream-7b-instruct"},
+        {"type": "dataset", "name": "gsm8k", "path": "shared/datasets/gsm8k"},
+        {"type": "dataset", "name": "math500", "path": "shared/datasets/math500"},
+        {"type": "dataset", "name": "humaneval", "path": "shared/datasets/humaneval"},
+        {"type": "dataset", "name": "mbpp", "path": "shared/datasets/mbpp"},
+        {"type": "dataset", "name": "arc_challenge", "path": "shared/datasets/arc_challenge"},
+        {"type": "dataset", "name": "countdown", "path": "shared/datasets/countdown"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All methods evaluated on all benchmarks; IGGD or IGGD+A-CFG achieves best accuracy on >= 4/6 benchmarks"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Table 1: Full SOTA comparison (all methods × all benchmarks × 3 seeds)",
+          "columns": ["Method", "Type", "GSM8K", "MATH500", "HumanEval", "MBPP", "ARC-C", "Countdown", "FLOPs", "Time(s)"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "qualitative_analysis",
+      "name": "Phase 3: Qualitative Analysis & Figure Generation",
+      "description": "For 10 random GSM8K samples: compare generated text from vanilla vs IGGD vs A-CFG+IGGD. Visualize per-step unmasking order (which positions IGGD chooses vs random). Show entropy heatmaps. Generate all paper figures: architecture diagram, Pareto frontiers, composition interaction charts, extrinsic vs endogenous taxonomy visualization.",
+      "type": "analysis",
+      "depends_on": ["sota_comparison"],
+      "expected_output": "exp/results/full/qualitative_analysis.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All figures generated; qualitative samples show clear IGGD vs vanilla differences"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "IGGD unmasking order vs random order visualization",
+          "x": "position",
+          "y": "denoising_step",
+          "paper_section": "analysis"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Extrinsic vs endogenous method taxonomy with evidence",
+          "x": "information_type",
+          "y": "accuracy_delta",
+          "paper_section": "analysis"
+        }
+      ]
+    },
+    {
+      "id": "latency_benchmark",
+      "name": "Phase 3: Latency & Throughput Benchmarking",
+      "description": "Measure wall-clock time per sample for: Vanilla, IGGD-Best, A-CFG, IGGD+A-CFG, ReMDM. Dream-7B, NFE=128. Report: total time, per-step time, overhead fraction, peak GPU memory, total FLOPs. Demonstrate IGGD has zero/negative overhead (pilot: 0.90x).",
+      "type": "analysis",
+      "depends_on": ["sota_comparison"],
+      "expected_output": "exp/results/full/latency_benchmark.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Timing data collected for all methods; IGGD overhead <= 1.0x (i.e., no slowdown)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Latency comparison across methods",
+          "columns": ["Method", "Time/sample(s)", "Overhead(%)", "Peak Memory(GB)", "FLOPs"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Wall-clock time comparison",
+          "x": "method",
+          "y": "time_per_sample",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

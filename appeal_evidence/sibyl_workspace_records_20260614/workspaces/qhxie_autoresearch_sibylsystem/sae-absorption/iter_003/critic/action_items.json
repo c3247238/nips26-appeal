@@ -1,0 +1,167 @@
+{
+  "updated_by": "critic_iter_003",
+  "timestamp": "2026-04-14",
+  "submission_blockers": [
+    "OMP experiment must be re-run with adequate statistical power (n>=500 tokens/letter, all 26 letters, bootstrap CIs on the difference; current n=90 at 97.8% ceiling has near-zero power)",
+    "TopK-32k AUROC=0.837 must be reframed — it uses proxy labels that E1 confirms are NOT absorbed features (0% absorption under IG measurement in TopK-32k). Remove 'cross-architecture replication' framing.",
+    "All 6 figures must be generated (fig_teaser.pdf, fig_enc_norm_hist.pdf, fig_omp_design.pdf, fig_roc_curves.pdf, fig_ablation.pdf, fig_omp_results.pdf) — existing PDFs are from an earlier iteration and do not match the paper.",
+    "Language claiming 'decisively falsifies' must be downgraded throughout — the OMP result is 'consistent with' the sparsity landscape account, not a definitive falsification given the power limitations.",
+    "MP-SAE (Costa et al., arXiv:2506.03093) must be cited and the weak vs. strong amortization gap hypothesis distinction must be added to Section 5.1.",
+    "Cross-hierarchy contribution (entity-type H3) must be removed from the contributions list — the result is 0% entity-type absorption vs. 5% negative control, confirmed probe artifact."
+  ],
+  "prioritized_fixes": [
+    {
+      "priority": 1,
+      "severity": "critical",
+      "category": "experiment",
+      "action": "Re-run OMP experiment with statistical power",
+      "description": "Current experiment: 3 letters x 30 tokens = 90 observations. Baseline AR=0.978. Statistical power to detect 20pp reduction: near-zero (SE on difference = 0.037, MDE at 80% power requires n>=317 per letter). Re-run with n>=500 tokens per letter, all 26 letters. Report bootstrap 95% CI on (AR_OMP - AR_FF). Also test at L2 or L10 where baseline AR is lower (L2 ratio=0.877) to avoid ceiling. Add power analysis to paper.",
+      "effort": "medium",
+      "blocks_submission": true
+    },
+    {
+      "priority": 2,
+      "severity": "critical",
+      "category": "analysis",
+      "action": "Reframe TopK-32k AUROC=0.837 result",
+      "description": "E1 shows 0% absorption in TopK-32k SAE under IG measurement (letters a, e, o, s, t). The n_pos=77 labels are decoder-alignment-based, not absorption labels. AUROC=0.837 measures EncNorm's ability to predict decoder-letter alignment, not absorption detection. Remove 'cross-architecture replication' framing from abstract and Table 1. Add footnote explicitly stating that TopK-32k labels are proxy labels and that actual absorption rate under IG measurement is 0%.",
+      "effort": "low",
+      "blocks_submission": true
+    },
+    {
+      "priority": 3,
+      "severity": "critical",
+      "category": "reproducibility",
+      "action": "Generate all 6 required figures",
+      "description": "The figures fig_teaser.pdf, fig_enc_norm_hist.pdf, fig_omp_design.pdf, fig_roc_curves.pdf, fig_ablation.pdf, fig_omp_results.pdf do not exist. Data for all figures is available in exp/results/full/ JSON files. Generate using academic-plotting skill. Name files consistently with the paper's figure label scheme.",
+      "effort": "medium",
+      "blocks_submission": true
+    },
+    {
+      "priority": 4,
+      "severity": "critical",
+      "category": "writing",
+      "action": "Downgrade 'decisively falsifies' language throughout",
+      "description": "Replace all instances of 'decisively falsifies,' 'unambiguous,' 'decisive' in abstract, Section 4.3, and Section 6 with appropriately hedged language: 'consistent with,' 'provides evidence against,' 'is consistent with falsifying.' Add power analysis to Section 5.2 (Limitations): 'With n=30 tokens per letter and baseline AR=0.978, the minimum detectable effect size at 80% power is approximately 20 percentage points; effects smaller than 20pp are not detectable with the current sample size.'",
+      "effort": "low",
+      "blocks_submission": true
+    },
+    {
+      "priority": 5,
+      "severity": "critical",
+      "category": "writing",
+      "action": "Add weak vs. strong amortization gap distinction; cite MP-SAE",
+      "description": "Add to Section 5.1: 'This result falsifies the weak form of the amortization gap hypothesis — that inference-time encoder improvement with a fixed pre-trained dictionary can reduce absorption. It does not test the strong form: whether jointly training encoder and decoder with an iterative inference procedure reduces absorption (MP-SAE, Costa et al., 2025).' Cite Costa et al. arXiv:2506.03093 in Section 2.3 (Mitigation Proposals) and discuss whether their results support the strong form.",
+      "effort": "medium",
+      "blocks_submission": true
+    },
+    {
+      "priority": 6,
+      "severity": "critical",
+      "category": "experiment",
+      "action": "Remove cross-hierarchy contribution from contribution list",
+      "description": "The entity-type absorption experiment (D2) shows 0.000% absorption for entity-type hierarchy and 5% for negative control — direction inverted relative to H3. The D2 notes also reveal a methodological error: entity-type probe was used on control sentences. Remove all claims about cross-hierarchy generalization. Restate three contributions as: (1) Mechanistic: OMP oracle experiment, (2) Methodological: EncNorm + O_jaccard, (3) Practical: width recovery analysis (with hook-confound caveat).",
+      "effort": "low",
+      "blocks_submission": true
+    },
+    {
+      "priority": 7,
+      "severity": "major",
+      "category": "analysis",
+      "action": "Address layer-specificity of EncNorm signal",
+      "description": "A2 results: EncNorm ratio (absorbed/non-absorbed) = 0.877 at L2, 1.055 at L4, 1.267 at L6, 0.891 at L8, 0.933 at L10. The signal inverts direction at L2, L8, L10. The paper claims EncNorm as a 'general-purpose absorption detector' but it is strictly an L4-L6 detector on GPT-2 Small. Add explicit scope limitation: 'EncNorm's predictive validity is established only at GPT-2 Small L6 and is not validated at other layers or architectures; practitioners should verify layer-specific validity before applying EncNorm to other settings.'",
+      "effort": "low",
+      "blocks_submission": false
+    },
+    {
+      "priority": 8,
+      "severity": "major",
+      "category": "analysis",
+      "action": "Run partial AUROC analysis controlling for EDA",
+      "description": "EncNorm and EDA have Spearman r=0.712 across all 24k latents. The AUROC improvement (0.757 vs 0.650) may reflect distributional properties rather than independent information. Fit logistic regression with EDA as predictor; test whether adding EncNorm as a second predictor significantly improves AUROC (DeLong test on combined vs. single predictor). Report result in Section 4.1. If EncNorm adds no significant AUROC above EDA after controlling, reframe as 'EncNorm is a computationally cheaper proxy for EDA with comparable discriminative power'.",
+      "effort": "low",
+      "blocks_submission": false
+    },
+    {
+      "priority": 9,
+      "severity": "major",
+      "category": "analysis",
+      "action": "Clarify theoretical mechanism for encoder norm inflation",
+      "description": "Section 3.1 provides a mechanistic motivation for EncNorm under the sparsity landscape account, but A2 shows the signal inverts at most layers and the Tang et al. theory does not directly predict encoder norm inflation. Either: (a) provide a formal gradient-level derivation showing that gradient competition during SDL training specifically inflates encoder norms at mid-layers, or (b) reframe Section 3.1 as 'motivated heuristic: we hypothesize that gradient competition creates a norm inflation effect at mid-layers, and test this empirically.' Option (b) is more honest.",
+      "effort": "medium",
+      "blocks_submission": false
+    },
+    {
+      "priority": 10,
+      "severity": "major",
+      "category": "analysis",
+      "action": "Quantify hook confound magnitude for width recovery analysis",
+      "description": "The F1 width recovery analysis (67% recovery) compares decoder directions trained on different activation spaces (resid_pre vs. resid_post). Compute average cosine similarity between GPT-2 L6 resid_pre and resid_post activations on a sample of tokens. If mean cosine similarity < 0.99, the representational shift is substantial and the 67% figure may be largely an artifact. Report this baseline similarity in Section 4.4 and use it to calibrate the 67%/33% interpretation.",
+      "effort": "low",
+      "blocks_submission": false
+    },
+    {
+      "priority": 11,
+      "severity": "major",
+      "category": "reproducibility",
+      "action": "Add explicit GPT-2 Small scope limitation",
+      "description": "All experiments are GPT-2 Small (117M, 2019). Gemma Scope was inaccessible (401). Add to Section 5.2: 'All results are from GPT-2 Small (117M). The EncNorm signal, OMP null result, and width recovery figures may not generalize to larger modern models (Gemma-2, Llama-3). Replication on Gemma Scope is required before making model-general claims. The NeurIPS 2026 main track venue target requires multi-model validation.' To gain access: accept gated license at huggingface.co/google/gemma-scope.",
+      "effort": "low",
+      "blocks_submission": false
+    },
+    {
+      "priority": 12,
+      "severity": "major",
+      "category": "analysis",
+      "action": "Compute O_jaccard AUROC separately for features in/out of letter set",
+      "description": "B2 notes: 9 of 18 absorbed features are NOT in the letter feature set, meaning O_jaccard=0 for these by construction. The AUROC=0.721 conflates features the metric can potentially detect with those it structurally cannot. Compute AUROC(O_jaccard) separately for: (a) the 9 absorbed features with non-zero letter-set membership, and (b) the 9 without. Report in Section 4.2 to provide an honest assessment of O_jaccard's detection capability vs. structural coverage.",
+      "effort": "low",
+      "blocks_submission": false
+    },
+    {
+      "priority": 13,
+      "severity": "minor",
+      "category": "writing",
+      "action": "Fix Jaccard definition inconsistency",
+      "description": "Section 3.2 uses f_k > f_j; B2 experiment and notes use f_i > 3*f_j. Update Section 3.2 to match actual implementation: 'max_{k: f_k > 3*f_j} [...]'. Update notation.md T value from 200,000 to 10,000 to match actual co-occurrence graph construction.",
+      "effort": "trivial",
+      "blocks_submission": false
+    },
+    {
+      "priority": 14,
+      "severity": "minor",
+      "category": "writing",
+      "action": "Remove duplicate Section 4.1 (experimental setup summary)",
+      "description": "Section 4.1 repeats Section 3.4 nearly verbatim. Delete Section 4.1; replace first sentence of Section 4.2 with 'Setup follows Section~\\ref{sec:setup}; detection experiments use Standard/L1 (n_pos=18 gold IG labels) and TopK-32k (n_pos=77 proxy labels) at GPT-2 L6.'",
+      "effort": "trivial",
+      "blocks_submission": false
+    },
+    {
+      "priority": 15,
+      "severity": "minor",
+      "category": "writing",
+      "action": "Fix parent/child terminology error in Introduction",
+      "description": "Section 1 paragraph 2: 'a child SAE latent fails to activate... because a more specific child latent absorbs the activation budget.' Two things called 'child'. Fix: 'a parent SAE latent fails to activate...'",
+      "effort": "trivial",
+      "blocks_submission": false
+    },
+    {
+      "priority": 16,
+      "severity": "minor",
+      "category": "writing",
+      "action": "Specify one-sided DeLong test p-value explicitly",
+      "description": "The DeLong test reports p_one_sided=0.001160 in source data. The paper reports p=0.0012 without specifying one-sided. Change to 'one-sided p=0.0012 (H_A: EncNorm > EDA)' throughout.",
+      "effort": "trivial",
+      "blocks_submission": false
+    },
+    {
+      "priority": 17,
+      "severity": "minor",
+      "category": "writing",
+      "action": "Standardize absorption rate ratio formulation",
+      "description": "Paper uses both 'absorption rate ratio = 1.000' (OMP/FF) and 'reduction = 0.0%' in Table 2 and abstract. Standardize on reduction fraction = (AR_FF - AR_OMP)/AR_FF = 0.0%. Remove the ratio column from Table 2. This makes the null result (0% reduction) directly readable without a sign flip.",
+      "effort": "trivial",
+      "blocks_submission": false
+    }
+  ]
+}

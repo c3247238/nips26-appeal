@@ -1,0 +1,34 @@
+{
+  "task_id": "full_dream_gsm8k",
+  "candidate_id": "cand_card",
+  "mode": "PILOT",
+  "model": "Dream-7B-Instruct",
+  "benchmark": "GSM8K",
+  "num_samples": 100,
+  "seed": 42,
+  "go_no_go": "FAIL",
+  "confidence": 0.85,
+  "supported_hypotheses": [],
+  "failed_assumptions": ["card_beats_std64_on_dream", "cross_model_consistency"],
+  "key_metrics": {
+    "std64_acc": 0.09,
+    "dnb84_acc": 0.03,
+    "entropy_revise_acc": 0.06,
+    "card84_acc": 0.06,
+    "card84_vs_dnb84": 0.03,
+    "card84_vs_std64": -0.03,
+    "pareto_frontier": ["Standard-64"],
+    "card_on_pareto": false,
+    "card_wins_over_dnb": 5,
+    "dnb_wins_over_card": 2,
+    "both_wrong": 92
+  },
+  "cross_model_comparison": {
+    "Standard-64": {"dream": 0.09, "llada": 0.3093, "delta": -0.2193},
+    "DNB-84": {"dream": 0.03, "llada": 0.3086, "delta": -0.2786},
+    "Entropy-Revise-64": {"dream": 0.06, "llada": 0.3313, "delta": -0.2713},
+    "CARD-84": {"dream": 0.06, "llada": 0.3487, "delta": -0.2887}
+  },
+  "elapsed_sec": 812.5,
+  "notes": "Dream-7B-Instruct performs very poorly on GSM8K across all methods (3-9% accuracy vs LLaDA's 30-35%). The base model capability is too weak for meaningful comparison. Key observations: (1) All accuracies are near-random, making differential analysis unreliable; (2) Non-monotonic behavior is even more extreme — DNB-84 (3%) is WORSE than Standard-64 (9%), confirming over-denoising harms weak models more; (3) CARD beats DNB (+3%) but loses to Standard-64 (-3%), suggesting revision overhead hurts when the base model can barely solve the task; (4) Only 0.6 tokens changed on average by revision, suggesting the model's entropy signal is too weak to identify meaningful revision targets; (5) 92/100 samples are wrong for both CARD and DNB, indicating the model fundamentally lacks GSM8K reasoning capability. This is a cross-model validation FAILURE — CARD's benefits are model-specific to LLaDA. However, the negative result is informative: CARD requires a minimum base model capability to be effective. Dream-7B's GSM8K performance is consistent with Evolution Lessons warning about model-specific conclusions."
+}

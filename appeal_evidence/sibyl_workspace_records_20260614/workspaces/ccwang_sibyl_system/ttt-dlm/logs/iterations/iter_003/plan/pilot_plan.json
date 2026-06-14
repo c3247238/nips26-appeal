@@ -1,0 +1,226 @@
+{
+  "pilot_config": {
+    "default_samples": 16,
+    "default_seeds": [42],
+    "default_timeout_seconds": 600,
+    "model": "Dream-v0-Instruct-7B",
+    "model_path": "/home/ccwang/sibyl_system/models/Dream-v0-Instruct-7B",
+    "gen_length": 512,
+    "denoising_steps": 128,
+    "mask_token_id": 151666,
+    "eval_benchmarks": ["Countdown", "GSM8K", "MBPP", "HumanEval"],
+    "gpu_allocation": {
+      "gpu_0": "primary DTA experiments",
+      "gpu_2": "baseline methods / parallel evaluation",
+      "gpu_4": "ablation / scaling experiments",
+      "gpu_5": "cross-model / diagnostics"
+    }
+  },
+  "dta_default_config": {
+    "lora_rank": 4,
+    "lora_target_layers": "last_2_ffn",
+    "learning_rate": 1e-4,
+    "decay_gamma": 0.95,
+    "warmup_ratio": 0.2,
+    "optimizer": "sgd",
+    "l2_reg": 0.01,
+    "init": "zero"
+  },
+  "pilots": [
+    {
+      "task_id": "task_0a",
+      "name": "环境验证",
+      "samples": 4,
+      "seeds": [42],
+      "timeout": 300,
+      "gpu": "cuda:0",
+      "pass_criteria": "Dream-7B 加载成功，4 个 prompt 生成正常，PEFT LoRA 初始化无报错，无 OOM",
+      "estimated_time_min": 10,
+      "notes": "验证 PEFT 库可用、LoRA 可以动态添加/移除"
+    },
+    {
+      "task_id": "task_0b",
+      "name": "评估框架搭建",
+      "samples": 4,
+      "seeds": [42],
+      "timeout": 300,
+      "gpu": "N/A",
+      "pass_criteria": "Countdown/GSM8K/MBPP 评估函数通过单元测试",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "task_1a",
+      "name": "Vanilla Countdown Baseline",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 600,
+      "gpu": "cuda:0",
+      "pass_criteria": "16 样本生成成功，准确率 > 0%，评估无报错",
+      "estimated_time_min": 10,
+      "configs": [
+        {"algo": "origin", "steps": 128, "temp": 0.4, "gen_len": 512}
+      ]
+    },
+    {
+      "task_id": "task_1b",
+      "name": "Vanilla GSM8K Baseline",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 900,
+      "gpu": "cuda:2",
+      "pass_criteria": "答案提取率 ≥ 80%，准确率 > 0%",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "task_1c",
+      "name": "Vanilla MBPP Baseline",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 900,
+      "gpu": "cuda:4",
+      "pass_criteria": "代码生成成功（非空），sandbox 无崩溃",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "task_2a",
+      "name": "DTA 核心实现 Pilot",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 1200,
+      "gpu": "cuda:0",
+      "pass_criteria": "DTA 运行无报错，||Δθ||_F ≤ 1.0，Countdown 准确率 ≥ vanilla pilot，distinct-2 ≥ 0.7",
+      "estimated_time_min": 60,
+      "configs": [
+        {"lora_rank": 4, "target_layers": "last_2_ffn", "lr": 1e-4, "gamma": 0.95, "warmup": 0.2}
+      ],
+      "notes": "关键 pilot。若失败需检查：(1) 梯度裁剪是否需要 (2) 学习率是否过大 (3) LoRA 初始化"
+    },
+    {
+      "task_id": "task_2b",
+      "name": "ReMDM-conf Pilot",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 600,
+      "gpu": "cuda:2",
+      "pass_criteria": "成功运行，diversity ≥ 0.7",
+      "estimated_time_min": 15,
+      "configs": [
+        {"remask_strategy": "confidence", "remask_ratio": 0.3}
+      ]
+    },
+    {
+      "task_id": "task_2c",
+      "name": "RCR Pilot",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 600,
+      "gpu": "cuda:4",
+      "pass_criteria": "成功运行，diversity ≥ 0.7",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "task_3a",
+      "name": "DMI Pilot",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 600,
+      "gpu": "cuda:2",
+      "pass_criteria": "成功运行无崩溃，Countdown ≥ vanilla",
+      "estimated_time_min": 15,
+      "configs": [
+        {"mix_alpha": 0.3, "injection": "input_embedding"}
+      ]
+    },
+    {
+      "task_id": "task_3b",
+      "name": "SCP Pilot",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 900,
+      "gpu": "cuda:4",
+      "pass_criteria": "自矛盾检测率在 5%-50%，Countdown ≥ vanilla",
+      "estimated_time_min": 30,
+      "notes": "SCP 需要 leave-one-out 前向传播，计算量较大。若 OOM，减少 probe 的 token 数量"
+    },
+    {
+      "task_id": "task_4a",
+      "name": "DTA + ReMDM Pilot",
+      "samples": 16,
+      "seeds": [42],
+      "timeout": 1200,
+      "gpu": "cuda:0",
+      "pass_criteria": "组合方法准确率 ≥ max(DTA, ReMDM)",
+      "estimated_time_min": 30,
+      "notes": "验证正交互补性。若准确率不如单独 DTA，检查是否 remasking 干扰了 LoRA 累积"
+    }
+  ],
+  "execution_plan": {
+    "phase_0": {
+      "tasks": ["task_0a", "task_0b"],
+      "estimated_total_min": 15,
+      "parallelizable": true,
+      "blocking": true
+    },
+    "phase_1": {
+      "tasks": ["task_1a", "task_1b", "task_1c"],
+      "estimated_total_min": 15,
+      "parallelizable": true,
+      "blocking": true,
+      "notes": "3 个 baseline 分配到 3 块 GPU 并行"
+    },
+    "phase_2": {
+      "tasks": ["task_2a", "task_2b", "task_2c"],
+      "estimated_total_min": 60,
+      "parallelizable": true,
+      "blocking": true,
+      "notes": "DTA 核心 + 2 个 remasking baseline 并行。task_2a 是 critical path"
+    },
+    "phase_3": {
+      "tasks": ["task_3a", "task_3b"],
+      "estimated_total_min": 30,
+      "parallelizable": true,
+      "blocking": false,
+      "notes": "DMI 和 SCP 消融基线，可与 phase_2 部分重叠"
+    },
+    "phase_4": {
+      "tasks": ["task_4a"],
+      "estimated_total_min": 30,
+      "parallelizable": false,
+      "blocking": true,
+      "notes": "依赖 DTA 和 ReMDM 的 pilot 结果"
+    },
+    "phase_5_full": {
+      "tasks": ["task_5a", "task_5b", "task_5c"],
+      "estimated_total_min": 480,
+      "parallelizable": true,
+      "blocking": true,
+      "notes": "Full-scale 评估，需要最多计算时间"
+    },
+    "phase_6_scaling": {
+      "tasks": ["task_6a"],
+      "estimated_total_min": 240,
+      "parallelizable": false,
+      "notes": "步数扫描分析"
+    },
+    "phase_7_ablation": {
+      "tasks": ["task_7a", "task_7b", "task_7c", "task_7d"],
+      "estimated_total_min": 120,
+      "parallelizable": true,
+      "notes": "4 维消融可并行"
+    },
+    "phase_8_analysis": {
+      "tasks": ["task_8a", "task_8b", "task_8c"],
+      "estimated_total_min": 120,
+      "parallelizable": true,
+      "notes": "跨模型验证 + 诊断分析 + 退化检测"
+    }
+  },
+  "total_estimated_time_min": 1095,
+  "critical_path_min": 540,
+  "risk_mitigation": {
+    "dta_oom": "若 DTA 反向传播导致 OOM：(1) 减少 LoRA rank 到 2 (2) 只更新最后 1 层 (3) 使用 gradient checkpointing (4) 每 2 步才更新",
+    "dta_numerical_instability": "若 ||Δθ||_F 爆炸：(1) 降低 lr 到 1e-5 (2) 增加 L2 正则到 0.1 (3) 添加梯度裁剪 max_norm=1.0",
+    "dta_no_improvement": "若 DTA 在 Countdown pilot 上 ≤ vanilla：(1) 调整超参搜索范围 (2) 检查 warmup 是否太长 (3) 尝试只更新 attention layers (4) 降级到 DMI 作为主方法",
+    "remdm_dta_interference": "若 DTA+ReMDM 不如 DTA alone：remasking 可能在破坏 LoRA 已学到的模式。尝试 (1) 只在前 50% 步 remask (2) remask 后不重置 LoRA"
+  }
+}

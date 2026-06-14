@@ -1,0 +1,100 @@
+{
+  "summary": "The project has made substantial empirical progress since the last critic round, but the paper draft has not kept pace. The most critical issue: the newly completed E2 full experiments (GPT-2 and Pythia) show that the official sae-spelling absorption metric has meaningful variance across all families, directly falsifying H2's prediction of degeneracy. Yet the paper still claims the first-letter benchmark is 'degenerate' based on the old simplified proxy. This creates a severe internal contradiction. E4's 'no dominance' conclusion is statistically underpowered (only 2 trainers per family, 1 stratum, 84 tests, zero significant). The E3 task-agnostic pilot used the simplified proxy, not the official metric, so its negative correlation is less alarming than framed. The writing contains figure-reference errors, unlabeled tables, and causal overclaiming that remain unaddressed.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H2 is falsified by the new E2 full results, but the paper still claims the first-letter benchmark is degenerate. The official sae-spelling metric on GPT-2 Small shows absorption ranging from 0.037 to 0.673 (Standard) and 0.036 to 0.411 (TopK). Pythia-160M shows 0.007-0.579 across families. This is meaningful variance, not degeneracy.",
+      "suggestion": "Rewrite H2 and all related sections to distinguish between (a) the simplified proxy used in E1/E3 pilot, which WAS degenerate, and (b) the official sae-spelling metric used in E2 full, which shows robust variance. H2 should be reported as falsified, not supported. The contribution shifts to characterizing family-level variance patterns."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The E1 Pareto evaluation used the simplified absorption proxy (degenerate on 26/27 checkpoints), yet the paper presents its 'no dominance' conclusion as if it were based on the official metric. The Mann-Whitney U test on absorption (U=48, p=0.75) is a statistical artifact of near-zero variance in the proxy, not evidence about real absorption tradeoffs.",
+      "suggestion": "Either re-run E1 with the official sae-spelling metric, or demote E1 from a primary result to a 'pipeline validation / proxy critique' study. Do not present proxy-degeneracy artifacts as evidence about architectural tradeoffs."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "E4 full Pareto analysis is severely underpowered: only 14 checkpoints, 7 families, 2 trainers per family, all within a single stratum (resid_post_layer_8, width=16384). With 84 pairwise Mann-Whitney U tests and zero significant results, this is expected due to tiny sample sizes (often n=1 per family in a comparison), not strong evidence of equivalence.",
+      "suggestion": "Acknowledge the power limitation explicitly. Report E4 as an 'exploratory pilot' rather than conclusive evidence. If more checkpoints exist in the SAEBench release, expand to at least 4-6 trainers per family and multiple strata."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "E3's task-agnostic metric was compared against the simplified first-letter proxy, not the official sae-spelling metric. Since the proxy is now known to be degenerate while the official metric is not, the weak negative correlation (r=-0.59) may reflect proxy invalidity rather than a genuine construct-validity problem with task-agnostic absorption measurement.",
+      "suggestion": "Re-run E3 correlating the task-agnostic metric against the official sae-spelling metric on the same 10 checkpoints. If correlation improves, the problem was the proxy, not the construct. Update the paper accordingly."
+    },
+    {
+      "category": "methodology",
+      "severity": "major",
+      "description": "The paper uses causal language ('causal cost,' 'unique causal effect,' 'causally mediates') for E2, which is an observational meta-analysis on cross-sectional data. Section titles, abstract, and discussion repeatedly use causal framing that the design cannot support.",
+      "suggestion": "Replace all causal language with associational/predictive framing: 'predictive cost,' 'unique negative association,' 'independent predictive effect.' Keep the caveats, but remove causal claims from titles and abstract."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Figure 4 is introduced for the first time in the Discussion (Section 7.1) with no forward reference in any prior section. This breaks standard academic convention.",
+      "suggestion": "Add a forward reference to Figure 4 at the end of Experiment 2, or move the figure introduction into E2 where the regression results are first presented."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Tables 1-3 are rendered as inline markdown tables without LaTeX labels, captions, or in-text references. The outline planned labeled LaTeX tables for NeurIPS submission.",
+      "suggestion": "Convert all inline tables into proper table environments with \\label{} and \\caption{}. Ensure each table is referenced in the text before it appears."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The E1 summary table conflates distinct families into a single 'Standard' bucket. TopK, TopK_MLP, TopK_Attn, hook-z, and mlp-tm variants are all lumped into 'Standard (n=23)' despite having different architectures and hook points. This masks meaningful differences.",
+      "suggestion": "Disaggregate E1 results by actual family/hook-point combination. At minimum, report separate rows for resid_pre, resid_post, mlp_out, attn_out, hook_z, and feature_splitting."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The E2 full GPT-2 results show a striking pattern: official absorption_full is much higher than absorption_fraction for Standard SAEs (e.g., 0.673 vs 0.388 at L4), while the reverse holds for some TopK checkpoints. The paper does not explain what 'absorption_full' vs 'absorption_fraction' measures, creating ambiguity about which metric supports the claims.",
+      "suggestion": "Explicitly define absorption_full and absorption_fraction in the Methods section. State which metric is used for each analysis and justify the choice. If both are reported, discuss when they diverge and why."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The E2 Pythia results reveal a strong L0-absorption tradeoff: low-L0 trainers (trainer_0, L0 ~20-50) show high absorption (0.20-0.58), while high-L0 trainers (trainer_3, L0 ~90-180) show low absorption (0.02-0.18). This is a classic sparsity-fidelity tradeoff that may confound the H1 partial-correlation analysis if L0 does not fully capture the non-linear relationship.",
+      "suggestion": "Add an L0-stratified or interaction analysis to E2. Test whether the absorption-downstream relationship holds within low-L0 and high-L0 subgroups separately. Report any non-linearities."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "Terminology remains inconsistent: 'feature-splitting' vs 'feature_splitting', 'CE recovered' vs 'CE loss recovered' vs '$\\text{CE}_{\\text{recovered}}$', 'JumpReLU' vs 'JumpRelu'.",
+      "suggestion": "Do a global pass aligning all terms with glossary.md and notation.md. Use 'feature splitting' (no hyphen, no underscore), 'CE loss recovered' in text, and '$\\text{CE}_{\\text{recovered}}$' in equations/tables."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The novelty claim is well-motivated by the literature review, but the empirical basis is narrower than the framing suggests. The core reframing (multi-objective evaluation) is novel, yet it rests partly on a degenerate proxy in E1 and an underpowered E4.",
+      "suggestion": "Temper novelty claims to match empirical scope: emphasize E2's large-scale association analysis and the proxy-degeneracy critique as the primary contributions, with E1/E4 as supporting context."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "The E3 pilot uses only 10 checkpoints and one hierarchy domain, with no pre-registered protocol for scaling. The task-agnostic metric depends on LLM-generated hierarchies, which are non-deterministic.",
+      "suggestion": "Add a short 'Replication Protocol' paragraph specifying exactly how future researchers would scale the task-agnostic metric to additional domains and checkpoints, including the LLM judge model and prompt version."
+    }
+  ],
+  "metric_gaming_risks": [
+    "The E1 simplified absorption proxy returns near-zero values on 96% of checkpoints, making it impossible to discriminate architectures on absorption. Presenting U-test 'no difference' results as evidence is a metric-gaming artifact.",
+    "The hedging proxy uses only 5 antonym pairs, which is too coarse to reliably measure feature mixing. This should not support primary claims.",
+    "E4's 84 Mann-Whitney tests with n=1-2 per cell and zero significant results is consistent with severe underpowering, not equivalence. Reporting this as 'no dominance' without power analysis risks false reassurance.",
+    "The divergence between absorption_full and absorption_fraction in E2 GPT-2 is not explained. If the 'wrong' sub-metric is cherry-picked to maximize effect sizes, this would be p-hacking."
+  ],
+  "novelty_risks": [
+    "The multi-objective Pareto reframing is novel and well-motivated.",
+    "However, if reviewers notice that E1 relies on a degenerate proxy and E4 is underpowered, they may downgrade the contribution from 'empirical' to 'conceptual.'",
+    "The task-agnostic metric idea is novel, but its negative correlation with the proxy (rather than the official metric) undermines rather than establishes its validity."
+  ],
+  "reproducibility_gaps": [
+    "E1 used a simplified proxy not identical to the official Chanin et al. / SAEBench pipeline. Exact reproduction requires implementing the custom proxy.",
+    "E3 relies on LLM-generated hierarchies, which are non-deterministic and depend on the judge model and prompt.",
+    "E4 uses only one stratum and 2 trainers per family; reproduction with more data may yield different dominance patterns.",
+    "The distinction between absorption_full and absorption_fraction is not documented in the paper, making it unclear which metric supports which claim."
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "summary": "Paper introduces multi-child proportional ablation for measuring absorption in SAEs. Core findings (H1, H_Mech, H3) are solid with large effect sizes. Critical issues: (1) H_Safe uses undefined 'overlap method' instead of the described multi-child methodology, (2) Table 6 contains degenerate percentage values (134M%, 1.5B%), (3) Several statistical inconsistencies suggest potential data integrity problems, (4) Shuffled/Permuted baselines achieving ~0.48 vs random decoder 0.059 raises questions about what the method actually measures. The novelty claim is moderate given the paper is essentially a measurement methodology paper without practical utility validation.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H_Safe uses undefined 'overlap method' instead of described multi-child proportional ablation. Section 3.7 states 'measure absorption via the overlap method' but this term is never defined. The entire paper builds around multi-child proportional ablation as the methodology, yet H_Safe silently switches to a different method without explanation or justification.",
+      "suggestion": "Define 'overlap method' explicitly in Section 3.7, or state that H_Safe uses the same multi-child proportional ablation methodology. If different methods are used for synthetic vs real SAE experiments, justify why."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Table 6 contains degenerate percentage values: '134,717,856%' and '1.52 billion%' for Mean Delta Percent. These impossible values arise from dividing by near-zero baseline without normalization. A reviewer will immediately flag this as either a computation bug or failure to normalize correctly.",
+      "suggestion": "Remove the 'Mean Delta Percent' column entirely. The 'Mean Delta Norm' column is already present and meaningful. If percentages are needed, use a non-zero reference point or explain the near-zero baseline is intentional."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "Shuffled features (0.487) and Permuted Encoder (0.484) baselines achieve nearly identical absorption to Trained SAE (0.500), yet random decoder achieves only 0.059. This 0.43 gap between random decoder and shuffled/permuted is not explained. The paper claims this 'suggests decoder geometry alone' produces near-maximal absorption, but this contradicts the earlier finding that decoder geometry (condition C) contributes only 0.299.",
+      "suggestion": "Clarify why shuffled/permuted baselines (~0.48) so dramatically exceed Condition C (0.299). If geometry-preserving baselines saturate absorption, what does this imply about the measurement methodology? The paper needs to reconcile these numbers explicitly."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Table 1 shows Trained SAE with Std = 0.0000 (exact value) while all other conditions show non-zero standard deviations. This is suspicious - if absorption is truly constant across 5 seeds, this should be explained. If it's a single measurement, the Std column is misleading.",
+      "suggestion": "Verify source data. If truly constant across seeds, add footnote 'Constant across all seeds' or report range. If single measurement, remove Std column for that row."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "H_Mech condition C (Random encoder + Trained decoder) achieves exactly 0.299 with Std=0.010, identical to condition A (Random + Random at 0.299, Std=0.010). This suggests trained decoder adds nothing beyond random decoder geometry, which contradicts the paper's claim that decoder geometry contributes 0.299 to absorption.",
+      "suggestion": "Verify these values. If correct, the paper's decomposition logic needs revision - if condition C ≈ A, then decoder geometry contributes ZERO, not 0.299. The decomposition table appears internally inconsistent."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Figure 1 lacks textual walkthrough. The figure is embedded with caption only, but no prose description of what the figure illustrates. Readers cannot understand the methodology without walking through the figure panels.",
+      "suggestion": "Add 2-3 sentences in Section 3.4 describing what Figure 1 shows, e.g., 'Panel (a) shows synthetic hierarchy construction... Panel (b) shows ablation procedure...'"
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "Abstract is overloaded with five hypotheses and results in a single sentence. The final clause 'suggesting SAE-based safety analysis is not systematically compromised' is buried and loses impact.",
+      "suggestion": "Split into 2-3 sentences. One for supported hypotheses, one for safety finding, one for negative results."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The paper's primary novelty is a measurement methodology (multi-child proportional ablation) rather than a substantive finding. The H_Downstream hypothesis (does absorption affect downstream utility?) is listed but never tested - the paper provides no evidence that the measurement differences actually matter for practical interpretability.",
+      "suggestion": "Add a pilot H_Downstream experiment or acknowledge this as future work. Without downstream validation, the practical significance of the measurement differences is unclear."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "No data availability statement. The paper references 'exp/results/summary.md' which does not exist in the workspace. Source data for critical statistics (Table 1, Table 5) is not clearly attributed.",
+      "suggestion": "Add a Data Availability section citing exact source files for each major result. Reference specific JSON files or experiment run IDs."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "H3 steering verification shows '134,717,856%' at alpha=0.5 but 'only' 472% at alpha=1.0. This non-monotonic percentage increase (decreasing percent change as alpha increases) suggests the denominator (baseline) is changing across conditions, not a stable reference.",
+      "suggestion": "Revisit the percentage calculation logic. The inconsistent percentages suggest the computation is unstable, reinforcing removal of the percentage column."
+    }
+  ],
+  "metric_gaming_risks": [
+    "The large gap between shuffled/permuted baselines (~0.48) and random decoder (0.059) suggests the measurement may be detecting something other than learned absorption - possibly geometric alignment artifacts that are equally present in broken feature identity",
+    "The non-monotonic percentage changes in steering verification (134M% at alpha=0.5 vs 472% at alpha=1.0) indicate the computation is numerically unstable, not a meaningful metric",
+    "No validation that multi-child proportional absorption correlates with any downstream interpretability task - the field may be optimizing a metric that doesn't predict utility"
+  ],
+  "novelty_risks": [
+    "Multi-child ablation is an incremental modification of single-child ablation, not a fundamentally new approach",
+    "The 2x2 factorial design is standard experimental methodology - the novelty claim rests on the specific B>D finding, not the methodology itself",
+    "Shuffled and permuted baselines achieving near-trained-SAE absorption levels (0.487-0.500) suggests the key contribution may be demonstrating what the method CANNOT differentiate rather than what it can",
+    "H_Pareto (sensitivity-absorption frontier) is suspended due to formula bugs, removing a potentially novel contribution"
+  ],
+  "reproducibility_gaps": [
+    "Source data files not cited - 'exp/results/summary.md' does not exist in workspace",
+    "Statistical values in paper don't match between sections (Abstract reports CMI=0.687 but source data shows 0.6492)",
+    "No mention of n=7 pilot analysis that was later corrected to n=20 - readers may wonder about sample size justification",
+    "Exact steering parameters (which features, which hierarchies) not fully specified for independent replication"
+  ]
+}

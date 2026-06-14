@@ -1,0 +1,46 @@
+{
+  "task_id": "phase1_probe_training_full",
+  "overall_recommendation": "GO",
+  "candidates": [
+    {
+      "candidate_id": "absorption_tax_crossdomain",
+      "go_no_go": "GO",
+      "confidence": 0.82,
+      "supported_hypotheses": ["H1"],
+      "failed_assumptions": [],
+      "key_metrics": {
+        "first_letter_best_f1": 0.971,
+        "first_letter_best_layer": 24,
+        "city_continent_best_f1": 0.843,
+        "city_continent_best_layer": 24,
+        "city_language_best_f1": 0.823,
+        "city_language_best_layer": 24,
+        "city_country_best_f1": 0.789,
+        "city_country_best_layer": 24,
+        "n_probes_strict_pass": 2,
+        "n_probes_relaxed_pass": 3,
+        "n_total_probes": 20,
+        "layers_tested": [6, 12, 18, 24]
+      },
+      "notes": "Multi-layer probe training dramatically improved results. First-letter F1 jumped from 0.083 (pilot L12) to 0.971 (L24) -- a 12x improvement. The previous L12-only pilot was testing the wrong layer. Layer 24 is universally best for all hierarchies. RAVEL probes still below strict 0.90 gate but city-continent at 0.84 is close. The city-country probe at 0.79 with 80 classes is reasonable given class imbalance. Key insight: later layers (18-24) encode factual knowledge as predicted by the methodology."
+    }
+  ],
+  "probe_quality_analysis": {
+    "layer_trend": "Monotonically increasing F1 with layer depth for all hierarchies. Layer 24 > 18 > 12 > 6 consistently.",
+    "first_letter_diagnosis": "Previous pilot F1=0.083 at L12 was due to: (1) wrong layer -- first-letter knowledge is at later layers, (2) sae_spelling LinearProbe at L12 position -2 underperforms sklearn at position -1. sklearn at L24 position -1 achieves 0.971.",
+    "method_comparison": "sklearn LogReg consistently outperforms sae_spelling LinearProbe at every layer. At L24: sklearn=0.971 vs sae_spelling=0.868. The sklearn approach using position -1 (last token) is more effective than sae_spelling position -2.",
+    "quality_gate_assessment": {
+      "strict_pass_090": ["first-letter L18 (0.936)", "first-letter L24 (0.971)"],
+      "relaxed_pass_085": ["first-letter sae_spelling L24 (0.868)"],
+      "near_miss_080": ["city-continent L24 (0.843)", "city-language L24 (0.823)"],
+      "failing": ["city-country L24 (0.789) -- 80 classes with severe imbalance"]
+    },
+    "recommended_actions_for_full_mode": [
+      "Use L24 for all hierarchies (universally best)",
+      "Use sklearn LogReg over sae_spelling LinearProbe",
+      "Consider relaxing quality gate to 0.80 for city-country (80 classes)",
+      "Try grouping rare countries to reduce class count for city-country",
+      "RAVEL prompts can be optimized with fill-in-the-blank templates"
+    ]
+  }
+}

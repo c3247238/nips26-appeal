@@ -1,0 +1,93 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "The Random-SAE control is described as permuting 'encoder matrix W_enc' in the main paper (Section 3.1, Table 1 caption: 'Permuted encoder directions from Standard') but as 'only permutes decoder directions' in Section 4.5 ('the Random SAE only permutes the decoder directions, leaving encoder activations unchanged'). These are contradictory. The raw data shows Standard and Random have IDENTICAL per-hierarchy absorption scores (bit-for-bit identical: building=0.533, container=0.500, tool=0.233, etc.), which is consistent with decoder permutation (encoder activations unchanged, so absorption formula produces identical scores). If Section 3.1 is correct (encoder permutation), the identical scores are inexplicable and suggest a bug in the randomization code.",
+    "suggestion": "Verify the actual randomization implementation. Fix the contradictory descriptions throughout the paper. If the Random SAE permutes decoder directions (as the data suggests), reframe the finding: the metric depends on encoder geometry, not decoder geometry. This is expected behavior, not a degeneracy. The correct control for testing learned-structure sensitivity would need to permute the encoder, not the decoder."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "All semantic hierarchies show perfect probe accuracy (resid_acc = sae_acc = 1.0) for ALL SAEs. This means the absorption score ALWAYS simplifies to (1 - k_sparse_acc), making it entirely a function of k-sparse probing performance, not SAE encoding quality. The metric is measuring 'how well can a logistic probe classify from top-10 latents' rather than 'how much parent information is lost in the SAE encoding.' This is a fundamental metric design flaw that the paper acknowledges in Section 3.4 ('In practice...the metric reflects only the information loss from sparsification') but does not grapple with in the conclusions.",
+    "suggestion": "Acknowledge explicitly in the abstract and conclusions that the semantic-hierarchy adaptation measures k-sparse probing degradation, not SAE encoding loss. Consider whether this collapse invalidates the construct-validity question entirely: if the metric cannot measure SAE encoding loss on semantic tasks (because sae_acc = resid_acc always), then the question 'does first-letter absorption predict semantic-hierarchy absorption' becomes 'does first-letter k-sparse loss predict semantic-hierarchy k-sparse loss'---a much narrower and less interesting question."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The paper claims the Random-SAE result 'indicates that the semantic-hierarchy adaptation of the SAEBench absorption metric does not measure learned SAE structure' and calls it 'confounded by geometric artifacts unrelated to learned SAE structure.' But if the Random SAE permutes decoder directions (as Section 4.5 claims and the data confirms), the encoder activations are unchanged, so the absorption formula (which depends on encoder outputs) would naturally produce identical scores. This is expected behavior, not a 'degeneracy.' The paper conflates 'decoder permutation does not change encoder outputs' with 'the metric is degenerate.'",
+    "suggestion": "Reframe the Random-SAE finding: it demonstrates that the metric depends on encoder geometry, not decoder geometry. This is actually a positive result---it shows the metric is sensitive to the encoder's learned structure. The correct control for testing decoder-direction sensitivity would permute the decoder and measure whether reconstruction quality changes. If the paper wants to claim metric degeneracy, it needs an encoder-permuted Random SAE that produces identical scores despite destroyed encoder structure."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The study is severely underpowered with only n=7 trained SAEs for the primary correlation. The bootstrap CI width of 1.37 correlation units ([-0.389, 0.981]) makes the construct-validity test essentially uninformative. The paper acknowledges this ('the width of the CI...reflects the fundamental limitation of correlating across only 7 architectures') but still draws substantive conclusions from an inconclusive result. The abstract states 'too wide to support or reject construct validity' but the conclusion says 'RQ1 remains unresolved'---these are different claims. 'Inconclusive' implies the test was adequate but the data were ambiguous; 'unresolved' implies the test itself was inadequate.",
+    "suggestion": "Frame the construct-validity result more conservatively throughout: 'the evidence is insufficient to evaluate construct validity due to small sample size' rather than 'inconclusive.' Be explicit that n=7 is inadequate for correlation inference and that the pre-registered threshold (r > 0.6) was chosen without power analysis."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Hierarchy specificity failure (non-hierarchy > hierarchy) may be an artifact of the probe task design, not a genuine metric failure. Non-hierarchy pairs are binary discriminations (big vs. large), while hierarchies are multi-class (parent vs. 2-3 children). Binary tasks with similar template structures may be harder for k-sparse probes than multi-class tasks, inflating apparent 'absorption.' The comparison is not structurally equivalent. Additionally, some hierarchy choices are questionable: 'animal' with children 'pet' and 'male' is not a clean hypernym relationship (male is not a type of animal in the same sense as pet).",
+    "suggestion": "Design a fairer control: use binary parent-child pairs (e.g., 'animal vs. dog') for the hierarchy condition, or use multi-class non-hierarchy controls. Without structural equivalence, the hierarchy specificity test is confounded by task difficulty. Also reconsider the 'animal: pet, male' hierarchy---'male' is not a standard hyponym of 'animal' in WordNet."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The GPT-2 replication shows near-zero scores (Standard: 0.000 hierarchy, 0.025 pair; TopK: 0.003 hierarchy, 0.098 pair) that are qualitatively different from Pythia-160M. The raw data reveals that GPT-2 k_sparse_acc values are near 1.0 for almost all hierarchies (e.g., Standard SAE: all k_sparse_acc = 1.0), producing a ceiling effect. The paper interprets this as 'model-specific behavior' without acknowledging that the probe task may be too easy on GPT-2, compressing the dynamic range.",
+    "suggestion": "Report the raw k_sparse_acc values for GPT-2 explicitly. If they are all near 1.0, acknowledge the ceiling effect. The GPT-2 replication does not test 'model-level robustness' of the construct-validity claim; it tests whether the probe task produces ceiling effects on GPT-2. This is a methodological limitation, not a model difference."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The paper does not report or discuss the first-letter vs. non-hierarchy correlation (r = 0.218, CI: [-0.915, 0.852] from statistical_analysis_summary.json). This is selective reporting: if first-letter absorption also fails to correlate with non-hierarchy absorption, it would strengthen the claim that the two tasks measure different phenomena. The omission is particularly notable because the non-hierarchy control is presented as a key part of the experimental design.",
+    "suggestion": "Report the first-letter vs. non-hierarchy correlation in the Results section and discuss its implications. If it is also weak, this supports the claim that first-letter absorption is not a general predictor of absorption-like behavior on any non-first-letter task."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "No multiple comparison correction is applied. The study performs: 2 Pearson correlations (first-letter vs. semantic, with/without Random SAE), 1 first-letter vs. non-hierarchy correlation (unreported), 3 paired t-tests (hierarchy vs. non-hierarchy at 3 tau_fs values, though they are identical), and 3 tau_fs robustness checks. At alpha=0.05 with ~9 tests, ~0.45 false positives are expected. The hierarchy specificity p-value (0.0032) survives Bonferroni correction (0.05/9 = 0.0056), but this is not reported.",
+    "suggestion": "Apply Bonferroni or Benjamini-Hochberg correction across all reported tests. Report corrected p-values. The hierarchy specificity result (p=0.0032) survives Bonferroni, which would actually strengthen the claim."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "The abstract states: 'This dissociation indicates that the semantic-hierarchy adaptation of the SAEBench absorption metric captures artifacts unrelated to learned SAE structure.' This is an overclaim. As established, if the Random SAE permutes decoder directions, identical encoder outputs produce identical absorption scores by construction. The 'dissociation' is expected, not anomalous. The abstract also claims 'identical to the Standard SAE' when the data shows bit-for-bit identical scores---this exact identity is mathematically guaranteed by decoder permutation, not a surprising empirical finding.",
+    "suggestion": "Soften the abstract claim: 'The Random-SAE control produces identical semantic-hierarchy scores to the Standard SAE, consistent with the metric's dependence on encoder geometry. This suggests the semantic-hierarchy adaptation measures encoder-output properties rather than learned hierarchical structure.'"
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "The absorption formula uses max(0, (resid_acc - sae_acc)/resid_acc, (resid_acc - k_sparse_acc)/resid_acc). When resid_acc = sae_acc = 1.0 (as observed for all semantic hierarchies), the formula reduces to (1 - k_sparse_acc). But k_sparse_acc depends on the arbitrary choice of k=10. The paper acknowledges this in limitations but does not address whether a different k would change the hierarchy specificity result. The tau_fs robustness checks do not address k-choice sensitivity.",
+    "suggestion": "Add a sensitivity analysis varying k (e.g., k=5, 10, 20) for at least 2-3 SAEs on 2-3 hierarchies. Report whether the hierarchy specificity result is robust to k choice. If it is, this strengthens the claim; if not, it is another confound."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "The paper does not report random seeds for probe training (only 'random_seed=42' for the SAEBench evaluator). Probe training uses 200 Adam epochs with lr=0.05, but without seed reporting, exact reproduction is impossible.",
+    "suggestion": "Report the random seed(s) used for probe training. If multiple seeds were used, report the variance across seeds."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "The exact sentence templates used for synthetic data generation are not reported in the paper. The methodology mentions 'simple templates' but does not provide them, making it impossible to reproduce the exact training data.",
+    "suggestion": "Include the full set of templates in the appendix or supplementary materials."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "The novelty claim ('first systematic construct-validity study') is accurate, but the paper does not situate itself relative to related work on SAE evaluation validity. Korznikov et al. (2026, cited in alternatives.md) showed that randomized SAE baselines match trained SAEs on standard metrics---a finding that directly challenges the validity of absorption and other SAE benchmarks. The paper cites this work only in Alternative C but not in the main paper.",
+    "suggestion": "Cite Korznikov et al. in the Related Work or Discussion section to connect the Random-SAE finding to the broader literature on SAE metric validity."
+  }
+]

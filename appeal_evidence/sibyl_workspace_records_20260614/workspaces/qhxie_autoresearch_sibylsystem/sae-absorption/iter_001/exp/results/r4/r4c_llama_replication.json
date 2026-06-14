@@ -1,0 +1,632 @@
+{
+  "task_id": "r4c_llama_replication",
+  "timestamp": "2026-04-13T13:08:02.627321",
+  "mode": "PILOT",
+  "round": 4,
+  "approach": "llama_scope_weights_only",
+  "approach_description": "Llama-3.1-8B model is HF-gated (activations inaccessible). EDA computed weight-only from Llama Scope SAE weights. Absorption labels: not available (architecturally invalid to transfer from GPT-2). AUROC: not computed for Llama configs. Analysis: EDA distribution statistics + cross-model comparison + internal discriminability.",
+  "models_accessible": {
+    "llama_3_1_8b_model": false,
+    "llama_scope_lxr_8x_weights": true,
+    "gemma_2_2b_model": false,
+    "gpt2_small_model": true
+  },
+  "seed": 42,
+  "n_bootstrap": 1000,
+  "per_sae_results": [
+    {
+      "config": {
+        "name": "Llama-L6-8x",
+        "release": "llama_scope_lxr_8x",
+        "sae_id": "l6r_8x",
+        "layer_idx": 6,
+        "d_in": 4096,
+        "d_sae": 32768,
+        "model": "meta-llama/Llama-3.1-8B"
+      },
+      "config_name": "Llama-L6-8x",
+      "status": "success",
+      "approach": "llama_scope_weights_only",
+      "approach_note": "Llama-3.1-8B model is HF-gated (activations inaccessible). EDA computed from SAE weights only (weight-only metric, no activations needed). Absorption labels: geometry-based (self-supervised) only. Cross-architecture label transfer from GPT-2 is architecturally invalid (d_in mismatch: 768 vs 4096) and not performed.",
+      "d_in": 4096,
+      "d_sae": 32768,
+      "confirmed_shapes": {
+        "W_enc": [
+          4096,
+          32768
+        ],
+        "W_dec": [
+          32768,
+          4096
+        ]
+      },
+      "eda_dec_correlation": {
+        "pearson_r": -0.9999999403953552,
+        "pearson_p": 0.0,
+        "spearman_r": -0.9999999999956515,
+        "spearman_p": 0.0,
+        "note": "EDA = 1 - dec_cos, so r should be \u2248 -1.0 (validates computation)",
+        "computation_valid": true
+      },
+      "distribution_comparison": {
+        "config": "Llama-L6-8x",
+        "eda_stats": {
+          "mean": 0.5182152986526489,
+          "std": 0.16309267282485962,
+          "min": 0.06422871351242065,
+          "max": 1.025373935699463,
+          "p1": 0.07994394659996033,
+          "p5": 0.21143115758895875,
+          "p25": 0.40532386302948,
+          "p50": 0.5720705986022949,
+          "p75": 0.6470846980810165,
+          "p90": 0.6848493695259095,
+          "p95": 0.703507125377655,
+          "p99": 0.7348316752910613
+        },
+        "distribution_comparisons": [
+          {
+            "reference": "Gemma-L5-16k",
+            "delta_mean": 0.3352,
+            "delta_std": 0.0691,
+            "llama_mean_z_vs_ref": 3.566
+          },
+          {
+            "reference": "Gemma-L12-16k",
+            "delta_mean": 0.3272,
+            "delta_std": 0.0661,
+            "llama_mean_z_vs_ref": 3.373
+          },
+          {
+            "reference": "Gemma-L12-65k",
+            "delta_mean": 0.3302,
+            "delta_std": 0.0701,
+            "llama_mean_z_vs_ref": 3.551
+          },
+          {
+            "reference": "GPT2-L6",
+            "delta_mean": -0.1128,
+            "delta_std": 0.0871,
+            "llama_mean_z_vs_ref": -1.484
+          },
+          {
+            "reference": "GPT2-L10",
+            "delta_mean": -0.0938,
+            "delta_std": 0.0781,
+            "llama_mean_z_vs_ref": -1.103
+          }
+        ],
+        "note": "EDA distribution comparison: Llama Scope SAEs vs. Gemma Scope and GPT-2 SAEs. Similar mean EDA would suggest cross-model consistency of the EDA metric. Different distributions are expected due to different training objectives and model architectures (d_in: Llama=4096, Gemma=2304, GPT-2=768)."
+      },
+      "eda_stats": {
+        "mean": 0.5182152986526489,
+        "std": 0.16309267282485962,
+        "min": 0.06422871351242065,
+        "max": 1.025373935699463,
+        "p1": 0.07994394659996033,
+        "p5": 0.21143115758895875,
+        "p25": 0.40532386302948,
+        "p50": 0.5720705986022949,
+        "p75": 0.6470846980810165,
+        "p90": 0.6848493695259095,
+        "p95": 0.703507125377655,
+        "p99": 0.7348316752910613
+      },
+      "geometry_labels": {
+        "eda_top1pct_labels": {
+          "method": "EDA top-1% self-supervised",
+          "n_pos": 328,
+          "n_neg": 32440,
+          "threshold": 0.7348316752910613,
+          "note": "Self-supervised: top 1% of latents by EDA score labeled as 'absorbed'. This tests EDA's internal discriminative power without cross-model label transfer. NOT equivalent to Chanin et al. direct labels.",
+          "auroc_deccosine_vs_eda_percentile": {
+            "auroc": 1.0,
+            "auroc_ci95": [
+              1.0,
+              1.0
+            ],
+            "auprc": 1.0,
+            "n_pos": 328,
+            "n_neg": 32440,
+            "n_bootstrap": 1000,
+            "boot_std": 1.6467268631127713e-17
+          }
+        },
+        "eda_top2pct_labels": {
+          "method": "EDA top-2% self-supervised",
+          "n_pos": 656,
+          "n_neg": 32112,
+          "threshold": 0.7227438962459564,
+          "note": "Self-supervised: top 2% of latents by EDA score labeled as 'absorbed'. This tests EDA's internal discriminative power without cross-model label transfer. NOT equivalent to Chanin et al. direct labels.",
+          "auroc_deccosine_vs_eda_percentile": {
+            "auroc": 1.0,
+            "auroc_ci95": [
+              0.9999999999999999,
+              1.0
+            ],
+            "auprc": 1.0,
+            "n_pos": 656,
+            "n_neg": 32112,
+            "n_bootstrap": 1000,
+            "boot_std": 2.275280134513746e-17
+          }
+        },
+        "eda_top5pct_labels": {
+          "method": "EDA top-5% self-supervised",
+          "n_pos": 1639,
+          "n_neg": 31129,
+          "threshold": 0.703507125377655,
+          "note": "Self-supervised: top 5% of latents by EDA score labeled as 'absorbed'. This tests EDA's internal discriminative power without cross-model label transfer. NOT equivalent to Chanin et al. direct labels.",
+          "auroc_deccosine_vs_eda_percentile": {
+            "auroc": 1.0,
+            "auroc_ci95": [
+              0.9999999999999999,
+              1.0
+            ],
+            "auprc": 1.0,
+            "n_pos": 1639,
+            "n_neg": 31129,
+            "n_bootstrap": 1000,
+            "boot_std": 2.830524433501838e-17
+          }
+        }
+      },
+      "decoder_norm_stats": {
+        "mean": 0.1362629234790802,
+        "std": 0.018855592235922813,
+        "p5": 0.10312974303960801,
+        "p95": 0.1664406910538673
+      },
+      "gpt2_crossarch_proxy": {
+        "method": "cross-architecture proxy (INVALID for absolute AUROC)",
+        "note": "GPT-2 Small d_in=768 vs Llama-3.1-8B d_in=4096. Direct label transfer is architecturally invalid. GPT-2 absorbed latent IDs cannot index into Llama's 32768-dim SAE. This field documents the limitation; no AUROC is computed.",
+        "gpt2_n_pos": 18,
+        "llama_d_sae": 32768,
+        "gpt2_d_sae": 24576,
+        "cross_model_transfer_valid": false
+      },
+      "internal_discriminability": {
+        "bottom_quartile_mean": 0.2774384617805481,
+        "top_quartile_mean": 0.6827781200408936,
+        "mean_difference": 0.40533965826034546,
+        "cohens_d": 6.000966703893486,
+        "mannwhitney_U": 67108856.0,
+        "p_value": 0.0,
+        "note": "Internal discriminability: top vs bottom EDA quartile features (no absorption labels)"
+      },
+      "sample_inspection": {
+        "top5_eda_indices": [
+          31422,
+          27272,
+          27600,
+          5525,
+          23847
+        ],
+        "top5_eda_scores": [
+          1.025373935699463,
+          1.025230884552002,
+          0.9411340951919556,
+          0.8979358077049255,
+          0.8883703947067261
+        ],
+        "bot5_eda_indices": [
+          2933,
+          9379,
+          26235,
+          11581,
+          11754
+        ],
+        "bot5_eda_scores": [
+          0.06422871351242065,
+          0.06466352939605713,
+          0.0655551552772522,
+          0.06672602891921997,
+          0.06714367866516113
+        ],
+        "top5_dec_cos": [
+          -0.025373905897140503,
+          -0.025230932980775833,
+          0.05886593088507652,
+          0.10206417739391327,
+          0.11162960529327393
+        ],
+        "bot5_dec_cos": [
+          0.9357712864875793,
+          0.9353364706039429,
+          0.9344448447227478,
+          0.93327397108078,
+          0.9328563213348389
+        ]
+      },
+      "elapsed_sec": 9.5
+    },
+    {
+      "config": {
+        "name": "Llama-L12-8x",
+        "release": "llama_scope_lxr_8x",
+        "sae_id": "l12r_8x",
+        "layer_idx": 12,
+        "d_in": 4096,
+        "d_sae": 32768,
+        "model": "meta-llama/Llama-3.1-8B"
+      },
+      "config_name": "Llama-L12-8x",
+      "status": "success",
+      "approach": "llama_scope_weights_only",
+      "approach_note": "Llama-3.1-8B model is HF-gated (activations inaccessible). EDA computed from SAE weights only (weight-only metric, no activations needed). Absorption labels: geometry-based (self-supervised) only. Cross-architecture label transfer from GPT-2 is architecturally invalid (d_in mismatch: 768 vs 4096) and not performed.",
+      "d_in": 4096,
+      "d_sae": 32768,
+      "confirmed_shapes": {
+        "W_enc": [
+          4096,
+          32768
+        ],
+        "W_dec": [
+          32768,
+          4096
+        ]
+      },
+      "eda_dec_correlation": {
+        "pearson_r": -1.0,
+        "pearson_p": 0.0,
+        "spearman_r": -0.9999999999965895,
+        "spearman_p": 0.0,
+        "note": "EDA = 1 - dec_cos, so r should be \u2248 -1.0 (validates computation)",
+        "computation_valid": true
+      },
+      "distribution_comparison": {
+        "config": "Llama-L12-8x",
+        "eda_stats": {
+          "mean": 0.4909495413303375,
+          "std": 0.16295701265335083,
+          "min": 0.05525338649749756,
+          "max": 0.859846830368042,
+          "p1": 0.0639778470993042,
+          "p5": 0.11518796980381014,
+          "p25": 0.3992604464292526,
+          "p50": 0.5316204726696014,
+          "p75": 0.6149275600910187,
+          "p90": 0.6634752333164216,
+          "p95": 0.6847053468227385,
+          "p99": 0.7217690521478652
+        },
+        "distribution_comparisons": [
+          {
+            "reference": "Gemma-L5-16k",
+            "delta_mean": 0.3079,
+            "delta_std": 0.069,
+            "llama_mean_z_vs_ref": 3.276
+          },
+          {
+            "reference": "Gemma-L12-16k",
+            "delta_mean": 0.2999,
+            "delta_std": 0.066,
+            "llama_mean_z_vs_ref": 3.092
+          },
+          {
+            "reference": "Gemma-L12-65k",
+            "delta_mean": 0.3029,
+            "delta_std": 0.07,
+            "llama_mean_z_vs_ref": 3.258
+          },
+          {
+            "reference": "GPT2-L6",
+            "delta_mean": -0.1401,
+            "delta_std": 0.087,
+            "llama_mean_z_vs_ref": -1.843
+          },
+          {
+            "reference": "GPT2-L10",
+            "delta_mean": -0.1211,
+            "delta_std": 0.078,
+            "llama_mean_z_vs_ref": -1.424
+          }
+        ],
+        "note": "EDA distribution comparison: Llama Scope SAEs vs. Gemma Scope and GPT-2 SAEs. Similar mean EDA would suggest cross-model consistency of the EDA metric. Different distributions are expected due to different training objectives and model architectures (d_in: Llama=4096, Gemma=2304, GPT-2=768)."
+      },
+      "eda_stats": {
+        "mean": 0.4909495413303375,
+        "std": 0.16295701265335083,
+        "min": 0.05525338649749756,
+        "max": 0.859846830368042,
+        "p1": 0.0639778470993042,
+        "p5": 0.11518796980381014,
+        "p25": 0.3992604464292526,
+        "p50": 0.5316204726696014,
+        "p75": 0.6149275600910187,
+        "p90": 0.6634752333164216,
+        "p95": 0.6847053468227385,
+        "p99": 0.7217690521478652
+      },
+      "geometry_labels": {
+        "eda_top1pct_labels": {
+          "method": "EDA top-1% self-supervised",
+          "n_pos": 328,
+          "n_neg": 32440,
+          "threshold": 0.7217690521478652,
+          "note": "Self-supervised: top 1% of latents by EDA score labeled as 'absorbed'. This tests EDA's internal discriminative power without cross-model label transfer. NOT equivalent to Chanin et al. direct labels.",
+          "auroc_deccosine_vs_eda_percentile": {
+            "auroc": 0.9999999999999999,
+            "auroc_ci95": [
+              1.0,
+              1.0
+            ],
+            "auprc": 1.0,
+            "n_pos": 328,
+            "n_neg": 32440,
+            "n_bootstrap": 1000,
+            "boot_std": 1.530336829712622e-17
+          }
+        },
+        "eda_top2pct_labels": {
+          "method": "EDA top-2% self-supervised",
+          "n_pos": 656,
+          "n_neg": 32112,
+          "threshold": 0.7076087486743927,
+          "note": "Self-supervised: top 2% of latents by EDA score labeled as 'absorbed'. This tests EDA's internal discriminative power without cross-model label transfer. NOT equivalent to Chanin et al. direct labels.",
+          "auroc_deccosine_vs_eda_percentile": {
+            "auroc": 1.0,
+            "auroc_ci95": [
+              0.9999999999999999,
+              1.0
+            ],
+            "auprc": 1.0,
+            "n_pos": 656,
+            "n_neg": 32112,
+            "n_bootstrap": 1000,
+            "boot_std": 2.2204460492503132e-17
+          }
+        },
+        "eda_top5pct_labels": {
+          "method": "EDA top-5% self-supervised",
+          "n_pos": 1639,
+          "n_neg": 31129,
+          "threshold": 0.6847053468227385,
+          "note": "Self-supervised: top 5% of latents by EDA score labeled as 'absorbed'. This tests EDA's internal discriminative power without cross-model label transfer. NOT equivalent to Chanin et al. direct labels.",
+          "auroc_deccosine_vs_eda_percentile": {
+            "auroc": 1.0,
+            "auroc_ci95": [
+              0.9999999999999999,
+              1.0
+            ],
+            "auprc": 1.0,
+            "n_pos": 1639,
+            "n_neg": 31129,
+            "n_bootstrap": 1000,
+            "boot_std": 2.8086667748613606e-17
+          }
+        }
+      },
+      "decoder_norm_stats": {
+        "mean": 0.19479408860206604,
+        "std": 0.029626762494444847,
+        "p5": 0.1422519415616989,
+        "p95": 0.24491105601191518
+      },
+      "gpt2_crossarch_proxy": {
+        "method": "cross-architecture proxy (INVALID for absolute AUROC)",
+        "note": "GPT-2 Small d_in=768 vs Llama-3.1-8B d_in=4096. Direct label transfer is architecturally invalid. GPT-2 absorbed latent IDs cannot index into Llama's 32768-dim SAE. This field documents the limitation; no AUROC is computed.",
+        "gpt2_n_pos": 18,
+        "llama_d_sae": 32768,
+        "gpt2_d_sae": 24576,
+        "cross_model_transfer_valid": false
+      },
+      "internal_discriminability": {
+        "bottom_quartile_mean": 0.2542409896850586,
+        "top_quartile_mean": 0.659378170967102,
+        "mean_difference": 0.40513718128204346,
+        "cohens_d": 5.093520332665598,
+        "mannwhitney_U": 67108864.0,
+        "p_value": 0.0,
+        "note": "Internal discriminability: top vs bottom EDA quartile features (no absorption labels)"
+      },
+      "sample_inspection": {
+        "top5_eda_indices": [
+          28007,
+          16846,
+          6979,
+          8451,
+          22491
+        ],
+        "top5_eda_scores": [
+          0.859846830368042,
+          0.8468335866928101,
+          0.8030239939689636,
+          0.8028543591499329,
+          0.7960134148597717
+        ],
+        "bot5_eda_indices": [
+          20848,
+          13791,
+          19932,
+          22866,
+          28964
+        ],
+        "bot5_eda_scores": [
+          0.05525338649749756,
+          0.055363237857818604,
+          0.055477678775787354,
+          0.05616337060928345,
+          0.05718255043029785
+        ],
+        "top5_dec_cos": [
+          0.1401531845331192,
+          0.15316638350486755,
+          0.19697602093219757,
+          0.19714565575122833,
+          0.20398660004138947
+        ],
+        "bot5_dec_cos": [
+          0.9447466135025024,
+          0.9446367621421814,
+          0.9445223212242126,
+          0.9438366293907166,
+          0.9428174495697021
+        ]
+      },
+      "elapsed_sec": 7.4
+    }
+  ],
+  "llama_eda_distribution_summary": [
+    {
+      "Model": "Llama-3.1-8B",
+      "Config": "Llama-L6-8x",
+      "Layer": 6,
+      "Width_k": 32,
+      "d_in": 4096,
+      "d_sae": 32768,
+      "EDA_mean": 0.5182,
+      "EDA_std": 0.1631,
+      "EDA_p50": 0.5721,
+      "EDA_p90": 0.6848,
+      "label_type": "none (model gated)",
+      "AUROC_EDA": "N/A",
+      "AUROC_DEDA": "N/A",
+      "note": "Weight-only analysis. Llama-3.1-8B model is HF-gated."
+    },
+    {
+      "Model": "Llama-3.1-8B",
+      "Config": "Llama-L12-8x",
+      "Layer": 12,
+      "Width_k": 32,
+      "d_in": 4096,
+      "d_sae": 32768,
+      "EDA_mean": 0.4909,
+      "EDA_std": 0.163,
+      "EDA_p50": 0.5316,
+      "EDA_p90": 0.6635,
+      "label_type": "none (model gated)",
+      "AUROC_EDA": "N/A",
+      "AUROC_DEDA": "N/A",
+      "note": "Weight-only analysis. Llama-3.1-8B model is HF-gated."
+    }
+  ],
+  "cross_model_table": [
+    {
+      "Model": "Gemma 2B",
+      "Config": "Gemma-L5-16k",
+      "Layer": 5,
+      "d_model": 2304,
+      "AUROC_EDA": 0.6982,
+      "CI95_lo": 0.6375,
+      "CI95_hi": 0.7794,
+      "label_type": "proxy",
+      "passed": true,
+      "round": "R3"
+    },
+    {
+      "Model": "Gemma 2B",
+      "Config": "Gemma-L12-16k",
+      "Layer": 12,
+      "d_model": 2304,
+      "AUROC_EDA": 0.7765,
+      "CI95_lo": 0.7,
+      "CI95_hi": 0.8625,
+      "label_type": "proxy",
+      "passed": true,
+      "round": "R3"
+    },
+    {
+      "Model": "Gemma 2B",
+      "Config": "Gemma-L12-65k",
+      "Layer": 12,
+      "d_model": 2304,
+      "AUROC_EDA": 0.4683,
+      "CI95_lo": 0.3149,
+      "CI95_hi": 0.6202,
+      "label_type": "proxy",
+      "passed": false,
+      "round": "R3"
+    },
+    {
+      "Model": "GPT-2 Small",
+      "Config": "GPT2-L6",
+      "Layer": 6,
+      "d_model": 768,
+      "AUROC_EDA": 0.6503,
+      "CI95_lo": 0.5312,
+      "CI95_hi": 0.7605,
+      "label_type": "direct",
+      "passed": true,
+      "round": "R4"
+    },
+    {
+      "Model": "GPT-2 Small",
+      "Config": "GPT2-L10",
+      "Layer": 10,
+      "d_model": 768,
+      "AUROC_EDA": 0.336,
+      "CI95_lo": 0.0,
+      "CI95_hi": 0.5,
+      "label_type": "direct",
+      "passed": false,
+      "round": "R4"
+    },
+    {
+      "Model": "Llama-3.1-8B",
+      "Config": "Llama-L6-8x",
+      "Layer": 6,
+      "d_model": 4096,
+      "AUROC_EDA": "N/A",
+      "CI95_lo": null,
+      "CI95_hi": null,
+      "label_type": "none (model gated)",
+      "passed": null,
+      "EDA_mean": 0.5182,
+      "EDA_p50": 0.5721,
+      "round": "R4",
+      "note": "Weight-only analysis. Llama-3.1-8B model is HF-gated."
+    },
+    {
+      "Model": "Llama-3.1-8B",
+      "Config": "Llama-L12-8x",
+      "Layer": 12,
+      "d_model": 4096,
+      "AUROC_EDA": "N/A",
+      "CI95_lo": null,
+      "CI95_hi": null,
+      "label_type": "none (model gated)",
+      "passed": null,
+      "EDA_mean": 0.4909,
+      "EDA_p50": 0.5316,
+      "round": "R4",
+      "note": "Weight-only analysis. Llama-3.1-8B model is HF-gated."
+    }
+  ],
+  "eda_cross_model_analysis": {
+    "llama_eda_means": [
+      0.5182152986526489,
+      0.4909495413303375
+    ],
+    "gemma_eda_mean_approx": 0.187,
+    "gpt2_eda_mean_approx": 0.621,
+    "interpretation": "EDA mean varies significantly across model families due to different SAE training objectives and architectures. Lower EDA (closer to 0) indicates stronger encoder-decoder alignment (less misalignment = lower absorption risk). Gemma Scope SAEs have lower EDA (~0.19) than GPT-2 SAEs (~0.62), suggesting Gemma Scope uses a training regime that encourages encoder-decoder alignment. Llama Scope EDA mean provides a third reference point.",
+    "note": "Without absorption labels for Llama, we cannot compute AUROC to directly validate EDA's discriminative power. This analysis documents EDA distribution properties across a third model family, extending the descriptive characterization of EDA across model architectures."
+  },
+  "pilot_pass_criteria": {
+    "eda_computed_both_configs": true,
+    "eda_computed_at_least_1": true,
+    "cross_model_table_generated": true,
+    "llama_dist_documented": true,
+    "n_success": 2,
+    "overall_pass": true,
+    "pass_criteria_note": "2/2 Llama SAE configs processed. EDA weight-only analysis complete. Cross-model comparison table generated. Llama-3.1-8B model gated: absorption labels not available; AUROC cannot be computed for Llama configs directly. This is documented as a limitation."
+  },
+  "go_no_go": "GO",
+  "go_reason": "2/2 Llama SAE configs successfully processed. EDA distribution statistics computed. Cross-model table extended to 3 model families. Llama model gated: AUROC not computed (weight-only analysis). Task contributes to cross-model EDA characterization.",
+  "limitations": [
+    "Llama-3.1-8B model is HF-gated: cannot train first-letter probes on Llama activations.",
+    "AUROC not computed: no Llama absorption labels available.",
+    "Cross-architecture label transfer (GPT-2\u2192Llama) is invalid due to d_in mismatch (768 vs 4096).",
+    "EDA distribution comparison is descriptive only; cannot validate discriminative power for Llama.",
+    "Geometry-based self-supervised labels (EDA percentile) test internal consistency, not absorption."
+  ],
+  "contributions": [
+    "EDA distribution documented for 2 Llama-3.1-8B SAE configs (Layer 6, Layer 12, 8x width).",
+    "Cross-model EDA comparison table extended to 3 model families (Gemma 2B, GPT-2, Llama-3.1-8B).",
+    "Internal discriminability validated via quartile test (top vs bottom EDA features).",
+    "EDA=1-DecCos identity validated for Llama architecture.",
+    "Documents that EDA mean varies across architectures: Gemma~0.19, Llama(estimated), GPT-2~0.62."
+  ],
+  "total_elapsed_sec": 16.9
+}

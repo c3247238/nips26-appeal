@@ -1,0 +1,293 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "description": "Verify SAELens, TransformerLens, and all dependencies are installed. Verify access to pretrained SAE (gpt2-small-res-jb). No new installation needed if already present from prior iterations.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "current/exp/logs/setup_complete.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "shared_resources": [],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "SAE loads successfully, GPU accessible"
+      }
+    },
+    {
+      "id": "e1_uad_random_baseline",
+      "name": "E1: UAD with Random Baseline",
+      "description": "Run UAD on GPT-2 Small layer 8 and compute random baseline F1. Compare UAD F1 vs same-cluster random F1 vs global random F1. Target: demonstrate UAD F1 = same-cluster random F1 (both detect exactly 1 TP out of 4,155).",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "current/exp/results/e1_uad_random_baseline_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_1k",
+          "path": "shared/datasets/openwebtext_1k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "UAD F1 vs Random Baseline F1",
+          "x": "method",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "UAD runs without error; F1 computed for all baselines"
+      }
+    },
+    {
+      "id": "e2_uad_ablations",
+      "name": "E2: UAD Ablation Studies",
+      "description": "Test 6 UAD ablations: full UAD, no dead filter, no phi filter, no clustering, single-linkage clustering, K-means clustering. Compare F1, precision, recall per variant. Target: all variants fail; K-means achieves high recall but near-zero precision.",
+      "type": "ablation",
+      "depends_on": ["e1_uad_random_baseline"],
+      "expected_output": "current/exp/results/e2_uad_ablations_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_1k",
+          "path": "shared/datasets/openwebtext_1k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "UAD ablation results: F1 per variant",
+          "x": "ablation_variant",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Precision vs Recall trade-off for clustering variants",
+          "x": "precision",
+          "y": "recall",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 6 variants run successfully; K-means recall > 0.5"
+      }
+    },
+    {
+      "id": "e3_collision_correlation",
+      "name": "E3: Collision Rate Internal Consistency",
+      "description": "Compute collision rate (top-K feature overlap Jaccard) and true absorption rate for 56 concept pairs across numbers and punctuation hierarchies. Compute Spearman correlation with bootstrap 95% CI. Target: r >= 0.5, CI excludes zero.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "current/exp/results/e3_collision_correlation_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_1k",
+          "path": "shared/datasets/openwebtext_1k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Collision rate vs true absorption rate (n=56)",
+          "x": "collision_rate",
+          "y": "true_absorption",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Spearman r >= 0.3, bootstrap CI computed"
+      }
+    },
+    {
+      "id": "e4_token_mutual_exclusivity",
+      "name": "E4: Token-Level Mutual Exclusivity Analysis",
+      "description": "Analyze token-level activations for absorption features. Show that features absorbing the same parent concept fire on different tokens and never co-occur. Compute phi coefficients between absorption features. Target: phi ~ 0 or negative for absorption pairs.",
+      "type": "analysis",
+      "depends_on": ["e1_uad_random_baseline"],
+      "expected_output": "current/exp/results/e4_token_mutual_exclusivity_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Token-level activation heatmap for number features",
+          "x": "token",
+          "y": "feature_id",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Activation heatmap shows clear mutual exclusivity pattern"
+      }
+    },
+    {
+      "id": "e5_bootstrap_ci",
+      "name": "E5: Bootstrap CI for F1",
+      "description": "Compute bootstrap 95% CI for UAD F1 by resampling examples with replacement 1000 times. Report CI for F1, precision, recall. Target: CI computed and reported.",
+      "type": "analysis",
+      "depends_on": ["e1_uad_random_baseline"],
+      "expected_output": "current/exp/results/e5_bootstrap_ci_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "Bootstrap F1 distribution with 95% CI marked",
+          "x": "f1_score",
+          "y": "frequency",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "1000 bootstrap samples computed, CI bounds reported"
+      }
+    },
+    {
+      "id": "baseline_same_cluster_random",
+      "name": "Baseline: Same-Cluster Random",
+      "description": "Randomly sample N pairs from within UAD clusters (where N = same-cluster pairs found by UAD). Repeat 100 times. This is the core baseline showing UAD provides zero improvement over trivial random sampling.",
+      "type": "baseline",
+      "depends_on": ["setup_env"],
+      "expected_output": "current/exp/results/baselines/same_cluster_random_results.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Mean F1 computed across 100 trials"
+      }
+    },
+    {
+      "id": "baseline_global_random",
+      "name": "Baseline: Global Random",
+      "description": "Randomly sample N pairs from all possible feature pairs. Repeat 100 times. Shows UAD is only marginally better than completely random selection.",
+      "type": "baseline",
+      "depends_on": ["setup_env"],
+      "expected_output": "current/exp/results/baselines/global_random_results.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Mean F1 computed across 100 trials"
+      }
+    },
+    {
+      "id": "analysis_main",
+      "name": "Main Results Analysis",
+      "description": "Aggregate all results (E1-E5, baselines, ablations). Generate main result tables and figures. Compute effect sizes and summarize contributions. Verify all numbers match source JSON files.",
+      "type": "analysis",
+      "depends_on": ["e1_uad_random_baseline", "e2_uad_ablations", "e3_collision_correlation", "e4_token_mutual_exclusivity", "e5_bootstrap_ci", "baseline_same_cluster_random", "baseline_global_random"],
+      "expected_output": "current/exp/results/analysis/main_analysis.json",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main results comparison table",
+          "columns": ["Experiment", "F1", "Precision", "Recall", "Notes"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All tables generated, numbers verified against source JSON"
+      }
+    },
+    {
+      "id": "generate_figures",
+      "name": "Generate Paper Figures",
+      "description": "Generate all figures from experiment JSON results: (1) token activation heatmap, (2) UAD F1 comparison bar chart, (3) collision rate scatter plot, (4) K-means precision-recall scatter. Use matplotlib/seaborn. Save as PDF and PNG.",
+      "type": "analysis",
+      "depends_on": ["analysis_main"],
+      "expected_output": "current/writing/figures/",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Figure 1: Token-level activation heatmap",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "grouped_bar_chart",
+          "description": "Figure 2: UAD F1 comparison",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Figure 3: Collision rate vs absorption",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Figure 4: Precision-recall trade-off",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 4 figures generated and saved"
+      }
+    }
+  ]
+}

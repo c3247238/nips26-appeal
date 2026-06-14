@@ -1,0 +1,191 @@
+{
+  "issues_classified": [
+    {
+      "description": "EFFECTIVE WD INFLATION CONFOUND UNCONTROLLED: EqWD's phi_l(t) >= 1 means it ONLY increases weight decay relative to FixedWD. The paper acknowledges this (Section 3.2) and lists it as future work (Section 6), but never runs the control: FixedWD at lambda matching EqWD's average effective WD. Without this, EqWD's +0.38% on ImageNet could be entirely explained by stronger regularization, not adaptive modulation. Both supervisor and critic rate this as the single most important missing experiment.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Measure EqWD's mean effective lambda over training (lambda_base * mean(phi_l(t)) across layers and epochs). Run FixedWD at that lambda on ImageNet, 3 seeds, 45 epochs. Cost: ~9 GPU-hours. If budget-matched FixedWD matches EqWD (72.27%), reframe narrative to 'EqWD discovers optimal WD strength.' If EqWD still wins, adaptive modulation is validated. Report average effective lambda in paper regardless of outcome.",
+      "status": "recurring"
+    },
+    {
+      "description": "NON-STANDARD 45-EPOCH IMAGENET TRAINING: Figures show 45-epoch training, but the paper never states epoch count explicitly. Standard ResNet-50 training uses 90 epochs (76%+). EqWD's 72.27% is in a low-accuracy regime not comparable to literature. The 45-epoch regime disproportionately emphasizes transitional dynamics where EqWD is designed to excel, potentially inflating its advantage.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Immediate text fix (0 GPU): state '45 epochs' explicitly in Section 4.1 and appendix. Experiment (18 GPU-hours): run 90-epoch ImageNet for EqWD, FixedWD, SWD (3 seeds each) to validate advantage transfers to standard training length. If advantage shrinks at 90 epochs, report this honestly and position EqWD as most useful for short-schedule training.",
+      "status": "new"
+    },
+    {
+      "description": "LEARNING RATE SCHEDULE DISCREPANCY: Paper states 'cosine annealing' throughout (abstract, Section 4.1, appendix). Raw experimental data shows lr=0.1 for epochs 1-29, then lr=0.01 for epochs 30-45, which is step decay with 10x drop at epoch 30, NOT cosine annealing. If confirmed, this is a factual error affecting reproducibility and the narrative about 'cosine decay transitions.'",
+      "category": "soundness",
+      "severity": "high",
+      "suggestion": "Verify training code's actual LR schedule. If step decay (as raw data suggests), correct ALL references to 'cosine annealing' in paper and update discussion of transitional phases. If cosine annealing is correct, the raw data JSON has a misleading LR field. Estimated effort: 1 hour verification + 30 min text edits. Verification: LR schedule description matches code AND raw data.",
+      "status": "new"
+    },
+    {
+      "description": "WEIGHT DECAY LAMBDA VALUE 5x DISCREPANCY: Raw experimental data shows wd_lambda=0.0001 (1e-4), paper states lambda=5e-4 throughout (Section 4.1, appendix). This 5x difference directly affects all comparisons and reproducibility. Either the code used 1e-4 (non-standard) or 5e-4 (standard). The paper cannot have the wrong value.",
+      "category": "soundness",
+      "severity": "high",
+      "suggestion": "Check training code source to determine actual lambda_base value. If 1e-4: correct all paper references from '5e-4' to '1e-4'. If 5e-4: note that raw JSON 'wd_lambda' field is misleading. Estimated effort: 30 min verification + 30 min text edits. Verification: grep paper for lambda value, confirm matches code.",
+      "status": "new"
+    },
+    {
+      "description": "PROPOSITION 2 IS VACUOUSLY TRUE: States 'if alignment deviation is a function of gradient and weight norms, then the ratio captures alignment information.' The conclusion is definitionally contained in the assumption -- a tautology. The empirical AIS verification is the actual contribution, but AIS is only measured on CIFAR-100 (where EqWD does NOT win), not ImageNet (where it DOES win). Both supervisor and critic flag this independently.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Demote Proposition 2 to 'Remark' or 'Observation.' Reframe: 'The key empirical question is whether the norm-sufficiency condition holds in practice.' Let AIS carry the argumentative weight. Run AIS on ImageNet/ResNet-50 for at least 3-4 representative layers (~3 GPU-hours) to validate where it matters. Estimated text effort: 30 min. Verification: no 'Proposition 2' label in paper; AIS results include ImageNet.",
+      "status": "new"
+    },
+    {
+      "description": "NO ADAMW EXPERIMENTS IN A 2026 PAPER: Exclusively uses SGDW, a minority optimizer. AdamW dominates transformer and modern CNN training. The ratio dynamics under Adam's second-moment scaling may differ fundamentally. The paper acknowledges this limitation but provides no preliminary evidence.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run one ResNet-50 CIFAR-100 experiment with AdamW + EqWD, 3 seeds, 200 epochs. Cost: ~30 min. The ratio r_t = ||g_t||/||w_t|| is well-defined for AdamW, and EMA tracking works identically. This single experiment dramatically strengthens practical relevance. Verification: paper includes at least one AdamW result.",
+      "status": "new"
+    },
+    {
+      "description": "CIFAR-10 TABLE MISSING EqWD AND CONTAINS STALE BASELINES: Table 6 (CIFAR-10 diagnostic) includes CPR, FixedWD, DefazioCorrective, SWD, CWD, NoWD but NOT EqWD or CAWD. DefazioCorrective is not defined anywhere else in the paper. This table was carried over from the PID framework paper without updating for the EqWD framing.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run EqWD and CAWD on CIFAR-10 (3 seeds, 200 epochs, ~0.5 GPU-hours total). Remove or explain DefazioCorrective. The proposed method MUST appear in every benchmark table. Verification: Table 6 includes EqWD; DefazioCorrective either defined or removed.",
+      "status": "new"
+    },
+    {
+      "description": "BETA=5.0 SINGLE-SEED CLAIM INTERNALLY CONTRADICTORY: Ablation reports beta=5.0 at 66.07% (single seed) on CIFAR-100, 1.02% above 3-seed default (65.05%). Either beta=5.0 genuinely improves by 1% (default is suboptimal) or the single-seed is noise. The paper claims both 'robust default' and 'substantial headroom' -- these are contradictory narratives.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run beta=5.0 with 3 seeds on CIFAR-100 (~30 min). If mean holds (>65.5%): change default or present beta=5.0 as recommended for small-scale tasks. If mean drops to ~65%: remove/caveat single-seed claim. Either resolves the contradiction. Verification: beta=5.0 result has 3-seed mean +/- std.",
+      "status": "new"
+    },
+    {
+      "description": "AIS DIAGNOSTIC VALIDATED ONLY ON CIFAR-100, NOT IMAGENET: Contribution 3 (ratio sufficiency) depends on AIS showing alignment adds no information beyond norms. But AIS is measured only on CIFAR-100/ResNet-20 and VGG-16-BN (where EqWD does NOT decisively win). On ImageNet (where EqWD DOES win), AIS is not measured. The sufficiency claim is validated on the wrong benchmark.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Run AIS diagnostic on ImageNet/ResNet-50 for at least 3-4 representative layers. This requires logging gradient norms, weight norms, and cosine alignments during one training run -- minimal overhead. Cost: ~3 GPU-hours. If AIS remains near zero on ImageNet, Contribution 3 is substantially strengthened. Verification: paper reports ImageNet AIS results.",
+      "status": "new"
+    },
+    {
+      "description": "BAYESIAN OPTIMIZATION PROTOCOL UNCLEAR AND POTENTIALLY UNFAIR: '50 Bayesian optimization trials' for baselines but no details (hyperparameters searched, ranges, final values). 50 trials may be insufficient for some methods. Meanwhile, EqWD's 'default' parameters were presumably chosen after iterative development -- implicit tuning. The asymmetry could favor EqWD, not penalize it as claimed.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Report best hyperparameters found for each baseline. Also run EqWD with 50 BO trials (over beta, alpha, lambda_base) and report the tuned result alongside the default. At minimum, acknowledge 50 BO trials may be insufficient for high-dimensional search spaces. Verification: appendix includes BO search ranges and best configs.",
+      "status": "new"
+    },
+    {
+      "description": "RATIO TRAJECTORY FIGURE CONTRADICTS 'LAYER HETEROGENEITY' CLAIM: Figure 4 shows all layers converging to tightly clustered r_t values (0.01-0.02) after initial transient (~10 steps). Text claims 'later layers show larger ratios with higher variance' but figure shows minimal differentiation. If all layers have similar ratios, per-layer modulation is unnecessary. Also, figures show CIFAR-100 (where EqWD is marginal), not ImageNet (where it wins).",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Show ImageNet ratio trajectories where layer heterogeneity is presumably more pronounced. If ImageNet also shows tight clustering, revise the 'layer heterogeneity' narrative to honestly reflect that heterogeneity exists primarily during transients. Estimated: 2 hours to generate ImageNet version. Verification: ratio trajectory figure uses ImageNet data or CIFAR-100 narrative is corrected.",
+      "status": "new"
+    },
+    {
+      "description": "VGG-16-BN RESULTS ABNORMALLY LOW (62.81%) WITH NO BASELINES: EqWD on VGG-16-BN/CIFAR-100 achieves 62.81 +/- 1.31%, approximately 10% below typical VGG-16-BN CIFAR-100 accuracy (73-74%). No baseline comparison for VGG-16-BN is provided, so the reader cannot tell if this is a training bug or an EqWD failure mode.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Verify VGG-16-BN training config against standard recipes (lr, epochs, batch size). Add FixedWD and NoWD baselines on VGG-16-BN so reader can contextualize 62.81%. If the low accuracy is regime-specific, say so explicitly. Cost: ~3 GPU-hours for baselines. Verification: VGG-16-BN table includes at least 2 baselines.",
+      "status": "new"
+    },
+    {
+      "description": "DEFAZIO'S CORRECTIVE TERM NOT DIFFERENTIATED: Defazio (arXiv:2506.02285) proposes a corrective term based on the same gradient-to-weight ratio dynamics. EqWD also modulates WD based on ratio deviation. The paper cites Defazio for equilibrium theory but does not discuss how EqWD algorithmically differs from Defazio's corrective approach. CIFAR-10 table includes 'DefazioCorrective' but main comparison does not.",
+      "category": "novelty",
+      "severity": "high",
+      "suggestion": "Add a paragraph in Related Work (Section 2.4) explicitly contrasting EqWD with Defazio's corrective term. Key differences: (a) Defazio corrects for LR schedule interaction, EqWD modulates WD magnitude; (b) Defazio uses theoretical equilibrium, EqWD uses EMA-tracked empirical equilibrium; (c) per-layer vs global. Also add DefazioCorrective to ImageNet comparison or at least CIFAR-100. Estimated: 1 hour text + 2 GPU-hours if experimental. Verification: paper contains explicit Defazio differentiation paragraph.",
+      "status": "new"
+    },
+    {
+      "description": "FUTURE WORK NUMBERING ERROR: Section 6 lists 'First... Second... Third... Fifth... Finally.' Missing 'Fourth.' Trivial but conspicuous error signaling careless editing.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Fix numbering. 10 seconds. Verification: grep for 'Fifth' in conclusion, ensure 'Fourth' precedes it.",
+      "status": "new"
+    },
+    {
+      "description": "CAWD NOT DEFINED UNTIL SECTION 4.1: CAWD is a critical ablation proving ratio > alignment, but its acronym and definition only appear in the baselines paragraph. Not in Table 1 or the method section. A reader encountering CAWD in Table 2 without context will be confused.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Add CAWD to Table 1 (method comparison) or introduce briefly in Section 3.2. Estimated: 15 min. Verification: CAWD defined before first use in a table.",
+      "status": "new"
+    },
+    {
+      "description": "WD HEATMAP CAPTION OVERSTATES FIGURE EVIDENCE: Caption says EqWD 'concentrates stronger regularization in deeper layers and during transitional phases' but the actual color range is 0.00052-0.00062 (24% modulation). The figure demonstrates modest modulation on CIFAR-100, consistent with 'insufficient deviation signal on simple tasks.'",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Update caption to accurately describe what figure shows: 'modest modulation (up to ~24% above baseline), consistent with CIFAR-100 having small ratio deviations.' Or show the ImageNet WD heatmap where modulation is presumably more pronounced. Estimated: 15 min (caption) or 1 hour (new figure). Verification: caption matches visual evidence.",
+      "status": "new"
+    },
+    {
+      "description": "NO CODE RELEASE MENTIONED: Paper does not mention code availability. For a method paper at a top venue, code release is expected and its absence will be noted by reviewers.",
+      "category": "reproducibility",
+      "severity": "low",
+      "suggestion": "Add 'Code Availability' statement with GitHub link or 'code will be released upon acceptance.' Estimated: 5 min. Verification: paper contains code availability statement.",
+      "status": "new"
+    },
+    {
+      "description": "BIBLIOGRAPHY ENTRIES INCOMPLETE: Several entries use 'and others' instead of full author lists. Defazio entry has placeholder arXiv ID (arXiv:2501.00001). Naganuma entry has no venue. Incomplete references prevent readers from finding cited papers.",
+      "category": "reproducibility",
+      "severity": "low",
+      "suggestion": "Complete all bibliography entries: Defazio arXiv:2506.02285, full author lists (first 3 + et al.), correct venue info. Estimated: 30 min. Verification: no placeholder arXiv IDs; all entries have venues.",
+      "status": "new"
+    },
+    {
+      "description": "NO RAW EXPERIMENT DATA IN WORKSPACE: iter_016 workspace contains no exp/results/ directory with JSON summaries. Paper numbers cannot be independently verified from workspace artifacts. Missing data trail is a reproducibility concern and blocks downstream automation.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Ensure all raw experiment outputs (per-seed accuracy logs, hyperparameter configs, training curves) are present in exp/results/ and linked from the paper. Verification: exp/results/ directory exists with per-seed JSON files.",
+      "status": "recurring"
+    }
+  ],
+  "issues_fixed": [
+    "AIS=0.566 fabricated value removed (PID framework eliminated, AIS redefined as empirical diagnostic with 'residual variance ratio > 0.95' language)",
+    "CWD K_d mapping error eliminated (CWD demoted to baseline, no PID gain claims)",
+    "CSI formula contradictions eliminated (CSI completely removed from paper)",
+    "Theorem 1 / Propositions 2-3 without proofs eliminated (all PID theory removed, new Propositions with appropriate scope)",
+    "Title scope mismatch fixed (new title focuses on EqWD, not 'Unified Framework')",
+    "UDWDC as overclaimed contribution eliminated (UDWDC completely removed)",
+    "Figure 1 TikZ non-data schematic replaced (new Figure 1 shows real experimental comparison)",
+    "Population vs sample std fixed (now using ddof=1 throughout, verified by supervisor)",
+    "ImageNet experiment coverage: from 12/40 to 7 methods x 3 seeds complete (45 epochs)",
+    "Paper internal consistency restored (all numerical claims verified against raw data)"
+  ],
+  "success_patterns": [
+    "Strategic scope reduction resolves integrity issues more thoroughly than targeted fixes: removing the PID framework eliminated 4 critical problems that resisted fix for 5+ iterations",
+    "CAWD negative result as positive contribution: designing a clean ablation that proves ratio > alignment transforms a limitation into methodology contribution",
+    "Honest statistical calibration earns reviewer goodwill: bootstrap CIs, 'directional trend' language, explicit n=3 caveats are above community norms and strengthen the paper's credibility",
+    "Complete ImageNet multi-seed comparison (7 methods x 3 seeds) is a genuine experimental milestone after 11+ iterations of incomplete coverage",
+    "Pre-generated publication-quality figure pipeline (9 figures) retained and adapted across the pivot, avoiding costly figure regeneration",
+    "Data-first writing: checking raw data before making claims prevents the AIS=0.566 type fabrication that plagued iter_014-015"
+  ],
+  "systemic_patterns": [
+    "Score oscillation 6.5-7.0 for 8 iterations (iter_009-016). Text improvements capped at ~7.0. Only targeted experiments can break through to 7.5+.",
+    "Budget-matched FixedWD control is a recurring omission across 4+ iterations (previously CPR 2.3x budget, now EqWD phi>=1). This is the project's most persistent experimental blind spot.",
+    "Action plan to execution gap persists: iter_015 action plan was not consumed by iter_016. The pivot bypassed the plan rather than executing it.",
+    "Non-standard training regimes introduced without disclosure: 45-epoch ImageNet, possibly step decay instead of cosine, potentially 1e-4 instead of 5e-4 lambda. Multiple undisclosed experimental details compound into a reproducibility crisis.",
+    "Single-seed claims (beta=5.0) tolerated despite multi-seed validation costing <30 min. Risk tolerance for unverified claims is systematically too high.",
+    "Cross-pivot table staleness: CIFAR-10 table carried from PID framework paper with old baselines (DefazioCorrective) and without new method (EqWD). Pivot checklists should include 'update all tables.'"
+  ],
+  "quality_trajectory": "stagnant",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 50,
+    "total_gpu_idle_minutes": 0,
+    "bottleneck_stages": [
+      "Missing low-cost targeted experiments (EqWD CIFAR-10, beta=5.0 multi-seed, AIS on ImageNet) that would fill major evidence gaps at ~5 GPU-hours total",
+      "45-epoch ImageNet regime: saved 50% training time but produced non-comparable results, creating a new major gap",
+      "No budget-matched FixedWD control despite being the most critical experiment for the core claim"
+    ],
+    "suggestions": [
+      "Parallel scheduling: budget-matched FixedWD (GPU 0-1, 9h), 90-epoch ImageNet EqWD+FixedWD+SWD (GPU 2-5, 18h), CIFAR-10 EqWD + beta=5.0 (GPU 6, 1.5h), AIS on ImageNet (GPU 7, 3h). Total wall clock: ~10 hours.",
+      "All text fixes (LR schedule, epoch count, Prop 2 demotion, numbering, CAWD definition, bibliography) should run in parallel with experiments. Total text effort: ~3 hours.",
+      "If one AdamW experiment is added (GPU 7 after AIS, ~0.5h), it fills another major gap at minimal cost.",
+      "Estimated total: 1 day of parallel work fills ALL major evidence gaps. This is the highest-ROI iteration plan in the project's history."
+    ]
+  },
+  "recommended_focus": [
+    "1. VERIFY AND FIX DISCREPANCIES (0 GPU, 2 hours): (a) Confirm actual lambda_base (1e-4 or 5e-4), (b) confirm actual LR schedule (cosine or step), (c) state epoch count explicitly. These are data integrity issues that must be resolved before any new experiments.",
+    "2. BUDGET-MATCHED FIXEDWD ON IMAGENET (9 GPU-hours): The single most important experiment. Determines the paper's core narrative. Run FixedWD at EqWD's average effective lambda, 3 seeds, 45 epochs.",
+    "3. 90-EPOCH IMAGENET COMPARISON (18 GPU-hours): EqWD vs FixedWD vs SWD, 3 seeds each, validates advantage at standard training length.",
+    "4. LOW-COST GAP FILLS (5 GPU-hours total): (a) EqWD + CAWD on CIFAR-10 (0.5h), (b) beta=5.0 multi-seed CIFAR-100 (0.5h), (c) AIS on ImageNet (3h), (d) one AdamW experiment (1h).",
+    "5. TEXT FIXES (0 GPU, 3 hours): (a) Fix future work numbering, (b) demote Proposition 2 to Remark, (c) define CAWD earlier, (d) update WD heatmap caption, (e) differentiate from Defazio's corrective term, (f) add code availability, (g) complete bibliography.",
+    "6. VGG-16-BN INVESTIGATION (3 GPU-hours): Add FixedWD baseline on VGG-16-BN to contextualize the anomalously low 62.81%."
+  ],
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 20
+}

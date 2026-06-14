@@ -1,0 +1,122 @@
+[
+  {
+    "priority": 1,
+    "category": "analysis",
+    "severity": "critical",
+    "title": "Run within-width stratified correlations for H3",
+    "description": "Compute Pearson r between absorption_score and {sparse_probing, SCR, RAVEL} separately within each width tier (16k-only, 65k-only, 1M-only). The current correlation is confounded by width: all 5 high-absorption SAEs in C3B are 1M, all 5 low are 16k/65k. If r approaches zero within tiers, the entire H3 claim is an ecological fallacy. Also recompute partial correlations using width as a 3-level categorical dummy (16k/65k/1M) instead of log(width).",
+    "effort_hours": 1,
+    "blocks_publication": true,
+    "files_affected": ["exp/code/phase3_saebench_correlation.py", "writing/paper.md"]
+  },
+  {
+    "priority": 2,
+    "category": "writing",
+    "severity": "critical",
+    "title": "Fix abstract and conclusion 92.3% framing",
+    "description": "The abstract presents '92.3% of letter features as showing some absorption' with a subordinate caveat. Replace the headline figure with validated rates: Type I strict = 3.8%, Chanin any-absorption = 80.8%. Present 92.3% only as an upper bound. Same fix needed in conclusion. The paper's own suspicious_flags say this rate is 'CRITICAL[ly] likely inflated.'",
+    "effort_hours": 0.5,
+    "blocks_publication": true,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 3,
+    "category": "writing",
+    "severity": "major",
+    "title": "Replace 'validated quality indicator' with 'quality-correlated metric'",
+    "description": "The abstract and conclusion use 'validated quality indicator' to describe the H3 finding. Correlational evidence cannot validate -- it can only show association. Replace throughout with 'quality-associated metric' or 'quality-correlated metric'. Add explicit note that causal evidence requires intervention experiments.",
+    "effort_hours": 0.25,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 4,
+    "category": "analysis",
+    "severity": "major",
+    "title": "Diagnose SCR suppressor effect",
+    "description": "SCR partial r jumps from -0.431 to -0.677 after controlling for {log_width, layer, arch_class}. Report sequential partial correlations: (1) control for log_width only, (2) add layer, (3) add arch_class. Identify which covariate produces the suppressor effect. If it is width, this further undermines the causal interpretation.",
+    "effort_hours": 0.5,
+    "blocks_publication": false,
+    "files_affected": ["exp/code/phase3_saebench_correlation.py", "writing/paper.md"]
+  },
+  {
+    "priority": 5,
+    "category": "experiment",
+    "severity": "major",
+    "title": "Move safety probe (Table 6) to appendix",
+    "description": "The safety probe experiment (C3C) has n=3 SAEs, n=100 prompts, and 3+ confounds. It provides no evidence for the absorption-safety relationship. Move Table 6 to an appendix, reduce the in-text discussion to a brief paragraph noting the attempt was confounded and underpowered.",
+    "effort_hours": 0.25,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 6,
+    "category": "analysis",
+    "severity": "major",
+    "title": "Report LV detector ROC-AUC < 0.5 prominently",
+    "description": "ROC-AUC = 0.148 means the LV detector anti-predicts absorption (worse than random). This is more informative than F1 = 0.128. Discuss the mechanistic reason: absorbed parents have suppressed f_i, so alpha_ij is paradoxically low for absorbed pairs. The first alpha_ij bin [0, 0.1] shows absorption rate 0.848, confirming the inversion.",
+    "effort_hours": 0.5,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 7,
+    "category": "analysis",
+    "severity": "major",
+    "title": "Report oracle F1 within pre-filtered set for H1",
+    "description": "The decoder cosine pre-filter (cos > 0.15) imposes a 34% recall ceiling. Compute: (1) the recall achievable within the filtered set assuming perfect alpha_ij classification, and (2) F1 within the filtered set only. This disambiguates pre-filter failure from alpha_ij discrimination failure.",
+    "effort_hours": 0.5,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 8,
+    "category": "writing",
+    "severity": "major",
+    "title": "Move model-mismatch caveat to Section 1",
+    "description": "The paper uses GPT-2 Small for H1/H2/H4/taxonomy and Gemma for H3. This is currently buried in Section 7.5. Move the caveat to Section 1 so readers understand the cross-model gap before encountering results.",
+    "effort_hours": 0.25,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 9,
+    "category": "reproducibility",
+    "severity": "minor",
+    "title": "Specify SAELens version and sae-spelling version",
+    "description": "Neither SAELens nor sae-spelling version is pinned. Add version numbers to Section 4.1 or a requirements file.",
+    "effort_hours": 0.25,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 10,
+    "category": "analysis",
+    "severity": "minor",
+    "title": "Clarify DAS sample size discrepancy",
+    "description": "Methodology claims 10,000 tokens for DAS estimation; actual results show n_word_act_samples = 40 per letter. Clarify whether DAS used 40 activation samples or the methodology's specified 10,000. If 40, add bootstrap CIs on DAS estimates and note the discrepancy.",
+    "effort_hours": 0.5,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 11,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Revise paper title",
+    "description": "Current title 'When Features Compete' implies the competition framework works. Consider: 'Feature Absorption Predicts SAE Quality But Resists Unsupervised Detection' or similar.",
+    "effort_hours": 0.1,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  },
+  {
+    "priority": 12,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Remove unsupported JumpReLU speculation in Section 2.2",
+    "description": "The claim 'We hypothesize this is consistent with longer training amplifying the sparsity-gradient dynamics that produce absorption' is untested speculation. Remove or qualify with 'one untested possibility is...'",
+    "effort_hours": 0.1,
+    "blocks_publication": false,
+    "files_affected": ["writing/paper.md"]
+  }
+]

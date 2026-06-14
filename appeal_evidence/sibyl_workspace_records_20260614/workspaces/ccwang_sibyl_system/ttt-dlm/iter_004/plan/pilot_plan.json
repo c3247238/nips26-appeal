@@ -1,0 +1,103 @@
+{
+  "pilot_config": {
+    "samples": 16,
+    "seeds": [42],
+    "timeout_seconds": 600,
+    "benchmark": "Countdown-16",
+    "model": "Dream-v0-Instruct-7B",
+    "server": "cs8000d",
+    "remote_base": "/home/ccwang/sibyl_system",
+    "conda_env": "sibyl_ttt-dlm"
+  },
+  "pilots": [
+    {
+      "id": "pilot_acfg_repro",
+      "task_ref": "pilot_acfg_repro",
+      "name": "A-CFG Reproduction on Dream-7B",
+      "purpose": "Validate that CFG mechanism works on Dream-7B (proven on LLaDA-8B). Decision Gate 1.",
+      "method": {
+        "type": "A-CFG",
+        "remask_signal": "single-step confidence",
+        "guidance_weight": 1.0,
+        "schedule": "fixed"
+      },
+      "pass_criteria": "Accuracy > vanilla AND rep-3 < vanilla + 20%",
+      "fail_action": "Switch all CFG experiments to LLaDA-8B",
+      "estimated_minutes": 45,
+      "gpu_id": 0,
+      "priority": "critical"
+    },
+    {
+      "id": "pilot_bsd",
+      "task_ref": "pilot_bsd",
+      "name": "BSD Belief Vector Feasibility",
+      "purpose": "Verify belief vectors don't cause OOD collapse in Dream-7B's embedding space.",
+      "method": {
+        "type": "BSD",
+        "k": "T/2",
+        "alpha_schedule": "linear(0.1, 0.8)",
+        "tau_schedule": "linear(1.0, 0.3)",
+        "norm_type": "L2_to_mask_emb_norm",
+        "fallback_beta": null
+      },
+      "pass_criteria": "Outputs well-formed (rep-3 < 2x vanilla) AND belief entropy shows decreasing trend",
+      "fail_action": "Activate fallback_beta mixing (0.9→0.1 linear decay) and re-test",
+      "estimated_minutes": 30,
+      "gpu_id": 1,
+      "priority": "critical"
+    },
+    {
+      "id": "pilot_racfg",
+      "task_ref": "pilot_racfg",
+      "name": "RACFG Stability-Guided Re-masking",
+      "purpose": "Verify JSD stability signals are meaningful and guidance improves accuracy.",
+      "method": {
+        "type": "RACFG",
+        "remask_signal": "cross-step JSD stability",
+        "remask_pct": 0.10,
+        "guidance_weight": 1.5,
+        "ema_lambda": 0.7,
+        "schedule": "threshold_70_30"
+      },
+      "pass_criteria": "Accuracy >= vanilla AND stability scores show meaningful variance (std > 0.1)",
+      "fail_action": "Fall back to A-CFG confidence signal with temporal scheduling only",
+      "estimated_minutes": 30,
+      "gpu_id": 2,
+      "priority": "critical"
+    },
+    {
+      "id": "pilot_dmi_repro",
+      "task_ref": "pilot_dmi_repro",
+      "name": "DMI Baseline Reproduction",
+      "purpose": "Confirm DMI 9.3% Countdown-500 baseline is reproducible with current code.",
+      "method": {
+        "type": "DMI",
+        "alpha": 0.3,
+        "mixing": "logit_weighted_embedding"
+      },
+      "pass_criteria": "Accuracy within 2pp of 9.3% (7.3%-11.3%)",
+      "fail_action": "Debug existing code before proceeding",
+      "estimated_minutes": 45,
+      "gpu_id": 3,
+      "priority": "high"
+    }
+  ],
+  "parallel_schedule": {
+    "description": "All 4 pilots run in parallel on GPUs 0-3 (Phase 1, ~4 GPU·hours total)",
+    "wave_1": ["pilot_acfg_repro", "pilot_bsd", "pilot_racfg", "pilot_dmi_repro"],
+    "estimated_wall_time_minutes": 45,
+    "decision_gate": {
+      "gate_id": "gate_1",
+      "criteria": [
+        "pilot_acfg_repro passes → proceed with RACFG on Dream-7B",
+        "pilot_acfg_repro fails → switch to LLaDA-8B for all CFG tasks",
+        "pilot_bsd passes → proceed with BSD ablations",
+        "pilot_bsd fails → activate fallback_beta and re-test",
+        "pilot_racfg passes → proceed with RACFG ablations",
+        "pilot_racfg fails → use A-CFG signal + temporal scheduling only",
+        "pilot_dmi_repro passes → DMI confirmed as baseline",
+        "pilot_dmi_repro fails → debug before proceeding"
+      ]
+    }
+  }
+}

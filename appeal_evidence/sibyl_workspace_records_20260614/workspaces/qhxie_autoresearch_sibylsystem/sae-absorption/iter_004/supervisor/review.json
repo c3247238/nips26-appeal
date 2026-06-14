@@ -1,0 +1,93 @@
+{
+  "score": 6.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 6,
+    "experiments": 6,
+    "reproducibility": 6
+  },
+  "summary": "Iteration 4 represents a significant improvement over iterations 1-3 (all scored 5.5). The paper has been completely restructured around the LV competitive exclusion framework, abandoning the OMP/EncNorm approach that was mired in pilot-scale and proxy-label problems. All core experiments now run at FULL scale (C1B: 1,900 pairs; C2B: 806 observations across 31 SAEs; C2C: full regression; C3A: 54 Gemma SAEs; C3B: matched RAVEL on 10 SAEs). The strongest finding is the downstream correlation (H3): absorption vs. sparse probing r=-0.595 (partial r=-0.661), RAVEL r=-0.454, SCR r=-0.431, all surviving Bonferroni correction at n=54 Gemma Scope SAEs. This is the first systematic, statistically controlled demonstration that absorption predicts downstream SAE quality --- a genuinely novel and field-relevant result. The paper honestly reports the LV detector failure (H1: F1=0.128 < 0.35 criterion, below cosine baseline), the PMI null (H2: partial R^2=0.0006), and the partial DAS failure (H4: 42.3% vs. 80% target). However, three issues keep the score at 6.5: (1) the width confound in C3A/C3B is not adequately addressed --- all 5 high-absorption SAEs are 1M-width, all 5 low-absorption are 16k/65k, so the matched comparison conflates absorption with width despite the paper's partial correlation claims; (2) the Type II taxonomy rate (88.5%) is acknowledged as inflated but drives the headline 92.3% comprehensive rate, which is misleading given zero comparison tokens for most letters; (3) the cross-model gap remains: H1/H2/H4/taxonomy use GPT-2 Small while H3 uses Gemma Scope, and these cannot be composed into a unified narrative.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The matched RAVEL/SCR comparison (C3B) conflates absorption with width. All 5 high-absorption SAEs are width=1M (L0 range 16-58); all 5 low-absorption SAEs are width=16k or 65k (L0 range 137-297). The Cohen's d=2.13 and p=0.006 are real but may largely reflect the well-known finding that wider SAEs with lower L0 have worse downstream scores. The partial correlations controlling for log(width), layer, and arch_class attempt to address this, but (a) controlling for continuous log(width) does not adequately capture the qualitative shift from 65k to 1M-width SAEs, (b) L0 is NOT included as a covariate in the partial correlations despite varying by 15x across the sample (range 9-445), and (c) the SCR partial r inflation from -0.431 to -0.677 is suspiciously large and could indicate suppressor variable artifacts. The paper acknowledges 'partial correlations can inflate under suppressor effects' but does not investigate whether this is occurring.",
+      "suggestion": "Three analyses are needed: (1) Add L0 as a covariate in partial correlations --- if the result survives, the confound objection is substantially weakened. (2) Compute within-width-class correlations: at 16k (n~15), does absorption still predict downstream metrics? At 65k (n~15)? At 1M (n~18)? If the correlation only appears at 1M, it may be driven by L0/architecture rather than absorption. (3) Plot absorption vs. L0 colored by width to visualize whether the correlation is driven by a confound. These are zero-GPU analysis tasks."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "The Type II taxonomy rate of 88.5% (23/26 letters) is driven by a systematic measurement artifact that the paper acknowledges but insufficiently addresses. Parent features are identified by a selectivity heuristic, not sae-spelling ground truth. The magnitude ratio compares activation on letter tokens to a global mean-when-active baseline, but the comparison set has n_comparison_tokens=0 for almost all letters (verified in C2D taxonomy JSON: letter A has n_comparison_tokens=0, letter B has n_comparison_tokens=0, etc.). When n_comparison=0, the baseline falls back to global statistics that are biased upward by high-activation contexts irrelevant to the first-letter function. The paper correctly flags this ('the Type II classification should be interpreted as...' and calls it 'likely inflated'), but then proceeds to report '92.3% comprehensive absorption rate' in the abstract, introduction, and conclusion as a primary finding --- effectively burying the caveat. A reviewer will read the abstract claim and the caveat as contradictory.",
+      "suggestion": "Two options: (1) Demote the 92.3% to an 'upper bound estimate' throughout the paper, not just in Section 5.3, and lead with the validated rate (Type I: 3.8%, Type III: 0% --- total validated: 3.8%). Emphasize the gap between 3.8% validated and 92.3% upper bound as motivating future work with proper ground truth. (2) Rerun the taxonomy with sae-spelling ground-truth parent feature IDs, which would provide definitive evidence. The abstract must not headline 92.3% without immediately stating it is an upper bound with a known inflation artifact."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The LV detector pre-filter (decoder cosine > 0.15) captures only 34% of absorbed pairs, imposing a fundamental recall ceiling of 0.34 before the alpha_ij threshold is even applied. This means the detector cannot possibly achieve F1 > 0.35 (the success criterion) under any threshold, because maximum achievable recall is capped at 0.34. The paper reports this in Section 6.2 but does not compute what F1 would be achievable at the recall ceiling. The success criterion was doomed from the start by the pre-filter design. A fair test of whether alpha_ij has predictive value should either (a) remove the pre-filter and evaluate on all pairs, or (b) evaluate only within the filtered pairs, measuring how well alpha_ij discriminates absorbed from non-absorbed pairs that pass the cosine filter.",
+      "suggestion": "Compute F1 and AUROC restricted to the filtered candidate set (pairs with cos > 0.15). If alpha_ij achieves reasonable discrimination within this set, the result is 'the LV coefficient has discriminative power conditional on geometric proximity, but the pre-filter is too aggressive.' If alpha_ij is also poor within the filtered set, the result is stronger: 'the LV coefficient fails even in the most favorable regime.' This analysis is zero-cost and would sharpen the H1 interpretation."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The safety probe experiment (C3C, Table 6) is underpowered and confounded, and the paper correctly notes this. However, it is still reported in the main results section (Section 5.4) alongside the strong Gemma correlation results, creating a false equivalence. The three SAEs differ in layer (5, 8, 10), width (24k, 768, 32k), and hook type --- making it impossible to isolate absorption's effect. The non-monotone pattern (highest absorption = smallest probe gap) directly undermines the H3 narrative at the single-experiment level, even though the aggregate correlation is strong. At n=3 with 3 confounding factors, this experiment contributes noise, not signal.",
+      "suggestion": "Move the safety probe to a supplementary or limitations section rather than reporting it alongside the SAEBench results. State explicitly: 'The GPT-2 safety probe is uninformative due to confounded design (n=3, varying layer/width/hook) and is presented only for completeness.' The SAEBench correlational results stand on their own without needing the safety probe."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The cross-model gap between GPT-2 Small (H1, H2, H4, taxonomy) and Gemma Scope (H3) is acknowledged in Section 7.5 but is more problematic than the paper suggests. The paper claims 'the 92.3% comprehensive rate on GPT-2 and the r=-0.595 on Gemma are independent findings whose connection is assumed, not demonstrated' --- but the paper's abstract and conclusion present them as parts of a unified three-part study ('we present a three-part empirical study of absorption'). A reviewer will ask: does the LV coefficient also fail on Gemma? Does the taxonomy hold on Gemma? Does the PMI null hold on Gemma? Without same-model replication of any hypothesis, the results remain two disconnected studies sharing a topic.",
+      "suggestion": "The paper should either (a) explicitly frame the cross-model gap as a central limitation in the abstract/conclusion ('our detection and taxonomy results are limited to GPT-2 Small; cross-model validation is a priority'), or (b) compute at minimum the alpha_ij statistics for one Gemma Scope SAE to test whether the LV detector generalizes. The taxonomy could be approximately tested using Gemma SAEBench absorption scores as a proxy for Type I rates."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The H4 (width paradox) DAS results show high per-letter variance (e.g., letter N: DAS(k=1) = 0.571 at 24k but 0.100 at 98k; letter X: 0.0 to 1.0 at 98k) but the paper reports only mean +/- SD across 26 letters and a percentage of letters showing positive/negative slope. With 26 letters and 3 widths, there are too few data points to draw conclusions about width scaling. The large variance suggests the DAS metric is noisy for individual letters, potentially because the McFadden pseudo-R^2 is sensitive to sample composition for rare features. No confidence intervals on the mean DAS values are reported, and no significance tests compare means across widths.",
+      "suggestion": "Add 95% bootstrap CIs on the mean DAS values at each width. Apply a paired sign test or Wilcoxon signed-rank test comparing DAS(k=3) at 24k vs. 98k across all 26 letters to formally test the width paradox prediction. If the test is non-significant, report H4 as a clear negative result rather than 'partial support.'"
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The PMI regression (C2C) uses HC3 robust standard errors but does not cluster at the letter level. The 806 observations consist of 31 SAE configurations x 26 letters, meaning each letter appears 31 times. The residuals within a letter are likely correlated (letter Q always has high absorption, letter Z always has low). Without letter-level clustering, the standard errors on all coefficients are likely anti-conservative. The paper notes this in Section 7.6 ('clustered standard errors would be more conservative') but proceeds to report the L0 significance (p=0.012) without acknowledging it would likely become non-significant under proper clustering. Only the layer coefficient would survive clustering with high confidence.",
+      "suggestion": "Rerun the regression with letter-level clustered SEs (26 clusters). Report both HC3 and clustered results. If L0 becomes non-significant under clustering, revise the discussion to state that only layer is a robust predictor. This is a 30-minute computational task."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The paper reports overall_absorption_rate = 0.354 on the primary 24k SAE (C1B), consistent with Chanin et al.'s 15-35% range. However, the per-letter rates vary dramatically (letter E: 100%, letter I: 0%, letter Q: 100%, letter V: 0%), and some letters have very few total features (E: 2 total, Q: 1 total). These small-n letters dominate the variance and may distort aggregate statistics. The absorption_rate for letter U is listed as 0.0 with n_total=0, meaning no features were found at all --- this should be excluded from denominators rather than counted as '0% absorption.'",
+      "suggestion": "Report per-letter sample sizes in supplementary material. Exclude letters with n_total < 3 from aggregate absorption rate calculations. Recompute the 35.4% rate excluding U, E, Q, O (which have n_total <= 2) to see if it is sensitive to these outliers."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The cross-architecture validation (C1C, Table 8) shows the LV detector drops to F1=0.009 on v5-32k and F1=0.0 on v5-128k, while the cosine baseline improves (F1=0.353 on v5-128k). This is a strong negative result. However, the v5 SAEs use hook_resid_post vs. the baseline's hook_resid_pre, and the alpha_ij statistics were collected at layer 9 for v5 (noted in the JSON: 'C1A collected stats at layer 9 (closest available)') vs. layer 8 for the baseline. These differences in hook point and layer confound the cross-architecture comparison.",
+      "suggestion": "Note explicitly that the cross-architecture comparison confounds architecture with hook point and layer. The strongest statement supported is: 'the alpha_ij threshold calibrated on JB layer-8 resid_pre does not transfer to v5 layer-8 resid_post,' which is a weaker claim than 'does not generalize across architectures.'"
+    }
+  ],
+  "risks": [
+    "Width-absorption confound in C3A/C3B is the primary risk to the paper's strongest finding. If within-width correlations show no absorption-downstream relationship, the H3 result collapses to 'wider SAEs with lower L0 have higher absorption AND worse downstream scores, but absorption is not the causal mediator.'",
+    "Type II taxonomy rate inflation: if a reviewer computes the validated absorption rate (Type I + Type III = 3.8%), the gap from the headline 92.3% will be perceived as misleading rather than a methodological limitation.",
+    "L0 as uncontrolled confound: the Gemma Scope SAEs in C3A have L0 varying from 9 to 445. Low-L0 SAEs are known to have higher absorption AND potentially worse downstream performance independent of absorption. Until L0 is controlled, the absorption-downstream correlation may be spurious.",
+    "The paper's theoretical contribution (LV framework as unifying lens) is negative --- the framework fails as a detector, the threshold prediction fails, and it does not generalize. The paper retains the LV framework in its title and Section 3 as a 'conceptual decomposition,' but a reviewer may see this as an 8-page framework motivation for a result that fails.",
+    "Single evaluation task: all probe-based experiments use the first-letter task. If a reviewer argues this is a peculiarly structured hierarchy (26 classes, overlapping token sets), the generalizability concern becomes acute."
+  ],
+  "evidence_gaps": [
+    "L0 as covariate in C3A partial correlations: the single most important missing analysis for validating the H3 result",
+    "Within-width-class correlations: does absorption predict downstream quality at fixed width (e.g., among the ~15 SAEs at 16k width)?",
+    "Letter-level clustered standard errors for the PMI regression: determines whether L0 is a robust predictor or a clustering artifact",
+    "Alpha_ij discrimination within the filtered set: tests whether the competition coefficient has any value when the pre-filter is not limiting recall",
+    "DAS significance tests: paired Wilcoxon on DAS(k=3) across widths to formally assess the width paradox",
+    "Gemma-model replication of any one GPT-2 finding (taxonomy, LV detector, or PMI regression) to bridge the cross-model gap",
+    "Type II taxonomy replication with sae-spelling ground-truth parent IDs to distinguish measurement artifact from genuine partial absorption"
+  ],
+  "what_would_raise_score": "To reach 7.0 (weak accept): Add L0 as covariate in C3A partial correlations AND compute within-width correlations. If the H3 result survives both controls, the downstream contribution is on solid ground. Reframe 92.3% as explicitly 'upper bound' throughout. To reach 7.5 (borderline accept): Additionally rerun the PMI regression with letter-level clustered SEs; compute alpha_ij AUROC within the filtered candidate set; add formal significance tests to H4 DAS results. To reach 8.0 (accept): Add L0-controlled results, within-width correlations, AND demonstrate that at least one finding replicates on a second model (Gemma-2-2B taxonomy via SAEBench absorption rates, or Pythia LV coefficient). The core H3 downstream result is strong enough to anchor a publishable paper IF the confound controls survive."
+}

@@ -1,0 +1,103 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seed": 42,
+    "timeout": 900,
+    "gpu_count": 1,
+    "model": "gpt2-small",
+    "sae": "gpt2-small-res-jb",
+    "dict_size": 24576,
+    "layers": [0, 4, 8, 10],
+    "primary_layer": 8,
+    "k_values": [20, 50, 100]
+  },
+  "pilot_tasks": [
+    {
+      "id": "pilot_graph_construct",
+      "name": "Pilot: Construct Inhibition Graph (Layer 8, k=20)",
+      "description": "Construct local inhibition graph for GPT-2 Small layer 8. Compute decoder correlations G = W_dec^T W_dec. Keep top-20 neighbors per latent. Save graph structure.",
+      "depends_on": [],
+      "estimated_minutes": 10,
+      "gpu_count": 1,
+      "pass_criteria": "Graph construction completes; 24K latents processed; top-20 neighbors extracted; mean edge weight computable",
+      "expected_output": "pilot_inhibition_graph_gpt2_l8_k20.json"
+    },
+    {
+      "id": "pilot_h6_validate",
+      "name": "Pilot: H6 Validation (Layer 8)",
+      "description": "Validate graph edges against Chanin absorption pairs for 26 first-letter features at layer 8. Compute precision@20, recall@20, Fisher exact test vs. random baseline.",
+      "depends_on": ["pilot_graph_construct"],
+      "estimated_minutes": 5,
+      "gpu_count": 0,
+      "pass_criteria": "Precision@20 >= 0.10 (vs ~0.004 chance); Fisher test p < 0.001",
+      "expected_output": "pilot_h6_validation_l8.json",
+      "go_no_go": {
+        "go": "Precision@20 >= 0.10 with p < 0.001 -> proceed with full H6-H10",
+        "caution": "Precision@20 = 0.05-0.10 -> proceed with diagnostic-only claims, drop H10",
+        "no_go": "Precision@20 <= 0.05 -> pivot to cand_c (trade-off analysis)"
+      }
+    },
+    {
+      "id": "pilot_h7_asymmetry",
+      "name": "Pilot: H7 Precision-Recall Asymmetry (Layer 8)",
+      "description": "Compute total incoming inhibition per first-letter feature. Test correlation with recall (predicted negative) and precision (predicted none). Use existing probing data.",
+      "depends_on": ["pilot_graph_construct"],
+      "estimated_minutes": 5,
+      "gpu_count": 0,
+      "pass_criteria": "Recall vs. inhibition: r < -0.2; Precision vs. inhibition: |r| < 0.2, p > 0.05",
+      "expected_output": "pilot_h7_asymmetry_l8.json"
+    },
+    {
+      "id": "pilot_h8_at_risk",
+      "name": "Pilot: H8 At-Risk Feature Prediction (Layer 8)",
+      "description": "Compute graph statistics (total_inhibition, degree) per feature. Test correlation with absorption_rate. Compare top vs. bottom quartile.",
+      "depends_on": ["pilot_graph_construct"],
+      "estimated_minutes": 5,
+      "gpu_count": 0,
+      "pass_criteria": "r(total_inhibition, absorption_rate) > 0.2; top quartile has >1.5x absorption vs. bottom",
+      "expected_output": "pilot_h8_at_risk_l8.json"
+    }
+  ],
+  "pilot_execution_order": [
+    "pilot_graph_construct",
+    "pilot_h6_validate",
+    "pilot_h7_asymmetry",
+    "pilot_h8_at_risk"
+  ],
+  "pilot_go_criteria": {
+    "primary": "H6: Precision@20 >= 0.10 (25x enrichment over chance) with Fisher p < 0.001",
+    "secondary": "H7: Recall correlates negatively with inhibition (r < -0.2); precision shows no correlation",
+    "tertiary": "H8: Total inhibition correlates with absorption rate (r > 0.2)"
+  },
+  "pivot_decision_tree": {
+    "if_h6_strong": {
+      "condition": "Precision@20 >= 0.10 AND Fisher p < 0.001",
+      "action": "PROCEED with full plan (H6-H10 + optional cross-model)",
+      "rationale": "Core theoretical claim validated. Graph edges predict absorption with strong enrichment."
+    },
+    "if_h6_moderate": {
+      "condition": "Precision@20 = 0.05-0.10",
+      "action": "PROCEED with diagnostic-only claims. Drop H10 (homeostatic repair). Keep H7-H9.",
+      "rationale": "Weak but real signal. Diagnostic tool is still useful. Repair claims too strong."
+    },
+    "if_h6_weak": {
+      "condition": "Precision@20 <= 0.05",
+      "action": "PIVOT to cand_c (Feature Absorption as Optimal Compression: Trade-off Analysis)",
+      "rationale": "Core claim fails. Structural correspondence does not hold empirically. Fall back to descriptive trade-off analysis."
+    }
+  },
+  "full_experiment_expansion": {
+    "if_pilot_passes": {
+      "additional_layers": [0, 4, 10],
+      "additional_k_values": [50, 100],
+      "additional_hypotheses": ["H9_layer_structure", "H10_homeostatic_rebalance"],
+      "optional_cross_model": "Gemma-2-2B GemmaScope layer 8"
+    }
+  },
+  "risk_mitigation": {
+    "graph_construction_fails": "Check SAE loading and W_dec shape. Fallback: use W_enc^T W_enc if W_dec unavailable.",
+    "no_absorption_pairs_found": "Use existing absorption data from prior iterations. If ground truth is empty, pilot cannot proceed.",
+    "memory_issues": "Process latents in batches. Top-k extraction can be done per-batch and merged.",
+    "precision_too_low": "Test multiple k values. If all k fail, apply pivot decision tree."
+  }
+}

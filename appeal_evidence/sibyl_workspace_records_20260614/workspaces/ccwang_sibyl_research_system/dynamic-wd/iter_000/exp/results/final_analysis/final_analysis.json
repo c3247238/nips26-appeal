@@ -1,0 +1,95 @@
+{
+  "table1_main_results": [
+    {
+      "method": "no_wd",
+      "best": 90.49,
+      "final": 90.31,
+      "gap": 9.1732,
+      "wn": 129.4235
+    },
+    {
+      "method": "fixed_wd_0.0001",
+      "best": 92.08,
+      "final": 91.83,
+      "gap": 7.6351,
+      "wn": 56.3407
+    },
+    {
+      "method": "fixed_wd_0.0003",
+      "best": 92.39,
+      "final": 91.97,
+      "gap": 7.5232,
+      "wn": 30.7043
+    },
+    {
+      "method": "fixed_wd_0.0005",
+      "best": 92.54,
+      "final": 92.29,
+      "gap": 7.1651,
+      "wn": 23.4928
+    },
+    {
+      "method": "fixed_wd_0.001",
+      "best": 92.32,
+      "final": 91.92,
+      "gap": 6.9542,
+      "wn": 17.1297
+    },
+    {
+      "method": "fixed_wd_0.003",
+      "best": 88.63,
+      "final": 87.25,
+      "gap": 5.2039,
+      "wn": 11.4407
+    },
+    {
+      "method": "stagewise_wd",
+      "best": 92.44,
+      "final": 92.27,
+      "gap": 7.1791,
+      "wn": 33.2201
+    },
+    {
+      "method": "cwd",
+      "best": 91.79,
+      "final": 86.95,
+      "gap": 3.2163,
+      "wn": 9.2846
+    },
+    {
+      "method": "aadwd_conservative",
+      "best": 92.37,
+      "final": 92.22,
+      "gap": 7.151,
+      "wn": 23.6025
+    },
+    {
+      "method": "aadwd_aggressive",
+      "best": 92.05,
+      "final": 91.57,
+      "gap": 7.4965,
+      "wn": 21.4722
+    },
+    {
+      "method": "aadwd_square",
+      "best": 92.13,
+      "final": 91.78,
+      "gap": 7.4728,
+      "wn": 38.7468
+    }
+  ],
+  "findings": [
+    "F1. ALIGNMENT SIGNAL IS NOT ACTIONABLE: Random dynamic WD (92.06%) matches AADWD aggressive (92.05%). The alignment proxy \u03b4\u0302_t does not provide useful information for WD scheduling. H5 hypothesis REJECTED.",
+    "F2. CONSERVATIVE \u2248 FIXED WD: Because \u03b4 \u2248 O(10\u207b\u00b3), the conservative formula \u03bb = c\u00b7\u03b3\u00b7(1-\u03b4) \u2248 c\u00b7\u03b3 degenerates to a deterministic function of LR. Best acc matches fixed WD within 0.17% on all settings.",
+    "F3. \u03b3_t COUPLING DOMINATES DYNAMICS: All AADWD variants' \u03bb_t trajectories are dominated by the LR multiplier \u03b3_t. After milestone LR drops (0.1\u21920.01\u21920.001), \u03bb drops by 10-100\u00d7, effectively eliminating WD in late training.",
+    "F4. LR-DECOUPLING IS CATASTROPHIC: Removing \u03b3_t (decoupled mode) causes aggressive to collapse (positive feedback: high \u03b4 \u2192 high \u03bb \u2192 weight death \u2192 higher \u03b4 \u2192 repeat) and conservative to over-regularize (constant \u03bb=5e-4 is 10\u00d7 too strong when LR=0.01, 100\u00d7 when LR=0.001).",
+    "F5. \u03b3_t SERVES AS STABILIZER: The LR coupling is not merely theoretical convenience \u2014 it's essential for stability. It replicates the natural LR-WD coupling that L2 regularization provides for free (effective_decay = lr \u00d7 wd scales automatically with LR).",
+    "F6. CWD CONSISTENTLY COLLAPSES: Cautious Weight Decay shows late-training instability across all settings: CIFAR-10/ResNet20 (91.79%\u219286.95%), CIFAR-100/ResNet20 (66.84%\u219254.27%), CIFAR-10/VGG16 (92.95%\u219286.47%). Coordinate-wise decay creates systematic weight shrinkage.",
+    "F7. FIXED WD IS OPTIMAL: Simple fixed WD (5e-4) achieves the best or near-best performance across all settings: 92.54% (CIFAR-10/ResNet20), 68.45% (CIFAR-100/ResNet20), 93.86% (CIFAR-10/VGG16). No dynamic method consistently outperforms it.",
+    "F8. EQUIV CUMULATIVE = FIXED WD: When dynamic WD's average matches fixed WD, performance is identical (92.54% vs 92.54%). This proves the mean WD magnitude matters, not temporal dynamics.",
+    "F9. SQUARE VARIANT LR\u00b2 COUPLING: \u03bb = c\u00b7\u03b3\u00b2\u00b7(1-\u03b4) causes WD to drop 100\u00d7 at first milestone and 10000\u00d7 overall. Final WN=38.75 (highest among WD methods), effectively no regularization in late training.",
+    "F10. PAPER PIVOT OPPORTUNITY: Results constitute a strong negative-result paper on dynamic WD. Key message: theoretically motivated alignment-based WD adaptation fails because (a) alignment signal is too weak, (b) LR coupling dominates dynamics, (c) decoupling is catastrophic. Simple fixed WD remains optimal for nonconvex SGD."
+  ],
+  "h5_result": "FAIL",
+  "best_method_overall": "fixed_wd_0.0005"
+}

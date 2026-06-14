@@ -1,0 +1,124 @@
+{
+  "search_date": "2026-04-03",
+  "searcher": "sibyl-novelty-checker",
+  "prior_search_date": "2026-04-02",
+  "search_sources": ["arXiv (15+ queries)", "Google Scholar (5 queries)", "WebSearch (4 queries)", "WebFetch"],
+  "update_summary": "Added Wrona et al. 2025 (ACM) as new partial_overlap; added Zhu 2026 (AAAI/arXiv:2506.12492) as related_work for H2; confirmed no new collisions on H3/H4/H5b/H6 (all new hypothesis elements remain novel); overall novelty unchanged at HIGH",
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Order Matters: Empirical and Theory-Grounded Study of Augmentation Operation Sequencing in CNNs and ViTs",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Wrona, Atanasious, Delli Priscoli. 2025. Deep Reinforcement Learning-based Automatic Augmentation for Gastrointestinal Disease Classification. ACM Transactions on Computing for Healthcare. DOI:10.1145/3726875.",
+          "overlap": "Performs brute-force permutation search (7P2 = 42 two-step orderings) to find best augmentation operation sequence for gastrointestinal disease classification. Explicitly states 'sequence matters because geometric and color operations are non-linear.' Finds sharpness-first ordering outperforms others.",
+          "severity": "partial_overlap",
+          "differentiation": "Wrona et al. treat ordering search as a preliminary offline step for a DRL augmentation controller — ordering sensitivity is not the central research question. Key differences: (a) only 2-step orderings (7P2), not all K! permutations of a fixed K-op set; (b) medical images (gastrointestinal), not natural images (CIFAR-10/100); (c) Nature CNN only, no cross-architecture comparison (CNN vs. ViT); (d) no statistical rigor (no paired-seed design, no paired t-test, no Bonferroni correction); (e) no theoretical framework (no NC measure, no DPI principle, no generalization bound); (f) no category-level interleaving or magnitude interaction study. Must cite and explicitly differentiate in related work."
+        },
+        {
+          "paper": "Li et al., 2024. Learning Tree-Structured Composition of Data Augmentation. arXiv:2408.14381",
+          "overlap": "Studies augmentation composition structure (binary-tree vs. sequential) via search algorithms. Involves ordered augmentation sequences in the search space.",
+          "severity": "partial_overlap",
+          "differentiation": "Li et al. optimize composition structure as a search problem for efficiency. They do not isolate ordering as the independent variable, do not compare fixed permutations of identical K-operation sets, provide no theoretical framework predicting why ordering should matter, and do not study architecture sensitivity. Research question is fundamentally different: search efficiency vs. ordering sensitivity study."
+        },
+        {
+          "paper": "Cubuk et al., 2018. AutoAugment: Learning Augmentation Policies from Data. arXiv:1805.09501",
+          "overlap": "Searches over ordered pairs of operations; policies implicitly encode ordering.",
+          "severity": "related_work",
+          "differentiation": "AutoAugment optimizes (operation, probability, magnitude) without ablating order. Never tests whether permuting operations in a found policy changes accuracy."
+        },
+        {
+          "paper": "Cubuk et al., 2019. RandAugment. arXiv:1909.13719",
+          "overlap": "Applies N random operations per image in random order per image.",
+          "severity": "related_work",
+          "differentiation": "Random ordering is a design choice to avoid specifying order, not a controlled comparison of fixed permutations."
+        },
+        {
+          "paper": "Ho et al., 2019. Population Based Augmentation. arXiv:1905.05393",
+          "overlap": "Shows that shuffling the epoch-level augmentation schedule degrades accuracy.",
+          "severity": "related_work",
+          "differentiation": "PBA operates at epoch-level curriculum granularity (which policy to apply during which training epoch), not within-image operation ordering granularity."
+        },
+        {
+          "paper": "Ratner et al., 2017. TANDA: Learning to Compose Domain-Specific Transformations. arXiv:1709.01643",
+          "overlap": "Uses LSTM to learn full augmentation sequences, implicitly learning something about ordering.",
+          "severity": "related_work",
+          "differentiation": "TANDA learns which operations to include and their sequence simultaneously. No ordering ablation within a fixed operation set."
+        },
+        {
+          "paper": "Zhu, 2026. Comparative Analysis of Deep Learning Strategies for Hypertensive Retinopathy Detection. arXiv:2506.12492 (AAAI 2026).",
+          "overlap": "Studies architecture-dependent augmentation effects: pure ViTs benefit from augmentation (Kappa 0.250→0.472 for ViT-B/8) while hybrid ViT-CNN models suffer (CAFormer Kappa 0.472→0.333). Relates to H2 mechanistic claim about ViT inductive bias and augmentation sensitivity.",
+          "severity": "related_work",
+          "differentiation": "Zhu 2026 studies augmentation presence vs. absence, not operation ordering/permutation. The independent variable is augmentation presence and choice, not sequence order. No ordering ablation, no permutation comparison, no theory, medical images domain. Actually provides supporting motivation for H2: ViTs' weaker inductive bias makes them more sensitive to augmentation design choices."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "The central contribution — first controlled study isolating ordering as the sole independent variable with theory-grounded framework (feature-space NC_2 + corrected DPI), cross-architecture comparison (CNN vs. ViT), category-level interleaved ordering, magnitude interaction, and proper statistical inference — is confirmed novel. New element H3 (feature-space NC_2, rho>0.5 threshold, 10k samples in 512-D), H5b (interleaved P→G ordering), and H6 (inverted-U magnitude) have no direct prior art. Wrona et al. 2025 is the new closest empirical neighbor and must be proactively differentiated in related work.",
+      "new_prior_art_since_last_report": [
+        "Wrona et al. 2025 (ACM 10.1145/3726875) — partial_overlap: brute-force permutation search for 2-step orderings in medical images, no theory, no architecture comparison",
+        "Zhu 2026 (arXiv:2506.12492) — related_work: architecture-dependent augmentation effects (presence, not ordering)"
+      ]
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Variance Decomposition of Augmentation Pipeline Design Choices",
+      "novelty_score": 7,
+      "collisions": [
+        {
+          "paper": "Liu & Mirzasoleiman, 2022. Data-Efficient Augmentation for Training Neural Networks. arXiv:2210.08363",
+          "overlap": "Studies Jacobian-level theory of augmentation effects on generalization; provides augmentation subset selection theory.",
+          "severity": "related_work",
+          "differentiation": "Does not decompose variance across ordering/selection/magnitude/seed dimensions. Different theoretical and empirical framework."
+        },
+        {
+          "paper": "Cubuk et al., 2019. RandAugment. arXiv:1909.13719",
+          "overlap": "Demonstrates that magnitude (M) is a key driver of performance.",
+          "severity": "related_work",
+          "differentiation": "RandAugment studies magnitude as its main knob but does not perform formal variance decomposition across design dimensions."
+        }
+      ],
+      "recommendation": "proceed_as_backup",
+      "differentiation_notes": "Variance decomposition framing is novel. Activation condition: pilot shows spread < 0.2% after full training. Unlikely given strong pilot evidence. No new competitors found."
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Class-Level Effects of Augmentation Ordering",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Kirichenko et al., 2023. Understanding the Detrimental Class-Level Effects of Data Augmentation. NeurIPS 2023.",
+          "overlap": "Studies how augmentation strength affects per-class accuracy differently.",
+          "severity": "partial_overlap",
+          "differentiation": "Kirichenko et al. vary augmentation strength (a scalar), not ordering. Different independent variable. Must cite with explicit differentiation."
+        }
+      ],
+      "recommendation": "integrate_as_secondary_analysis",
+      "differentiation_notes": "Best positioned as secondary analysis within cand_a paper (zero additional training cost). No new competitors found."
+    }
+  ],
+  "overall_novelty": "high",
+  "key_findings": [
+    "No prior paper isolates augmentation operation ordering (permutation within a fixed-length per-image pipeline) as the central research question for natural image classification.",
+    "NEW: Wrona et al. 2025 (ACM) performs brute-force 2-step permutation search for medical images — partial overlap but treats ordering as preprocessing detail, not central question; no theory, no cross-architecture comparison.",
+    "NEW: Zhu 2026 (AAAI) shows architecture-dependent augmentation effects (ViT benefits, hybrid suffers) — related_work supporting H2 motivation, but studies presence/absence not ordering.",
+    "The Wasserstein Non-Commutativity (NC_2) measure — in feature space — has no prior art.",
+    "The corrected DPI reversibility principle (Flip-first as optimal, eta=1 for bijective transforms) has no prior art.",
+    "The category-level interleaved ordering study (P→G→P→G vs. block ordering) has no prior art.",
+    "The inverted-U magnitude interaction (H6: M9 > M5, M14) has no prior art.",
+    "Two survey papers (Cheung & Yeung 2023, Yang et al. 2023) explicitly identify per-image operation ordering as an open, unaddressed question."
+  ],
+  "recommended_related_work_citations": [
+    "Wrona et al. (2025). ACM Trans. Computing for Healthcare, DOI:10.1145/3726875 — NEW: brute-force permutation search for 2-step orderings (differentiate carefully: medical domain, no theory, no architecture comparison)",
+    "Li et al. (2024). arXiv:2408.14381 — composition structure search (contrast carefully)",
+    "Cubuk et al. (2018). arXiv:1805.09501 — AutoAugment",
+    "Cubuk et al. (2019). arXiv:1909.13719 — RandAugment",
+    "Ho et al. (2019). arXiv:1905.05393 — PBA (epoch-level ordering)",
+    "Ratner et al. (2017). arXiv:1709.01643 — TANDA",
+    "Zhu (2026). arXiv:2506.12492 — NEW: architecture-dependent augmentation effects (cite as motivation for H2)",
+    "Kirichenko et al. (NeurIPS 2023) — class-level augmentation strength effects",
+    "Liu & Mirzasoleiman (2022). arXiv:2210.08363 — data-efficient augmentation theory",
+    "Cheung & Yeung (IEEE TNNLS 2023) — survey identifying ordering as open question",
+    "Yang et al. (KAIS 2023) — survey identifying ordering as open question"
+  ]
+}

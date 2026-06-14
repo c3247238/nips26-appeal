@@ -1,0 +1,86 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_f",
+  "confidence": 0.72,
+  "candidate_scores": {
+    "cand_f": {
+      "weighted_score": 3.75,
+      "verdict": "ADVANCE",
+      "notes": "Highest score. Exact mathematical correspondence (W_dec^T W_dec = G_LCA). Verified novelty (no prior work). Explains H5 precision invariance. Training-free and scalable. Low pilot cost (~30 min). Clear go/no-go criteria."
+    },
+    "cand_c": {
+      "weighted_score": 3.55,
+      "verdict": "BACKUP",
+      "notes": "Strong backup. Data supports trade-off view. Zero additional GPU time. Lower novelty (3/5) than cand_f. Clean pivot path if cand_f fails."
+    },
+    "cand_a": {
+      "weighted_score": 1.30,
+      "verdict": "DROPPED",
+      "notes": "Zero hypotheses survive MCP. Quality plateau at 6.0/10. Steering-encoder confound is fundamental. 20 GPU-hours spent with diminishing returns."
+    },
+    "cand_b": {
+      "weighted_score": 1.50,
+      "verdict": "DROPPED",
+      "notes": "No pilot data. Phenomenological approach lacks theoretical grounding compared to inhibition graph."
+    },
+    "cand_d": {
+      "weighted_score": 1.50,
+      "verdict": "DROPPED",
+      "notes": "No pilot data. Metric validation is well-defined but less impactful than cand_f."
+    },
+    "cand_e": {
+      "weighted_score": 1.40,
+      "verdict": "DROPPED",
+      "notes": "Merged into cand_f. No independent pilot data."
+    }
+  },
+  "reasons": [
+    "cand_f has highest weighted score (3.75) among all candidates",
+    "Exact structural correspondence: W_dec^T W_dec = G_LCA (not metaphorical)",
+    "Novelty verified: no prior LCA-SAE connection, no prior inhibition graph for SAE diagnostics",
+    "Explains the one robust prior finding (H5: precision invariance) via competitive suppression",
+    "Training-free: computed from pretrained SAE weights, no retraining needed",
+    "Scalable to million-latent SAEs: O(k * d_dict) complexity",
+    "Low pilot cost (~30 min GPU) with clear go/no-go criteria",
+    "cand_c is strong backup (3.55) with clean pivot path if cand_f fails",
+    "cand_a thoroughly tested and failed (1.30): zero significant results after MCP, quality plateau at 6.0/10",
+    "H6 falsification criterion is clear: precision@20 <= 0.05 triggers pivot to cand_c"
+  ],
+  "next_actions": [
+    "Execute pilot experiments for cand_f: construct inhibition graph (layer 8, k=20), validate H6 (precision@20 >= 0.10), test H7 (inhibition vs recall/precision), test H8 (graph stats vs absorption rate)",
+    "Apply go/no-go after pilots: GO -> full H6-H10; CAUTION -> diagnostic-only; NO-GO -> pivot to cand_c",
+    "If pilots pass, execute full experiments across layers 0/4/8/10 (~2 GPU-hours)",
+    "If pilots fail, execute cand_c pivot: reframe to trade-off analysis, reuse existing data (~1 GPU-hour)"
+  ],
+  "dropped_candidates": ["cand_a", "cand_b", "cand_d", "cand_e"],
+  "retained_candidates": ["cand_f", "cand_c"],
+  "pilot_go_criteria": {
+    "go": "H6 precision@20 >= 0.10 AND Fisher p < 0.001 -> proceed with full H6-H10 + optional cross-model",
+    "caution": "H6 precision@20 = 0.05-0.10 -> proceed with diagnostic-only claims, drop H10 repair",
+    "no_go": "H6 precision@20 <= 0.05 -> pivot to cand_c (trade-off analysis)"
+  },
+  "key_evidence": {
+    "lca_sae_correspondence": "W_dec^T W_dec = G_LCA (exact when weights tied)",
+    "novelty_verification": {
+      "lca_sae_connection": "NO PRIOR WORK found",
+      "local_inhibition_graph": "NO PRIOR WORK found",
+      "homeostatic_repair": "NO PRIOR WORK found"
+    },
+    "prior_finding_H5": "Precision = 1.0 universally at k>=5; recall varies --- explained by competitive suppression",
+    "prior_finding_H1b": "Delta-corrected r=-0.431 at layer 8 (uncorrected) --- explained by layer-dependent inhibition strength",
+    "pilot_cost_estimate": "~30 minutes GPU time",
+    "full_cost_estimate": "~2 GPU-hours"
+  },
+  "risk_assessment": {
+    "primary_risk": "No pilot data exists yet for cand_f; decision based on theoretical strength and verified novelty",
+    "mitigation": "Low pilot cost (~30 min) with clear go/no-go criteria; strong backup (cand_c) ready",
+    "fallback": "If H6 fails, immediate pivot to cand_c with zero additional data collection needed"
+  },
+  "iteration_context": {
+    "current_iteration": 2,
+    "previous_front_runner": "cand_a",
+    "previous_verdict": "REFINE (iteration 1)",
+    "pilot_evidence_for_cand_f": "NOT YET COLLECTED",
+    "note": "pilot_experiments stage was incorrectly marked as completed without running cand_f pilots"
+  }
+}

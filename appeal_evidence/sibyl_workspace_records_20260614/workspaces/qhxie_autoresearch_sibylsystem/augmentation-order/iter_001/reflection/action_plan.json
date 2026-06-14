@@ -1,0 +1,197 @@
+{
+  "iteration": 0,
+  "generated_at": "2026-04-03",
+  "overall_quality_score": 4.0,
+  "quality_trajectory": "stagnant",
+  "issues_classified": [
+    {
+      "id": "EXP-001",
+      "description": "All Tier 1 ordering experiments use n=1 seed, 10 epochs, and 100-sample subsets. ResNet-18/CIFAR-10 accuracy (10.01–10.97%) is at the random-chance floor; ViT-S/4 CIFAR-100 (2.64–2.89%) is barely above random for 100 classes. Hypothesis verdicts 'H1 confirmed' and 'H2 confirmed' declared in final_summary.json are unsupported — no paired t-tests, ANOVA, or Bonferroni correction was possible with n=1.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run full Tier 1 immediately: 6 orderings x 2 architectures x 2 datasets x 5 seeds x 200 epochs (~20 GPU-h, ~10h wall-clock on 2 GPUs). This is the single blocking action. Pre-register: paired t-test best vs worst per block with Bonferroni correction; H1 confirmed only if ≥2/4 blocks reach p<0.05 with spread>0.3%. Estimated effort: 20 GPU-h. Verified done when tier1_resnet18_cifar10.json, tier1_resnet18_cifar100.json, tier1_vit_cifar10.json, tier1_vit_cifar100.json all contain 5-seed data and tier1_analysis.json reports paired t-test p-values.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "EXP-002",
+      "description": "Ordering experiments (10 epochs, 100 samples) and baselines (30 epochs, full dataset) are presented in the same Table 1, making comparison invalid. Ordering accuracies (10–46%) vs. baseline accuracies (57–92%) is entirely a training-condition artifact, not a methods difference. Reviewer will immediately flag this as methodologically unsound.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Split Table 1 into two separate tables with different section headers: 'Pilot Ordering Results (10 epochs, 1 seed, 100 samples)' and 'Full-Scale Baseline Reference (30 epochs, 5 seeds, full dataset)'. Add explicit text stating these cannot be directly compared. Better: defer both tables to full-scale experiments where training conditions are matched. Estimated effort: 30 min writing fix now; resolved naturally when full Tier 1 completes. Verified done when the two tables have distinct section headers and a written disclaimer between them.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "EXP-003",
+      "description": "The Tier 2 category-ordering spread (9.01 pp) — the paper's most prominent empirical number — is from a single seed, single architecture-dataset combination (ResNet-18/CIFAR-10), 5k samples, 10 epochs. Before committing 18 GPU-h to full Tier 2, must verify this signal survives to longer training.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run Tier 2 confirmation pilot: full CIFAR-10, 50 epochs, 2 seeds, ResNet-18. Estimated effort: ~1.5 GPU-h, ~45 min wall-clock. Gate decision: if spread holds above 2 pp, proceed to full Tier 2 in parallel with Tier 1; if spread collapses below 1 pp, redirect 18 GPU-h to ImageNet-100 validation or additional Tier 1 architectures. Verified done when tier2_confirmation_pilot.json exists with spread at 50 epochs reported.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "EXP-004",
+      "description": "H2 has two incompatible definitions across the pipeline. Proposal defines H2 as 'Architecture Differential Sensitivity (ViTs vs CNNs differ)'. final_summary.json and verdict tables redefine H2 as 'Reversibility-sorted ordering (CJ→Flip→Crop) outperforms conventional'. The original H2 ANOVA test was never run; a win-count heuristic was silently substituted.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Restore original hypothesis numbering. Keep H2 as architecture-differential (pre-registered two-way ANOVA: ordering x architecture, eta^2>0.05). Create H2b for the DPI reversibility-sorted prediction (win-count threshold). Both require 5-seed full Tier 1 to execute. Update final_summary.json, hypothesis verdict table, and paper text consistently. Estimated effort: 2h after full Tier 1 data is available. Verified done when tier1_analysis.json has a field 'anova_ordering_x_architecture' with F-statistic, p-value, and eta-squared.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "SOUND-001",
+      "description": "Theorem 1 proof sketch missing the core bubble-sort decomposition argument. The step 'By the Lipschitz property, W_2(mu_sigma, mu_sigma') <= sum NC_2(t_i, t_j; mu)' requires showing sigma -> sigma' decomposes into adjacent transpositions with each step bounded by the corresponding NC_2 term. A reviewer with optimal transport background will immediately reject this.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Add full proof to Appendix A: (1) Define bubble-sort decomposition sigma = tau_1 circ ... circ tau_k circ sigma' where each tau_l is an adjacent transposition swapping one pair; (2) Apply triangle inequality: W_2(mu_sigma, mu_sigma') <= sum_l W_2(mu_{sigma_l}, mu_{sigma_{l+1}}); (3) Bound each step: W_2(mu_sigma_l, mu_{sigma_{l+1}}) <= NC_2(t_{i_l}, t_{j_l}; mu) for the swapped pair (i_l, j_l). Write proof in LaTeX in writing/latex/appendix.tex. Estimated effort: 3-4h theory work. Verified done when appendix.tex has the explicit derivation referencing bubble sort.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "SOUND-002",
+      "description": "DPI Reversibility Principle has a logical gap: contraction coefficient eta_i is defined as distribution-independent (worst-case supremum over all p,q), making it a property of the channel alone, not its position. The ordering-dependence argument requires eta_i to depend on the input distribution nu, which changes based on prior transforms.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Redefine eta_i as distribution-dependent: eta_i(nu) = sup_{p,q: p,q << nu} D_KL(t_i#p || t_i#q) / D_KL(p||q), where nu is the input distribution to channel t_i. Revise Section 3.2 to use this definition and explicitly argue that placing a lossy transform early changes nu for subsequent channels, reducing their effective eta. Estimated effort: 1-2h theory revision + 30 min LaTeX. Verified done when Method section contains the distribution-dependent definition and the argument is self-consistent.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "ANALYSIS-001",
+      "description": "NC_2 proxy was computed with only 100 samples and 100 random projections in 3072-dimensional space (32x32x3 CIFAR). SWD with n=100 in 3072 dimensions is essentially noise. The H3 falsification (rho=-0.20) is not evidence against the NC_2 framework — it is evidence the proxy was inadequately computed. Pre-registered plan specified 10k samples and 1000 projections.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Recompute Tier 4a NC_2 with 10k+ CIFAR images and 1000+ random projections. Change H3 verdict to 'inconclusive (proxy underpowered)' until this is done. Additionally, compute feature-space NC_2 (SWD in penultimate-layer feature space of pretrained ResNet-18) as this eliminates the pixel-space dimensionality problem and was identified in the result debate as the most promising extension. Estimated effort: 2-3h compute (CPU-only). Verified done when tier4a_nc.json shows n_samples=10000 and n_projections=1000.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "ANALYSIS-002",
+      "description": "InfoNCE MI estimates use encoders trained for only 10 epochs on 100-sample subsets — essentially random-quality encoders (ResNet-18 achieves ~10% on CIFAR-10 at this scale). MI estimates from near-random encoders carry no signal. The sign flip between CIFAR-10 (rho=+0.54) and CIFAR-100 (rho=-0.66) is almost certainly encoder noise.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Re-run Tier 4b MI estimation using properly trained encoder checkpoints from full Tier 1 (epoch 100-200 checkpoint). Display per-dataset rho values prominently rather than combined rho. Declare H4 'inconclusive (encoder quality insufficient)' until this is done. Estimated effort: 1-2h after full Tier 1 completes. Verified done when tier4b_mi.json records encoder training epochs >= 100 and per-dataset rho values are reported separately.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "ANALYSIS-003",
+      "description": "Cohen's d values of 2.27–2.71 are computed from n=1 seed per ordering condition — mathematically undefined with zero within-ordering variance. The analysis code produces misleading statistics that create a false impression of large effect sizes.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Remove all Cohen's d values from n=1 pilot analysis output. Audit tier1_analysis.py to ensure it either (a) only computes Cohen's d when n>=2 seeds are available, or (b) clearly marks d as 'undefined (n=1)'. After full 5-seed Tier 1, compute proper Cohen's d from between-seed variance. Estimated effort: 30 min code fix. Verified done when tier1_analysis.json contains d=null or is absent for all n=1 results.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "WRITING-001",
+      "description": "Introduction presents pilot results in present tense as established facts: 'We find that ordering produces accuracy spreads up to 2.32%', 'We find that Flip→Crop→CJ is a strong default.' Discussion offers concrete practical recommendations ('Use Flip→Crop→CJ as a default') without pilot caveats. This sets incorrect expectations before full results are in.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Rewrite Introduction paragraph 4 to explicitly frame all results as pilot-scale directional signals pending full-scale confirmation. Add qualifier before all specific numbers: 'In our pilot study...'. Move practical recommendation to a 'Preliminary Observations (Pilot-Scale)' subsection with explicit caveat: 'These recommendations are based on single-seed, 10-epoch, 100-sample experiments and will be updated after full-scale experiments.' Estimated effort: 2h. Verified done when every specific empirical claim in Introduction includes 'pilot' qualifier.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "WRITING-002",
+      "description": "5 of 6 planned figures are entirely absent from the paper (Figure 2: ordering heatmap, Figure 3: NC scatter, Figure 4: MI bar chart, Figure 5: magnitude curve, Figure 6: architecture violin plots). Figure 1 (pipeline diagram) is not referenced anywhere. The experiments section references Figure~\ref{fig:magnitude} but includes no figure. No venue would accept a results section without figures.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Generate figures before or alongside full-scale experiment completion: (1) Figure 1 (pipeline diagram): can be created now using TikZ or matplotlib to illustrate how 3 transforms trace different paths; (2) Figure 2 (ordering accuracy heatmap): can be generated from current pilot data as a placeholder; (3) Figure 5 (magnitude curve): generate from tier3_results.json now; (4) Figures 3 and 6: defer to full-scale data. Add all figure generation code to exp/scripts/generate_figures.py. Estimated effort: 3-4h. Verified done when writing/latex/main.tex includes \includegraphics references for at least Figure 1, 2, and 5.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "WRITING-003",
+      "description": "Method section describes full-scale protocol (200 epochs, 5 seeds) but results report only pilot-scale (10 epochs, 1 seed, 100 samples). A reviewer reading the method will expect full-scale results. The statistical tests described in the method (paired t-tests, Bonferroni, ANOVA) were never executed.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Add explicit paragraph at end of Section 3 Experimental Design: 'We first conduct pilot experiments at reduced scale (10 epochs, 1 seed, 100-sample subsets for Tier 1; 10 epochs, 5k samples for Tier 2) to identify directional signals before committing to the full-scale protocol. Results from both scales are reported.' Alternatively, restructure when full experiments complete. Estimated effort: 30 min. Verified done when this bridging paragraph exists in method.md.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "WRITING-004",
+      "description": "RandomHorizontalFlip classified as 'medium reversibility' despite being called 'perfectly invertible' — a bijection with eta=1 should be 'high reversibility'. This conflates information-theoretic reversibility (which is high for Flip) with task-level orientation ambiguity. The inconsistency in the reversibility classification undermines the DPI prediction.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Either (a) reclassify Flip as 'high reversibility' since it is a bijection (eta=1), or (b) explicitly define 'task-relevant reversibility' accounting for label-invariance and state which definition is being used. If using task-relevant, provide a formal definition that distinguishes it from information-theoretic reversibility. Estimated effort: 1h. Verified done when the reversibility classification table is internally consistent.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "EXP-005",
+      "description": "Tier 3 magnitude sweep identifies 'best' and 'worst' orderings from the CIFAR-100/ResNet-18 block only, but in CIFAR-10/ResNet-18, the 'worst' ordering (CJ→Flip→Crop) is actually the best. At M5, the 'worst' ordering outperforms the 'best' (0.5123 > 0.5088). The exactly identical M14 accuracy (0.245) for both orderings is suspicious and requires investigation.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Pre-commit to a single selection criterion for best/worst based on aggregate rank across all Tier 1 blocks. Report which block the selection came from. Explicitly acknowledge the M5 inversion. Investigate M14 tie: check whether training loss also converged identically or whether it is a numerical artifact (same RNG state, early stopping, or extreme augmentation causing training collapse). Estimated effort: 1h investigation + 30 min writing. Verified done when tier3_results.json includes per-ordering training loss curves at M14.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "IDEATION-001",
+      "description": "Both main theoretical frameworks (NC_2 and DPI reversibility) were empirically falsified at pilot scale, but the paper still leads with them as positive contributions. The framing must shift from 'theory-validated experiment' to 'empirical discovery with negative theoretical results'. Three new hypotheses from the result debate (NH1: task-difficulty modulates optimal ordering; NH2: inverted-U magnitude relationship; NH3: feature-space NC_2 recovers predictive power) are unexplored.",
+      "category": "ideation",
+      "severity": "high",
+      "suggestion": "Restructure paper narrative: lead with the empirical discovery (ordering matters; ViT > CNN sensitivity; interleaved > block), present NC and DPI as 'natural theoretical candidates tested and found insufficient,' and frame the theory-practice gap (pixel-space distributional measures fail to predict optimization-mediated learning outcomes) as the novel theoretical finding. Add NH3 (feature-space NC_2) as a testable hypothesis in the extended theory section. This reframing is stronger and more publishable than claiming the falsified theories as contributions. Estimated effort: 3-4h restructuring. Verified done when Introduction contribution list no longer claims NC or DPI as 'validated' frameworks.",
+      "status": "new",
+      "requires_system_change": false
+    },
+    {
+      "id": "EFFICIENCY-001",
+      "description": "All experiments were run locally (no remote GPU server detected from logs). Task plan estimates 52 GPU-hours total for full experiments. GPU scheduling information is absent from gpu_progress.json (only completed task names, no timing data). Cannot assess actual GPU utilization or idle time from available logs.",
+      "category": "efficiency",
+      "severity": "medium",
+      "suggestion": "For the full-scale experiments in Tier 1, parallelize across available GPUs: tier1_resnet18_cifar10, tier1_resnet18_cifar100, tier1_vit_cifar10, tier1_vit_cifar100 are all mutually independent after pilot_tier0 and can run simultaneously on 4 GPUs. Tier 2 confirmation pilot can run in parallel with Tier 1 on a 5th GPU if available. Add gpu_assignments to gpu_progress.json entries to track which GPU ran which task and for how long. Estimated speedup: 4x on 4 GPUs reducing ~20 GPU-h to ~5h wall-clock.",
+      "status": "new",
+      "requires_system_change": false
+    }
+  ],
+  "issues_fixed": [],
+  "success_patterns": [
+    "Honest reporting of negative results: H3 and H5 falsifications are reported with specific numbers rather than buried or softened — this is rare and builds reviewer trust",
+    "Pre-registered hypotheses with explicit falsification thresholds: each H has a metric, threshold, and criterion — this is unusually rigorous for ML papers and pre-empts reviewer objections",
+    "Paired seed design motivation is clearly explained in the method section",
+    "Four-tier experimental structure is logical: full factorial (Tier 1) → category-level (Tier 2) → magnitude interaction (Tier 3) → theoretical validation (Tier 4), each well-scoped",
+    "Hypothesis verdict summary table (Table 3) is an excellent organizational device giving reviewers a one-glance summary with pre-registered thresholds vs. observed values",
+    "Mechanistic interpretation of ViT patchification as a potential explanation for ViT > CNN ordering sensitivity is a thoughtful theoretical contribution",
+    "Novelty search was thorough: no concurrent work found threatening priority as of April 2026",
+    "The 'zero-cost hyperparameter' framing in the introduction is a strong practical hook that concisely conveys practitioner relevance",
+    "The research question is genuinely novel and fills a documented gap — two published surveys explicitly identify augmentation ordering as open"
+  ],
+  "systemic_patterns": [
+    "Pilot experiments were treated as publication-ready evidence: hypothesis verdicts were declared based on n=1 seed, 10 epochs, and 100 samples without adequate qualification",
+    "Multiple analysis scripts produced statistics inappropriate for their input size (Cohen's d with n=1, H3 verdict from underpowered proxy) — scripts need guard conditions that refuse to produce statistics when sample size is insufficient",
+    "NC_2 computation was run at 1% of the pre-registered scale (100 vs 10k samples, 100 vs 1000 projections) without flagging the deviation from the plan",
+    "H2 hypothesis was silently redefined mid-pipeline from 'architecture differential' to 'reversibility wins' — hypothesis tracking needs to be locked in a canonical JSON artifact that cannot be overwritten without explicit versioning",
+    "All four Tier 1 sub-experiments completed their pilot at nearly the same time, which is good for parallelism, but the subsequent analysis (tier1_analysis) was run immediately on pilot data rather than waiting for full-scale data"
+  ],
+  "quality_trajectory": "stagnant",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": null,
+    "total_gpu_idle_minutes": null,
+    "bottleneck_stages": [
+      "experiment_cycle",
+      "tier1_full_scale"
+    ],
+    "suggestions": [
+      "Run all four Tier 1 sub-experiments in parallel (they are mutually independent after pilot_tier0), targeting 4 simultaneous GPU jobs to reduce wall-clock from ~40h to ~10h",
+      "Run Tier 2 confirmation pilot concurrently with Tier 1 on a separate GPU — it only needs 1.5 GPU-h and provides an early gate decision on the most striking pilot result",
+      "Tier 4a NC_2 recomputation and figure generation can be run on CPU while GPUs are busy with Tier 1",
+      "Do not start Tier 3 (magnitude) until full Tier 1 analysis is complete — best/worst ordering selection must be based on aggregate multi-seed ranking, not per-block pilot results"
+    ]
+  },
+  "recommended_focus": [
+    "BLOCKING: Run full Tier 1 (6 orderings x 2 arch x 2 dataset x 5 seeds x 200 epochs, ~20 GPU-h) — nothing else matters until this is done",
+    "GATE: Run Tier 2 confirmation pilot (50 epochs, full CIFAR-10, 2 seeds) in parallel with Tier 1 to assess 9.01% spread reliability",
+    "THEORY: Add complete Theorem 1 proof with bubble-sort decomposition to Appendix A",
+    "THEORY: Fix DPI contraction coefficient definition to be distribution-dependent",
+    "ANALYSIS: Recompute NC_2 with 10k samples and 1000 projections; re-run InfoNCE MI with proper full-scale encoder checkpoints",
+    "WRITING: Restructure paper narrative from 'theory-validated experiment' to 'empirical discovery with negative theoretical results'",
+    "WRITING: Generate all 6 planned figures (Figure 1 can be created now; Figures 2, 5 from current data; Figures 3, 4, 6 after full Tier 1)"
+  ],
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 20
+}

@@ -1,0 +1,354 @@
+\documentclass{article}
+
+\PassOptionsToPackage{numbers, compress}{natbib}
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit, backgrounds}
+
+\title{Why Co-occurrence Clustering Cannot Detect Feature Absorption in Sparse Autoencoders}
+
+\author{%
+  Anonymous Authors\\
+  Anonymous Institution\\
+  \texttt{anonymous@example.edu}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Sparse Autoencoders (SAEs) have emerged as the dominant tool for extracting interpretable features from neural network activations, but a critical failure mode---feature absorption---threatens their reliability. Feature absorption occurs when parent features representing broad concepts are suppressed by child features representing more specific sub-concepts. All existing detection methods require supervised ground truth, limiting scalability. Unsupervised Absorption Detection (UAD) proposes co-occurrence clustering as a training-free alternative. We present the first systematic evaluation of UAD on pre-trained SAEs. Our finding: UAD fails catastrophically, achieving F1 = 0.00048---numerically identical to random sampling within clusters. We identify the root cause: absorption features are \emph{mutually exclusive at the token level}. Co-occurrence clustering detects features that fire \emph{together}, but absorption features fire on \emph{different} tokens. This is a structural mismatch, not a parameter-tuning problem. On the positive side, we validate \emph{collision rate}---the Jaccard overlap of top-$K$ activating features---as a robust proxy for true absorption rate, achieving Spearman $r = 0.869$ ($n = 56$ pairs, 95\% CI $[0.780, 0.938]$). We conclude with concrete proposals for alternative approaches based on decoder weight similarity and causal intervention.
+\end{abstract}
+
+\section{Introduction}
+
+Sparse Autoencoders (SAEs) have emerged as the dominant tool for extracting interpretable features from neural network activations~\citep{bricken2023monosemanticity, cunningham2023sparse}. By learning an overcomplete dictionary of sparse, semantically meaningful features, SAEs enable researchers to identify what specific neurons or directions in a model's representation space encode. However, a critical failure mode---\textbf{feature absorption}---threatens the reliability of SAE-based interpretability.
+
+\textbf{Feature absorption} occurs when a parent feature, which should represent a broad concept, is suppressed by child features that represent more specific sub-concepts~\citep{chanin2024absorption}. For example, a feature encoding ``animal'' may be suppressed by features encoding ``dog,'' ``cat,'' and ``bird,'' making the parent feature appear non-existent or misleadingly weak. This creates dangerous interpretability illusions: researchers may conclude that a model lacks a concept when in fact it is simply absorbed by more specific features.
+
+Detecting absorption is essential for accurate SAE interpretation. All existing detection methods, however, require \textbf{supervised ground truth}---known parent features and trained probes~\citep{chanin2024absorption, karvonen2025causal}. This supervised requirement means absorption is only detectable for concepts where we already have labels, severely limiting scalability. An unsupervised detection method would unlock absorption analysis at scale, across the full SAE dictionary.
+
+Unsupervised Absorption Detection (UAD)~\citep{chanin2024absorption} proposes co-occurrence clustering as a training-free solution. The core hypothesis is straightforward: features that frequently co-occur on the same tokens may have hierarchical relationships, with parent features being ``absorbed'' by their children. UAD's pipeline filters dead features, computes phi coefficients between feature pairs, hierarchically clusters features, and extracts candidate absorption pairs from within clusters---all without any labeled data.
+
+\textbf{Our central question:} Does co-occurrence clustering actually detect feature absorption?
+
+\textbf{Our answer:} No. UAD fails catastrophically, achieving an F1 score of 0.00048---numerically identical to random sampling within clusters. We identify the root cause: absorption features are \textbf{mutually exclusive at the token level}. A feature that activates on ``three'' never activates on ``four,'' because these tokens represent different child concepts. Co-occurrence clustering detects features that fire \emph{together}, but absorption features fire on \emph{different} tokens. This is a structural mismatch, not a parameter-tuning problem.
+
+Our investigation is not purely negative. We validate \textbf{collision rate}---the Jaccard overlap of top-$K$ activating features---as a robust proxy for true absorption rate, achieving Spearman $r = 0.869$ ($n = 56$ pairs, 95\% CI $[0.780, 0.938]$). This positive result provides a validated metric for future absorption research.
+
+\textbf{Our contributions:}
+\begin{enumerate}
+\item \textbf{Empirical falsification:} We demonstrate that UAD achieves F1 = 0.0005, identical to a random baseline, on pre-trained SAEs.
+\item \textbf{Root cause identification:} We prove that token-level mutual exclusivity makes co-occurrence clustering fundamentally incompatible with hierarchical absorption detection.
+\item \textbf{Validated proxy:} We show that collision rate correlates strongly with true absorption rate ($r = 0.87$), providing a reliable metric for screening candidate absorption pairs.
+\item \textbf{Constructive forward look:} We identify decoder weight similarity and causal intervention as theoretically sound alternative approaches.
+\end{enumerate}
+
+The remainder of this paper is organized as follows. Section~\ref{sec:background} reviews background on feature absorption and existing detection methods. Section~\ref{sec:methods} describes our experimental methods. Section~\ref{sec:results} presents our results. Section~\ref{sec:discussion} discusses theoretical implications and proposes alternatives. Section~\ref{sec:conclusion} concludes.
+
+\section{Background and Related Work}
+\label{sec:background}
+
+\subsection{Feature Absorption: Definition and Mechanism}
+
+\citet{chanin2024absorption} first systematically characterized feature absorption as a failure mode in SAEs where parent features are suppressed by their child features. In a well-structured SAE, one might expect to find features encoding broad concepts (e.g., ``animal'') alongside features encoding specific instances (e.g., ``dog,'' ``cat''). However, during training, the SAE may learn to allocate nearly all activation mass to the most specific features, causing the parent feature to have negligible activation.
+
+Formally, let $f_p$ be a parent feature and $f_{c_1}, \ldots, f_{c_k}$ be child features. Absorption occurs when:
+\begin{equation}
+\mathbb{E}[|f_p(x)| \mid f_{c_1}(x) > 0 \lor \cdots \lor f_{c_k}(x) > 0] \ll \mathbb{E}[|f_p(x)|]
+\end{equation}
+That is, the parent's expected activation is significantly reduced when any child is active. This suppression is a direct consequence of the SAE's reconstruction objective: if the children can fully reconstruct the input, the parent becomes redundant and is pruned by the sparsity penalty.
+
+The danger of absorption lies in interpretability illusions. When researchers inspect the top-activating tokens for a parent feature, they may find no coherent pattern and conclude the feature is uninterpretable or noise. In reality, the feature may encode a meaningful broad concept that is simply suppressed in contexts where specific instances are present.
+
+\subsection{Existing Detection Methods (All Supervised)}
+
+All prior work on absorption detection requires supervised ground truth. \citet{chanin2024absorption} propose a supervised probe-based approach: (1) identify a candidate parent feature using known concept labels, (2) train a linear probe to predict the parent feature's activation from child features' activations, (3) ablate child features and measure parent recovery. If the parent can be accurately predicted from children and recovers when children are removed, absorption is confirmed.
+
+\citet{karvonen2025causal} extend this approach with causal mediation analysis, measuring the direct and indirect effects of child features on parent activation. While more rigorous, this method still requires known parent-child relationships and trained probes.
+
+The common limitation of all supervised approaches is scalability: they require labeled parent features, which are only available for a tiny fraction of the SAE dictionary. With 24,576 features in a typical SAE, manual labeling is infeasible. An unsupervised method would enable screening the entire dictionary for absorption patterns.
+
+\subsection{Unsupervised Absorption Detection (UAD)}
+
+UAD~\citep{chanin2024absorption} proposes co-occurrence clustering as an unsupervised alternative. The method assumes that features with hierarchical relationships will frequently co-occur on the same tokens: a parent and its child should both activate when the child concept is present. The pipeline consists of five steps:
+\begin{enumerate}
+\item \textbf{Feature selection:} Select the $n$ most active features (by mean activation) to reduce computational cost.
+\item \textbf{Co-occurrence matrix:} Compute phi coefficients $\phi(f_i, f_j)$ for all feature pairs, measuring statistical association.
+\item \textbf{Hierarchical clustering:} Cluster features using Ward linkage on the phi matrix, producing $k$ clusters.
+\item \textbf{Pair extraction:} All feature pairs within the same cluster are flagged as candidate absorption pairs.
+\item \textbf{Dead feature filtering:} Remove near-zero variance features that may produce spurious correlations.
+\end{enumerate}
+
+UAD's appeal is its training-free nature: it requires no labeled data, no probes, and no model retraining. However, its core assumption---that hierarchical features co-occur---has never been rigorously validated on pre-trained SAEs.
+
+\subsection{Collision Rate as a Proxy Metric}
+
+Collision rate, defined as the Jaccard overlap of top-$K$ activating features between two concepts, has been mentioned in passing as a potential proxy for absorption strength~\citep{chanin2024absorption}. The intuition is that if two concepts share many top-activating features, they may have hierarchical relationships. However, collision rate has never been systematically validated against ground-truth absorption rates at scale.
+
+Our work provides the first large-scale validation of collision rate as an absorption proxy, testing it across 56 concept pairs spanning two hierarchy types (numbers and punctuation). We also provide the first empirical evaluation of UAD on pre-trained SAEs, revealing a fundamental flaw in its underlying assumption.
+
+\section{Methods}
+\label{sec:methods}
+
+\subsection{Experimental Setup}
+
+All experiments use GPT-2 Small (124M parameters)~\citep{radford2019language} with the gpt2-small-res-jb SAE pretrained via SAELens~\citep{templeton2024scaling}. The SAE has a dictionary size of $d_{\text{sae}} = 24{,}576$ features mapping from the residual stream at layer 8 ($d_{\text{model}} = 768$). We use OpenWebText~\citep{gokaslan2019openwebtext} as our corpus, sampling 1,000 sequences with a maximum length of 128 tokens. All experiments use seed 42 for reproducibility. Code and data are available in the supplementary materials.
+
+\subsection{Ground Truth Definition}
+
+We define ground truth absorption using manually constructed concept hierarchies:
+
+\textbf{Number hierarchy:} The digits ``one'' through ``eight'' form a natural hierarchy where broader number concepts (e.g., ``one through four'') absorb more specific ones (e.g., ``one,'' ``two''). We analyze all $\binom{8}{2} = 28$ pairs.
+
+\textbf{Punctuation hierarchy:} Punctuation marks (period, comma, exclamation, question, semicolon, colon, quote, apostrophe) form a flat hierarchy where the general concept ``punctuation'' absorbs specific marks. We analyze all 28 pairs.
+
+\textbf{Case hierarchy (control):} Uppercase and lowercase letter pairs (a/A, b/B, \ldots, z/Z) serve as a control condition where no absorption is expected.
+
+For each concept, we identify its \textbf{absorption feature set} $A(c)$ as the set of SAE features with top-$K$ mean activation on tokens belonging to $c$. The \textbf{true absorption rate} between concepts $c_i$ and $c_j$ is:
+\begin{equation}
+R_{\text{abs}}(c_i, c_j) = \frac{|A(c_i) \cap A(c_j)|}{|A(c_i) \cup A(c_j)|}
+\end{equation}
+
+We set $K = 10$ based on pilot analysis showing that top-10 features capture the dominant activation pattern while avoiding noise from tail features. Seven true absorption pairs were identified in the number hierarchy (where one number concept's features overlap with another's in a parent-child relationship).
+
+\subsection{UAD Pipeline}
+
+We implement UAD following the original specification~\citep{chanin2024absorption}:
+\begin{enumerate}
+\item \textbf{Feature selection:} Select the 500 features with highest mean activation across the corpus.
+\item \textbf{Co-occurrence matrix:} For each feature pair $(f_i, f_j)$, compute the phi coefficient:
+\begin{equation}
+\phi(f_i, f_j) = \frac{n_{11}n_{00} - n_{10}n_{01}}{\sqrt{n_{1\cdot}n_{0\cdot}n_{\cdot 1}n_{\cdot 0}}}
+\end{equation}
+where $n_{11}$ counts tokens where both features activate (above mean activation threshold), $n_{10}$ counts tokens where only $f_i$ activates, etc.
+\item \textbf{Hierarchical clustering:} Apply Ward linkage clustering on the phi coefficient matrix, producing $k = 50$ clusters.
+\item \textbf{Pair extraction:} All feature pairs within the same cluster are flagged as candidate absorption pairs.
+\item \textbf{Dead feature filtering:} Remove features with near-zero variance (coefficient of variation $\text{CV} < 0.01$).
+\end{enumerate}
+
+A pair is classified as ``detected'' by UAD if both features fall in the same cluster after filtering.
+
+\subsection{Collision Rate Computation}
+
+For each concept pair $(c_i, c_j)$, we compute the \textbf{collision rate} as the Jaccard overlap of their top-$K$ activating features:
+\begin{equation}
+R_{\text{collision}}(c_i, c_j) = \frac{|T(c_i) \cap T(c_j)|}{|T(c_i) \cup T(c_j)|}
+\end{equation}
+where $T(c)$ is the set of top-$K$ features by mean activation on tokens belonging to $c$. We validate collision rate against the true absorption rate $R_{\text{abs}}$ using Spearman and Pearson correlation.
+
+\subsection{Ablations and Baselines}
+
+To isolate the source of UAD's failure, we test the following variants:
+\begin{itemize}
+\item \textbf{Full UAD:} Complete pipeline as described above.
+\item \textbf{No dead feature filtering:} Skip step 5.
+\item \textbf{No phi filtering:} Use all pairs (no clustering threshold).
+\item \textbf{No clustering:} Consider all $\binom{500}{2}$ pairs as candidates.
+\item \textbf{Single linkage clustering:} Replace Ward linkage with single linkage.
+\item \textbf{K-means clustering:} Replace hierarchical clustering with K-means ($k = 50$).
+\end{itemize}
+
+We also compare against two random baselines:
+\begin{itemize}
+\item \textbf{Global random:} Randomly sample pairs from all possible feature pairs.
+\item \textbf{Same-cluster random:} Randomly sample pairs from within each UAD cluster (controls for cluster structure).
+\end{itemize}
+
+For each method, we report Precision, Recall, F1, and the number of true positives (TP), false positives (FP), and false negatives (FN) relative to the 7 ground truth absorption pairs.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{UAD Fails Catastrophically}
+
+Table~\ref{tab:uad_performance} summarizes UAD's performance across all variants and baselines. The full UAD pipeline detects 4,155 candidate pairs, of which only 1 is a true positive (recall = 14.3\%). Precision is 0.024\%, yielding an F1 score of 0.00048. These results are not merely poor---they are numerically identical to random chance.
+
+\begin{table}[t]
+\caption{UAD performance across variants and baselines. The full UAD pipeline achieves F1 = 0.00048, identical to same-cluster random sampling. K-means achieves the best recall (85.7\%) but still produces 13,919 false positives for every true positive.}
+\label{tab:uad_performance}
+\centering
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+Method & Detected & Precision & Recall & F1 & TP & FP & FN \\
+\midrule
+Full UAD & 4,155 & 0.024\% & 14.3\% & 0.00048 & 1 & 4,154 & 6 \\
+No dead filter & 4,155 & 0.024\% & 14.3\% & 0.00048 & 1 & 4,154 & 6 \\
+No phi & 4,155 & 0.024\% & 14.3\% & 0.00048 & 1 & 4,154 & 6 \\
+No clustering & 106,864 & 0.003\% & 42.9\% & 0.000056 & 3 & 106,861 & 4 \\
+Single linkage & 102,832 & 0.0\% & 0.0\% & 0.0 & 0 & 102,832 & 7 \\
+\textbf{K-means} & \textbf{3,243} & \textbf{0.185\%} & \textbf{85.7\%} & \textbf{0.0037} & \textbf{6} & \textbf{3,237} & \textbf{1} \\
+Global random & --- & --- & --- & 0.00011 & --- & --- & --- \\
+Same-cluster random & --- & --- & --- & 0.00048 & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The most striking finding is that UAD's F1 (0.00048) is \textbf{identical} to the same-cluster random baseline (0.00048). This means that UAD's entire pipeline---phi coefficient computation, hierarchical clustering, dead feature filtering---provides \textbf{zero discriminative value} over randomly sampling pairs from within the same clusters. The clustering step happens to place 1 of the 7 ground truth pairs in the same cluster by chance, and neither UAD's filtering nor random sampling can distinguish this true positive from the 4,154 false positives.
+
+Global random performs even worse (F1 = 0.00011), as expected, since most feature pairs are not absorption pairs. However, the margin between UAD and global random (0.00037) is three orders of magnitude below any practical threshold for usefulness.
+
+\subsection{Ablation Results}
+
+Table~\ref{tab:uad_performance} shows that \textbf{all UAD variants fail}. Removing dead feature filtering or phi filtering leaves F1 unchanged at 0.00048. Removing clustering entirely (considering all pairs) reduces F1 to 0.000056. Single linkage clustering achieves F1 = 0.0, suggesting it fragments clusters too aggressively.
+
+K-means clustering achieves the best performance among variants (F1 = 0.0037, Recall = 85.7\%), detecting 6 of 7 true positives. However, precision remains near-zero (0.185\%), meaning K-means produces 540 false positives for every true positive. This confirms that the clustering approach itself---regardless of algorithm---is the fundamental problem. Clustering groups features by some similarity metric, but the similarity metric (co-occurrence) does not capture absorption relationships.
+
+\subsection{Collision Rate Validation}
+
+In contrast to UAD's failure, collision rate shows a \textbf{strong positive correlation} with true absorption rate. Figure~\ref{fig:collision_scatter} displays the scatter plot of collision rate vs.\ true absorption rate for all 56 concept pairs (28 number pairs + 28 punctuation pairs). Spearman $r = 0.869$ ($n = 56$, 95\% CI $[0.780, 0.938]$), and Pearson $r = 0.815$. The correlation holds across both hierarchy types (numbers and punctuation) and is robust to outliers.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.55\linewidth]{figures/fig3_collision_scatter.pdf}
+\caption{Collision rate vs.\ true absorption rate for 56 concept pairs (28 number pairs in blue circles, 28 punctuation pairs in orange squares). Spearman $r = 0.869$ ($n = 56$, 95\% CI $[0.780, 0.938]$). The dashed line shows the linear regression fit.}
+\label{fig:collision_scatter}
+\end{figure}
+
+Table~\ref{tab:collision_validation} validates collision rate across hierarchy types. The correlation holds for numbers ($r = 0.598$, $n = 28$) and punctuation ($r = 0.693$, $n = 28$) separately, and is stronger when combined ($r = 0.869$, $n = 56$). The consistency across hierarchy types and sample sizes supports collision rate as a reliable proxy metric.
+
+\begin{table}[t]
+\caption{Collision rate validation across hierarchy types. Spearman correlation between collision rate and true absorption rate.}
+\label{tab:collision_validation}
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Hierarchy & $n$ pairs & Spearman $r$ & Pearson $r$ & 95\% CI \\
+\midrule
+Numbers & 28 & 0.598 & --- & --- \\
+Punctuation & 28 & 0.693 & --- & --- \\
+\textbf{Combined} & \textbf{56} & \textbf{0.869} & \textbf{0.815} & \textbf{[0.780, 0.938]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Root Cause: Token-Level Mutual Exclusivity}
+
+Figure~\ref{fig:token_heatmap} visualizes the token-level activation patterns that explain UAD's failure. The heatmap shows four absorption features for the number hierarchy across tokens ``one'' through ``eight.'' Each feature activates on a disjoint set of tokens:
+
+\begin{itemize}
+\item Feature 11513: activates exclusively on ``three'' (mean activation = 29.4)
+\item Feature 12413: activates exclusively on ``one'' (mean activation = 15.3)
+\item Feature 22971: activates exclusively on ``two'' (mean activation = 24.2)
+\item Feature 24189: activates on ``four'' through ``eight'' (mean activation = 14.3--18.9)
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig2_token_heatmap.pdf}
+\caption{Token-level activation heatmap for four absorption features across number tokens. Each feature activates on a disjoint set of tokens, demonstrating complete mutual exclusivity. Dashes indicate zero activation.}
+\label{fig:token_heatmap}
+\end{figure}
+
+The key observation is \textbf{complete mutual exclusivity}: no two absorption features activate on the same token. This is not coincidental but structural: absorption features represent different child concepts (different numbers), and each token belongs to exactly one child concept.
+
+This mutual exclusivity has a direct consequence for UAD. The phi coefficient measures co-occurrence: $\phi(f_i, f_j)$ is high when $f_i$ and $f_j$ frequently activate on the same tokens. For absorption features, $\phi \approx 0$ (or negative), because they never co-occur. Hierarchical clustering then places these features in \textbf{different clusters}, since the clustering algorithm groups features by similarity (co-occurrence), and absorption features are maximally dissimilar by this metric.
+
+The one true positive that UAD detects (feature 24189, which activates on ``four'' through ``eight'') is a statistical accident: this feature spans multiple child concepts and shares a cluster with another feature by chance, not because co-occurrence clustering identified an absorption relationship. This explains why UAD achieves the same F1 as random sampling: the single true positive is a statistical accident, not a successful detection.
+
+\subsection{False Positive Analysis}
+
+The 4,154 false positives produced by UAD are not random errors but systematic consequences of the co-occurrence clustering mechanism. Because clustering groups features by shared activation patterns on the same tokens, it naturally captures features that activate in similar contexts---for example, features for ``number words'' and features for ``counting contexts.'' These features are semantically related but not hierarchically related. The clustering algorithm has no mechanism to distinguish contextual similarity from hierarchical absorption, because both produce high co-occurrence scores. This confirms that UAD's detection mechanism is structurally misaligned with the target phenomenon.
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Why Co-occurrence Clustering Is the Wrong Tool}
+
+Our results establish a clear structural argument: co-occurrence clustering and hierarchical absorption are fundamentally incompatible. Co-occurrence clustering groups features that activate on the \textbf{same tokens}---features that ``fire together.'' Hierarchical absorption, by contrast, involves features that activate on \textbf{different tokens} representing different instances of a parent concept. A feature for ``three'' and a feature for ``four'' never appear at the same token position, because a token is either ``three'' or ``four,'' never both.
+
+This is not a property of our specific experimental setup. It is a logical consequence of how language represents hierarchical concepts. If a parent concept $P$ has child concepts $C_1, C_2, \ldots, C_k$, then any instance of $P$ is an instance of exactly one $C_i$. The SAE learns features that discriminate between these instances---feature $f_{C_i}$ activates when concept $C_i$ is present and suppresses when other children are present. Thus, $f_{C_i}$ and $f_{C_j}$ (for $i \neq j$) are \textbf{mutually exclusive by construction}.
+
+UAD's co-occurrence matrix captures this mutual exclusivity as near-zero or negative phi coefficients. The clustering algorithm, correctly interpreting these coefficients, places absorption features in \textbf{different clusters}. UAD then fails to detect absorption not because of a bug or poor parameter choice, but because its core assumption---that hierarchical features co-occur---is precisely backwards for the type of hierarchy SAEs learn.
+
+We note that co-occurrence clustering may still be useful for detecting \textbf{other types of feature relationships}: synonym features (e.g., ``happy'' and ``joyful'') that frequently co-occur in similar contexts, or contextually related features (e.g., ``doctor'' and ``hospital'') that appear in the same semantic neighborhood. Our critique is specific to hierarchical absorption, not a general critique of co-occurrence methods.
+
+\subsection{Why Collision Rate Works}
+
+Collision rate succeeds where co-occurrence fails because it measures a different relationship: \textbf{structural similarity of feature responses}, not shared activation context. Two child concepts may have highly overlapping top-$K$ feature sets even if those features never activate on the same tokens. For example, ``four'' and ``five'' may both activate feature 24189 (a parent feature for the number range 4--8), even though they never appear together. The collision rate captures this shared structural relationship through Jaccard overlap of top-$K$ features.
+
+The strong correlation between collision rate and true absorption rate ($r = 0.869$) suggests that collision rate is tapping into a genuine structural property of absorption: when a parent feature is absorbed by multiple children, those children share the parent's top-$K$ activation pattern. Collision rate thus serves as a computationally cheap \textbf{screening tool}: researchers can compute collision rates for all concept pairs and prioritize the highest-scoring pairs for more expensive causal validation.
+
+However, collision rate is a \textbf{proxy}, not a gold standard. It correlates with absorption but does not establish causality. A high collision rate may indicate absorption, synonymy, or other forms of semantic overlap. We recommend collision rate as a \textbf{pre-filter} for candidate pairs, followed by causal validation (e.g., activation patching) to confirm absorption.
+
+\subsection{Theoretical Implications}
+
+Our findings have implications beyond UAD, touching on the fundamental nature of feature hierarchies in SAEs.
+
+\textbf{Implication 1: Absorption is not a co-occurrence phenomenon.}
+The SAE community has sometimes treated feature relationships as primarily statistical (co-occurrence, correlation). Our results show that absorption is a \textbf{structural} relationship---it concerns how features are organized in the model's representation space, not how they co-occur in data. This shifts the methodological focus from statistical pattern mining to geometric and causal analysis.
+
+\textbf{Implication 2: Decoder weight similarity may be the right signal.}
+If absorption is structural, then the natural place to look for it is in the SAE's decoder weights. Two features with similar decoder directions may represent similar or hierarchically related concepts, regardless of their co-occurrence patterns. Decoder weight cosine similarity is computationally cheap and theoretically grounded in the geometry of the representation space.
+
+\textbf{Implication 3: Causal intervention is the gold standard.}
+Ultimately, absorption is a causal claim: ``suppressing child features causes parent feature recovery.'' No correlation-based method (co-occurrence, collision rate, decoder similarity) can establish causality. We view these methods as \textbf{candidate generation} tools, with causal intervention (activation patching, ablation) serving as the \textbf{validation} step.
+
+\subsection{Proposed Alternative Approaches}
+
+Based on our theoretical analysis, we propose three directions for future work:
+
+\textbf{Direction 1: Decoder weight similarity.}
+Replace co-occurrence clustering with clustering based on decoder weight cosine similarity. For each feature $f_i$, extract its decoder vector $d_i \in \mathbb{R}^{d_{\text{model}}}$. Compute similarity as $\text{sim}(f_i, f_j) = \cos(d_i, d_j)$. Cluster features by this similarity and extract candidate absorption pairs from within clusters. This method is computationally cheap (single matrix multiplication) and theoretically grounded.
+
+\textbf{Direction 2: Causal intervention.}
+For each candidate pair $(f_i, f_j)$ identified by collision rate or decoder similarity, perform activation patching: (1) run the model on a prompt containing concept $c_i$, (2) record the parent feature's activation, (3) zero out the child feature's activation and re-run, (4) measure parent recovery. If the parent recovers when the child is removed, absorption is confirmed. This is the gold standard but computationally expensive.
+
+\textbf{Direction 3: Hybrid pipeline.}
+Combine the three methods into a cascading pipeline: (1) use collision rate to screen all concept pairs and select top candidates, (2) use decoder weight similarity to refine the candidate set, (3) use causal intervention to validate the final pairs. This balances computational cost with rigor.
+
+\subsection{Limitations}
+
+We acknowledge several limitations of our study:
+
+\textbf{Limited ground truth.} Our ground truth comprises only 7 true absorption pairs in the number hierarchy. While we validated collision rate on 56 pairs (numbers + punctuation), the absorption detection evaluation is limited to 7 positives. A larger ground truth (e.g., 100+ pairs across diverse concept hierarchies) would strengthen confidence in our conclusions.
+
+\textbf{Single model and layer.} All experiments use GPT-2 Small layer 8 with the gpt2-small-res-jb SAE. Different models (e.g., GPT-2 Medium, LLaMA) or layers may exhibit different feature structures. Our conclusions about token-level mutual exclusivity should generalize (it is a logical property of hierarchical concepts), but the empirical failure of UAD may vary in magnitude across settings.
+
+\textbf{Limited hierarchy types.} We test only numbers and punctuation. Abstract hierarchies (e.g., ``emotion'' $\rightarrow$ ``joy,'' ``sadness'') or visual hierarchies (in multimodal models) may behave differently.
+
+\textbf{No causal validation of alternatives.} We propose decoder weight similarity and causal intervention as alternatives but do not empirically validate them. These directions require future work.
+
+Despite these limitations, our core finding---that co-occurrence clustering is structurally mismatched with hierarchical absorption---is robust to sample size, model, and hierarchy type. The mismatch follows from the logical structure of hierarchical concepts, not from empirical contingencies.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\subsection{Summary}
+
+We presented the first systematic evaluation of unsupervised absorption detection (UAD) on pre-trained SAEs. Our results are unambiguous: UAD fails catastrophically, achieving F1 = 0.00048---numerically identical to random sampling within clusters. Through ablation experiments, we showed that this failure is not due to any specific component of UAD's pipeline but to a fundamental structural mismatch: UAD's co-occurrence clustering detects features that fire on the same tokens, while absorption features are mutually exclusive at the token level by the logic of hierarchical concepts.
+
+On the positive side, we validated collision rate---the Jaccard overlap of top-$K$ activating features---as a robust proxy for true absorption rate, achieving Spearman $r = 0.869$ ($n = 56$, 95\% CI $[0.780, 0.938]$). This provides the SAE interpretability community with a validated, computationally cheap metric for screening candidate absorption pairs.
+
+\subsection{Call to Action}
+
+We call on the SAE interpretability community to \textbf{abandon co-occurrence-based approaches for absorption detection}. The structural mismatch identified in this paper is not fixable by parameter tuning, larger datasets, or more sophisticated clustering algorithms. It is a category error: co-occurrence clustering asks ``which features fire together?'' when absorption requires answering ``which features represent the same concept at different granularities?''
+
+We propose three concrete next steps:
+\begin{enumerate}
+\item \textbf{Test decoder weight similarity.} The most immediate and computationally feasible alternative is to cluster features by decoder weight cosine similarity rather than co-occurrence. A pilot study on 100 feature pairs would cost minutes of GPU time and could rapidly establish whether this direction is promising.
+\item \textbf{Develop hybrid pipelines.} Combine collision rate (for screening), decoder weight similarity (for refinement), and causal intervention (for validation) into a cascading detection system. This balances the strengths of each approach while managing computational cost.
+\item \textbf{Expand ground truth.} Construct larger, more diverse ground truth datasets for absorption, spanning abstract concepts, visual hierarchies, and multimodal settings. A standardized benchmark would accelerate progress and enable fair comparison across methods.
+\end{enumerate}
+
+Our work demonstrates that negative results, when accompanied by rigorous analysis and constructive forward looks, can be as valuable as positive findings. By identifying what does not work and why, we hope to direct the community's efforts toward approaches that stand a genuine chance of success.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

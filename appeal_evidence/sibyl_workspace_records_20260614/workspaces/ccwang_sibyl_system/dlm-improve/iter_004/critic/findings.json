@@ -1,0 +1,142 @@
+{
+  "summary": "当前 iteration 4 的 strongest evidence 确实来自 cand_espd 的 full-scale GSM8K bundle，但 paper、proposal、methodology 与 pilot history 之间仍存在明显 narrative drift。最严重的问题不是结果为负，而是对象线与速度线的主张边界、runtime contract 的一致性、以及 mechanism claim 的隔离程度还没有被整理成 reviewer 一眼可审的闭环。",
+  "findings": [
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "paper 已把 cand_espd 提升为整篇文章的主角，但 proposal 与 methodology 仍把 cand_bsr 定义为“唯一 quality front-runner”，且 object-level 线才是 iteration 4 原始 pivot 的主叙事。现在 manuscript 没有完整解释为何从 object-first 转成 speed-line-first，容易被 reviewer 读成在 full-scale 结果出来后重新挑最顺手的故事。",
+      "suggestion": "在 intro 与 discussion 中显式补一段 evidence-first narrative update：说明 iteration 4 的原计划、screening bundle 如何把 cand_bsr 降为 refine line、以及为何 full-scale only 使 cand_espd 暂时成为 mainline。把“proposal priority”与“evidence priority”分开写清楚，避免被指 narrative selection。",
+      "evidence": [
+        "idea/proposal.md",
+        "plan/methodology.md",
+        "exp/results/screening_decision_bundle_v1.json",
+        "writing/paper.md"
+      ]
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "paper 的核心解释是 entropy-routed compute survives a matched sham, 但 fixed-frontier sham 仍是部分不匹配控制：candidate/sham/shared controls 的 effective batch 分别为 54/52/57，peak VRAM 为 15289/41973/40910，avg_tokens_changed 为 4.16/0.29/3.58 或 0.25。换言之，candidate-sham gap 还混着 execution behavior 与 touched-token behavior 差异，尚不足以完全支撑干净的 mechanism-isolation 表述。",
+      "suggestion": "把 main claim 从“survives a matched sham”降级成“survives a stronger but still partially unmatched sham”；同时补一张 reviewer-facing confound table，逐项列出 frontier ratio matched 了什么、batch/VRAM/tokens_changed 没 matched 什么。若后续能做一次 tighter sham rerun，应优先补。",
+      "evidence": [
+        "exp/results/espd_fullscale_bundle_v1.json",
+        "exp/results/espd_gsm8k_full_v1.json",
+        "exp/results/espd_fixed_frontier_gsm8k_full_v1.json",
+        "exp/results/gsm8k_controls_full_v1.json",
+        "writing/paper.md"
+      ]
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "runtime contract 的主叙事还不够自洽。setup artifact 给出的 frozen runtime contract v2 最优路径是 eager + compile=true + safe batch 57，但 full-scale paper 与结果文件实际运行的是 eager + compile=false；paper 虽然诚实披露 compile/flash 未启用，但没有把“为何最佳 path 没用于 headline bundle”解释成 reviewer 可追踪的 runtime lineage decision。",
+      "suggestion": "在 experiments 或 appendix 增加一个 explicit runtime-lineage paragraph：先给出 frozen contract 的 best path，再说明 full-scale 为何沿用 retained contract 而不是 best path，并明确这意味着结果是 contract-constrained evidence 而非 hardware-optimal evidence。",
+      "evidence": [
+        "exp/results/iteration4_runtime_contract_v2.json",
+        "exp/results/summary.md",
+        "exp/results/espd_gsm8k_full_v1.json",
+        "exp/results/espd_fixed_frontier_gsm8k_full_v1.json",
+        "writing/paper.md",
+        "writing/runtime_lineage_table.md"
+      ]
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "paper 现在把 GSM8K full-scale bundle 写成 bounded full-scale study，但 methodology 明确要求第二 reasoning benchmark（优先 MATH500）以及 code-side boundary validation。当前正文只剩 GSM8K，一旦 reviewer 追问 generality，就会暴露为单 benchmark 单任务单 seed 结果。",
+      "suggestion": "在正文把 claim boundary 再缩一层，明确写成 GSM8K-only bounded study；同时把 MATH500/MBPP 缺失上升为一条一级 limitation，而不是仅在 future work 里轻描淡写。若要冲主会，优先补一个 reasoning benchmark，而不是再润色 GSM8K 单点叙事。",
+      "evidence": [
+        "plan/methodology.md",
+        "idea/proposal.md",
+        "writing/paper.md",
+        "exp/results/summary.md"
+      ]
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "paper 的 observer/controller split 目前仍带有理论中心结论的味道，但现有资产真正做出来的是 routing interpretation 的 empirical support，而不是 observer-controller split 的 direct matched test。也就是说，文章在概念层面仍有轻微 over-organization 风险：把较窄的 empirical outcome 上升成更广的 conceptual settlement。",
+      "suggestion": "在 abstract、introduction、discussion 三处统一改成：current evidence supports a routing/stopping interpretation for cand_espd, not a resolved observer/controller theory of training-free dLLM intervention。把 broader conceptual language 压缩成 hypothesis-generating framing。",
+      "evidence": [
+        "writing/paper.md",
+        "idea/proposal.md",
+        "context/literature.md"
+      ]
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "paper 已经很诚实，但 contribution framing 仍略显拥挤：既想说 entropy reinterpretation，又想说 sham-control discipline，又想说 runtime-lineage discipline，还想顺带更新 iteration 4 mainline。对于当前效果量，这些点全部同时当前文会稀释中心 punchline。",
+      "suggestion": "把贡献收缩成一个主句加两个 support points：主句是“a bounded entropy-routed compute result that survives a stronger sham”；support points 是“paired repair/harm accounting”与“runtime-lineage discipline”。不要让 paper 看起来像在一次性解决 attribution、evaluation protocol 和 theory reframing 三个层面。",
+      "evidence": [
+        "writing/paper.md",
+        "exp/results/summary.md"
+      ]
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "按 current literature scaffold，uncertainty-aware test-time scaling、guided decoding、search-based routing、memory augmentation 都已经拥挤。当前最可信的新意不是一个新的 broad method family，而是一个通过 stronger sham control 将 entropy 重新定位为 routing/stopping signal 的 bounded contribution。若 novelty section 不把这点讲窄，容易被并发工作压住。",
+      "suggestion": "在 novelty/related-work 口径上放弃“new intervention method”式暗示，改成“bounded attribution result in the small-gain regime”。同时主动承认与 Prism、SOAR、MetaState、sampler-centric evaluation 的关系：本文不是最强性能 paper，而是更强调 claim isolation。",
+      "evidence": [
+        "context/literature.md",
+        "writing/paper.md",
+        "idea/result_debate/comparativist.md"
+      ]
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "pilot-to-full 叙事仍有断裂。最早 pilot_summary 还要求如果 MGCD/DSG 都未分离 RAND-84 就不要进 full benchmark；随后 screening bundle 改成 cand_bsr refine、cand_espd advance；再之后 full-scale 只做了 cand_espd。这个路径并非不能成立，但 paper 目前几乎没有把这段筛选史写进正文，容易显得像 post-hoc candidate replacement。",
+      "suggestion": "在 method 或 appendix 给出 iteration-4 candidate ladder timeline：negative MGCD/DSG -> proposal pivot -> BSR/ESPD screening -> ESPD full-scale selection。把 selection rule 写成审稿人能追溯的实验流程，而不是只在内部文件里成立。",
+      "evidence": [
+        "exp/results/pilot_summary.json",
+        "exp/results/screening_decision_bundle_v1.json",
+        "exp/results/summary.md",
+        "writing/paper.md"
+      ]
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "metric-gaming 风险目前不算严重，因为 paper 没有用巨大 headline delta 夸张包装；但 speed/quality 双指标仍有潜在代理失真：candidate 在 full-scale 的 equal-quality speed 低于 shared controls，yet manuscript 读起来仍容易让人先记住“speed line positive”。如果 reviewer 更关注 absolute throughput，这会被反打。",
+      "suggestion": "在 Table 1 附近用一句更硬的话锁边界：cand_espd is not an absolute throughput winner; the positive result is candidate-versus-sham trade-off preservation. 这样可以提前化解“你明明没跑得最快，为什么叫 speed line”这一攻击点。",
+      "evidence": [
+        "exp/results/espd_fullscale_bundle_v1.json",
+        "exp/results/gsm8k_controls_full_v1.json",
+        "writing/paper.md"
+      ]
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "workspace 里其实已经有 figures、claim_boundary、primary_endpoint、runtime_lineage_table 等 supporting artifacts，但 paper 仍把 artifact release 主要写成 future-intent 语气。这会让实际已完成的复现资产没有转化成说服力。",
+      "suggestion": "把 future-release 语气改成 present-tense artifact inventory，并在 appendix 或 reproducibility statement 中明确列出已存在的支持文件。这样可以把当前最大的优势之一，即审计友好度，转成显性得分项。",
+      "evidence": [
+        "writing/figures/fig1_entropy_routed_compute.pdf",
+        "writing/figures/fig2_quality_speed.pdf",
+        "writing/figures/fig3_stopping_hist.pdf",
+        "writing/figures/fig4_runtime_lineage.pdf",
+        "writing/claim_boundary.md",
+        "writing/primary_endpoint.md",
+        "writing/runtime_lineage_table.md",
+        "writing/paper.md"
+      ]
+    }
+  ],
+  "metric_gaming_risks": [
+    "speed-line 口径容易把 candidate-versus-sham 的 trade-off positive 被误读成 absolute throughput superiority，但 full-scale shared controls 仍更快。",
+    "equal_compute_quality 与 equal_quality_speed 都是 bundle-internal derived metrics；若不同时展示 absolute latency、TPS、NFE，读者可能误把局部 trade-off 指标当成更强的泛化胜利。",
+    "pilot 中 cand_espd 与 fixed-frontier 在 accuracy 上完全持平，full-scale 才出现 +0.53pp gap；若不解释 pilot-to-full scale behavior，容易被质疑是小样本筛选偶然性。"
+  ],
+  "novelty_risks": [
+    "uncertainty-guided test-time scaling 与 dLLM inference engineering 已是拥挤赛道，论文若把自己写成新的 broad decoder family，容易被并发工作覆盖。",
+    "当前最真实的新意是 bounded attribution result，而不是 benchmark SOTA 或全新的 controller principle。",
+    "若不主动说明与 Prism、MetaState、sampler-centric evaluation 等工作的区分，reviewer 会默认本文只是同一波 test-time scaling 工作中的较弱实例。"
+  ],
+  "reproducibility_gaps": [
+    "frozen runtime contract 的 best path 与 full-scale executed path 不一致，当前正文没有完整解释为何 retained contract override 了 best path。",
+    "candidate-sham 的部分不匹配项虽可从 JSON 拼出来，但 paper 尚未提供一个单独的 confound summary 表。",
+    "当前正文没有把 iteration-4 candidate selection timeline 写成可复现流程，外部读者难以从 paper 本身复原为何只有 cand_espd 进入 full-scale。"
+  ]
+}

@@ -1,0 +1,180 @@
+{
+  "updated": "2026-03-19",
+  "estimated_score": "6.5/10 (current); 7.5-8.0/10 (after priority_1 + priority_2)",
+  "priority_1_blocking": [
+    {
+      "id": "A1",
+      "title": "Fix VGG-16-BN Table 3: all numbers wrong",
+      "category": "writing",
+      "effort": "2 hours (audit pipeline + regenerate)",
+      "description": "Every entry in Table 3 is incorrect when verified against actual epoch_metrics.jsonl. Paper inflates means by 0.04-0.10%. Correct values: constant=91.98+/-0.08, cosine=91.89+/-0.30, CWD=92.02+/-0.27, SWD=92.02+/-0.24, half_lambda=92.06+/-0.13, random_mask=91.96+/-0.36, no_wd=91.96+/-0.09, Phi spread=0.18%. Implement verify_figures.py to prevent future discrepancies.",
+      "blocking": "Data integrity; any submission"
+    },
+    {
+      "id": "A2",
+      "title": "Fix NoBN Table 5: reports seed maxima not means",
+      "category": "writing",
+      "effort": "30 minutes",
+      "description": "Table 5 constant=87.74 is seed_42 max, not 3-seed mean (actual mean=87.49+/-0.23). CWD=87.64 is also seed_42 max (actual mean=87.46+/-0.19). Gap shrinks from 0.10% to 0.03%.",
+      "blocking": "Data integrity; NoBN claims"
+    },
+    {
+      "id": "A3",
+      "title": "Run rho_high experiment (lambda=5e-3, 4 methods x 3 seeds)",
+      "category": "experiment",
+      "effort": "~3 GPU-hours, 12 runs",
+      "description": "The paper's central prediction (method sensitivity increases at high rho) has zero completed experimental data at rho>2.0. Figure 1's 'differentiation' zone is entirely extrapolated. Run ResNet-20/CIFAR-10/AdamW with lambda=5e-3 (rho~5.0), methods: constant, cwd_hard, cosine_schedule, no_wd, 3 seeds, 200 epochs. Use gradient clipping max_norm=5.0. Fallback to lambda=2e-3 (rho~2.0) if unstable.",
+      "blocking": "Theorem 1 non-trivial prediction; Figure 1 integrity; regime analysis"
+    },
+    {
+      "id": "A4",
+      "title": "Implement and test PMP-WD",
+      "category": "experiment",
+      "effort": "~1 hour coding + ~3 GPU-hours (6 runs)",
+      "description": "PMP-WD = clip(kappa*(rho*-rho_hat_t)+, 0, lambda_max) is ~30 LOC. Run at rho=0.5 (should match constant, validates theory) and rho=5.0 (should outperform constant, validates Theorem 3). Three seeds each. Even a null result validates the theory.",
+      "blocking": "Theorem 3 as contribution vs. thought experiment"
+    },
+    {
+      "id": "A5",
+      "title": "Write Appendices B.1 and B.3 (Theorem 1 and Theorem 3 proofs)",
+      "category": "writing",
+      "effort": "4-6 hours",
+      "description": "Four appendices cited but missing (B.1, B.3, B.4, A.3). At minimum B.1 (Theorem 1 full proof) and B.3 (PMP-WD derivation) must exist before submission. A theory paper without proofs is not submittable.",
+      "blocking": "Theorem validity; reviewer verification"
+    },
+    {
+      "id": "A6",
+      "title": "Verify '105 completed runs' claim",
+      "category": "analysis",
+      "effort": "1 hour",
+      "description": "Audit all epoch_metrics.jsonl files across iter_003 and iter_005 for exact epoch counts. Count only runs with 200+ completed epochs. Update the abstract with the verified count. Several incomplete experiments may be inflating the count.",
+      "blocking": "Abstract accuracy"
+    }
+  ],
+  "priority_2_high": [
+    {
+      "id": "A7",
+      "title": "Complete NoBN no_wd (seeds 123 and 456)",
+      "category": "experiment",
+      "effort": "~40 min, 2 runs",
+      "description": "NoBN no_wd has only seed_42 complete (200 ep). Seed_123 at 95 epochs, seed_456 missing. Need all 3 seeds to compute NoBN Phi spread (requires at least 3 methods).",
+      "blocking": "NoBN Phi spread; Theorem 1 NoBN test"
+    },
+    {
+      "id": "A8",
+      "title": "Launch matched-rho SGD no_wd (3 seeds)",
+      "category": "experiment",
+      "effort": "~1.5 GPU-hours, 3 runs",
+      "description": "Matched-rho SGD currently has constant (2 seeds) and CWD (2 seeds). no_wd is entirely missing. Cannot compute Phi spread without it. Without Phi spread, the SGD/AdamW confound resolution is impossible.",
+      "blocking": "Confound resolution claim"
+    },
+    {
+      "id": "A9",
+      "title": "Complete matched-rho SGD cwd_hard seed_456",
+      "category": "experiment",
+      "effort": "~15 min (81 more epochs)",
+      "description": "Currently at epoch 119/200. Easy completion.",
+      "blocking": "CWD matched-rho 3-seed mean"
+    },
+    {
+      "id": "A10",
+      "title": "Fix Cohen's d formula label",
+      "category": "writing",
+      "effort": "30 min",
+      "description": "Still labeled as 'paired formula' but values match unpaired pooled. Flagged in previous critique, uncorrected. Change description to unpaired pooled formula with note about paired t-test for p-values.",
+      "blocking": "Methodological accuracy"
+    },
+    {
+      "id": "A11",
+      "title": "Annotate Figure 1 with data coverage",
+      "category": "writing",
+      "effort": "1 hour",
+      "description": "Mark which zones of the three-zone regime diagram have complete data, partial data, or no data. Currently 2/3 zones are extrapolated without acknowledgment in the figure itself.",
+      "blocking": "Figure integrity"
+    },
+    {
+      "id": "A12",
+      "title": "Cross-validate CSI under SGD",
+      "category": "analysis",
+      "effort": "2 hours",
+      "description": "Compute Spearman CSI-accuracy correlation under SGD (data exists in iter_003). If CSI predicts SGD rankings but not AdamW, validates CSI as metric. If CSI fails everywhere, reframe or drop.",
+      "blocking": "CSI metric validity"
+    },
+    {
+      "id": "A13",
+      "title": "Verify rho_low actually achieves rho~0.05",
+      "category": "analysis",
+      "effort": "30 min",
+      "description": "rho_low constant accuracy (90.01+/-0.07) nearly matches standard rho constant (90.13+/-0.31). If effective rho did not change (dominated by gradient norm), the experiment tests the wrong regime. Extract per-layer rho from diagnostics.",
+      "blocking": "rho_low regime validity"
+    },
+    {
+      "id": "A14",
+      "title": "Write Appendix B.4 (RG derivation) and A.3 (CSI sensitivity)",
+      "category": "writing",
+      "effort": "3-4 hours",
+      "description": "Remaining two missing appendices. B.4 supports Remark 3.1 (dual derivation). A.3 supports CSI weight robustness claim in Section 3.2.",
+      "blocking": "Citation integrity"
+    }
+  ],
+  "priority_3_medium": [
+    {
+      "id": "A15",
+      "title": "Add n=5 seeds for key methods",
+      "category": "experiment",
+      "effort": "~6 GPU-hours, 12 runs",
+      "description": "Add seeds 789, 999 for constant/CWD/no_wd on CIFAR-10 AdamW + VGG-16-BN. Raises TOST power from 15% to 55% for delta=0.3%.",
+      "blocking": "Equivalence claim strength"
+    },
+    {
+      "id": "A16",
+      "title": "Complete rho_low experiments",
+      "category": "experiment",
+      "effort": "~2 GPU-hours",
+      "description": "CWD seed_123 at 346/400 epochs, half_lambda seed_42 at 106 epochs. Finish these plus missing seeds.",
+      "blocking": "Low-rho regime data"
+    },
+    {
+      "id": "A17",
+      "title": "Standardize method naming",
+      "category": "writing",
+      "effort": "30 min",
+      "description": "Multiple naming variants: cosine_schedule/cosine schedule/Cosine WD, no_wd/no-WD/no weight decay. Standardize throughout.",
+      "blocking": "Reader experience"
+    },
+    {
+      "id": "A18",
+      "title": "Reconcile CWD phi definition (u_t vs g_t)",
+      "category": "writing",
+      "effort": "30 min",
+      "description": "CWD uses sign(theta)=sign(u_t) but framework signature uses g_t. Explicitly state which and reconcile.",
+      "blocking": "Framework consistency"
+    },
+    {
+      "id": "A19",
+      "title": "ImageNet ResNet-50 experiments",
+      "category": "experiment",
+      "effort": "~12 GPU-hours",
+      "description": "User-specified requirement. 4 methods x 3 seeds x 90 epochs. Tests scale generalizability.",
+      "blocking": "Project requirement; reviewer scale expectation"
+    },
+    {
+      "id": "A20",
+      "title": "SPWD pilot (if compute allows)",
+      "category": "experiment",
+      "effort": "~4 GPU-hours",
+      "description": "Implement stable rank velocity feedback WD. Novel algorithm (8/10 novelty claimed). Lower priority than PMP-WD.",
+      "blocking": "Backup algorithm contribution"
+    }
+  ],
+  "score_trajectory": {
+    "current": "6.5",
+    "after_A1_A2_fixes": "6.7 (data-paper consistency restored)",
+    "after_A3_rho_high": "7.0 (Figure 1 empirically grounded)",
+    "after_A4_pmpwd": "7.5 (Theorem 3 validated)",
+    "after_A5_appendices": "7.8 (proofs available)",
+    "after_A7_A9_completions": "8.0 (all configurations complete)",
+    "after_A15_n5_seeds": "8.2 (equivalence claim robust)",
+    "after_A19_imagenet": "8.5 (scale validated)"
+  }
+}

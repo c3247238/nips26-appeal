@@ -1,0 +1,84 @@
+{
+  "pilot_experiments": [
+    {
+      "id": "activation_patching_pilot",
+      "hypothesis": "H-new: Activation Patching Validation",
+      "objective": "Validate whether 9 persistent core words represent genuine hierarchy-driven absorption",
+      "method": "Causal intervention - suppress child feature activation to zero, measure parent recovery",
+      "prompt_words": [
+        {"word": "eight", "template": "The sequence is eight, seven, six"},
+        {"word": "lower", "template": "The score is lower than expected"},
+        {"word": "liked", "template": "She liked the movie because"},
+        {"word": "offer", "template": "They offer free shipping on"},
+        {"word": "often", "template": "Things that happen often include"},
+        {"word": "between", "template": "The difference between them is"},
+        {"word": "around", "template": "The value is around five hundred"},
+        {"word": "before", "template": "Before you go, please"},
+        {"word": "because", "template": "She was happy because she"}
+      ],
+      "control": "Random SAE baseline (frozen orthonormal decoder, random encoder)",
+      "pass_criteria": {
+        "genuine_absorption": "recovery_rate > 0.5",
+        "metric_artifact": "recovery_rate < 0.2",
+        "inconclusive": "0.2 <= recovery_rate <= 0.5"
+      },
+      "expected_outcome": "Based on H7 (trained < random absorption), expecting metric artifact interpretation to dominate, but pilot will confirm or refute",
+      "samples": 9,
+      "seed": 42,
+      "timeout_seconds": 900,
+      "estimated_minutes": 15
+    },
+    {
+      "id": "random_sae_activation_patching",
+      "hypothesis": "H7 extension: Random SAE shows different recovery patterns",
+      "objective": "Compare activation patching recovery between trained and random SAE",
+      "method": "Same as activation_patching_pilot but using random SAE baseline",
+      "pass_criteria": {
+        "training_helps": "trained_recovery > random_recovery (training optimizes genuine absorption)",
+        "metric_artifact_confirmed": "both_recovery < 0.2 (both are artifacts)",
+        "inconclusive": "no significant difference"
+      },
+      "expected_outcome": "If H7 interpretation is correct, trained SAE should show HIGHER recovery (more genuine absorption that can be reversed) while random SAE shows LOWER recovery (spurious correlations)",
+      "samples": 9,
+      "seed": 42,
+      "timeout_seconds": 900,
+      "estimated_minutes": 15
+    },
+    {
+      "id": "dead_feature_stratified_analysis",
+      "hypothesis": "Exploratory: Dead features may explain high absorption metrics",
+      "objective": "Stratify activation patching results by feature L0 (active vs dead)",
+      "method": "Divide features into L0 > threshold (active) vs L0 = 0 (dead), compare recovery rates",
+      "pass_criteria": {
+        "dead_features_different": "dead_recovery != active_recovery (dead ratio matters)",
+        "dead_features_same": "dead_recovery ~= active_recovery (dead ratio doesn't affect conclusions)"
+      },
+      "expected_outcome": "If dead features explain absorption patterns, this validates concerns about 89-99% dead ratio",
+      "samples": 26,
+      "seed": 42,
+      "timeout_seconds": 600,
+      "estimated_minutes": 10
+    }
+  ],
+  "pilot_summary": {
+    "total_pilot_tasks": 3,
+    "total_estimated_minutes": 40,
+    "sequential": true,
+    "key_decision": "After pilot, decide whether to proceed to full experiment (26 words) or pivot based on inconclusive results"
+  },
+  "go_no_go_criteria": {
+    "go_full_experiment": [
+      "Pilot shows recovery_rate > 0.3 for >50% of words",
+      "Trained SAE shows higher recovery than random SAE",
+      "Results are not dominated by dead features"
+    ],
+    "go_inconclusive": [
+      "Results show mixed pattern but still informative",
+      "Report as 'inconclusive but suggestive of metric artifact'"
+    ],
+    "no_go_pivot": [
+      "Results clearly contradict front-runner hypothesis",
+      "Dead features dominate making any conclusion unreliable"
+    ]
+  }
+}

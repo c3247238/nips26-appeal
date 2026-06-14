@@ -1,0 +1,69 @@
+{
+  "resume_action_type": "experiment_wait",
+  "resume_action": {
+    "action_type": "experiment_wait",
+    "agents": null,
+    "skills": null,
+    "team": null,
+    "bash_command": null,
+    "gpu_poll": null,
+    "description": "实验运行中（4 个任务），预计剩余 ~360min，每 10min 轮询一次\n  train_lewm_vicreg -> GPU[3] (elapsed 166min, ~194min left); train_dino_wm -> GPU[5] (elapsed 166min, ~194min left); train_oracle_baseline -> GPU[0] (elapsed 120min, ~360min left); train_lewm_noreg -> GPU[4] (elapsed 116min, ~124min left)",
+    "stage": "experiment_cycle",
+    "iteration": 0,
+    "estimated_minutes": 360,
+    "checkpoint_info": null,
+    "experiment_monitor": {
+      "ssh_connection": "",
+      "check_cmd": "test -f /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_lewm_vicreg_DONE && echo \"train_lewm_vicreg:DONE\" || echo \"train_lewm_vicreg:PENDING\" && test -f /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_dino_wm_DONE && echo \"train_dino_wm:DONE\" || echo \"train_dino_wm:PENDING\" && test -f /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_oracle_baseline_DONE && echo \"train_oracle_baseline:DONE\" || echo \"train_oracle_baseline:PENDING\" && test -f /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_lewm_noreg_DONE && echo \"train_lewm_noreg:DONE\" || echo \"train_lewm_noreg:PENDING\"",
+      "pid_check_cmd": "pid=$(cat /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_lewm_vicreg.pid 2>/dev/null) && (ps -p $pid > /dev/null 2>&1 && echo \"train_lewm_vicreg:ALIVE:$pid\" || echo \"train_lewm_vicreg:DEAD:$pid\") || echo \"train_lewm_vicreg:NO_PID\" && pid=$(cat /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_dino_wm.pid 2>/dev/null) && (ps -p $pid > /dev/null 2>&1 && echo \"train_dino_wm:ALIVE:$pid\" || echo \"train_dino_wm:DEAD:$pid\") || echo \"train_dino_wm:NO_PID\" && pid=$(cat /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_oracle_baseline.pid 2>/dev/null) && (ps -p $pid > /dev/null 2>&1 && echo \"train_oracle_baseline:ALIVE:$pid\" || echo \"train_oracle_baseline:DEAD:$pid\") || echo \"train_oracle_baseline:NO_PID\" && pid=$(cat /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_lewm_noreg.pid 2>/dev/null) && (ps -p $pid > /dev/null 2>&1 && echo \"train_lewm_noreg:ALIVE:$pid\" || echo \"train_lewm_noreg:DEAD:$pid\") || echo \"train_lewm_noreg:NO_PID\"",
+      "progress_check_cmd": "cat /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_lewm_vicreg_PROGRESS.json 2>/dev/null || echo \"null\" && cat /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_dino_wm_PROGRESS.json 2>/dev/null || echo \"null\" && cat /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_oracle_baseline_PROGRESS.json 2>/dev/null || echo \"null\" && cat /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current/exp/results/train_lewm_noreg_PROGRESS.json 2>/dev/null || echo \"null\"",
+      "remote_dir": "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current",
+      "task_ids": [
+        "train_lewm_vicreg",
+        "train_dino_wm",
+        "train_oracle_baseline",
+        "train_lewm_noreg"
+      ],
+      "poll_interval_sec": 600,
+      "wake_check_interval_sec": 90,
+      "max_remaining_min": 360,
+      "task_status": [
+        "train_lewm_vicreg -> GPU[3] (elapsed 166min, ~194min left)",
+        "train_dino_wm -> GPU[5] (elapsed 166min, ~194min left)",
+        "train_oracle_baseline -> GPU[0] (elapsed 120min, ~360min left)",
+        "train_lewm_noreg -> GPU[4] (elapsed 116min, ~124min left)"
+      ],
+      "dynamic_dispatch": true,
+      "wake_cmd": "cd /home/qhxie/AutoResearch-SibylSystem && /home/qhxie/AutoResearch-SibylSystem/.venv/bin/python3 -m sibyl.cli experiment-supervisor-drain-wake /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current",
+      "dispatch_cmd": "cd /home/qhxie/AutoResearch-SibylSystem && /home/qhxie/AutoResearch-SibylSystem/.venv/bin/python3 -m sibyl.cli dispatch /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current",
+      "status_cmd": "cd /home/qhxie/AutoResearch-SibylSystem && /home/qhxie/AutoResearch-SibylSystem/.venv/bin/python3 -m sibyl.cli experiment_status /home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/current"
+    },
+    "execution_script": "## EXECUTION: experiment_wait\nMonitoring 4 task(s), est. ~360min remaining\nPoll interval: 600s, Wake check: 90s\n\nWHILE true:\n  1. Sleep 90s segments, check wake_cmd each segment\n  2. SSH check_cmd → parse task_id:DONE/PENDING\n  3. cli_experiment_status → display status panel\n  4. All DONE → sync state (cli_recover_experiments + cli_apply_recovery) → break\n  5. IF any task just completed AND pending tasks remain in task_plan.json:\n     → call cli_dispatch_tasks to get new assignments\n     → for each returned skill, launch a new experimenter Agent\n  6. Continue polling\n\n**On completion**: cli_record(workspace, 'experiment_cycle')",
+    "language": "zh"
+  },
+  "background_agent_required": false,
+  "pending_sync_count": 5,
+  "pending_hooks": [
+    {
+      "name": "lark_sync",
+      "pending_count": 5,
+      "path": "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/lark_sync/pending_sync.jsonl",
+      "resume_hint": "restart the sibyl-lark-sync background agent before continuing the loop"
+    }
+  ],
+  "pending_background_agents": [],
+  "breadcrumb": {
+    "ts": 1776167757.856405,
+    "stage": "experiment_cycle",
+    "action_type": "experiment_wait",
+    "iteration": 0,
+    "workspace_path": "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization",
+    "in_loop": true,
+    "loop_type": "experiment_wait",
+    "description": "实验运行中（2 个任务），预计剩余 ~360min，每 10min 轮询一次\n  train_lewm_vicreg -> GPU[3] (elapsed 0min, ~360min left); train_dino_wm -> GPU[5] (elapsed 0min, ~360min left)"
+  },
+  "recovery_state_path": "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/.sibyl/recovery_state.json",
+  "source": "cli_resume",
+  "saved_at": 1776177717.1923044,
+  "path": "/home/qhxie/AutoResearch-SibylSystem/workspaces/lewm-generalization/.sibyl/recovery_state.json"
+}

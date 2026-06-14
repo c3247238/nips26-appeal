@@ -1,0 +1,116 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_sec": 900,
+    "gpu": "Local GPU (>=24GB VRAM)"
+  },
+  "pilot_tasks": [
+    {
+      "task_id": "phase0_data_integrity",
+      "pilot_description": "Create data_manifest.json with at least 10 claim mappings. Implement validate_integration.py skeleton that reads manifest and checks 3 sample claims against source JSON files.",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "data_manifest.json created with >= 10 claims mapped. validate_integration.py runs and checks at least 3 claims. Known discrepancies documented.",
+      "estimated_time_min": 20
+    },
+    {
+      "task_id": "phase0_paper_corrections",
+      "pilot_description": "Draft correction plan: list all sections needing updates, specific old text -> new text replacements. Do not actually modify LaTeX yet.",
+      "pilot_samples": 100,
+      "pilot_timeout": 600,
+      "pilot_pass_criteria": "Correction plan with >= 10 specific text replacements documented. Grep patterns identified for stale data.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase0_figures",
+      "pilot_description": "Generate fig4_patching_comparison.pdf only (simplest figure). Load patching JSON, plot paired dots for 3 hierarchies. Verify PDF renders.",
+      "pilot_samples": 100,
+      "pilot_timeout": 600,
+      "pilot_pass_criteria": "fig4_patching_comparison.pdf generated, file size > 10KB, axes labeled correctly.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "setup_env_check",
+      "pilot_description": "Import all packages, check GPU, verify iter_009 probe files exist.",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "All imports succeed, GPU detected with >= 24GB VRAM, probe files found at iter_009 path.",
+      "estimated_time_min": 5
+    },
+    {
+      "task_id": "phase1_probe_degradation",
+      "pilot_description": "Test probe degradation at ONE level (F1=0.85 only) on first-letter at L24 16k. Inject label noise, verify F1 drops to target, measure absorption rate. Compare with F1=1.0 baseline from iter_009.",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "Probe degraded to F1=0.85 +/- 0.02. Absorption rate computed. Rate differs from F1=1.0 baseline (27.1%). Direction of effect documented (higher or lower absorption with degraded probe).",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase2_decoder_magnitude_firstletter",
+      "pilot_description": "Test decoder direction ablation on 5 first-letter absorption instances at L24 16k. Measure logit change. Compare with city-continent mean (3.98 nats).",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "Logit changes computed for 5 instances. Mean |logit change| reported. Random direction control computed. Order-of-magnitude comparison with 3.98 nats.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase2_rate_distortion_pooled",
+      "pilot_description": "Compute cos_sim, co_occur, R_parent for 15 pairs pooled from first-letter + city-continent. Compute Spearman rho.",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "Per-pair predictors computed for >= 15 pairs. Spearman rho and p-value reported. Comparison with iter_009 20-pair result (rho=0.261).",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase3_appendix_writing",
+      "pilot_description": "Load iter_009 negative results JSON. Generate clean summary for GAS and CMI only (2 of 5 appendix sections).",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "GAS and CMI appendix summaries generated with specific metrics and failure analysis.",
+      "estimated_time_min": 10
+    },
+    {
+      "task_id": "phase3_methodology_docs",
+      "pilot_description": "Document per-unique-word aggregation and token position asymmetry (2 of 5 methodological notes).",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "2 methodology notes documented with clear explanations.",
+      "estimated_time_min": 10
+    },
+    {
+      "task_id": "phase4_consolidation",
+      "pilot_description": "Aggregate available pilot results. Draft hypothesis verdict table for H1-H10 using combination of pilot data and iter_009 results.",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "Draft consolidation with all 10 hypothesis verdicts. Writing gate assessment provided.",
+      "estimated_time_min": 10
+    }
+  ],
+  "pilot_execution_order": [
+    ["setup_env_check", "phase0_data_integrity", "phase0_figures", "phase3_methodology_docs"],
+    ["phase1_probe_degradation", "phase2_decoder_magnitude_firstletter", "phase2_rate_distortion_pooled", "phase0_paper_corrections"],
+    ["phase3_appendix_writing"],
+    ["phase4_consolidation"]
+  ],
+  "total_pilot_time_estimate_min": 75,
+  "pilot_go_nogo_criteria": {
+    "GO_conditions": [
+      "Probe degradation achievable (F1 drops to target level with noise injection)",
+      "Absorption rate changes with probe quality (non-zero effect detected at pilot level)",
+      "F1=1.0 control matches iter_009 baseline within 10 pp",
+      "Decoder direction magnitude computable on first-letter (no pipeline errors)"
+    ],
+    "NOGO_conditions": [
+      "Noise injection does not degrade probe F1 (mechanism broken)",
+      "GPU OOM on Gemma 2B + SAE loading",
+      "Iter_009 probe files missing or corrupted",
+      "SAE loading fails for L24 16k"
+    ],
+    "CONDITIONAL_GO": [
+      "Rate-distortion still shows rho < 0.3 (proceed, will report as definitive negative)",
+      "Decoder magnitude differs substantially from city-continent (proceed, hierarchy-dependent is informative)",
+      "Probe degradation effect is small (proceed with full range to map the curve)"
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "decision": "ADVANCE",
+  "confidence": 0.88,
+  "rationale": "三项关键证据支持推进：（1）Pilot 实验 100% 通过——BEM 修复验证（half_lambda BEM=-0.5000，符合理论），VGG-16-BN 所有方法正常收敛无 OOM，基础设施完备；（2）SGD 基线分析强烈确认优化器特异性假说——no_wd vs constant 在 SGD 下 Cohen's d=10.29（p<0.001），AdamW 下效应量接近零，18.3× 效应比 p=0.0022；（3）Iteration 5 综合提案成熟——ρ=λ/η 序参量框架由 6 名 agent 独立收敛，Codex 评分 7/10，实验计划具备完整的 Path A/B 风险备案。无技术性阻塞问题，所有已知方法论弱点（BN 混淆、定理可证性）均已转化为 P0 实验任务。",
+  "next_steps": [
+    "P0-1：重新计算 SGD 完整统计分析，添加 10000 次 Bootstrap BCa 95% CI 报告 18.3× 效应比置信区间（0 GPU，4 小时）",
+    "P0-2：BEM/AIS/CSI 公式规范化，生成直觉排序验证表格（0 GPU，2 小时）",
+    "P0-3：ResNet-20 无 BN 消融实验，18 runs，1 GPU 小时——区分 BN scale-invariance 混淆 vs AdamW 动力学机制（最高优先级新实验）",
+    "P0-4：VGG-16-BN 全规模 200 epoch 实验，72 runs，6-8 GPU 小时（CIFAR-10/100，AdamW+SGD，6 方法，3 种子）",
+    "P0-5：ResNet-20 增加种子 789/999 达到 n=5，支持 TOST 等价性检验（3-4 GPU 小时，56 runs）",
+    "Day 0 并行：Adam 饱和条件检验，计算 ε/|h_i^{1/2}·w_i| 分布，判断定理可证性",
+    "P1-1（P0 后）：Lambda 区间扫描，λ∈{5e-5,5e-4,5e-3,5e-2}，验证三区间边界预测",
+    "P1-2（P0 后）：ImageNet ResNet-50，90 epoch，18 runs",
+    "P1-3（P0 后）：ρ_t 轨迹分析，从已有 checkpoint 计算序参量动态"
+  ],
+  "risks": [
+    "BN 混淆变量风险（概率 25%）：若 NoBN AdamW 消融显示不变性失效，需将核心论点修改为 'Phi Invariance 需要 BN + AdamW 联合'——仍可发表，但论点范围缩窄",
+    "定理 T1 可证性风险（概率 20%）：若 Adam 饱和条件 ε/h_i|w_i| > 0.5 广泛成立，转为 '实证确认的猜想' 框架，无正式定理声明",
+    "18.3× 置信区间过宽（概率 20%）：Bootstrap CI 若下界 < 5×，需调整 'large effect' 声明；但即使下界 12× 仍足够显著",
+    "VGG-16-BN 不变性失效（概率 15-20%）：转为架构条件分析，'VGG 特性将系统推入 Regime II'——Path B 叙事已预设",
+    "Codex 评分未能从 7/10 提升（概率 15%）：若指标修复和 BN 消融仍不能回应核心质疑，需重新评估定理结构"
+  ],
+  "evidence_summary": {
+    "pilot_pass_rate": "5/5 验证项目全部通过",
+    "bem_fix_verified": true,
+    "vgg16bn_training_works": true,
+    "sgd_effect_size_no_wd": 10.29,
+    "sgd_effect_size_no_wd_p_adj": 0.0,
+    "adamw_max_spread_cifar10": 0.25,
+    "optimizer_specificity_ratio": 18.3,
+    "novelty_risk_overall": "中等，主要差异化点清晰可辩护",
+    "codex_review_score": "7/10",
+    "infrastructure_ready": true
+  }
+}

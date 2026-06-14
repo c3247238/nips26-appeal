@@ -1,0 +1,217 @@
+{
+  "issues_classified": [
+    {
+      "description": "Random-SAE control has contradictory descriptions: Section 3.1 says 'permutes encoder matrix W_enc' but Section 4.5 says 'only permutes decoder directions, leaving encoder activations unchanged.' Raw data shows bit-for-bit identical scores, consistent with decoder permutation. The paper interprets this as 'degeneracy' when it is expected behavior.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Verify actual randomization implementation in exp/code/. Fix all contradictory descriptions in paper.md (Section 3.1, Section 4.5, Abstract). Reframe the finding: the metric depends on encoder geometry, not decoder geometry---this is a positive result for metric validity, not degeneracy. If encoder permutation was intended, re-run with correct implementation. Estimated effort: 1-2 hours including verification and re-run if needed.",
+      "status": "new",
+      "issue_key": "experiment:4.5-absorption-activations-actual-as-bit:9f8e7d6c5a4b"
+    },
+    {
+      "description": "All semantic hierarchies show resid_acc = sae_acc = 1.0 for ALL SAEs, causing the absorption formula to collapse to (1 - k_sparse_acc). The metric measures only k-sparse probing difficulty, not SAE encoding loss. This is a fundamental design flaw in the semantic-hierarchy adaptation.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Acknowledge explicitly in Abstract, Section 3.4, and Conclusion that the semantic-hierarchy adaptation measures k-sparse probing degradation, not SAE encoding loss. Reframe the paper's contribution as 'k-sparse probing on semantic hierarchies' rather than 'absorption validation.' Consider redesigning with harder hierarchies where sae_acc < resid_acc. Estimated effort: 2-3 hours of writing and potential re-experimentation.",
+      "status": "new",
+      "issue_key": "experiment:1.0-absorption-acc-all-all-causes-collapse:3b2c1d0e9f8a"
+    },
+    {
+      "description": "Primary construct-validity test uses n=7 SAEs with bootstrap CI spanning 1.37 correlation units ([-0.389, 0.981]). The test is uninformative, not merely 'inconclusive.' The pre-registered threshold (r > 0.6) was chosen without power analysis.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Reframe throughout paper: replace 'inconclusive' with 'insufficiently powered' or 'the evidence base is insufficient to evaluate construct validity.' Be explicit that n=7 is inadequate for correlation inference. Add a power analysis to the Method section showing required sample size. If continuing, expand to n>=12 SAEs or use a non-parametric approach. Estimated effort: 1 hour writing + 2-3 hours additional experiments.",
+      "status": "new",
+      "issue_key": "experiment:0.6-0.981-1.37-analysis-bootstrap-chosen:7d4e5f6c3b2a"
+    },
+    {
+      "description": "Hierarchy specificity test compares multi-class hierarchies (parent vs 2-3 children) to binary non-hierarchy pairs (word A vs word B). These are structurally inequivalent. Binary tasks with similar templates may be harder for k-sparse probes, inflating apparent 'absorption.'",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Design structurally equivalent controls: use binary parent-child pairs for hierarchy condition, or multi-class non-hierarchy controls. Acknowledge this confound in Section 5.2 and Limitations. Reconsider 'animal: pet, male' hierarchy---'male' is not a standard hyponym of 'animal' in WordNet. Estimated effort: 2-3 hours to redesign controls + re-run.",
+      "status": "new",
+      "issue_key": "experiment:2-3-a-are-binary-but-children-class:5e6f7d8c4b3a"
+    },
+    {
+      "description": "GPT-2 replication shows near-zero scores (Standard: 0.000, TopK: 0.003) interpreted as 'model-specific behavior,' but raw k_sparse_acc values are near 1.0 for all hierarchies, indicating a ceiling effect. The probe task is too easy on GPT-2.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Report raw k_sparse_acc values for GPT-2 explicitly in Section 4.6. If all near 1.0, acknowledge ceiling effect rather than model-specific behavior. Consider using harder hierarchies or more challenging probe tasks for GPT-2. Estimated effort: 30 minutes writing + 1 hour potential re-run with harder tasks.",
+      "status": "new",
+      "issue_key": "experiment:0.000-0.003-1.0-all-all-as-but:1a2b3c4d5e6f"
+    },
+    {
+      "description": "First-letter vs. non-hierarchy correlation (r = 0.218, CI: [-0.915, 0.852]) is computed in statistical_analysis_summary.json but never reported or discussed in the paper. This is selective reporting.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Report the first-letter vs. non-hierarchy correlation in Results section (Section 4.2 or new subsection) and discuss implications. If weak, this strengthens the claim that first-letter absorption does not generalize to any non-first-letter task. Estimated effort: 30 minutes.",
+      "status": "new",
+      "issue_key": "analysis:0.218-0.852-absorption-analysis-correlation-first:8c9d0e1f2a3b"
+    },
+    {
+      "description": "No multiple comparison correction applied across ~9 statistical tests. At alpha=0.05, ~0.45 false positives expected. Hierarchy specificity p-value (0.0032) survives Bonferroni (0.05/9 = 0.0056) but this is not reported.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Apply Bonferroni or Benjamini-Hochberg correction across all reported tests. Report corrected p-values in Section 4 and statistical_analysis_summary.json. The hierarchy specificity result surviving correction would actually strengthen the claim. Estimated effort: 1 hour.",
+      "status": "new",
+      "issue_key": "analysis:0.0032-0.05-0.45-9-alpha-applied:4b5c6d7e8f9a"
+    },
+    {
+      "description": "Abstract overclaims: 'This dissociation indicates that the semantic-hierarchy adaptation captures artifacts unrelated to learned SAE structure.' If Random SAE permutes decoder directions, identical scores are expected by construction, not evidence of degeneracy.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Soften abstract claim to: 'The Random-SAE control produces identical semantic-hierarchy scores to the Standard SAE, consistent with the metric's dependence on encoder geometry. This suggests the semantic-hierarchy adaptation measures encoder-output properties rather than learned hierarchical structure.' Also update Section 5.3. Estimated effort: 30 minutes.",
+      "status": "new",
+      "issue_key": "writing:absorption-abstract-adaptation-artifacts-by-captures:2c3d4e5f6g7h"
+    },
+    {
+      "description": "No sensitivity analysis for k-sparse threshold k=10. The absorption formula depends on this arbitrary choice, and different hierarchies have different numbers of children (2-3). Fixed k systematically penalizes more complex hierarchies.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add sensitivity analysis varying k (e.g., k=5, 10, 20) for 2-3 SAEs on 2-3 hierarchies. Report whether hierarchy specificity result is robust to k choice. Consider using adaptive k proportional to number of children. Estimated effort: 1-2 hours.",
+      "status": "new",
+      "issue_key": "experiment:10-2-3-5-children-depends-different-fixed:6d7e8f9g0h1i"
+    },
+    {
+      "description": "Synthetic sentence templates may introduce spurious lexical correlations. 'building,' 'house,' 'school,' 'library' appear in similar template contexts, making them distinguishable by shallow cues rather than deep semantic structure.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add ablation using natural corpus sentences (e.g., from OpenWebText) instead of templates, or use diverse templates per concept. Report whether absorption scores differ between template-generated and natural sentences. Estimated effort: 2-3 hours.",
+      "status": "new",
+      "issue_key": "experiment:absorption-building-contexts-corpus-deep-diverse:9e0f1g2h3i4j"
+    },
+    {
+      "description": "Random seeds for probe training not reported (only SAEBench evaluator seed=42). Probe training uses 200 Adam epochs with lr=0.05, making exact reproduction impossible.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Report random seed(s) used for probe training in Section 3.4 and methodology.md. If multiple seeds were used, report variance across seeds. Estimated effort: 15 minutes.",
+      "status": "new",
+      "issue_key": "reproducibility:0.05-200-42-adam-epochs-evaluator-only:5f6g7h8i9j0k"
+    },
+    {
+      "description": "Exact sentence templates for synthetic data generation not reported in paper. Methodology mentions 'simple templates' but does not provide them.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Include full set of templates in appendix or supplementary materials. Estimated effort: 15 minutes.",
+      "status": "new",
+      "issue_key": "reproducibility:appendix-data-does-generation-materials-mention:1g2h3i4j5k6l"
+    },
+    {
+      "description": "Korznikov et al. (2026) showed randomized SAE baselines match trained SAEs on standard metrics---directly relevant to the Random-SAE finding. Cited only in alternatives.md, not main paper.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Cite Korznikov et al. (2026) in Related Work (Section 2) or Discussion (Section 5) to connect Random-SAE finding to broader literature on SAE metric validity. Estimated effort: 15 minutes.",
+      "status": "new",
+      "issue_key": "writing:2026-absorption-alternatives-and-baselines-broader-cited:3i4j5k6l7m8n"
+    },
+    {
+      "description": "Paper uses 'Random-SAE' (hyphenated) and 'Random SAE' (unhyphenated) interchangeably. Section 5.2 percentage claim '41% higher' is ambiguous about baseline.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Standardize to 'Random-SAE' throughout. Clarify '41% higher relative to the hierarchy mean' or use absolute difference. Fix transition from Limitations to Conclusion (add bridge sentence). Condense Section 2 (Related Work) from ~800 words. Estimated effort: 30 minutes.",
+      "status": "new",
+      "issue_key": "writing:41-800-ambiguous-baseline-claim-condense:7k8l9m0n1o2p"
+    },
+    {
+      "description": "Pilot success criterion was too weak: only checked ranking order (Matryoshka < TopK), not whether sae_acc < resid_acc, whether Random-SAE behaved as expected, or whether probe AUROCs were in reasonable range.",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "Update pilot checklist to include: (1) sae_acc < resid_acc check, (2) Random-SAE expected behavior verification, (3) probe AUROC range check (should not all be 1.0), (4) metric collapse detection. Make these hard gates before full-scale execution. Estimated effort: 30 minutes (template update).",
+      "status": "new",
+      "issue_key": "planning:1.0-acc-are-as-expected-full:8l9m0n1o2p3q"
+    },
+    {
+      "description": "GPT-2 replication tested only 2 SAEs with no correlation computation possible. Planning should have either tested enough SAEs for correlation (minimum 5-6) or framed GPT-2 as qualitative check rather than 'replication.'",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "For future replications: test minimum 5-6 SAEs to enable correlation computation, or explicitly frame as qualitative boundary check. Update planning template with this rule. Estimated effort: 15 minutes (template) + 1-2 hours (additional GPT-2 SAEs if re-running).",
+      "status": "new",
+      "issue_key": "planning:2-5-6-a-as-check-computation-correlation:9m0n1o2p3q4r"
+    },
+    {
+      "description": "Fixed k=10 for k-sparse probing was not justified. SAEBench uses tau_fs to determine k adaptively per sample, not fixed k. Different hierarchies have different numbers of children.",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "Justify fixed k choice in methodology or switch to adaptive k (e.g., proportional to number of children, or using tau_fs per sample). Document rationale in planning template. Estimated effort: 30 minutes.",
+      "status": "new",
+      "issue_key": "planning:10-adaptive-children-different-fixed-fixed:0n1o2p3q4r5s"
+    },
+    {
+      "description": "No power analysis was performed before setting pre-registered threshold (r > 0.6). With n=7, power to detect r=0.6 at alpha=0.05 is approximately 0.35.",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "Add power analysis to planning phase for all correlation-based hypotheses. Use G*Power or Python statsmodels to compute required sample size before running experiments. Update planning template to require power analysis for correlation tests. Estimated effort: 30 minutes.",
+      "status": "new",
+      "issue_key": "planning:0.05-0.35-0.6-7-add-alpha-before:1o2p3q4r5s6t"
+    },
+    {
+      "description": "Iteration 001 issues about degenerate absorption proxy, failed pilot GO/NO-GO gate, and causal overclaiming were addressed by pivoting to a new construct-validity study. However, the new study introduced its own methodological flaws.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Continue iterating on the construct-validity direction with the fixes outlined above. The pivot was correct in principle but the new experiment needs the fixes in this action plan to reach publication quality.",
+      "status": "fixed",
+      "issue_key": "experiment:001-absorption-and-claiming-construct-degenerate-failed"
+    },
+    {
+      "description": "Pilot-to-full escalation gates were not enforced in iteration 001. This iteration's pilot also had weak gates (only checked ranking order).",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "Enforce hard GO/NO-GO gates with specific checklist items: metric behavior verification, control expected behavior, probe AUROC range, and power analysis. This requires system-level process fix in planning skill/template.",
+      "status": "recurring",
+      "requires_system_change": true,
+      "issue_key": "planning:001-also-behavior-checked-enforce-escalation-full"
+    }
+  ],
+  "issues_fixed": [
+    "Iteration 001's degenerate absorption proxy issue was addressed by pivoting to full SAEBench absorption pipeline",
+    "Iteration 001's failed pilot GO/NO-GO gate issue was partially addressed (pilot was run) but gate criteria were still too weak",
+    "Iteration 001's causal overclaiming in E2 was avoided by switching to a new experimental design without causal framing",
+    "Iteration 001's family collapse in architecture comparison was avoided by evaluating distinct architectures individually"
+  ],
+  "success_patterns": [
+    "Pre-registered hypotheses with clear falsification criteria (H1: r > 0.6, H2: semantic > non-hierarchy, H3: tau_fs robustness)",
+    "Bootstrap CIs (B=10,000) appropriately used for small-n correlation inference",
+    "Multiple control conditions provide triangulation: Random-SAE, non-hierarchy, GPT-2 replication, tau_fs robustness",
+    "Negative results reported honestly without spin: H2 reversed direction reported explicitly, H1 framed as insufficiently powered",
+    "Transparent raw data reporting: all per-hierarchy and per-pair scores available in JSON files",
+    "Architecture ranking preservation across tasks (Matryoshka < PAnneal < Gated < JumpRelu < TopK < BatchTopK) indicates ordinal consistency",
+    "Writing quality is generally strong: specific numbers, clear structure, hypothesis-driven Results section",
+    "Resource efficiency: all 8 experiments completed in ~42 minutes total, well within 1-hour budget"
+  ],
+  "systemic_patterns": [
+    "Pilot success criteria are consistently too weak---only checking ranking order, not metric validity or control behavior",
+    "Perfect probe accuracy (AUROC=1.0) is a recurring blind spot across iterations---not anticipated in planning, not flagged during pilot",
+    "Random-SAE / control condition descriptions are contradictory between Method and Results sections, suggesting insufficient verification",
+    "Statistical tests lack multiple comparison correction in both iterations",
+    "Sample size justification (power analysis) is missing in both iterations",
+    "The system tends to frame underpowered results as 'inconclusive' rather than 'uninformative'"
+  ],
+  "quality_trajectory": "declining",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 95,
+    "total_gpu_idle_minutes": 0.0,
+    "bottleneck_stages": [
+      "experiment_design",
+      "metric_validity_verification",
+      "pilot_gate_enforcement"
+    ],
+    "suggestions": [
+      "Add pre-flight metric validity checks to pilot: verify sae_acc < resid_acc for at least some hierarchies, verify Random-SAE produces expected behavior",
+      "Strengthen pilot gates: NO-GO if all probe AUROCs = 1.0, NO-GO if Random-SAE behaves unexpectedly, NO-GO if metric collapses to single term",
+      "Batch small experiments together: semantic_hierarchy + nonhierarchy + tau_fs robustness could run as a single script (~9 min actual vs 80 min planned)",
+      "First-letter evaluation (9 min actual vs 45 min planned) suggests planning estimates are conservative---tighten estimates for future iterations"
+    ]
+  },
+  "recommended_focus": [
+    "Fix Random-SAE contradiction and reframe finding as encoder-geometry dependence (not degeneracy)",
+    "Acknowledge metric collapse (resid_acc = sae_acc = 1.0) and reframe contribution as k-sparse probing analysis",
+    "Reframe H1 as 'insufficiently powered' not 'inconclusive' throughout the paper",
+    "Apply multiple comparison correction and report corrected p-values",
+    "Report missing first-letter vs. non-hierarchy correlation",
+    "Add k-sensitivity analysis (k=5, 10, 20)",
+    "Fix hierarchy specificity confound with structurally equivalent controls",
+    "Address GPT-2 ceiling effect"
+  ],
+  "suggested_threshold_adjustment": 6.5,
+  "suggested_max_iterations": 20
+}

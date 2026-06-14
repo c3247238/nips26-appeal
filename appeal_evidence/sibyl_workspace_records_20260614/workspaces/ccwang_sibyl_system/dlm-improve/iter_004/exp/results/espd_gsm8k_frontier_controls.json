@@ -1,0 +1,213 @@
+{
+  "task_id": "build_espd_fixed_frontier_control",
+  "candidate_id": "shared",
+  "arm_name": "espd_fixed_frontier",
+  "dataset": "gsm8k",
+  "status": "success",
+  "metrics": {
+    "count": 50,
+    "accuracy": 0.32,
+    "correct_count": 16,
+    "avg_nfe": 68.06,
+    "avg_tokens_changed": 0.32,
+    "dataset": "gsm8k",
+    "latency_sec": 122.68,
+    "batch_size": 8,
+    "draft_steps": 64,
+    "active_frontier_ratio": 0.1211,
+    "stopped_step_histogram": {
+      "1": 22,
+      "2": 3,
+      "3": 25
+    },
+    "equal_compute_quality": 0.32,
+    "equal_quality_speed": 104.34
+  },
+  "comparisons": {
+    "fixed_frontier_vs_card84": {
+      "fixed": 1,
+      "harmed": 1,
+      "unchanged_correct": 15,
+      "unchanged_wrong": 33,
+      "missing_baseline": 0,
+      "net_repaired": 0
+    },
+    "fixed_frontier_vs_rand84": {
+      "fixed": 1,
+      "harmed": 0,
+      "unchanged_correct": 15,
+      "unchanged_wrong": 34,
+      "missing_baseline": 0,
+      "net_repaired": 1
+    },
+    "fixed_frontier_vs_cand_espd": {
+      "fixed": 0,
+      "harmed": 0,
+      "unchanged_correct": 16,
+      "unchanged_wrong": 34,
+      "missing_baseline": 0,
+      "net_repaired": 0
+    }
+  },
+  "summary": "ESPD-FixedFrontier completed on GSM8K with accuracy=0.32, frontier_ratio=0.1211, speed=104.34 tok/s.",
+  "frozen_contract": {
+    "variant": "ESPD-FixedFrontier",
+    "frontier_source": {
+      "definition": "Use a deterministic, evenly spaced frontier mask that is shared across all samples.",
+      "routing_signal": "none"
+    },
+    "frontier_retention_ratio": {
+      "definition": "Match cand_espd active frontier ratio without using per-sample entropy routing.",
+      "ratio": 0.12109375
+    },
+    "stopping_threshold": {
+      "definition": "Reuse cand_espd stopping rule on the fixed frontier once masked-frontier entropy drops to <= 85% of draft-frontier entropy.",
+      "entropy_ratio": 0.85,
+      "minimum_steps": 1
+    },
+    "maximum_retained_steps": {
+      "definition": "Run at most 3 frontier-only revision steps after the draft.",
+      "steps": 3
+    },
+    "runtime_ledger_policy": {
+      "definition": "Keep the same runtime ledger fields as cand_espd and separate fixed-frontier selection overhead from revision forwards.",
+      "extra_forward_passes": "explicitly_logged",
+      "auxiliary_overhead_sec": "explicitly_logged"
+    }
+  },
+  "runtime": {
+    "attention_backend": "eager",
+    "compile_enabled": false,
+    "requested_compile": false,
+    "requested_flash_attention": false,
+    "compile_error": null,
+    "inherited_batch_size": 8,
+    "probed_batch_size": 182,
+    "matched_candidate_batch": 8,
+    "effective_batch_size": 8,
+    "peak_vram_mb": 19340
+  },
+  "runtime_ledger": {
+    "extra_forward_passes": 153,
+    "frontier_selection_overhead_sec": 83.3356,
+    "stopping_overhead_sec": 0.0231,
+    "auxiliary_overhead_sec": 83.3587
+  },
+  "examples": [
+    {
+      "sample_id": "gsm8k_test_0616",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "10",
+      "reference_answer": "It was 3 inches tall after the first week.\nAfter the second week, it was 2 * 3 inches = <<2*3=6>>6 inches tall.\nAfter the third week, it was 6 inches + 4 inches = <<6+4=10>>10 inches tall.\n#### 10",
+      "tokens_changed": 0,
+      "active_frontier_ratio": 0.12109375,
+      "stopped_step": 3,
+      "stop_reason": "max_steps",
+      "cand_espd_correct": true,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0811",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "60",
+      "reference_answer": "He climbed 420 branches in total because 105 / .25 = <<105/.25=420>>420\nHe climbed on average 60 branches a day because 420 / 7 = <<420/7=60>>60\n#### 60",
+      "tokens_changed": 0,
+      "active_frontier_ratio": 0.12109375,
+      "stopped_step": 1,
+      "stop_reason": "entropy_threshold",
+      "cand_espd_correct": true,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0479",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "15400",
+      "reference_answer": "The hotel room is 1500*.2=$<<1500*.2=300>>300 more expensive per night than normal\nSo they paid 1500+300=$<<1500+300=1800>>1800 per night\nThat means she paid 1800*3=$<<1800*3=5400>>5400\nThe plane tickets cost 5000*2=$<<5000*2=10000>>10,000\nSo the total cost is 10,000+5400=$<<10000+5400=15400>>15,400\n#### 15400",
+      "tokens_changed": 0,
+      "active_frontier_ratio": 0.12109375,
+      "stopped_step": 3,
+      "stop_reason": "max_steps",
+      "cand_espd_correct": true,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0280",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "7",
+      "reference_answer": "The popsicles cost 0.25*20=<<0.25*20=5>>5 dollars.\nThe ice cream bars cost 0.5*4=<<0.5*4=2>>2 dollars.\nHe paid 5+2=<<5+2=7>>7 dollars.\n#### 7",
+      "tokens_changed": 1,
+      "active_frontier_ratio": 0.12109375,
+      "stopped_step": 3,
+      "stop_reason": "max_steps",
+      "cand_espd_correct": true,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0896",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "250",
+      "reference_answer": "He rents his car 10*3=<<10*3=30>>30 hour a month\nSo he makes 25*30=$<<25*30=750>>750 a month\nThat means he has a profit of 750-500=$<<750-500=250>>250 a month\n#### 250",
+      "tokens_changed": 0,
+      "active_frontier_ratio": 0.12109375,
+      "stopped_step": 1,
+      "stop_reason": "entropy_threshold",
+      "cand_espd_correct": true,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0364",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "49",
+      "reference_answer": "Of the 96 fourth graders, 43 are girls, so 96 students - 43 girls = <<96-43=53>>53 boys.\nOn Friday there were 53 boys - 4 absent = <<53-4=49>>49 boys.\n#### 49",
+      "tokens_changed": 0,
+      "active_frontier_ratio": 0.12109375,
+      "stopped_step": 3,
+      "stop_reason": "max_steps",
+      "cand_espd_correct": true,
+      "card84_correct": true,
+      "rand84_correct": true
+    }
+  ],
+  "frontier_control_table": [
+    {
+      "method": "cand_espd",
+      "active_frontier_ratio": 0.1211,
+      "wall_clock_sec": 91.13,
+      "tokens_per_sec": 140.45,
+      "score": 0.32
+    },
+    {
+      "method": "ESPD-FixedFrontier",
+      "active_frontier_ratio": 0.1211,
+      "wall_clock_sec": 122.68,
+      "tokens_per_sec": 104.34,
+      "score": 0.32
+    },
+    {
+      "method": "CARD-84",
+      "active_frontier_ratio": 0.1,
+      "wall_clock_sec": 88.09,
+      "tokens_per_sec": 145.31,
+      "score": 0.32
+    },
+    {
+      "method": "RAND-84",
+      "active_frontier_ratio": 0.1,
+      "wall_clock_sec": 86.53,
+      "tokens_per_sec": 147.93,
+      "score": 0.3
+    }
+  ],
+  "timestamp": "2026-03-13T10:39:59.788071Z"
+}

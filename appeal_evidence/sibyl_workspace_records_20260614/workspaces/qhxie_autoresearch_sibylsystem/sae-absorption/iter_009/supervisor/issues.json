@@ -1,0 +1,79 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Section 5.2 reports city-continent activation patching recovery at 0.05% (d=-0.91), concluding that 'the mechanism does not generalize to semantic hierarchies' and proposing a 'concentrated vs. distributed absorption' mechanistic divide. The corrected FULL-mode data (activation_patching_crossdomain_full.json) shows city-continent recovery = 61.9% with d=1.50 (p<1e-20) and city-language recovery = 34.2% with d=0.75 (p<1e-18). The pilot used a buggy methodology that zeroed features supporting the correct class rather than absorbing features. The paper's entire mechanistic narrative (concentrated vs. distributed absorption) and two paragraphs of Section 7.2 discussion are based on incorrect data. The experiment_analysis.md correctly identifies this as 'the single most important update for the paper.'",
+    "suggestion": "Replace Section 5.2 with the corrected FULL-mode cross-domain patching results. The narrative becomes: activation patching confirms competitive exclusion across ALL hierarchy types (first-letter d=1.33, city-continent d=1.50, city-language d=0.75), not just first-letter. Remove the 'concentrated vs. distributed absorption' dichotomy entirely or reframe it as a pilot artifact that was corrected. Update the abstract, Section 1 anchoring findings, Table 4 hypothesis verdicts (H7-crossdomain should change from FAILED/NEGATIVE to SUPPORTED), and Sections 7.1-7.2 discussion."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "The benign/pathological diagnostic (Section 5.3) ablates the parent direction from the child feature's decoder vector and measures logit change. But absorption IS the child's decoder carrying parent-relevant information. Ablating parent information from a vector known to contain it will always produce large logit changes -- the diagnostic partly measures the magnitude of the absorbed component, not whether the model independently needs the parent feature when the child is active. A genuine test of computational redundancy would ablate the parent feature's activation directly (not the direction from the child's decoder) and measure downstream effects, holding the child constant. The 3.98 nats result establishes that absorption has large magnitude, not necessarily that it is pathological in the computational-redundancy sense the paper claims.",
+    "suggestion": "Reframe the benign/pathological claim more carefully. The current test shows 'the child feature's decoder carries significant parent-direction information that contributes to model output' -- this is informative but not a direct test of computational redundancy. Acknowledge the circularity issue explicitly. A stronger design would: (a) ablate the parent feature activation (z_parent = 0) and measure logit change, holding child activation constant; or (b) use path patching to test whether the parent direction has independent causal effects through separate downstream circuits. The current result should be framed as 'absorption carries large magnitude parent information in the decoder' rather than 'absorption is always pathological.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The headline '4x range' (11.6% to 45.1%) depends on city-country at F1=0.73. After Bonferroni correction of pairwise tests against first-letter, only city-language (p_Bonf=0.003 at 16k, p_Bonf=0.043 at 65k) differs significantly from first-letter. City-continent (p_Bonf=1.0) and city-country (p_Bonf=1.0) do NOT differ significantly from first-letter. The Kruskal-Wallis test (p=7.4e-66) covers only the 3 RAVEL hierarchies, excluding first-letter. The statistically supported claim is: 'among RAVEL hierarchies, absorption rates differ significantly; but only city-language differs significantly from first-letter.'",
+    "suggestion": "Separate the descriptive claim ('rates range from 11.6% to 45.1%') from the inferential claim. Report that the Kruskal-Wallis test covers only the 3 RAVEL hierarchies and that pairwise tests against first-letter survive Bonferroni correction only for city-language. Reframe the headline around the within-RAVEL variation."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The '100% pathological' claim is tested exclusively on city-continent (F1=0.87) at L24 with 16k SAE. The paper extrapolates to 'Absorption is 100% pathological' and 'Every absorption instance degrades model output' in headline positions. This extrapolation from one hierarchy, one layer, one SAE to all absorption is not warranted.",
+    "suggestion": "Change headline framing to scope the claim to city-continent. Replicate on first-letter as a priority experiment (~0.5 GPU-hours)."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Data provenance confusion. Consolidation summary reports first-letter L24_16k = 0.345 (per-instance); paper uses 0.2707 (per-unique-word). Paper reports F1=0.97 but data says 1.0. Consolidation reports H7-crossdomain as 'FAILED' contradicting corrected FULL data. Benign count is 1,464 vs 1,471.",
+    "suggestion": "Create a single authoritative data manifest. Resolve all discrepancies between consolidation summary, data files, and paper text."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Probe quality confound is unquantified. No probe degradation ablation performed. No probe-only FN baseline reported. City-country (F1=0.73) absorption rate of 45.1% may be substantially inflated by probe errors.",
+    "suggestion": "Perform probe degradation ablation (inject noise into first-letter probes to F1={0.70, 0.80, 0.85, 0.90}, re-measure absorption). Report probe-only FN baseline for each hierarchy."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Three figure PDFs are missing (fig4, fig5, fig6). Table 3 format is inconsistent with other tables. Compilation blocker.",
+    "suggestion": "Generate all missing figures from existing JSON data files."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Architecture comparison claims 'no significant effect' from underpowered tests (12 data points at L24) with width confounds. 'Hierarchy dominates architecture' compares p-values across different tests/data, a statistical fallacy.",
+    "suggestion": "Reframe as absence of evidence with limited power. Remove direct p-value comparison across different tests."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Token position asymmetry: first-letter uses position -6, RAVEL uses position -2. Uncontrolled confound in cross-domain comparison.",
+    "suggestion": "Acknowledge as confound in Section 7.3."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Single model (Gemma 2 2B). Cross-model generalization untested.",
+    "suggestion": "Acknowledge prominently. Consider replication on one additional model."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Kruskal-Wallis scope (3 vs 4 hierarchies) unclear in abstract. Per-unique-word vs per-instance aggregation undocumented.",
+    "suggestion": "Clarify scope. Document aggregation choice in Section 3.3."
+  }
+]

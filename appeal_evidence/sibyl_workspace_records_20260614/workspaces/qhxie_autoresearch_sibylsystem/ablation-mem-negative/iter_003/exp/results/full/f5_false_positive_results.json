@@ -1,0 +1,68 @@
+{
+  "task_id": "f5_false_positive_analysis",
+  "timestamp": "2026-04-29T01:39:43.790628",
+  "summary": {
+    "n_detected": 4155,
+    "n_true_positives": 1,
+    "n_false_positives": 4154,
+    "n_false_negatives": 6,
+    "precision": 0.00024067388688327315,
+    "recall": 0.14285714285714285,
+    "f1": 0.0,
+    "fp_rate": 0.9997593261131167
+  },
+  "baseline_comparison": {
+    "uad_f1": 0.0,
+    "random_f1": 0.0001102626591882312,
+    "same_cluster_random_f1": 0.00048053820278712154,
+    "uad_equals_same_cluster_random": false,
+    "interpretation": "UAD provides zero value over random sampling from the same cluster"
+  },
+  "failure_modes": {
+    "token_level_mutual_exclusivity": {
+      "description": "Absorption features fire on different tokens and never co-occur in natural text",
+      "evidence": "Feature 11513 fires only on 'three', feature 24189 only on 'four'-'eight'",
+      "impact": "UAD's co-occurrence clustering cannot place mutually exclusive features in the same cluster"
+    },
+    "clustering_degeneracy": {
+      "description": "With 50 clusters on 504 features, each cluster has ~10 features. GT absorption features are distributed across different clusters.",
+      "evidence": "Only 1/7 GT pairs ended up in the same cluster by chance",
+      "impact": "Hierarchical clustering based on co-occurrence is the wrong tool for detecting absorption"
+    },
+    "phi_coefficient_irrelevance": {
+      "description": "Phi coefficient measures co-occurrence correlation, but absorption features have near-zero or negative phi",
+      "evidence": "Absorption features are mutually exclusive (phi ~ 0 or negative)",
+      "impact": "Phi-based filtering removes actual absorption pairs instead of keeping them"
+    }
+  },
+  "proposed_alternative_approaches": [
+    {
+      "name": "decoder_weight_similarity",
+      "description": "Use cosine similarity of SAE decoder weights instead of co-occurrence",
+      "rationale": "Features that absorb the same parent concept should have similar decoder directions",
+      "feasibility": "High - decoder weights are readily available"
+    },
+    {
+      "name": "causal_intervention",
+      "description": "Zero out child features and measure parent feature recovery",
+      "rationale": "True absorption implies causal dependence between child and parent features",
+      "feasibility": "Medium - requires activation patching infrastructure"
+    },
+    {
+      "name": "semantic_similarity_clustering",
+      "description": "Cluster features by decoder weight similarity instead of activation co-occurrence",
+      "rationale": "Absorption is a structural property, not a co-occurrence property",
+      "feasibility": "High - only requires decoder weights"
+    }
+  ],
+  "honest_assessment": {
+    "finding": "UAD fails because co-occurrence clustering is fundamentally the wrong tool for detecting hierarchical absorption",
+    "root_cause": "Absorption features are mutually exclusive at the token level - they fire on different tokens representing different child concepts. Co-occurrence-based methods detect features that fire TOGETHER, not features that fire on mutually exclusive instances of a parent concept.",
+    "implications": [
+      "UAD may work for detecting synonym features or contextually related features that co-occur frequently",
+      "For hierarchical absorption, methods based on decoder weight similarity or causal intervention are more appropriate",
+      "The collision rate proxy metric IS valid (r=0.87 with true absorption), but UAD's clustering approach cannot exploit it"
+    ]
+  },
+  "runtime_seconds": 0.0005447864532470703
+}

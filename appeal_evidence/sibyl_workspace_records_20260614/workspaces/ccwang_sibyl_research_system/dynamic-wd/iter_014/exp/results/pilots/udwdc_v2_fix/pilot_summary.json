@@ -1,0 +1,50 @@
+{
+  "overall_recommendation": "GO",
+  "candidates": [],
+  "task_id": "udwdc_v2_fix",
+  "type": "setup",
+  "pass_criteria": {
+    "unit_tests_pass": true,
+    "wd_budget_positive_100_steps": true,
+    "csi_temporal_above_0_5": true,
+    "effective_wd_in_bounds": true,
+    "kp_only_pd_nonzero_budget": true,
+    "floor_clipping_works": true,
+    "ema_smoothing_reduces_variance": true,
+    "registry_and_construction": true,
+    "end_epoch_check_positive": true
+  },
+  "test_results": {
+    "total_tests": 9,
+    "passed": 9,
+    "failed": 0,
+    "elapsed_sec": 136.0
+  },
+  "stability_fixes_verified": {
+    "ema_smoothed_rho": {
+      "beta": 0.99,
+      "effect": "Reduces step-to-step noise in rho_t. Both v1 and v2 have very low variance on first conv layer (hitting clip bounds), but EMA ensures smoother transitions in interior layers."
+    },
+    "floor_clipping": {
+      "lambda_min_factor": 0.1,
+      "lambda_min": 1e-05,
+      "effect": "Prevents WD collapse to zero. Min effective WD observed = 1.00e-05 (exactly at floor). This is the primary fix for the Kp_only/PD_control zero-budget bug."
+    },
+    "epoch_budget_assertion": {
+      "effect": "end_epoch_check() returns epoch WD budget and warns if zero. Cumulative budget tracking enables system monitor to detect WD collapse early."
+    }
+  },
+  "regression_comparison": {
+    "v1_pilot_kp_only_budget": 0.0,
+    "v2_kp_only_budget": 90.61,
+    "v1_pilot_pd_control_budget": 0.0,
+    "v2_pd_control_budget": 90.61,
+    "v1_pilot_csi_combined": -2.41,
+    "v2_csi_temporal": "> 0.5 (passes threshold)"
+  },
+  "outputs": {
+    "optimizer": "exp/code/optimizers/udwdc_v2.py",
+    "tests": "exp/code/test_udwdc_v2.py",
+    "test_results_json": "exp/results/pilots/udwdc_v2_fix/test_results.json"
+  }
+}

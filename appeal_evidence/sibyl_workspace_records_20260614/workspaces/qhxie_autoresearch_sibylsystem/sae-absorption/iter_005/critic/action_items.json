@@ -1,0 +1,145 @@
+[
+  {
+    "id": "AI-01",
+    "priority": "P0",
+    "category": "data_integrity",
+    "title": "Fix final_results.json: wrong Sobel z values and wrong taxonomy rate",
+    "description": "final_results.json pulls Sobel z values from alternative_direction_test (reverse mediation path) instead of the primary path. All four values are wrong: TPP shows z=2.63 instead of correct z=2.08. Additionally, corrected_rate=0.923 for taxonomy when the actual value is 0.192. Fix both and add automated validation.",
+    "action": "Fix integration code to read from results_by_metric[metric].sobel_test instead of alternative_direction_test. Fix taxonomy corrected_rate to 0.192, delta to -0.731, H5 verdict to CORRECTION_LARGE. Add a JSON schema validation step that cross-checks summary values against source experiment JSONs.",
+    "files": ["exp/results/full/final_results.json", "exp/code/final_integration.py"],
+    "effort": "1h",
+    "blocking": true
+  },
+  {
+    "id": "AI-02",
+    "priority": "P0",
+    "category": "framing",
+    "title": "Reclassify H2 verdict as FALSIFIED on GPT-2 Small",
+    "description": "Phase 2 is a conclusive negative result misframed as PARTIALLY_SUPPORTED. The dominance-based metric produces 100% on shuffled controls. The cosine-calibrated metric detects 0%. By the paper's own falsification criteria (3x shuffled baseline), H2 is falsified.",
+    "action": "Change H2 verdict to FALSIFIED in final_results.json. Rewrite the abstract to frame this as 'conclusive metric validation failure on GPT-2 Small' rather than 'partial evidence for cross-domain absorption.' Add qualifier that this is specific to the model-SAE combination tested.",
+    "files": ["exp/results/full/final_results.json", "writing/paper.md"],
+    "effort": "2h",
+    "blocking": true
+  },
+  {
+    "id": "AI-03",
+    "priority": "P0",
+    "category": "analysis",
+    "title": "Downgrade causal language and foreground within-width null",
+    "description": "The within-width matching null (Gamma=1.0 for all metrics across three matching strategies) means zero detectable absorption-quality effect when width is held constant. This directly undermines causal mediation claims.",
+    "action": "Replace 'causally mediates' with 'statistically mediates' throughout. Move within-width null from Discussion caveat to a prominent paragraph in Results (Section 4.1). Add competing explanation paragraph (common cause: SAE feature quality drives both absorption and quality). Move Bradford Hill table to supplementary.",
+    "files": ["writing/paper.md"],
+    "effort": "3h",
+    "blocking": true
+  },
+  {
+    "id": "AI-04",
+    "priority": "P1",
+    "category": "analysis",
+    "title": "Add architecture covariate to Phase 3 GAM",
+    "description": "The 420-SAE dataset has 360 L1 and 54 JumpReLU SAEs. Architecture is not a covariate in the GAM, creating a potential confound with the width-L0 interaction.",
+    "action": "Re-fit the GAM with architecture_class as a factor covariate. Report interaction p-value with and without architecture. Run the interaction GAM separately on the 360 L1 and 54 JumpReLU subsets. Report whether the interaction survives architecture control.",
+    "files": ["exp/code/P3_scaling_surface.py", "exp/results/full/P3_scaling_surface.json"],
+    "effort": "2h",
+    "blocking": false
+  },
+  {
+    "id": "AI-05",
+    "priority": "P1",
+    "category": "writing",
+    "title": "Fix coefficient type inconsistency in Table 3 and abstract",
+    "description": "Table 3 mixes standardized (paths a, b) and unlabeled (c', ab) coefficients. Abstract uses unstandardized c'=-0.003 for SCR while Table 3 shows standardized c'=-0.029.",
+    "action": "Add '(std)' label to ALL coefficient columns in Table 3. Ensure abstract and Discussion use the same coefficient type. Add footnote specifying 'all path coefficients are standardized.' Consider adding unstandardized values in supplementary table.",
+    "files": ["writing/paper.md"],
+    "effort": "1h",
+    "blocking": false
+  },
+  {
+    "id": "AI-06",
+    "priority": "P1",
+    "category": "writing",
+    "title": "Fix figure numbering and add missing figures",
+    "description": "Figure numbering jumps from 3 to 5. Sections 4.3 (gradient analysis) and 4.4 (taxonomy correction) have no figures. The 'Figures and Tables' artifact section appears after the Conclusion.",
+    "action": "Include gradient surface figure in Section 4.3. Include taxonomy correction figure in Section 4.4. Renumber all figures sequentially. Remove the 'Figures and Tables' section. Add a method overview figure at the top of Section 3.",
+    "files": ["writing/paper.md"],
+    "effort": "2h",
+    "blocking": false
+  },
+  {
+    "id": "AI-07",
+    "priority": "P1",
+    "category": "analysis",
+    "title": "Expand suppression effect interpretation with competing explanation",
+    "description": "The SP-F1 suppression effect is the 'central finding' but the total effect is null (p=0.45). This is indirect-only mediation, weaker than classical mediation. The competing interpretation (L0 has opposing beneficial direct and harmful indirect effects) deserves proportional treatment.",
+    "action": "Expand Section 5.1 to present both interpretations side by side. Note that null total effect means indirect-only mediation (Zhao et al. 2010). Consider demoting SP-F1 suppression and making SCR full mediation the headline finding.",
+    "files": ["writing/paper.md"],
+    "effort": "2h",
+    "blocking": false
+  },
+  {
+    "id": "AI-08",
+    "priority": "P1",
+    "category": "analysis",
+    "title": "Reconcile 19.2% vs 73.1% taxonomy rates",
+    "description": "Two operational definitions of absorption produce dramatically different prevalence estimates on the same data. The paper reports both without adequate reconciliation.",
+    "action": "Add reconciliation paragraph in Section 4.4 explaining: magnitude-ratio metric measures reduced magnitude; Chanin false-negative metric measures complete failure-to-fire. The 54-point gap reveals most absorption is complete suppression, not partial suppression. Declare which rate is the validated primary metric.",
+    "files": ["writing/paper.md"],
+    "effort": "1h",
+    "blocking": false
+  },
+  {
+    "id": "AI-09",
+    "priority": "P2",
+    "category": "writing",
+    "title": "Define 'super-absorber' on first use and add to glossary",
+    "description": "The term appears in Sections 4.2, 5.2, and 6 without formal definition or glossary entry.",
+    "action": "Define on first use in Section 4.2: 'polysemantic SAE latents that activate across most city-related tokens regardless of the specific geographic attribute being probed.' Add to glossary.md.",
+    "files": ["writing/paper.md", "writing/glossary.md"],
+    "effort": "15m",
+    "blocking": false
+  },
+  {
+    "id": "AI-10",
+    "priority": "P2",
+    "category": "novelty",
+    "title": "Fix 'introduced here' -> 'applied here for the first time'",
+    "description": "Conclusion says 'epidemiological causal inference methods introduced here.' Baron-Kenny (1986) and Rosenbaum (2002) are textbook methods. The novelty is in application, not introduction.",
+    "action": "Change 'introduced here' to 'applied here for the first time to SAE evaluation' in the Conclusion.",
+    "files": ["writing/paper.md"],
+    "effort": "5m",
+    "blocking": false
+  },
+  {
+    "id": "AI-11",
+    "priority": "P2",
+    "category": "reproducibility",
+    "title": "Confirm absorption score measurement protocol consistency across phases",
+    "description": "Phase 1 uses absorption scores from iter_004 (C3A_saebench_corr.json). Phase 3 uses precomputed SAEBench absorption scores. The paper does not confirm these use the same Chanin et al. protocol.",
+    "action": "Add a sentence in Section 3.3.1 confirming SAEBench absorption scores use the same Chanin et al. protocol as Phase 1 scores. If they differ, note the methodological difference.",
+    "files": ["writing/paper.md"],
+    "effort": "30m",
+    "blocking": false
+  },
+  {
+    "id": "AI-12",
+    "priority": "P2",
+    "category": "reproducibility",
+    "title": "Report GAM specification details for Phase 3",
+    "description": "pyGAM specification (number of spline knots, spline degree, smoothing lambda, link function) is not reported. Different GAM packages use different defaults.",
+    "action": "Add GAM specification to Section 3.3.2: number of spline knots, spline degree, penalty lambda, link function, and software version. Or add to supplementary material.",
+    "files": ["writing/paper.md"],
+    "effort": "30m",
+    "blocking": false
+  },
+  {
+    "id": "AI-13",
+    "priority": "P2",
+    "category": "analysis",
+    "title": "Report reverse direction mediation test results",
+    "description": "The alternative_direction_test in the source data tests Quality -> Absorption -> L0 and produces stronger Sobel z values than the primary path. This is relevant to assessing the assumed causal ordering but is not reported.",
+    "action": "Add a paragraph in Discussion or supplementary reporting the reverse direction Sobel z values and noting they are stronger. Explain why the forward path is preferred (L0 is a training hyperparameter set before training, establishing temporal ordering).",
+    "files": ["writing/paper.md"],
+    "effort": "1h",
+    "blocking": false
+  }
+]

@@ -1,0 +1,354 @@
+{
+  "version": "iter_004",
+  "created": "2026-03-18",
+  "total_runs": 210,
+  "phases": [
+    {
+      "id": "phase_0",
+      "name": "Zero-Compute Fixes",
+      "gpu_required": false,
+      "estimated_hours": 4,
+      "tasks": [
+        {
+          "id": "T0.1",
+          "name": "fix_bem_metric",
+          "type": "code_fix",
+          "priority": "P0",
+          "description": "Fix BEM computation: HalfLambdaPhi not reporting effective_wd correctly, remove abs(), add signed BEM",
+          "files": ["exp/code/optimizers.py", "exp/code/train_unified.py"],
+          "acceptance": "half_lambda BEM = -0.5, cosine_schedule BEM ≈ -0.5"
+        },
+        {
+          "id": "T0.2",
+          "name": "fix_ais_metric",
+          "type": "code_fix",
+          "priority": "P0",
+          "description": "Fix AIS range claim in paper (already [0,1] in implementation via abs+entropy normalization), add explicit per-layer averaging formula",
+          "files": ["exp/code/train_unified.py"],
+          "acceptance": "AIS values in [0,1], paper description matches code"
+        },
+        {
+          "id": "T0.3",
+          "name": "fix_csi_metric",
+          "type": "code_fix",
+          "priority": "P0",
+          "description": "Simplify CSI to single definition (CV of weight norm deltas), add relative normalization to constant baseline",
+          "files": ["exp/code/train_unified.py"],
+          "acceptance": "CSI_rel(constant) = 1.0"
+        },
+        {
+          "id": "T0.4",
+          "name": "analyze_sgd_baseline",
+          "type": "analysis",
+          "priority": "P0",
+          "description": "Re-analyze all SGD baseline data from iter_003 summary.json files: paired t-tests, Bonferroni-Holm correction, Cohen's d, comparison with AdamW",
+          "data_source": "iter_003/exp/results/sgd_baseline/",
+          "acceptance": "Automated analysis script producing Table 5 data from raw summary.json"
+        }
+      ]
+    },
+    {
+      "id": "phase_1",
+      "name": "Pilot Validation",
+      "gpu_required": true,
+      "estimated_hours": 0.5,
+      "tasks": [
+        {
+          "id": "T1.1",
+          "name": "pilot_vgg16bn_cifar10",
+          "type": "pilot",
+          "priority": "P0",
+          "gpu_count": 1,
+          "config": {
+            "arch": "vgg16_bn",
+            "dataset": "cifar10",
+            "wd_methods": ["constant", "cwd_hard", "no_wd"],
+            "seeds": [42],
+            "epochs": 10,
+            "lr": 1e-3,
+            "wd": 5e-4,
+            "batch_size": 128,
+            "lr_schedule": "cosine",
+            "timeout_sec": 900
+          },
+          "runs": 3,
+          "acceptance": "Loss decreases, no OOM, epoch time < 60s"
+        },
+        {
+          "id": "T1.2",
+          "name": "pilot_metric_fix_verification",
+          "type": "pilot",
+          "priority": "P0",
+          "gpu_count": 1,
+          "config": {
+            "arch": "resnet20",
+            "dataset": "cifar10",
+            "wd_methods": ["half_lambda", "cosine_schedule"],
+            "seeds": [42],
+            "epochs": 5,
+            "lr": 1e-3,
+            "wd": 5e-4,
+            "batch_size": 128,
+            "lr_schedule": "cosine"
+          },
+          "runs": 2,
+          "acceptance": "half_lambda BEM ≈ -0.5, cosine_schedule BEM ≈ -0.5"
+        }
+      ]
+    },
+    {
+      "id": "phase_2a",
+      "name": "VGG-16-BN AdamW Full",
+      "gpu_required": true,
+      "estimated_hours": 4,
+      "depends_on": ["phase_1"],
+      "tasks": [
+        {
+          "id": "T2A",
+          "name": "vgg16bn_adamw_full",
+          "type": "experiment_batch",
+          "priority": "P0",
+          "gpu_count": 8,
+          "config": {
+            "arch": "vgg16_bn",
+            "dataset": ["cifar10", "cifar100"],
+            "optimizer": "adamw",
+            "wd_methods": ["constant", "cosine_schedule", "cwd_hard", "cwd_soft", "swd", "half_lambda", "no_wd"],
+            "seeds": [42, 123, 456, 789, 999],
+            "epochs": 200,
+            "lr": 1e-3,
+            "wd": 5e-4,
+            "batch_size": 128,
+            "lr_schedule": "cosine"
+          },
+          "runs": 70,
+          "output_dir_template": "exp/results/adamw/{dataset}/vgg16_bn/{wd_method}/seed_{seed}/",
+          "acceptance": "All 70 runs have _DONE marker, all summary.json valid"
+        }
+      ]
+    },
+    {
+      "id": "phase_2b",
+      "name": "ResNet-20 Extra Seeds",
+      "gpu_required": true,
+      "estimated_hours": 3,
+      "depends_on": ["phase_1"],
+      "tasks": [
+        {
+          "id": "T2B",
+          "name": "resnet20_adamw_extra_seeds",
+          "type": "experiment_batch",
+          "priority": "P0",
+          "gpu_count": 4,
+          "config": {
+            "arch": "resnet20",
+            "dataset": ["cifar10", "cifar100"],
+            "optimizer": "adamw",
+            "wd_methods": ["constant", "cosine_schedule", "cwd_hard", "cwd_soft", "swd", "half_lambda", "no_wd"],
+            "seeds": [789, 999],
+            "epochs": 200,
+            "lr": 1e-3,
+            "wd": 5e-4,
+            "batch_size": 128,
+            "lr_schedule": "cosine"
+          },
+          "runs": 28,
+          "output_dir_template": "exp/results/adamw/{dataset}/resnet20/{wd_method}/seed_{seed}/",
+          "acceptance": "All 28 runs have _DONE marker"
+        }
+      ]
+    },
+    {
+      "id": "phase_2c",
+      "name": "VGG-16-BN SGD Control",
+      "gpu_required": true,
+      "estimated_hours": 3,
+      "depends_on": ["phase_2a"],
+      "tasks": [
+        {
+          "id": "T2C",
+          "name": "vgg16bn_sgd",
+          "type": "experiment_batch",
+          "priority": "P1",
+          "gpu_count": 4,
+          "config": {
+            "arch": "vgg16_bn",
+            "dataset": ["cifar10", "cifar100"],
+            "optimizer": "sgd",
+            "wd_methods": ["constant", "cosine_schedule", "cwd_hard", "no_wd"],
+            "seeds": [42, 123, 456],
+            "epochs": 200,
+            "lr": 0.1,
+            "wd": 5e-3,
+            "momentum": 0.9,
+            "batch_size": 128,
+            "lr_schedule": "multistep",
+            "lr_milestones": [80, 120, 160]
+          },
+          "runs": 24,
+          "output_dir_template": "exp/results/sgd_baseline/{dataset}/vgg16_bn/{wd_method}/seed_{seed}/",
+          "acceptance": "All 24 runs have _DONE marker"
+        }
+      ]
+    },
+    {
+      "id": "phase_3",
+      "name": "Statistical Analysis & Visualization",
+      "gpu_required": false,
+      "estimated_hours": 6,
+      "depends_on": ["phase_2a", "phase_2b"],
+      "tasks": [
+        {
+          "id": "T3.1",
+          "name": "tost_equivalence_testing",
+          "type": "analysis",
+          "priority": "P0",
+          "description": "TOST paired equivalence testing for all (method, constant) pairs under AdamW",
+          "parameters": {
+            "delta_margins": [0.003, 0.005],
+            "alpha": 0.05,
+            "n_seeds": 5,
+            "datasets": ["cifar10", "cifar100"],
+            "architectures": ["resnet20", "vgg16_bn"]
+          },
+          "acceptance": "TOST results table with p-values and 90% CI for each pair"
+        },
+        {
+          "id": "T3.2",
+          "name": "power_analysis",
+          "type": "analysis",
+          "priority": "P1",
+          "description": "Post-hoc power analysis: compute MDE at 80% power for n=5, report statistical limitations",
+          "acceptance": "MDE < 0.50% for most configurations"
+        },
+        {
+          "id": "T3.3",
+          "name": "training_curves",
+          "type": "visualization",
+          "priority": "P1",
+          "description": "Test accuracy and loss vs epoch plots, mean±std across seeds, for all methods on each (arch, dataset) combo",
+          "output": "writing/figures/training_curves_*.pdf",
+          "acceptance": "Curves show convergence, shaded std bands visible"
+        },
+        {
+          "id": "T3.4",
+          "name": "weight_norm_trajectories",
+          "type": "visualization",
+          "priority": "P1",
+          "description": "Weight norm vs epoch for all methods, showing AdamW convergence to similar norms",
+          "output": "writing/figures/weight_norm_*.pdf",
+          "acceptance": "AdamW norms converge within ~2% range"
+        },
+        {
+          "id": "T3.5",
+          "name": "sgd_vs_adamw_effect_sizes",
+          "type": "visualization",
+          "priority": "P0",
+          "description": "Grouped bar chart of Cohen's d effect sizes (vs constant) for SGD and AdamW side by side",
+          "output": "writing/figures/effect_size_comparison.pdf",
+          "acceptance": "SGD bars >> AdamW bars, 18x annotation"
+        },
+        {
+          "id": "T3.6",
+          "name": "diagnostic_heatmaps",
+          "type": "visualization",
+          "priority": "P1",
+          "description": "BEM/AIS/CSI heatmaps across methods and datasets",
+          "output": "writing/figures/diagnostic_heatmap_*.pdf"
+        },
+        {
+          "id": "T3.7",
+          "name": "cross_architecture_comparison",
+          "type": "visualization",
+          "priority": "P0",
+          "description": "ResNet-20 vs VGG-16-BN accuracy difference scatter/bar plot",
+          "output": "writing/figures/cross_arch_comparison.pdf",
+          "acceptance": "Shows whether Phi Invariance holds across architectures"
+        }
+      ]
+    },
+    {
+      "id": "phase_4",
+      "name": "ImageNet ResNet-50 (Optional)",
+      "gpu_required": true,
+      "estimated_hours": 14,
+      "depends_on": ["phase_2a"],
+      "optional": true,
+      "tasks": [
+        {
+          "id": "T4.1",
+          "name": "imagenet_data_prep",
+          "type": "setup",
+          "priority": "P2",
+          "description": "Verify ImageNet data availability, add ImageNet dataloader to data.py, add ResNet-50 to models.py"
+        },
+        {
+          "id": "T4.2",
+          "name": "imagenet_adamw",
+          "type": "experiment_batch",
+          "priority": "P2",
+          "gpu_count": 8,
+          "config": {
+            "arch": "resnet50",
+            "dataset": "imagenet",
+            "optimizer": "adamw",
+            "wd_methods": ["constant", "cosine_schedule", "cwd_hard", "no_wd"],
+            "seeds": [42, 123, 456],
+            "epochs": 90,
+            "lr": 1e-3,
+            "wd": 1e-4,
+            "batch_size": 256,
+            "lr_schedule": "cosine"
+          },
+          "runs": 12,
+          "acceptance": "All 12 runs complete with summary.json"
+        },
+        {
+          "id": "T4.3",
+          "name": "imagenet_sgd_control",
+          "type": "experiment_batch",
+          "priority": "P2",
+          "gpu_count": 4,
+          "config": {
+            "arch": "resnet50",
+            "dataset": "imagenet",
+            "optimizer": "sgd",
+            "wd_methods": ["constant", "no_wd"],
+            "seeds": [42, 123, 456],
+            "epochs": 90,
+            "lr": 0.1,
+            "wd": 1e-4,
+            "momentum": 0.9,
+            "batch_size": 256,
+            "lr_schedule": "multistep",
+            "lr_milestones": [30, 60, 80]
+          },
+          "runs": 6,
+          "acceptance": "All 6 runs complete"
+        }
+      ]
+    }
+  ],
+  "execution_order": [
+    {"parallel": ["phase_0"]},
+    {"parallel": ["phase_1"]},
+    {"parallel": ["phase_2a", "phase_2b"]},
+    {"parallel": ["phase_2c", "phase_3"]},
+    {"parallel": ["phase_4"]}
+  ],
+  "gpu_schedule": {
+    "phase_1": {"gpus": [0], "duration_min": 30},
+    "phase_2a": {"gpus": [0,1,2,3,4,5,6,7], "duration_min": 240},
+    "phase_2b": {"gpus": [0,1,2,3], "duration_min": 180},
+    "phase_2c": {"gpus": [0,1,2,3], "duration_min": 180},
+    "phase_4": {"gpus": [0,1,2,3,4,5,6,7], "duration_min": 840}
+  },
+  "summary": {
+    "total_adamw_runs": 98,
+    "total_sgd_runs": 24,
+    "total_imagenet_runs": 18,
+    "total_pilot_runs": 5,
+    "total_analysis_tasks": 7,
+    "estimated_gpu_hours": "22-30 (excluding ImageNet)"
+  }
+}

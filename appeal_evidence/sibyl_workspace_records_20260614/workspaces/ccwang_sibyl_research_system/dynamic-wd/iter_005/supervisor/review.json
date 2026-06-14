@@ -1,0 +1,91 @@
+{
+  "score": 7.0,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 7,
+    "experiments": 6,
+    "reproducibility": 7
+  },
+  "summary": "The paper makes a genuine theoretical contribution: the stability-optimal control theory framework (Theorems 1-3) provides a principled explanation for why constant WD dominates at standard rho, and PMP-WD derived from dual routes (PMP + RG beta function) is a novel state-feedback WD controller. The experimental base has expanded substantially since the prior review: VGG-16-BN is now fully complete (7 methods x 3 seeds, Phi spread = 0.16%, cross-validated), rho_low has 2 methods x 3 seeds (not 1 seed for CWD as the paper claims), and NoBN has 3 methods partially complete (not 2 as stated). Cross-validation against raw data confirms all VGG-16-BN and ResNet-20 numbers are accurate. However, three structural weaknesses prevent acceptance: (1) PMP-WD, the paper's primary algorithmic contribution, remains entirely unimplemented and unvalidated -- the paper derives an optimal controller then explicitly defers evaluation; (2) the rho-high regime (rho=5.0), which is where Theorem 1's most interesting prediction lies, has only a 5-epoch pilot; (3) statistical power at N=3 is insufficient for a null-result paper (TOST at delta=0.5% has ~15-20% power). The paper's self-awareness about limitations is exemplary (Section 6.5 is honest and well-prioritized), but the gap between theoretical ambition and empirical validation remains the central barrier to acceptance.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "PMP-WD (Theorem 3) is derived but completely unvalidated. The paper's primary positive algorithmic contribution -- a state-feedback WD controller from the stochastic Pontryagin Maximum Principle with an independent RG beta function derivation -- has zero experimental evaluation. Section 1.2 explicitly states 'PMP-WD is a theoretical contribution; empirical evaluation is deferred to future work.' A NeurIPS paper proposing an optimal WD algorithm without running it once is incomplete. The dual derivation strengthens the theory, but a reviewer will ask: 'If the algorithm is so principled, why not run it?' The implementation is ~30 LOC per the proposal (lambda*(t) = clip(kappa*(rho*-rho_hat_t)+, 0, lambda_max)).",
+      "suggestion": "Implement PMP-WD and run it on at least ResNet-20 CIFAR-10 under AdamW at rho-standard (rho=0.5) and rho-high (rho=5.0), 3 seeds each. At rho=0.5, the theory predicts PMP-WD will match constant WD (confirming the theory). At rho=5.0, the theory predicts PMP-WD will outperform constant WD (the interesting case). Either result is informative. Estimated cost: ~2 GPU-hours. This single addition would raise the score by 0.5-1.0 points."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The rho-high regime (rho=5.0) remains at the 5-epoch pilot stage after multiple iterations. Theorem 1's most interesting prediction -- that method sensitivity increases at elevated rho, crossing the stability-cost threshold -- is entirely untested at the extreme. The paper assembles 4 data points on the spread-vs-rho curve (Section 5.3) but the highest-rho data point is a 5-epoch pilot at 77.69%. The paper acknowledges 'training instability' at rho-high but does not investigate further. If rho-high is genuinely unstable, this is itself an important finding (the regime boundary is sharper than predicted). If it was a hyperparameter issue, the fix may be straightforward (warmup, gradient clipping).",
+      "suggestion": "Run rho-high with training stabilization: (a) 5-epoch linear warmup for both LR and WD, (b) gradient clipping at 1.0, (c) reduced lambda=2.5e-3 as a midpoint. Even if the full rho=5.0 run diverges, a rho=2.0 run (lambda=2e-3) would provide a useful intermediate data point. 3 methods (constant, CWD, no_wd) x 3 seeds = 9 runs at ~1h each. If rho-high genuinely cannot train stably, report this as the empirical boundary and update the regime diagram accordingly."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Statistical power at N=3 seeds is insufficient for a null-result paper. The paper's central claim is that dynamic WD methods are 'statistically indistinguishable' from constant WD under AdamW. With N=3, the minimum detectable effect at 80% power is ~0.7%, and TOST at delta=0.5% has only 15-20% power. The paper correctly acknowledges this (Section 6.5, Limitation 4), but this is not a limitation that can be hand-waved -- it is the paper's core evidentiary standard. The VGG-16-BN spread of 0.16% is compelling descriptively, but no TOST equivalence is confirmed at the 0.5% margin that practitioners care about.",
+      "suggestion": "Add 2 seeds (total N=5) for the 4 most informative method comparisons (constant, CWD, cosine, no-WD) on CIFAR-10 AdamW for both ResNet-20 and VGG-16-BN. This is 16 additional runs (~4 GPU-hours). With N=5, TOST power at delta=0.5% increases to ~55%, a meaningful improvement. Report TOST results explicitly with confidence intervals."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Paper data is stale: it claims rho-low CWD has '1 seed' and NoBN has '2 methods' but raw data shows rho-low CWD has 3 completed seeds (89.81, 90.09, 89.96) and NoBN has 3 methods partially complete (constant 3 seeds, CWD 3 seeds, no_wd 1 seed). The paper's Table 6 and Section 5.3 underreport available data. This creates a false impression of less evidence than actually exists. The rho-low Phi spread with 2 complete methods is 0.18% (constant 90.13 vs CWD 89.95), not the '>= 0.04%' partial estimate in the paper.",
+      "suggestion": "Update Section 5.3 and Table 6 to reflect all completed data. The rho-low data now supports a real spread estimate: 0.18% across 2 methods with 3 seeds each. Update the NoBN section similarly: constant 87.74 +/- 0.21, CWD 87.62 +/- 0.12, no_wd 87.79 (1 seed). This doesn't change any conclusions but makes the paper factually current."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Total run count in the abstract ('105 completed 200-epoch runs') is inaccurate. Cross-validated count: AdamW ResNet-20 (42) + SGD ResNet-20 (42) + VGG-16-BN (21) + rho_low (6) + NoBN (7) + matched-rho SGD (4) = 122 completed runs. The pilot runs add more. The abstract should report the accurate count.",
+      "suggestion": "Update the abstract to '122 completed 200-epoch runs' (or the precise count after verifying all configurations). This strengthens the paper's empirical base."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The SGD rho confound remains unresolved. SGD operates at rho=0.005 vs AdamW at rho=0.5 (100x difference). The matched-rho SGD experiment was designed to disentangle optimizer mechanism from rho difference, but only has 2 seeds for constant (90.92%) and 1 seed for CWD (90.81%). The paper honestly reports this as insufficient but still uses the SGD/AdamW spread ratio (3.7x) as a headline finding in the abstract and conclusion. Without matched-rho completion, the 3.7x ratio is a mixed-effects confound, not a clean optimizer comparison.",
+      "suggestion": "Complete matched-rho SGD: at minimum add CWD seed_123 and seed_456 (2 more runs) and no_wd for 3 seeds (3 runs). This gives 3 methods x 3 seeds at matched rho, enough for a basic spread estimate. If the matched-rho SGD spread is < 0.5% (like AdamW), rho explains everything and the paper has a clean story. If it's > 0.5%, the optimizer mechanism matters independently."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "minor",
+      "description": "CWD phi formula uses u_t (preconditioned update) in Table 4 but the framework definition uses g_t (raw gradient). The distinction matters: sign(u_t) and sign(g_t) can differ after Adam's second-moment normalization. This has been flagged in multiple prior reviews and evolution lessons but remains unresolved in the paper.",
+      "suggestion": "Define u_t explicitly in Section 3.1 (u_t = m_hat_t / (sqrt(v_hat_t) + epsilon)) and clarify that CWD's sign alignment uses u_t (the preconditioned update), not g_t. Update the phi framework signature if needed."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "minor",
+      "description": "CSI weights (w1=0.4, w2=0.3, w3=0.3) are unjustified. The paper states 'results are robust to perturbations within +/- 0.1 (Appendix A.3)' but this appendix does not exist in the manuscript. CSI is ultimately found to have no within-architecture predictive value (r_s = 0.03 for ResNet-20, -0.05 for VGG-16-BN), weakening its utility as a proposed diagnostic metric.",
+      "suggestion": "Either add the Appendix A.3 sensitivity analysis or remove the reference. Consider demoting CSI from a primary diagnostic metric to a secondary one, given its lack of within-architecture predictive value. BEM and AIS have cleaner interpretations."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "CIFAR-100 SGD results are referenced in the text (SGD Phi spread = 1.71%) but no CIFAR-100 SGD table is presented. Table 1 includes the CIFAR-100 SGD column but no dedicated analysis table with p-values and effect sizes exists for CIFAR-100 SGD, unlike CIFAR-10 SGD which gets Table 2-equivalent attention.",
+      "suggestion": "Add a brief CIFAR-100 SGD statistical analysis paragraph or table, reporting the no_wd and SWD significance results that are available in the raw data."
+    }
+  ],
+  "risks": [
+    "PMP-WD being purely theoretical is the paper's biggest reputational risk: a reviewer may perceive the algorithm as decorative theory without practical validation, undermining the entire control-theoretic framing.",
+    "The rho-high data gap means the regime diagram (Figure 1) extrapolates into the differentiation regime without measured data. The figure shows three regime zones but only the inhibition and early transition zones have experimental support.",
+    "Scale limitation: CIFAR-10/100 with ResNet-20 and VGG-16-BN are small by current standards. Every major WD paper (CWD ICLR 2026, AlphaDecay NeurIPS 2025, SWD NeurIPS 2023) includes ImageNet or LLM experiments.",
+    "The null-result framing requires higher evidentiary burden than positive-result papers. N=3 seeds with TOST power ~15-20% at delta=0.5% does not meet this burden."
+  ],
+  "evidence_gaps": [
+    "PMP-WD has zero experimental evaluation despite being a primary contribution (Theorem 3).",
+    "rho-high regime (rho > 2.0) has only a 5-epoch pilot -- the 'differentiation' zone in Figure 1 is unvalidated.",
+    "Matched-rho SGD has insufficient data (2 seeds constant, 1 seed CWD) to resolve the optimizer-vs-rho confound.",
+    "TOST equivalence not confirmed at delta=0.5% for any comparison -- the equivalence claim lacks formal statistical support.",
+    "Appendix A.3 (CSI weight sensitivity) and Appendix B.1-B.4 (theorem proofs) are referenced but may not exist in the manuscript.",
+    "Paper underreports available data: rho-low CWD has 3 seeds (not 1), NoBN has 3 methods (not 2)."
+  ],
+  "what_would_raise_score": "Three actions would collectively raise the score from 7.0 to 8.0+: (1) Implement and run PMP-WD on ResNet-20 CIFAR-10 at rho=0.5 and rho=2.0-5.0, 3 seeds each (~2 GPU-hours). This validates the paper's primary algorithmic contribution and directly tests Theorem 3's prediction. (2) Complete matched-rho SGD (add CWD and no_wd, 3 seeds each, ~2 GPU-hours). This resolves the SGD/AdamW confound and either confirms or complicates the rho-explains-everything narrative. (3) Add 2 seeds for 4 key methods on CIFAR-10 AdamW (~4 GPU-hours) to enable TOST at delta=0.5%. Total additional compute: ~8 GPU-hours. Each action independently raises the score by 0.3-0.5 points."
+}

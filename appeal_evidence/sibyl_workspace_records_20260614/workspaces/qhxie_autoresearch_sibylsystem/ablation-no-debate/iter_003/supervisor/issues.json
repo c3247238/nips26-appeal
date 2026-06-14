@@ -1,0 +1,58 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "H_Mech self-contradiction: The paper claims 'B ≈ D confirms encoder-driven' but B=0.076 is 4.5x larger than D=0.017. The pass criterion |B-D|<0.1 technically passes but masks a fundamental reinterpretation: encoder alignment creates absorption (B>>A: 0.076 vs 0.004), but decoder training SUPPRESSES absorption in joint training (D=0.017 < B=0.076).",
+    "suggestion": "Reword to: 'Encoder alignment is necessary and sufficient to create absorption (B>>A), but decoder training during joint training plays a regulatory/suppressive role that reduces absorption below encoder-only levels (D<B).' This reframes B>D as the central finding about decoder's regulatory role, not a failed equivalence test."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "H_Safe pilot uses PLACEHOLDER feature indices (1024, 2048, 3072, 4096, 5120) that are NOT validated safety features from Neuronpedia. The paper states 'null absorption for safety-critical features' but this result measures arbitrary SAE indices. This is not a finding—it is measurement of nothing. Section 5.3 Safety Implications is built on no actual evidence.",
+    "suggestion": "Remove all claims about safety features based on placeholder data. Restructure H_Safe section as 'Methodology Proposed, Pending Validated Neuronpedia Annotations' with explicit statement that placeholder indices prevent any conclusion."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Sensitivity metric invalid: L0=16 shows sensitivity_mean=1.525 (std=0.1). Sensitivity is defined as Var(Δlogits | Δa_f)—variance is non-negative but values >1 for a [0,1] normalized metric are implementation-suspicious. The Pareto frontier shape (R²=0.963) depends on these values.",
+    "suggestion": "Verify sensitivity metric formula implementation. If using raw variance without normalization, rescale to [0,1] or document the scale. Also note the pilot uses only 2 L0 levels, not the 4 promised (16, 32, 64, 128)."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "MCC ~0.21 across ALL variants including Random control suggests Hungarian matching on overcomplete dictionaries yields chance-level recovery regardless of training. If SAEs are not recovering ground-truth features, 'absorption reduction' may reflect sparsity-induced suppression rather than genuine hierarchical feature recovery.",
+    "suggestion": "Add explicit discussion in Section 5.5 Limitations: If MCC is chance-level, absorption reduction may not reflect genuine hierarchical feature recovery. This fundamentally affects interpretation of all absorption measurements."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Multi-seed validation incomplete: experiment_state.json shows h_mech_full and h_pareto_pilot are still 'running' not completed. The paper reports 'Across 5 seeds' but pilot data is single-seed (seed 42 only). H_Comp claims 6 levels × 3 seeds but only seed 42 data is available.",
+    "suggestion": "Either (1) wait for full experiments to complete before claiming multi-seed robustness, or (2) reframe the paper to clearly state 'pilot validation' and 'full validation pending GPU resources'."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Statistical fragility in H_Comp: R²=0.984 is based on n=3 per level with only 3 degrees of freedom for a linear fit. R²=0.984 looks impressive but may overfit to noise with n=3 per level.",
+    "suggestion": "Add explicit acknowledgment of limited statistical power due to n=3 per level. Consider presenting this as 'preliminary evidence requiring full validation' rather than confirmed finding."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "minor",
+    "description": "Section 3.5 promises a one-way ANOVA across all completed variants but this is not reported in Results. The paper focuses on pairwise effect sizes which is more appropriate given low N, but the unfulfilled promise undermines credibility.",
+    "suggestion": "Remove the ANOVA promise from Section 3.5, or actually conduct and report the ANOVA."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "The core novelty claim—that L0 confounds architecture comparisons—is important but may be a methodological observation. SAEBench (Karvonen et al., 2025) already compares architectures and notes sparsity differences. The contribution is quantifying the magnitude of the confound.",
+    "suggestion": "Tone down novelty claims around 'discovering' the confound. Position as quantifying the magnitude and characterising the sensitivity-absorption trade-off, which IS genuinely novel."
+  }
+]

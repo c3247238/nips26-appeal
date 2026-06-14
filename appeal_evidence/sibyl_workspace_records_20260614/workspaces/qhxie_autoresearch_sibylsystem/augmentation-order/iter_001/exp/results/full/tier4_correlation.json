@@ -1,0 +1,409 @@
+{
+  "task_id": "tier4_correlation_analysis",
+  "mode": "pilot",
+  "timestamp": "2026-04-02T18:36:16.326589",
+  "load_errors": [],
+  "h1_ordering_matters": {
+    "hypothesis": "H1",
+    "description": "Augmentation ordering significantly affects accuracy (spread > 0.5%)",
+    "threshold_pct": 0.5,
+    "blocks_confirmed": 3,
+    "blocks_total": 4,
+    "spreads": {
+      "resnet18_cifar10": 0.96,
+      "resnet18_cifar100": 0.88,
+      "vit_cifar10": 2.32,
+      "vit_cifar100": 0.25
+    },
+    "verdict": "confirmed",
+    "errors": []
+  },
+  "h2_reversibility_ordering": {
+    "hypothesis": "H2",
+    "description": "Reversibility-sorted ordering (CJ\u2192Flip\u2192Crop) outperforms conventional (Crop\u2192Flip\u2192CJ)",
+    "reversibility_sorted": "CJ\u2192Flip\u2192Crop",
+    "conventional": "Crop\u2192Flip\u2192CJ",
+    "blocks_confirmed": 2,
+    "blocks_total": 4,
+    "comparisons": {
+      "resnet18_cifar10": {
+        "conventional_key": "order_0",
+        "reversibility_sorted_key": "order_5",
+        "conventional_acc": 0.1019,
+        "reversibility_sorted_acc": 0.1097,
+        "diff": 0.0078,
+        "reversibility_sorted_wins": true
+      },
+      "resnet18_cifar100": {
+        "conventional_key": "order_0",
+        "reversibility_sorted_key": "order_5",
+        "conventional_acc": 0.4613,
+        "reversibility_sorted_acc": 0.4575,
+        "diff": -0.0038,
+        "reversibility_sorted_wins": false
+      },
+      "vit_cifar10": {
+        "conventional_key": "order_0",
+        "reversibility_sorted_key": "order_5",
+        "conventional_acc": 0.1937,
+        "reversibility_sorted_acc": 0.195,
+        "diff": 0.0013,
+        "reversibility_sorted_wins": true
+      },
+      "vit_cifar100": {
+        "conventional_key": "order_0",
+        "reversibility_sorted_key": "order_5",
+        "conventional_acc": 0.028,
+        "reversibility_sorted_acc": 0.0264,
+        "diff": -0.0016,
+        "reversibility_sorted_wins": false
+      }
+    },
+    "verdict": "confirmed",
+    "errors": []
+  },
+  "h3_nc2_vs_accuracy": {
+    "hypothesis": "H3",
+    "description": "NC_2 non-commutativity correlates with accuracy-diff ranking across orderings",
+    "method": "spearman_rho(nc2_proxy_per_ordering, accuracy_rank)",
+    "rho": -0.2,
+    "p_value": 0.6831,
+    "p_perm": 0.6946,
+    "verdict": "falsified",
+    "details": {},
+    "errors": [],
+    "used_block": "resnet18_cifar100",
+    "n_orderings": 6,
+    "ordering_scores": {
+      "order_0": {
+        "acc": 0.4613,
+        "nc2_score": -0.061543,
+        "label": "Crop\u2192Flip\u2192CJ",
+        "ops": [
+          "crop",
+          "flip",
+          "cj"
+        ],
+        "pair_details": [
+          {
+            "pair": "crop-flip",
+            "nc2": 0.04482748359441757,
+            "direction_sign": -1.0
+          },
+          {
+            "pair": "crop-cj",
+            "nc2": 0.051490191370248795,
+            "direction_sign": -1.0
+          },
+          {
+            "pair": "flip-cj",
+            "nc2": 0.034774843603372574,
+            "direction_sign": 1.0
+          }
+        ]
+      },
+      "order_1": {
+        "acc": 0.4645,
+        "nc2_score": -0.131093,
+        "label": "Crop\u2192CJ\u2192Flip",
+        "ops": [
+          "crop",
+          "cj",
+          "flip"
+        ],
+        "pair_details": [
+          {
+            "pair": "crop-cj",
+            "nc2": 0.051490191370248795,
+            "direction_sign": -1.0
+          },
+          {
+            "pair": "crop-flip",
+            "nc2": 0.04482748359441757,
+            "direction_sign": -1.0
+          },
+          {
+            "pair": "cj-flip",
+            "nc2": 0.034774843603372574,
+            "direction_sign": -1.0
+          }
+        ]
+      },
+      "order_2": {
+        "acc": 0.4663,
+        "nc2_score": 0.028112,
+        "label": "Flip\u2192Crop\u2192CJ",
+        "ops": [
+          "flip",
+          "crop",
+          "cj"
+        ],
+        "pair_details": [
+          {
+            "pair": "flip-crop",
+            "nc2": 0.04482748359441757,
+            "direction_sign": 1.0
+          },
+          {
+            "pair": "flip-cj",
+            "nc2": 0.034774843603372574,
+            "direction_sign": 1.0
+          },
+          {
+            "pair": "crop-cj",
+            "nc2": 0.051490191370248795,
+            "direction_sign": -1.0
+          }
+        ]
+      },
+      "order_3": {
+        "acc": 0.463,
+        "nc2_score": 0.131093,
+        "label": "Flip\u2192CJ\u2192Crop",
+        "ops": [
+          "flip",
+          "cj",
+          "crop"
+        ],
+        "pair_details": [
+          {
+            "pair": "flip-cj",
+            "nc2": 0.034774843603372574,
+            "direction_sign": 1.0
+          },
+          {
+            "pair": "flip-crop",
+            "nc2": 0.04482748359441757,
+            "direction_sign": 1.0
+          },
+          {
+            "pair": "cj-crop",
+            "nc2": 0.051490191370248795,
+            "direction_sign": 1.0
+          }
+        ]
+      },
+      "order_4": {
+        "acc": 0.4592,
+        "nc2_score": -0.028112,
+        "label": "CJ\u2192Crop\u2192Flip",
+        "ops": [
+          "cj",
+          "crop",
+          "flip"
+        ],
+        "pair_details": [
+          {
+            "pair": "cj-crop",
+            "nc2": 0.051490191370248795,
+            "direction_sign": 1.0
+          },
+          {
+            "pair": "cj-flip",
+            "nc2": 0.034774843603372574,
+            "direction_sign": -1.0
+          },
+          {
+            "pair": "crop-flip",
+            "nc2": 0.04482748359441757,
+            "direction_sign": -1.0
+          }
+        ]
+      },
+      "order_5": {
+        "acc": 0.4575,
+        "nc2_score": 0.061543,
+        "label": "CJ\u2192Flip\u2192Crop",
+        "ops": [
+          "cj",
+          "flip",
+          "crop"
+        ],
+        "pair_details": [
+          {
+            "pair": "cj-flip",
+            "nc2": 0.034774843603372574,
+            "direction_sign": -1.0
+          },
+          {
+            "pair": "cj-crop",
+            "nc2": 0.051490191370248795,
+            "direction_sign": 1.0
+          },
+          {
+            "pair": "flip-crop",
+            "nc2": 0.04482748359441757,
+            "direction_sign": 1.0
+          }
+        ]
+      }
+    }
+  },
+  "h4_mi_vs_accuracy": {
+    "hypothesis": "H4",
+    "description": "InfoNCE MI correlates with ordering accuracy ranking",
+    "method": "spearman_rho(mi_estimate, accuracy) per dataset",
+    "datasets": {
+      "cifar10": {
+        "used_block": "resnet18_cifar10",
+        "n_orderings": 6,
+        "rho": 0.5429,
+        "p_value": 0.1961,
+        "p_perm": 0.2814,
+        "matched_orderings": [
+          {
+            "ordering": "order_0",
+            "label": "Crop\u2192Flip\u2192CJ",
+            "mi_estimate": 0.0399,
+            "accuracy": 0.1019
+          },
+          {
+            "ordering": "order_1",
+            "label": "Crop\u2192CJ\u2192Flip",
+            "mi_estimate": 0.021,
+            "accuracy": 0.1009
+          },
+          {
+            "ordering": "order_2",
+            "label": "Flip\u2192Crop\u2192CJ",
+            "mi_estimate": 0.0637,
+            "accuracy": 0.101
+          },
+          {
+            "ordering": "order_3",
+            "label": "Flip\u2192CJ\u2192Crop",
+            "mi_estimate": 0.0374,
+            "accuracy": 0.1023
+          },
+          {
+            "ordering": "order_4",
+            "label": "CJ\u2192Crop\u2192Flip",
+            "mi_estimate": 0.0259,
+            "accuracy": 0.1001
+          },
+          {
+            "ordering": "order_5",
+            "label": "CJ\u2192Flip\u2192Crop",
+            "mi_estimate": 0.0511,
+            "accuracy": 0.1097
+          }
+        ],
+        "paired_comparison": {
+          "conventional_order_mi": 0.0399,
+          "reversibility_sorted_mi": 0.0511,
+          "mi_diff": 0.0112,
+          "reversibility_sorted_wins_mi": true,
+          "conventional_acc": 0.14,
+          "reversibility_sorted_acc": 0.14,
+          "acc_diff": 0.0,
+          "reversibility_sorted_wins_acc": false
+        }
+      },
+      "cifar100": {
+        "used_block": "resnet18_cifar100",
+        "n_orderings": 6,
+        "rho": -0.6571,
+        "p_value": 0.0812,
+        "p_perm": 0.1876,
+        "matched_orderings": [
+          {
+            "ordering": "order_0",
+            "label": "Crop\u2192Flip\u2192CJ",
+            "mi_estimate": 0.1269,
+            "accuracy": 0.4613
+          },
+          {
+            "ordering": "order_1",
+            "label": "Crop\u2192CJ\u2192Flip",
+            "mi_estimate": 0.1151,
+            "accuracy": 0.4645
+          },
+          {
+            "ordering": "order_2",
+            "label": "Flip\u2192Crop\u2192CJ",
+            "mi_estimate": 0.0932,
+            "accuracy": 0.4663
+          },
+          {
+            "ordering": "order_3",
+            "label": "Flip\u2192CJ\u2192Crop",
+            "mi_estimate": 0.0765,
+            "accuracy": 0.463
+          },
+          {
+            "ordering": "order_4",
+            "label": "CJ\u2192Crop\u2192Flip",
+            "mi_estimate": 0.1458,
+            "accuracy": 0.4592
+          },
+          {
+            "ordering": "order_5",
+            "label": "CJ\u2192Flip\u2192Crop",
+            "mi_estimate": 0.1239,
+            "accuracy": 0.4575
+          }
+        ],
+        "paired_comparison": {
+          "conventional_order_mi": 0.1269,
+          "reversibility_sorted_mi": 0.1239,
+          "mi_diff": -0.003,
+          "reversibility_sorted_wins_mi": false,
+          "conventional_acc": 0.01,
+          "reversibility_sorted_acc": 0.01,
+          "acc_diff": 0.0,
+          "reversibility_sorted_wins_acc": false
+        }
+      }
+    },
+    "combined_rho": -0.0571,
+    "verdict": "inconclusive",
+    "errors": []
+  },
+  "h5_magnitude_interaction": {
+    "hypothesis": "H5",
+    "description": "Higher augmentation magnitude amplifies ordering-induced accuracy spread",
+    "spread_by_magnitude": {
+      "M5": 0.0035,
+      "M9": 0.0088,
+      "M14": 0.0
+    },
+    "spread_increases": false,
+    "verdict": "falsified",
+    "errors": [],
+    "nan_at_m14": false
+  },
+  "verdict_table": {
+    "H1": {
+      "name": "Ordering Matters",
+      "metric": "spread > 0.5% in \u226550% blocks",
+      "observed": "3/4 blocks above threshold",
+      "verdict": "confirmed"
+    },
+    "H2": {
+      "name": "Reversibility-Sorted Wins",
+      "metric": "CJ\u2192Flip\u2192Crop > Crop\u2192Flip\u2192CJ in \u226550% blocks",
+      "observed": "2/4 blocks confirmed",
+      "verdict": "confirmed"
+    },
+    "H3": {
+      "name": "NC_2 Predicts Accuracy",
+      "metric": "Spearman rho(NC_2, accuracy) > 0.3",
+      "observed": "rho=-0.2, p_perm=0.6946",
+      "verdict": "falsified"
+    },
+    "H4": {
+      "name": "MI Predicts Accuracy",
+      "metric": "Spearman rho(MI, accuracy) > 0.3",
+      "observed": "combined_rho=-0.0571",
+      "verdict": "inconclusive"
+    },
+    "H5": {
+      "name": "Magnitude Amplifies Spread",
+      "metric": "spread[M14] > spread[M5]",
+      "observed": "{'M5': 0.0035, 'M9': 0.0088, 'M14': 0.0}",
+      "verdict": "falsified"
+    }
+  },
+  "pass_criteria_met": true,
+  "elapsed_sec": 0.01
+}

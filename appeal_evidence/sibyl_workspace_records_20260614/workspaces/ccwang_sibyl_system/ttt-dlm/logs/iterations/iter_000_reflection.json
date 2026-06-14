@@ -1,0 +1,23 @@
+{
+  "iteration": 0,
+  "stage": "reflection",
+  "timestamp": "2026-03-08T00:26:34Z",
+  "changes": [
+    "Iteration 0 complete"
+  ],
+  "issues_found": [
+    "PPL 自矛盾：论文声称 PPL 不可靠（Contribution 4），但核心结论 100% 依赖 GPT-2 (124M) PPL。methodology.md 规划的 LLM-as-Judge 从未执行。",
+    "实验仅覆盖开放文本生成，DLM 推理时扩展的成功案例（d1, Prism）集中在推理任务上。结论的外部有效性严重不足。",
+    "温度退火 pilot 数据可能存在实现缺陷：三种不同退火曲线的 PPL 数组 13/15 个值完全相同，强烈暗示温度参数未正确传递给 Dream 的 origin 采样算法。",
+    "Pilot 统计功效为零（16 prompts x 1 seed），产生虚假阳性（-16% 到 -25% 改善全部消失），导致错误方法筛选和资源浪费。",
+    "规划与执行脱节：methodology.md 列出了 LLM-as-Judge（Qwen2.5-1.5B-Instruct）和模型自信度作为辅助指标，但实验中完全未使用。",
+    "论文严重的内容重复：'小样本幻觉'在 5 处完整论述，'需要外部信息源'在 4+ 处逐字重复。论文估计 12,000-15,000 词，远超 NeurIPS 9 页限制。",
+    "论文零图表。大纲规划了 5 个图但一个都没实现。",
+    "参考文献严重不完整：多个 arXiv 条目使用占位符 ID（arXiv:2505.xxxxx），约 17 条引用偏少。",
+    "过度声明：'definitive negative result'、'establishes a clear lower bound'、'first systematic evaluation' 等表述在当前实验覆盖范围下过于绝对。",
+    "TCR 的 PPL 尾部改善（mean -20.9% vs median -2.8%）被完全忽略，可能是一个被遗漏的积极发现。"
+  ],
+  "issues_fixed": [],
+  "quality_score": 5.0,
+  "notes": "{\"classified_issues\": [{\"description\": \"PPL 自矛盾：论文声称 PPL 不可靠（Contribution 4），但核心结论 100% 依赖 GPT-2 (124M) PPL。methodology.md 规划的 LLM-as-Judge 从未执行。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"增加至少一种非 PPL 评估指标：(1) LLM-as-Judge pairwise comparison（20-30 对 vanilla vs method 盲评），或 (2) GSM8K 50 题准确率，或 (3) MAUVE score。如无法增加新指标，论文中明确限定结论为'在 PPL 评估框架下'并讨论假阴性可能性。\"}, {\"description\": \"实验仅覆盖开放文本生成，DLM 推理时扩展的成功案例（d1, Prism）集中在推理任务上。结论的外部有效性严重不足。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"至少在 GSM8K 50 题上跑 vanilla vs TCR vs entropy 的准确率。成本极低但信息量极高——如果推理任务上也无效，则负面结论大幅加强；如果有效，则需修正结论。\"}, {\"description\": \"温度退火 pilot 数据可能存在实现缺陷：三种不同退火曲线的 PPL 数组 13/15 个值完全相同，强烈暗示温度参数未正确传递给 Dream 的 origin 采样算法。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"检查实验代码中温度退火的实现逻辑，确认 Dream 的 origin 采样是否正确接收并应用了退火温度。如确认 bug，在论文中披露并考虑删除 anneal 相关内容或重新实验。\"}, {\"description\": \"Pilot 统计功效为零（16 prompts x 1 seed），产生虚假阳性（-16% 到 -25% 改善全部消失），导致错误方法筛选和资源浪费。\", \"category\": \"pipeline\", \"severity\": \"high\", \"suggestion\": \"未来 Pilot 最低 50 prompts x 2 seeds，或直接取消 Pilot 在 100 prompts x 3 seeds 上并行运行所有候选方法。规划阶段必须做事前功效分析。\"}, {\"description\": \"规划与执行脱节：methodology.md 列出了 LLM-as-Judge（Qwen2.5-1.5B-Instruct）和模型自信度作为辅助指标，但实验中完全未使用。\", \"category\": \"pipeline\", \"severity\": \"high\", \"suggestion\": \"在 pipeline 中增加'规划执行一致性检查'：实验阶段结束前自动比对 methodology.md 中规划的指标列表与实际使用的指标，标记遗漏项。\"}, {\"description\": \"论文严重的内容重复：'小样本幻觉'在 5 处完整论述，'需要外部信息源'在 4+ 处逐字重复。论文估计 12,000-15,000 词，远超 NeurIPS 9 页限制。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"每个论点集中在一处深入展开，其他位置仅用一句交叉引用。正文压缩到 9 页以内。建议：小样本幻觉集中在 Section 4.4，外部信息假说集中在 Section 5.1。\"}, {\"description\": \"论文零图表。大纲规划了 5 个图但一个都没实现。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"至少补充：(1) 方法定位图（2D 散点：计算开销 vs 是否需训练/验证器），(2) Pilot vs Full-scale PPL 改善对比柱状图。\"}, {\"description\": \"参考文献严重不完整：多个 arXiv 条目使用占位符 ID（arXiv:2505.xxxxx），约 17 条引用偏少。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"所有占位符替换为真实 arXiv ID。补充缺失引用至 25-30 条。\"}, {\"description\": \"过度声明：'definitive negative result'、'establishes a clear lower bound'、'first systematic evaluation' 等表述在当前实验覆盖范围下过于绝对。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"'definitive' → 'comprehensive/systematic'，'first' 限定为 'first at 7B+ scale'，'lower bound' → 'suggests/provides evidence for'。\"}, {\"description\": \"TCR 的 PPL 尾部改善（mean -20.9% vs median -2.8%）被完全忽略，可能是一个被遗漏的积极发现。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"对 PPL 尾部分布做专门分析（90th/95th percentile PPL）。如果 TCR 的 tail risk reduction 显著，可作为一个独立贡献。\"}]}"
+}

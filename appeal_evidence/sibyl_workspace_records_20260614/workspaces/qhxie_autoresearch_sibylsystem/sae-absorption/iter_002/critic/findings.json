@@ -1,0 +1,126 @@
+{
+  "summary": "The paper has a structurally sound core (EDA probe-free detector, Proposition 1 RD threshold, phase-stability characterization) but carries four critical numerical inconsistencies across sections, an extremely small positive-class ground-truth sample (n_pos=18), fundamental scope limitations relative to the original proposal, and a theoretical framework that fails its own primary empirical prediction. The pivot from the broad proposal to a GPT-2 Small-only study is honest but leaves multiple stated contributions unvalidated. The paper is publishable in revised form if the numerical inconsistencies are corrected and the scope is correctly framed in the abstract and introduction.",
+  "findings": [
+    {
+      "category": "writing",
+      "severity": "critical",
+      "description": "Phantom AUROC = 0.206 appears in the Introduction (line 59) and Conclusion (line 993) attributed to 'the decoder-decoder cosine predictor.' Table 1 contains no 0.206 entry; the closest value is AUROC = 0.350 for cos(ê_c, d_c) raw. The number 0.206 appears in B1_decoder_geometry.json for cos^2(theta) between absorbed and non-absorbed pairs — a different metric, different label set, different analysis context. Mixing these numbers creates a factually incorrect summary claim that will be immediately identified by reviewers familiar with AUROC.",
+      "suggestion": "Replace all instances of AUROC = 0.206 with AUROC = 0.350 (Table 1 raw cosine value) and clarify this is the intra-feature raw cosine, not the inter-feature decoder-decoder cosine. If a separate inter-feature decoder-decoder pairwise analysis exists (it does, in B1), add its AUROC explicitly to Table 1 or a supplementary table."
+    },
+    {
+      "category": "writing",
+      "severity": "critical",
+      "description": "Three-way inconsistency in absorption rate range across the same paper. Introduction states '92–97%' (or equivalently 0.919–0.968). Conclusion states 'span only 0.919–0.968.' Section 4.4 states '0.876–0.978.' These three values cannot all be correct simultaneously. E1_phase_transition.json confirms absorption rates as low as 0.876 (AJT suite) and as high as 0.978. The introduction and conclusion appear to exclude AJT configurations, which is not stated anywhere in the text.",
+      "suggestion": "Use '0.876–0.978' uniformly across Abstract, Introduction, and Conclusion. If a subset analysis (jb-only) yields 0.938–0.967, present that as a secondary observation explicitly scoped to the jb suite."
+    },
+    {
+      "category": "writing",
+      "severity": "critical",
+      "description": "Three different Spearman rho values cited for the same sparsity-absorption relationship in the same paper. Introduction states rho = 0.191 (p = 0.574). Section 4.4 reports rho = -0.482 (p = 0.133) for all 11 configs and rho = -0.100 (p = 0.873) for the primary jb suite only. These differ in both magnitude and direction, suggesting different subsets or variables are being correlated in each location. This is a clear evidence inconsistency.",
+      "suggestion": "Identify which analysis corresponds to which subset in E1_phase_transition.json. Choose one canonical correlation analysis, cite the exact data source, and use that single rho value in all three locations (Abstract, Introduction, Section 4.4)."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The entire positive-class validation for EDA (AUROC = 0.650) rests on n_pos = 18 absorbed features out of 24,576 features (base rate 0.073%). This is a critically small positive class. Precision@50 = 0, Precision@100 = 0, Precision@500 = 0.008. AUPRC = 0.00153 (2.09x base rate, falling far short of the methodology's own 3x threshold). The z-score above permutation null (z = 2.49) is significant but fragile — removing even 2-3 true positives from the label set would push it below 2.0. The paper claims utility as a 'tractable candidate shortlist' but any top-k screen at k < 1000 returns zero or near-zero absorbed features in expectation.",
+      "suggestion": "Reframe the AUPRC claim honestly: the 2.09x improvement is statistically detectable but practically insufficient for shortlisting at k <= 500. Report the minimum k at which EDA enrichment becomes non-zero (from D1 data: k > 100) and compute the number of IG-ablation steps required under EDA triage vs. exhaustive sweep. If EDA cuts the search space from 24,576 to a top-1000 candidate pool with expected 2 positives, that is still ~9x enrichment — a legitimate practical claim that is less overconfident than the current framing."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The original Proposition 1 (RD threshold: lambda > sin^2(theta_{p,c})) predicts that absorbed feature pairs have SMALLER decoder-decoder angle than non-absorbed pairs. The B1 experiment directly tests this and finds the OPPOSITE direction (pos_mean=0.0518 < neg_mean=0.1265, AUROC = 0.318 for cos^2 classifier, Cohen's d = -0.57). The paper reframes this as 'decoder angle reflects post-convergence equilibrium' (Section 3.3, Section 5.2), but this reframing is added post-hoc after the falsification, not derived from theory. The tension between Proposition 1's onset geometry and the observed post-convergence geometry is acknowledged in Section 5.2 as 'unresolved' but is presented as minor when it is actually central: if Proposition 1's geometric prediction fails, the theory's empirical footprint is entirely the EDA correlation, which is mechanistically conjectured (Proposition 2) not proven.",
+      "suggestion": "Be explicit in the Introduction and Abstract that Proposition 1's primary geometric prediction (absorbed pairs have higher cos^2(theta)) was falsified and that EDA is an empirically discovered indicator for which Proposition 2 provides a mechanistic conjecture. Do not lead with the theory as a predictive framework when the theory's main prediction was reversed. Reorder contributions to: (1) EDA empirical discovery, (2) Proposition 1 as theoretical motivation explaining when absorption is loss-optimal, (3) Proposition 2 as mechanistic conjecture explaining EDA."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Encoder norm (AUROC = 0.757, AUPRC = 5.68x) outperforms EDA (AUROC = 0.650) and the difference is not statistically significant (DeLong p = 0.153). The paper correctly notes this but treats encoder norm as a 'confounded baseline.' The problem is that the mechanistic argument for EDA's superiority (encoder pulled under competing gradients → inflated norm is one consequence → norm conflates polysemanticity and absorption) equally applies to EDA: EDA measures the angular displacement of the encoder from the decoder, which is also elevated in polysemantic features by any mechanism that creates gradient conflict. The paper cannot claim EDA is more mechanistically interpretable than encoder norm without evidence distinguishing the two in polysemantic vs. non-polysemantic features.",
+      "suggestion": "Either accept that encoder norm is the primary empirical detector and reframe EDA as providing mechanistic insight about directionality (which encoder norm does not), or provide evidence that EDA separates from encoder norm in a polysemanticity-controlled subset (e.g., using the B1 Neuronpedia or logit-based polysemanticity estimates). Do not claim EDA is superior to encoder norm without supporting evidence."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The cross-directional metric cos(ê_p, d_c) achieves AUROC = 0.730 with the proxy label set (n_pos = 50) but the paper does not report this metric against the exact Chanin labels (n_pos = 18). All other detectors in Table 1 switch between exact labels (EDA AUROC = 0.650) and proxy labels (cross-directional AUROC = 0.730) without explicit comparison. The Jaccard overlap between exact and proxy labels is 0.115, meaning only 7/61 features appear in both sets. Reporting EDA at exact labels and cross-directional at proxy labels in the same table as if they are comparable results is methodologically misleading. A reviewer will ask: 'What is cos(ê_p, d_c) AUROC against exact labels?'",
+      "suggestion": "Compute cos(ê_p, d_c) against both exact (n_pos=18) and proxy (n_pos=50) labels, and report both in Table 1. Add explicit table header rows or dividers distinguishing exact-label vs. proxy-label results. If the cross-directional metric is only available for proxy labels, add a footnote explicitly stating that comparison across label sets requires caution."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The cross-domain absorption results for semantic hierarchies (animate_inanimate, noun_proper) both report absorption_rate = 9.999999e-09 (effectively zero), ratio_to_null = 1.0, n_words = 20. These are critically underpowered measurements. With only 20 words per hierarchy and no evidence that the parent latent identification method (top-5 probe-aligned latents) correctly identified the absorbing parent features, a null result at n=20 carries essentially no inferential weight. The paper's claim that 'semantic absorption is absent in GPT-2 Small' is overstated given this sample size.",
+      "suggestion": "Restate the semantic absorption null result as 'absorption was not detectable with n=20 words per hierarchy using the top-5 probe-aligned parent identification method.' Do not state or imply semantic absorption is absent. The methodology is not powered to detect it. Alternatively, increase n_words to >= 100 for semantic hierarchies and verify parent latent identification using the same IG-ablation standard as the first-letter task."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The hysteresis experiment (Section 4.4) is uninterpretable due to ceiling saturation. All tested L0 values produce absorption rates of 0.876–0.978. The fine-tuned SAE moves from absorption = 0.959 to 0.960 (unchanged), but the from-scratch SAE at the target sparsity also shows 0.964. The paper claims this is 'consistent with the absorbed state being metastable' — but an equally valid interpretation is that ALL SAE configurations in this sparsity range show near-100% absorption regardless of training path, making hysteresis untestable and the concept of 'metastability' meaningless in this regime. The paper correctly notes this in Section 5.4 but still uses the result in the Conclusion as evidence for the absorbed state being metastable.",
+      "suggestion": "Remove the hysteresis claim from the Conclusion or restate it as 'we were unable to test hysteresis due to saturation of absorption rates across the tested L0 range.' The saturation finding itself is the important result and should be stated as such."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "The claim that EDA is 'the first weight-only, probe-free absorption diagnostic' depends on a specific definition of 'absorption.' The FeatureAbsorptionCalculator that provides ground-truth labels uses integrated gradients over probe directions — the labels themselves are probe-dependent. EDA is probe-free in its computation but validated against probe-dependent labels. A weight-only metric validated only on probe-based labels cannot be cleanly called 'probe-free' in the end-to-end sense without acknowledging that its ground truth remains probe-dependent. This is a framing issue that a reviewer may flag.",
+      "suggestion": "Add a sentence clarifying that EDA is probe-free in its computation but that validation in this paper uses IG-ablation labels (which require probes). Frame EDA as 'probe-free at inference time' or 'weight-only screening' that can reduce the candidate pool for subsequent probe-based verification. This is the correct claim and it is still useful."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The B3 cross-architecture comparison (Standard/L1 vs. TopK) uses hook points that are not matched: Standard uses resid_pre at layer 6 while TopK uses resid_post at layer 6. These are different positions in the network and may have different representation properties. The B3_cross_arch.json audit note explicitly flags this confound. The paper reports TopK as showing 'weaker EDA signal' but this could reflect the hook-point difference rather than the architecture difference.",
+      "suggestion": "Explicitly report the hook-point mismatch in Section 4.3 and note that the Standard-TopK EDA comparison is confounded. Either obtain a TopK SAE at the same hook point (resid_pre) or add a caveat that the TopK comparison is indicative only. Do not claim the TopK result as evidence for the theoretical prediction about exact-sparsity constraints without addressing the confound."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Abstract is missing entirely from the paper_draft.md. The file begins at Introduction. The outline contains a draft abstract. The absence of an abstract means the paper is structurally incomplete for submission.",
+      "suggestion": "Add the abstract from writing/outline.md before the Introduction. Format as an unnumbered section or LaTeX abstract environment. The abstract in the outline correctly states key findings but must be checked against the three critical inconsistencies flagged above (AUROC 0.206, absorption range, Spearman rho)."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Section numbering is inconsistent: Introduction and Related Work are unnumbered headers; Method uses '## 3.1' subsection notation; Experiments begins '# 4 Experiments.' This will cause LaTeX compilation errors and confuses the reader about section hierarchy.",
+      "suggestion": "Standardize to either explicit LaTeX-style section numbering (1 Introduction, 2 Related Work, 3 Method, 4 Experiments, 5 Discussion, 6 Conclusion) or let LaTeX auto-number. Remove the inline '# 4 Experiments' numerical prefix from the markdown since it will double-number when compiled."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "The paper provides the exact Chanin label set (n_pos=18 absorbed feature IDs) in D1_eda_validation.json but does not verify that these IDs are reproducible using the current version of the sae-spelling repository. The iter_001 results file is cited as the source ('iter_001/exp/results/r4/r4a_direct_labels.json') but the paper's experimental setup (Section 3.4) does not specify the sae-spelling commit hash, the FeatureAbsorptionCalculator parameters, or the token sampling configuration. A replication attempt using a different sae-spelling version could yield different absorbed feature IDs.",
+      "suggestion": "Add the sae-spelling repository commit hash, FeatureAbsorptionCalculator parameter settings (threshold, n_tokens, letters evaluated), and the exact model checkpoint (gpt2-small-res-jb SAELens release hash) to Section 3.4. Alternatively, include the 18 absorbed feature IDs in an appendix table so downstream users can reproduce the exact AUROC computation."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "animate_inanimate probe achieves F1 = 1.0 on n_test = 22. The audit correctly flags this as suspicious. A F1=1.0 on a 22-sample test set is compatible with chance if the test set is not stratified and is not independently drawn from a held-out distribution. The paper uses this probe to declare animate_inanimate as a 'passing hierarchy' but the F1=1.0 may indicate the test data is trivially separable (e.g., all animate tokens are common/distinctive and non-animate tokens are rare).",
+      "suggestion": "Report n_train and n_test explicitly for all hierarchy probes. For animate_inanimate, report the per-class distribution and verify that the F1 passes a shuffled-label control (shuffled F1 should be near 0.5 for a balanced binary task). If shuffled F1 is also near 1.0 for this hierarchy, the probe is detecting data artifacts and should be excluded."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "Figure 1 (method diagram) is referenced twice in the markdown: at line 82 (as a bare markdown image link before Related Work) and at line 404 (correct placement within Section 3.3). This will cause the figure to render twice in the compiled output.",
+      "suggestion": "Remove the orphan figure reference at line 82. If a visual anchor is needed at the end of the Introduction to help readers grasp the concept before Related Work, replace the image embed with a forward reference: 'Figure~\\ref{fig:method} illustrates the geometry (Section~\\ref{sec:method}).'"
+    },
+    {
+      "category": "analysis",
+      "severity": "minor",
+      "description": "EDA magnitude tension (observed mean EDA = 0.671 for letter features implies ~48° encoder-decoder angle, while Proposition 1 predicts small theta_{p,c} at absorption onset) is acknowledged in Sections 4.2 and 5.2 in nearly identical language, creating redundancy. The issue is not just stylistic: presenting the same unresolved tension twice gives the impression the paper has not decided how to handle it.",
+      "suggestion": "Remove the brief mention in Section 4.2 ('We report this as an open question') and retain only the fuller treatment in Section 5.2 with the temporal-drift reconciliation hypothesis. If the tension is not resolved by the data, state this once clearly in the Discussion and omit from Results."
+    }
+  ],
+  "metric_gaming_risks": [
+    "AUROC = 0.650 on n_pos=18 is susceptible to individual-label noise. The 100-permutation null std is 0.064, so adding/removing 2-3 labels could shift AUROC by more than 1 SD. The result is borderline significant (z=2.49) and not robust to reasonable perturbations of the label set.",
+    "The tautological EDA variant (AUROC=1.0) is properly documented and excluded, but its existence in D2_eda_variants.json means a careless reader of the supplementary could misreport it. The exclusion must be clearly documented in the paper.",
+    "EDA_norm (AUROC=0.738) is not the canonical metric but outperforms the base EDA (AUROC=0.650) with DeLong p=0.0007. The paper leads with EDA_base (0.650) in all summary claims. If EDA_norm is more predictive and mechanistically consistent (it weights by encoder magnitude, which is correlated with absorption-gradient pressure), it should be the primary metric, not a 'variant.'"
+  ],
+  "novelty_risks": [
+    "The claim that Proposition 1 (lambda > sin^2(theta)) is novel requires verifying that the Tang et al. (arXiv:2512.05534) piecewise biconvex analysis does not implicitly derive this condition. If Tang et al. prove that absorption solutions are spurious minima of the biconvex loss, the step to quantify when the absorbed minimum is lower-energy than the non-absorbed minimum may be implicit in their analysis. The paper should add a sentence explicitly comparing the energy comparison in its proof to what Tang et al. prove.",
+    "SynthSAEBench (cited as synthsaebench2026) is a 2026 benchmark that the paper cites. No publication details (authors, venue, arXiv ID) are provided. If this is a preprint or workshop paper, full details must be included. If it is a future/in-press work cited informally, this should be flagged.",
+    "The cross-directional metric cos(ê_p, d_c) is reported as an 'empirical discovery not predicted by any prior theory.' This is a strong originality claim. Prior work on SAE encoder-decoder geometry by O'Neill et al. (amortization gap) and the general body of work on encoder-decoder dissociation in structured dictionaries should be more carefully surveyed to ensure this specific cross-directional cosine has not been reported.",
+    "KronSAE (kronsae2025) and narayanaswamy2026masked are cited in the Related Work but do not appear in the References section of the paper_draft.md. If these are informal citations or papers not yet published, they need proper bibliographic entries or should be removed."
+  ],
+  "reproducibility_gaps": [
+    "sae-spelling repository commit hash not specified; different versions may yield different absorbed feature IDs.",
+    "FeatureAbsorptionCalculator parameters (threshold, n_tokens, letter set) not reported in Methods. Only 8 of 26 letters are used in C2 but the selection criterion is not stated.",
+    "SAELens release hash for gpt2-small-res-jb not specified. SAELens updates SAE weights occasionally.",
+    "The 43 independent letter features used as 'parents' in the EDA_parent_max variant are listed in D2_eda_variants.json but not in the paper. Any replication of cos(ê_p, d_c) requires knowing which features are designated as parents.",
+    "Hysteresis fine-tuning: the training data source, optimizer, learning rate, and sparsity coefficient schedule for the 500-step fine-tuning are not described in Section 4.4 or the Methods. Cannot reproduce E2.",
+    "Cross-domain semantic hierarchy parent latent IDs (animate_inanimate: features 3152, 18287, 18617, 16169, 3278; noun_proper: 1077, 23222, 2965, 14144, 2828) are identified by top-5 probe alignment but the probe training details (n_train, data source, regularization) are not in the Methods."
+  ]
+}

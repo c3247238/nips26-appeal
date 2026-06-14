@@ -1,0 +1,336 @@
+{
+  "tasks": [
+    {
+      "id": "setup_codebase",
+      "name": "Setup experiment codebase and AADWD optimizer",
+      "description": "Implement the core training infrastructure: (1) AADWD optimizer wrapper that computes delta_hat_t, EMA smoothing, and dynamic lambda_t per step; (2) CWD baseline optimizer; (3) Configurable training script for ResNet20, VGG16-BN on CIFAR-10/100 with logging of all metrics (delta_hat_t, lambda_t, weight norm, train/test acc per epoch, per-step samples every 100 steps). Output: JSON-lines log format. Support all 3 AADWD variants (conservative, aggressive, square) and all baselines (no-WD, fixed-WD, stagewise-WD, CWD, random-dynamic-WD, norm-matched-WD).",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "estimated_minutes": 0,
+      "multi_gpu_strategy": "single",
+      "pilot": null,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "auto-download"
+        },
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "auto-download"
+        }
+      ]
+    },
+    {
+      "id": "tier0_diagnostic",
+      "name": "Tier 0: Alignment proxy reliability diagnostic (H3)",
+      "description": "GO/NO-GO gate. Train ResNet20/CIFAR-10 with 4 fixed WD values (1e-4, 5e-4, 1e-3, 3e-3) for 200 epochs. At 9 checkpoints (epochs 20, 50, 80, 100, 120, 150, 170, 190, 200), compute mini-batch alignment (B=128, 50 random batches) and large-batch alignment (B=8192). Compute Pearson r between EMA-smoothed mini-batch and large-batch alignment. Also characterize phase-dependent structure: mean/std of delta_hat_t per training third. Pass criterion: Pearson r > 0.85. Fail action: increase beta to 0.999; if r < 0.6, pivot to cand_empirical.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_codebase"
+      ],
+      "expected_output": "exp/results/pilots/tier0_diagnostic/",
+      "candidate_id": "cand_aadwd",
+      "gpu_count": 1,
+      "estimated_minutes": 50,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Pearson r > 0.85 between mini-batch EMA(delta_hat_t, beta=0.99) and large-batch delta_t; delta_hat_t shows phase-dependent structure (std > 0.05 across training thirds)",
+        "description": "Pilot: Run only 1 fixed WD value (5e-4) for 20 epochs with checkpoint at epochs 5, 10, 15, 20. Quick check that alignment computation works and shows non-trivial variation."
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Mini-batch vs large-batch alignment with Pearson r annotation",
+          "x": "large_batch_delta",
+          "y": "mini_batch_ema_delta",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Alignment trajectory across training for different WD values",
+          "x": "epoch",
+          "y": "delta_hat_t",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "histogram",
+          "description": "Alignment distribution per training phase (early/mid/late)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier1_fixed_wd_grid",
+      "name": "Tier 1: Fixed WD grid search baseline",
+      "description": "Train ResNet20/CIFAR-10 with 5 fixed WD values (1e-4, 3e-4, 5e-4, 1e-3, 3e-3) for 200 epochs, seed=42. Record test acc, train acc, gen gap, weight norm trajectory. Identify the best fixed WD value for comparison. Also train No-WD baseline.",
+      "type": "baseline",
+      "depends_on": [
+        "setup_codebase"
+      ],
+      "expected_output": "exp/results/full/tier1_baselines/",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 55,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Best fixed WD achieves test acc > 91.0% on CIFAR-10/ResNet20 at 200 epochs (sanity check that training pipeline works correctly)",
+        "description": "Pilot: Run 2 WD values (5e-4, 1e-3) + No-WD for 20 epochs. Verify training pipeline produces reasonable loss curves."
+      }
+    },
+    {
+      "id": "tier1_stagewise_cwd",
+      "name": "Tier 1: Stagewise WD and CWD baselines",
+      "description": "Train ResNet20/CIFAR-10 with Stagewise-WD (using best fixed lambda_0 from tier1_fixed_wd_grid: first 50% at lambda_0, next 30% at lambda_0/10, last 20% at lambda_0/100) and CWD (sign-based masking with best fixed WD). 200 epochs, seed=42. Record all standard metrics plus alignment trajectory.",
+      "type": "baseline",
+      "depends_on": [
+        "tier1_fixed_wd_grid"
+      ],
+      "expected_output": "exp/results/full/tier1_baselines/",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 25,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Both methods produce reasonable training curves (test acc > 90% at 20 epochs pilot)",
+        "description": "Pilot: Run Stagewise-WD and CWD for 20 epochs with WD=5e-4."
+      }
+    },
+    {
+      "id": "tier1_aadwd_variants",
+      "name": "Tier 1: AADWD 3 variants (Conservative, Aggressive, Square)",
+      "description": "Train ResNet20/CIFAR-10 with 3 AADWD variants using c=1.0, beta=0.99, lambda_min=1e-6, lambda_max=0.01. 200 epochs, seed=42. Record full metrics: test acc, train acc, gen gap, weight norm, lambda_t trajectory, delta_hat_t trajectory, EMA(delta_hat_t), cumulative contraction product. Compare against fixed-WD(best) from tier1_fixed_wd_grid.",
+      "type": "experiment",
+      "depends_on": [
+        "tier0_diagnostic",
+        "tier1_fixed_wd_grid"
+      ],
+      "expected_output": "exp/results/full/tier1_aadwd/",
+      "candidate_id": "cand_aadwd",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 AADWD variants produce non-degenerate lambda_t (not all clipped to min or max) AND test acc > 85% at 20 epochs",
+        "description": "Pilot: Run 3 AADWD variants for 20 epochs. Verify lambda_t varies meaningfully."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Lambda trajectory for 3 AADWD variants",
+          "x": "epoch",
+          "y": "mean_lambda_t",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Training loss curves for all methods",
+          "x": "epoch",
+          "y": "train_loss",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier1_analysis",
+      "name": "Tier 1: Core results analysis and theory verification",
+      "description": "Aggregate all Tier 1 results. Compute: (1) 7-method comparison table (No-WD, Fixed-WD-best, Stagewise, CWD, Conservative, Aggressive, Square) x {test acc, gen gap, weight norm}. (2) Delta_bar_T vs delta_max for dynamic vs fixed methods. (3) Implied stability bound ratio. (4) Convergence speed comparison (epochs to reach 90% train acc). Generate all Tier 1 figures and tables.",
+      "type": "analysis",
+      "depends_on": [
+        "tier1_aadwd_variants",
+        "tier1_stagewise_cwd"
+      ],
+      "expected_output": "exp/results/full/tier1_analysis/",
+      "candidate_id": "cand_aadwd",
+      "gpu_count": 0,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main results: 7 methods comparison on ResNet20/CIFAR-10",
+          "columns": [
+            "Method",
+            "Test Acc",
+            "Train Acc",
+            "Gen Gap",
+            "Weight Norm"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Cumulative contraction: Delta_bar_T vs delta_max across training",
+          "x": "epoch",
+          "y": "alignment_measure",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Implied stability bound ratio (dynamic/fixed) for each AADWD variant",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier2_cross_arch",
+      "name": "Tier 2: Cross-architecture validation (CIFAR-100, VGG16)",
+      "description": "Run best AADWD variant (from tier1_analysis) + Fixed-WD-best + CWD + No-WD on: (1) ResNet20/CIFAR-100, (2) VGG16-BN/CIFAR-10. 200 epochs, seed=42. Verify AADWD generalizes across architectures and datasets.",
+      "type": "experiment",
+      "depends_on": [
+        "tier1_analysis"
+      ],
+      "expected_output": "exp/results/full/tier2_cross_arch/",
+      "candidate_id": "cand_aadwd",
+      "gpu_count": 1,
+      "estimated_minutes": 55,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "AADWD produces non-degenerate lambda_t on both new settings AND test acc within 2% of fixed-WD-best at 20 epochs",
+        "description": "Pilot: Run best AADWD + Fixed-WD on ResNet20/CIFAR-100 and VGG16-BN/CIFAR-10 for 20 epochs."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Cross-architecture results: 4 methods × 2 settings",
+          "columns": [
+            "Method",
+            "CIFAR-100 Acc",
+            "CIFAR-100 Gap",
+            "VGG16 Acc",
+            "VGG16 Gap"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier2_hyperparam_sensitivity",
+      "name": "Tier 2: Hyperparameter sensitivity (c and beta ablation)",
+      "description": "On ResNet20/CIFAR-10, run best AADWD variant with: (1) c in {0.25, 0.5, 1.0, 2.0} with fixed beta=0.99; (2) beta in {0.9, 0.99, 0.999} with best c. 200 epochs, seed=42. Also run fixed-WD with lambda in {1e-4, 3e-4, 5e-4, 1e-3, 3e-3} (reuse from tier1_fixed_wd_grid). Compare plateau widths: range of c achieving >99% of best acc vs range of lambda achieving same.",
+      "type": "experiment",
+      "depends_on": [
+        "tier1_analysis"
+      ],
+      "expected_output": "exp/results/full/tier2_sensitivity/",
+      "candidate_id": "cand_aadwd",
+      "gpu_count": 1,
+      "estimated_minutes": 50,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All c values produce non-degenerate training (test acc > 80% at 20 epochs)",
+        "description": "Pilot: Run c in {0.25, 1.0, 2.0} for 20 epochs."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Hyperparameter sensitivity: test acc vs c (AADWD) and test acc vs lambda (fixed WD)",
+          "x": "hyperparam_value",
+          "y": "test_acc",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "EMA decay ablation: test acc vs beta",
+          "x": "beta",
+          "y": "test_acc",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tier2_ablations",
+      "name": "Tier 2: Critical ablations (H5 — alignment vs time-variation)",
+      "description": "On ResNet20/CIFAR-10, run 3 ablation controls alongside best AADWD variant: (1) Random-Dynamic-WD: replace delta_hat_t with U[0,1], same temporal statistics. (2) Norm-Matched-WD: fixed lambda adjusted per epoch to match AADWD ||w_t|| trajectory. (3) Equivalent-Cumulative-WD: fixed lambda = mean(lambda_t) from AADWD run. 200 epochs, seed=42. H5 test: AADWD should outperform Random-Dynamic by >= 0.3%.",
+      "type": "ablation",
+      "depends_on": [
+        "tier1_aadwd_variants"
+      ],
+      "expected_output": "exp/results/full/tier2_ablations/",
+      "candidate_id": "cand_aadwd",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 ablation methods produce valid training curves (no NaN, test acc > 80% at 20 epochs)",
+        "description": "Pilot: Run Random-Dynamic-WD and Equiv-Cumulative-WD for 20 epochs."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Ablation comparison: AADWD vs Random-Dynamic vs Norm-Matched vs Equiv-Cumulative",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Weight norm trajectories across ablation methods",
+          "x": "epoch",
+          "y": "weight_norm",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "final_analysis",
+      "name": "Final analysis: aggregate all results and generate paper figures",
+      "description": "Aggregate all Tier 0-2 results. Generate final versions of all tables and figures for the paper. Compute summary statistics: (1) Delta_bar_T improvement over delta_max across all settings. (2) Plateau width ratio for hyperparameter sensitivity. (3) Alignment characterization across architectures. (4) Effect size of alignment signal vs random baseline (H5). Write results summary.",
+      "type": "analysis",
+      "depends_on": [
+        "tier2_cross_arch",
+        "tier2_hyperparam_sensitivity",
+        "tier2_ablations"
+      ],
+      "expected_output": "exp/results/full/final_analysis/",
+      "candidate_id": "cand_aadwd",
+      "gpu_count": 0,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Complete results table: all methods × all settings",
+          "columns": [
+            "Method",
+            "CIFAR-10 ResNet20",
+            "CIFAR-100 ResNet20",
+            "CIFAR-10 VGG16"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Training loss convergence comparison across all methods",
+          "x": "epoch",
+          "y": "train_loss",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

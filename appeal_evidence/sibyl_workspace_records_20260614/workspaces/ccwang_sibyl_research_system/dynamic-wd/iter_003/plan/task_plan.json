@@ -1,0 +1,814 @@
+{
+  "candidate_id": "cand_unified_framework",
+  "total_estimated_gpu_hours": 117,
+  "total_estimated_wall_hours": 16,
+  "compute_backend": "local",
+  "gpu_info": "8x RTX PRO 6000 Blackwell (98GB each)",
+  "tasks": [
+    {
+      "id": "setup_codebase",
+      "name": "Setup unified training codebase with Phi modulator interface",
+      "description": "Create the unified PyTorch training codebase. Implement the WDModulator base class and all method-specific subclasses (AdamW constant, CWD hard/soft, SWD, Cosine-WD, Linear-WD, InverseSqrt-WD, AdamWN, AlphaDecay, CWD+Cosine, CWD+AdamWN, RandomMask, InvertedMask, EffectiveLambdaMatched). Implement diagnostic logging hooks for per-layer weight norms, gradient-weight alignment cosines, effective LR, and Phi values. Implement CSI/AIS/BEM metric computation. Fork data loading and LR scheduling from why-weight-decay (D'Angelo et al. NeurIPS 2024) conventions.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/unified_wd/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "shared_resources": [],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 14 Phi modulators instantiate and produce correct-shaped output on dummy tensors; unit tests pass for CSI/AIS/BEM computation"
+      }
+    },
+    {
+      "id": "setup_datasets",
+      "name": "Prepare CIFAR-10, CIFAR-100, and ImageNet data pipelines",
+      "description": "Implement data loading for CIFAR-10, CIFAR-100 (torchvision auto-download) and ImageNet-1K (assuming pre-existing on disk or download to shared path). Standard augmentation: RandomCrop+Pad+HFlip for CIFAR; RandAugment+MixUp+CutMix for ImageNet. Verify data loaders produce correct shapes and label distributions.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/unified_wd/data/",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "shared/datasets/cifar10"
+        },
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        },
+        {
+          "type": "dataset",
+          "name": "imagenet1k",
+          "path": "shared/datasets/imagenet1k"
+        }
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All three datasets load correctly; CIFAR: 50k train / 10k test; ImageNet: 1.28M train / 50k val"
+      }
+    },
+    {
+      "id": "setup_models",
+      "name": "Implement model architectures (ResNet-20, VGG-16-BN, ResNet-50, ViT-S)",
+      "description": "Implement or import ResNet-20 (CIFAR-scale), VGG-16-BN (CIFAR-scale), ResNet-50 (ImageNet-scale), and ViT-Small/16 (optional, Phase 4). Ensure all models expose per-layer parameter groups for the Phi modulator interface. Add hooks for extracting intermediate layer statistics.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/unified_wd/models/",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All models forward pass on correct input shapes; parameter counts match expected (ResNet-20: ~0.27M, VGG-16-BN: ~15M, ResNet-50: ~25.6M, ViT-S: ~22M)"
+      }
+    },
+    {
+      "id": "setup_viz",
+      "name": "Implement visualization toolkit (6-panel diagnostics + paper figures)",
+      "description": "Create plotting utilities for: (1) training loss + test accuracy curves, (2) per-layer weight norm trajectories, (3) per-layer gradient-weight cosine similarity, (4) effective LR per layer, (5) CSI/AIS evolution, (6) Phi modulation heatmaps. Also create paper figure generators for budget equivalence panels, CWD falsification results, metric scatter plots, and composition analysis. All plots publication-quality (matplotlib + seaborn, proper font sizes, colorblind-safe palettes).",
+      "type": "setup",
+      "depends_on": [
+        "setup_codebase"
+      ],
+      "expected_output": "exp/code/unified_wd/viz/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "diagnostic_panel",
+          "description": "6-panel per-method diagnostic",
+          "paper_section": "supplementary"
+        },
+        {
+          "type": "framework_diagram",
+          "description": "Phi-framework taxonomy diagram",
+          "paper_section": "method"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All 6 diagnostic panel types render without error on dummy data; output PNG files are non-empty"
+      }
+    },
+    {
+      "id": "pilot_baseline",
+      "name": "Pilot: AdamW constant WD baseline on CIFAR-10/ResNet-20",
+      "description": "Train ResNet-20 on CIFAR-10 with standard AdamW (constant WD=5e-4, LR=1e-3, cosine LR schedule). 100 epochs, seed 42. Validate that the codebase produces reasonable results (target: >91% test accuracy). Log all diagnostic metrics (weight norms, alignment cosines, effective LR). This serves as the reference point for all subsequent experiments.",
+      "type": "baseline",
+      "depends_on": [
+        "setup_codebase",
+        "setup_datasets",
+        "setup_models"
+      ],
+      "expected_output": "exp/results/pilots/adamw_cifar10_resnet20_s42/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Training loss and test accuracy curves",
+          "x": "epoch",
+          "y": [
+            "train_loss",
+            "test_acc"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Per-layer weight norm trajectory",
+          "x": "epoch",
+          "y": "layer",
+          "paper_section": "supplementary"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Test accuracy > 91% at epoch 100; training loss decreasing monotonically after epoch 10; no NaN/Inf in diagnostics"
+      }
+    },
+    {
+      "id": "pilot_cwd",
+      "name": "Pilot: CWD on CIFAR-10/ResNet-20",
+      "description": "Train ResNet-20 on CIFAR-10 with CWD-AdamW (hard binary mask, WD=5e-4, LR=1e-3). 100 epochs, seed 42. Log mask ratio per layer, effective lambda, and all diagnostics. Compare against pilot_baseline.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_baseline"
+      ],
+      "expected_output": "exp/results/pilots/cwd_cifar10_resnet20_s42/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "CWD mask ratio per layer over training",
+          "x": "epoch",
+          "y": "mask_ratio",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Effective lambda comparison: CWD vs. AdamW",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "CWD trains without error; mask ratio ~ 0.4-0.6; accuracy within ±1% of baseline"
+      }
+    },
+    {
+      "id": "pilot_swd",
+      "name": "Pilot: SWD on CIFAR-10/ResNet-20",
+      "description": "Train ResNet-20 on CIFAR-10 with SWD/AdamS (gradient-norm-based WD scaling, sensitivity=1.0, WD=5e-4, LR=1e-3). 100 epochs, seed 42. Log WD multiplier trajectory and all diagnostics.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_baseline"
+      ],
+      "expected_output": "exp/results/pilots/swd_cifar10_resnet20_s42/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "SWD multiplier h(||g||) over training",
+          "x": "step",
+          "y": "wd_multiplier",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "SWD trains without error; WD multiplier varies meaningfully (CV > 0.1); accuracy within ±1% of baseline"
+      }
+    },
+    {
+      "id": "pilot_coswd",
+      "name": "Pilot: Cosine WD schedule on CIFAR-10/ResNet-20",
+      "description": "Train ResNet-20 on CIFAR-10 with cosine WD schedule (WD decays from 5e-4 to 0 following cosine curve, LR=1e-3). 100 epochs, seed 42. Compute mean WD for budget equivalence comparison.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_baseline"
+      ],
+      "expected_output": "exp/results/pilots/coswd_cifar10_resnet20_s42/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Cosine WD schedule vs constant WD trajectory",
+          "x": "epoch",
+          "y": "wd_value",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Cosine WD trains without error; accuracy within ±1.5% of baseline; mean WD computable"
+      }
+    },
+    {
+      "id": "pilot_metrics",
+      "name": "Pilot: Compute and validate CSI/AIS/BEM metrics from pilot runs",
+      "description": "From the 4 pilot runs (AdamW, CWD, SWD, Cosine-WD), compute CSI, AIS, and BEM for each method. Verify that: (a) CSI differentiates methods (not all identical), (b) AIS values are computable and meaningful, (c) BEM is near zero for budget-equivalent comparisons. This is the kill-or-continue gate for the metrics component.",
+      "type": "analysis",
+      "depends_on": [
+        "pilot_baseline",
+        "pilot_cwd",
+        "pilot_swd",
+        "pilot_coswd"
+      ],
+      "expected_output": "exp/results/pilots/metrics_validation.json",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Pilot metrics comparison (CSI, AIS, BEM per method)",
+          "columns": [
+            "Method",
+            "Accuracy",
+            "CSI",
+            "AIS",
+            "BEM"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "CSI vs. accuracy for 4 methods",
+          "x": "CSI",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "CSI values differ by >10% across methods; AIS computable without NaN; BEM < 0.01 for cosine-WD vs mean-matched constant"
+      }
+    },
+    {
+      "id": "pilot_soft_cwd",
+      "name": "Pilot: Soft CWD proximal approximation verification (H1)",
+      "description": "Train ResNet-20 on CIFAR-10 with soft CWD at beta ∈ {10, 50, 100, 500, 1000} and compare against hard CWD. 100 epochs, seed 42 each. Verify convergence of soft to hard CWD. This validates the proximal-theoretic unification claim for the CWD case.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_cwd"
+      ],
+      "expected_output": "exp/results/pilots/soft_cwd_sweep/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "comment": "5 beta values × 100 epochs each, ~10 min per run sequentially on 1 GPU",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Soft CWD accuracy vs beta (convergence to hard CWD)",
+          "x": "beta",
+          "y": "accuracy_gap",
+          "paper_section": "method"
+        },
+        {
+          "type": "line_plot",
+          "description": "Mask similarity between soft(beta) and hard CWD over training",
+          "x": "epoch",
+          "y": "mask_similarity",
+          "paper_section": "method"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "|acc_hard - acc_soft(beta=100)| < 0.2%; mask similarity > 0.95 for beta >= 100"
+      }
+    },
+    {
+      "id": "cifar10_resnet20_full",
+      "name": "CIFAR-10/ResNet-20: All 7 primary methods + CWD ablations, 3 seeds",
+      "description": "Full CIFAR-10 experiment on ResNet-20 with 200 epochs. Methods: AdamW, SGD+WD, CWD, SWD, Cosine-WD, AdamWN, AlphaDecay. CWD ablations: effective-lambda-matched, random-mask, inverted-mask, continuous-cosine-WD. Total: 11 configs × 3 seeds = 33 runs. HP-tune on seed 42, apply best HP to all seeds. Log all diagnostics every 100 steps.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_metrics"
+      ],
+      "expected_output": "exp/results/full/cifar10_resnet20/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 8,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "comment": "33 runs × ~10 min each = 330 GPU-min; parallelized across 8 GPUs = ~42 min wall + overhead. Each individual run uses 1 GPU; 8 runs execute in parallel.",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CIFAR-10/ResNet-20 results: all methods mean±std",
+          "columns": [
+            "Method",
+            "Test Acc (mean±std)",
+            "CSI",
+            "AIS",
+            "BEM"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "CWD falsification: CWD vs 4 controls",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Budget equivalence: temporal schedules vs mean-matched constant",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "AdamW baseline > 92% at 200 epochs; all methods train without error; std across seeds < 0.5%"
+      }
+    },
+    {
+      "id": "cifar100_resnet20_full",
+      "name": "CIFAR-100/ResNet-20: All 7 primary methods + CWD ablations, 3 seeds",
+      "description": "Full CIFAR-100 experiment on ResNet-20 with 200 epochs. Same method set and protocol as cifar10_resnet20_full. CIFAR-100 is the critical second benchmark for cross-dataset validation of budget equivalence and CWD falsification.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar10_resnet20_full"
+      ],
+      "expected_output": "exp/results/full/cifar100_resnet20/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 8,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "comment": "Same structure as cifar10_resnet20. 33 runs × ~10 min each, parallelized across 8 GPUs.",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CIFAR-100/ResNet-20 results",
+          "columns": [
+            "Method",
+            "Test Acc (mean±std)",
+            "CSI",
+            "AIS",
+            "BEM"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "CWD falsification on CIFAR-100",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "AdamW baseline > 68% at 200 epochs; all methods converge; CWD mask ratio stable"
+      }
+    },
+    {
+      "id": "cifar10_vgg16_full",
+      "name": "CIFAR-10/VGG-16-BN: All 7 methods + spatial modulation focus, 3 seeds",
+      "description": "Full CIFAR-10 experiment on VGG-16-BN with 200 epochs. All 7 primary methods, 3 seeds. VGG's heterogeneous layer structure (wide variation in layer sizes) is critical for testing spatial modulation superiority (H6). AlphaDecay-style per-layer WD is expected to show more benefit here than on ResNet.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar10_resnet20_full"
+      ],
+      "expected_output": "exp/results/full/cifar10_vgg16/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 8,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "comment": "7 methods × 3 seeds = 21 runs × ~15 min each = 315 GPU-min; parallelized across 8 GPUs = ~40 min wall + overhead.",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CIFAR-10/VGG-16-BN results",
+          "columns": [
+            "Method",
+            "Test Acc (mean±std)",
+            "CSI",
+            "AIS"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Per-layer Phi modulation comparison across methods on VGG",
+          "x": "epoch",
+          "y": "layer",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "AdamW baseline > 92.5% at 200 epochs; AlphaDecay shows per-layer variation in Phi values"
+      }
+    },
+    {
+      "id": "cifar100_vgg16_full",
+      "name": "CIFAR-100/VGG-16-BN: All 7 methods, 3 seeds",
+      "description": "Full CIFAR-100 experiment on VGG-16-BN with 200 epochs. All 7 primary methods, 3 seeds. Completes the CIFAR grid (2 datasets × 2 architectures).",
+      "type": "experiment",
+      "depends_on": [
+        "cifar100_resnet20_full"
+      ],
+      "expected_output": "exp/results/full/cifar100_vgg16/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 8,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "comment": "7 methods × 3 seeds = 21 runs × ~15 min each, parallelized across 8 GPUs.",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CIFAR-100/VGG-16-BN results",
+          "columns": [
+            "Method",
+            "Test Acc (mean±std)",
+            "CSI",
+            "AIS"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "AdamW baseline > 70% at 200 epochs; all methods converge"
+      }
+    },
+    {
+      "id": "stability_experiment",
+      "name": "WD Stability Condition test: warmup duration sweep (H2)",
+      "description": "ResNet-20 on CIFAR-10 with AdamW. Fix LR=1e-3. Two WD targets: lambda=5e-4 and lambda=5e-3. WD warmup from 0 to target over K steps, K ∈ {1, 10, 50, 200, 1000}. 3 seeds each. Measure: training loss variance in steps 0-1000, max loss spike magnitude, gradient norm statistics. The stability condition predicts K < K_critical = 1/(eta*lambda) should cause instability. For lambda=5e-3, K_critical = 200, so K ∈ {1, 10, 50} should show elevated variance.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_baseline"
+      ],
+      "expected_output": "exp/results/full/stability_sweep/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 4,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "comment": "2 WD values × 5 K values × 3 seeds = 30 runs × ~5 min each (only 100 epochs needed, most signal in first 1000 steps). 4 GPUs in parallel.",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Loss variance vs warmup K at different WD strengths",
+          "x": "K",
+          "y": "loss_variance_0_1000",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Training loss heatmap (K × step) showing spike regions",
+          "x": "step",
+          "y": "K",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "K=1 with WD=5e-3 shows >2x loss variance compared to K=1000; pattern consistent with stability condition prediction"
+      }
+    },
+    {
+      "id": "composition_experiment",
+      "name": "Composition orthogonality test (H7): CWD+Cosine vs CWD+AdamWN",
+      "description": "CIFAR-100/ResNet-20, 200 epochs, 3 seeds. Compare: (a) CWD alone, (b) Cosine-WD alone, (c) CWD+Cosine-WD, (d) AdamWN alone, (e) CWD+AdamWN. Tests whether temporal+directional compose beneficially and whether directional+target are redundant.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar100_resnet20_full"
+      ],
+      "expected_output": "exp/results/full/composition/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 4,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "comment": "5 configs × 3 seeds = 15 runs × ~10 min each. 4 GPUs in parallel → ~40 min wall. Some results already available from cifar100_resnet20_full (CWD, Cosine, AdamWN alone). Only compositions need new runs: 2 compositions × 3 seeds = 6 new runs.",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Composition results: individual vs composed methods",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Composition orthogonality test",
+          "columns": [
+            "Method",
+            "Acc",
+            "Delta vs Best Individual",
+            "p-value"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "CWD+Cosine accuracy >= max(CWD, Cosine) - 0.3%; CWD+AdamWN <= max(CWD, AdamWN) + 0.3%"
+      }
+    },
+    {
+      "id": "spatial_vs_temporal",
+      "name": "Spatial vs temporal modulation factor analysis (H6)",
+      "description": "Dedicated factor analysis separating spatial and temporal WD contributions. On CIFAR-100 with VGG-16-BN (heterogeneous layers): (a) Temporal-only: cosine WD schedule (all layers same), (b) Spatial-only: per-layer WD based on layer norm ratios, constant in time, (c) Spatial+Temporal: per-layer WD with cosine schedule, (d) Effective-LR control: match CWD's effective LR trajectory using direct LR adjustment with constant WD. 3 seeds each.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar100_vgg16_full"
+      ],
+      "expected_output": "exp/results/full/spatial_vs_temporal/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 4,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 40,
+      "comment": "4 configs × 3 seeds = 12 runs × ~15 min each. 4 GPUs in parallel → ~45 min wall. Some configs overlap with cifar100_vgg16_full.",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Factor analysis: spatial vs temporal contributions",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Effective LR trajectories per layer for spatial vs temporal methods",
+          "x": "epoch",
+          "y": "eff_lr",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Spatial-only outperforms temporal-only by >0.3%; effective-LR control reproduces CWD within 0.5%"
+      }
+    },
+    {
+      "id": "imagenet_resnet50",
+      "name": "ImageNet/ResNet-50: Top methods + AdamW baseline, 3 seeds, DDP",
+      "description": "ImageNet-1K training with ResNet-50, 90 epochs. Methods: AdamW (constant WD), CWD, best temporal schedule, AdamWN, AlphaDecay, and CWD+Cosine (top performing or most informative from CIFAR phase). 6 methods × 3 seeds = 18 runs. Each run uses 8 GPUs with DDP. Batch size 256 per GPU (2048 effective). Standard ImageNet augmentation (RandAugment, MixUp, CutMix). This is the scale-up validation phase.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar10_resnet20_full",
+        "cifar100_resnet20_full",
+        "cifar10_vgg16_full"
+      ],
+      "expected_output": "exp/results/full/imagenet_resnet50/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 8,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 540,
+      "comment": "Each 90-epoch ImageNet run on 8x RTX PRO 6000 takes ~4h. 18 runs sequential (can only use 8-GPU DDP one run at a time) = 72h total, but ~9h wall clock if we run 1 config at a time. OVERRIDE: ImageNet requires longer time budget per project constraints.",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ImageNet/ResNet-50 results: top methods",
+          "columns": [
+            "Method",
+            "Top-1 (mean±std)",
+            "Top-5 (mean±std)",
+            "CSI",
+            "AIS"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "ImageNet training curves comparison",
+          "x": "epoch",
+          "y": [
+            "train_loss",
+            "val_top1"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Cross-dataset metric consistency: CIFAR CSI vs ImageNet CSI",
+          "x": "CSI_cifar",
+          "y": "CSI_imagenet",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "DDP setup functional on 8 GPUs; AdamW baseline converges to >75% top-1 at epoch 30 (extrapolation); no communication deadlocks"
+      }
+    },
+    {
+      "id": "vit_cifar100",
+      "name": "ViT-S/16 on CIFAR-100: Architecture generalization test (H6)",
+      "description": "ViT-Small/16 on CIFAR-100, 200 epochs, 4 methods (AdamW, CWD, AlphaDecay, best temporal), 3 seeds. Tests whether Phi framework predictions hold for LayerNorm architectures (vs. BatchNorm in ResNet/VGG). ViT's attention layers have fundamentally different gradient-weight alignment patterns.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar100_resnet20_full"
+      ],
+      "expected_output": "exp/results/full/vit_cifar100/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 4,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "comment": "4 methods × 3 seeds = 12 runs × ~20 min each. 4 GPUs in parallel → ~60 min wall.",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ViT-S/CIFAR-100 results: BN vs LN architecture comparison",
+          "columns": [
+            "Method",
+            "Acc (ViT)",
+            "Acc (ResNet-20)",
+            "Delta"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Phi modulation patterns in ViT attention layers",
+          "x": "epoch",
+          "y": "layer",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "ViT-S converges to >70% on CIFAR-100 with AdamW; no training instability with CWD on attention layers"
+      }
+    },
+    {
+      "id": "metric_analysis",
+      "name": "Cross-benchmark metric predictiveness analysis (H5)",
+      "description": "Aggregate CSI/AIS/BEM from all CIFAR experiments (4 benchmark settings × 7-11 methods × 3 seeds). Compute Spearman rank correlations between metrics and accuracy rankings. Cross-validate: train metric-ranking model on CIFAR-10, predict rankings on CIFAR-100. If ImageNet results available, test transfer from CIFAR to ImageNet.",
+      "type": "analysis",
+      "depends_on": [
+        "cifar10_resnet20_full",
+        "cifar100_resnet20_full",
+        "cifar10_vgg16_full",
+        "cifar100_vgg16_full"
+      ],
+      "expected_output": "exp/results/full/metric_analysis/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "CSI vs accuracy across all benchmarks (Spearman rho)",
+          "x": "CSI",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "AIS by method category (alignment-aware vs agnostic)",
+          "x": "method",
+          "y": "AIS",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Metric predictiveness: Spearman rho per benchmark",
+          "columns": [
+            "Benchmark",
+            "rho(CSI,Acc)",
+            "rho(AIS,Acc)",
+            "rho(BEM,Acc)"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Spearman rho(CSI, Acc) > 0.3 on at least 2/4 benchmarks; AIS differentiates CWD from non-alignment methods"
+      }
+    },
+    {
+      "id": "generate_figures",
+      "name": "Generate all publication-quality figures and tables",
+      "description": "Using the visualization toolkit, generate all paper figures from the aggregated experimental results: (1) Phi-framework taxonomy diagram, (2) WD Stability panel, (3) Budget equivalence multi-panel, (4) CWD falsification battery panel, (5) CSI/AIS scatter plots, (6) Spatial vs temporal comparison, (7) Composition test results. Generate all 5 tables. Generate supplementary 6-panel diagnostics for each method on each benchmark.",
+      "type": "analysis",
+      "depends_on": [
+        "metric_analysis",
+        "stability_experiment",
+        "composition_experiment",
+        "spatial_vs_temporal"
+      ],
+      "expected_output": "exp/results/full/figures/",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "all_paper_figures",
+          "description": "7 main figures + 5 tables + supplementary panels",
+          "paper_section": "all"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All 7 main figures and 5 tables render as PNG/PDF without error; visual inspection passes (axes labeled, legends present, no truncation)"
+      }
+    },
+    {
+      "id": "final_analysis",
+      "name": "Comprehensive statistical analysis and results synthesis",
+      "description": "Perform all statistical tests: paired t-tests with Bonferroni correction, bootstrap 95% CIs, Cohen's d effect sizes. Synthesize findings per hypothesis: (1) Proximal unification validated? (2) Stability condition predictive? (3) Budget equivalence at scale? (4) CWD mechanism decomposed? (5) Metrics predictive? (6) Spatial > temporal? (7) Composition orthogonality? Write structured results summary with evidence grades for each hypothesis.",
+      "type": "analysis",
+      "depends_on": [
+        "generate_figures",
+        "imagenet_resnet50",
+        "vit_cifar100"
+      ],
+      "expected_output": "exp/results/full/analysis_summary.json",
+      "candidate_id": "cand_unified_framework",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Hypothesis validation summary",
+          "columns": [
+            "Hypothesis",
+            "Verdict",
+            "Key Evidence",
+            "Cohen's d",
+            "p-value"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Statistical tests run without error on pilot data; all 7 hypotheses have a verdict entry; JSON output is well-formed"
+      }
+    }
+  ]
+}

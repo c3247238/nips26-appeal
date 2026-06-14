@@ -1,0 +1,142 @@
+{
+  "metadata": {
+    "iteration": 6,
+    "candidate_id": "cand_cross_domain_ratedistortion",
+    "date": "2026-04-15",
+    "pilot_strategy": "Pilots already completed in previous round (pilot_summary.json). This plan defines the new pilot gates for the updated candidate, focusing on rate-distortion theory validation and control calibration. Three new gates: (1) control calibration, (2) CMI estimation feasibility, (3) multi-L0 SAE availability.",
+    "total_pilot_time_min": 45,
+    "model": "Gemma 2 2B",
+    "sae_config": "Gemma Scope L12 16k residual stream, multiple L0 operating points",
+    "prior_pilot_status": "ADVANCE -- both probe quality and first-letter pilots passed. See pilot_summary.json."
+  },
+  "prior_pilot_results": {
+    "first_letter_validation": {
+      "status": "COMPLETED",
+      "absorption_rate": 0.134,
+      "mean_probe_f1": 0.565,
+      "key_finding": "Rate within published range but probe quality low (4/25 pass F1>0.85). Controls need calibration (C1=9.2%, C2=59.5%).",
+      "action": "Improvement needed: 50+ words/letter for better probe quality; investigate control implementation."
+    },
+    "probe_quality_city_country": {
+      "status": "COMPLETED",
+      "mean_cv_f1": 0.773,
+      "median_cv_f1": 0.893,
+      "key_finding": "16/29 countries F1>0.85. SAE probes outperform dense probes (0.773 vs 0.617).",
+      "action": "Proceed with caution. Exclude countries <5 cities or F1<0.50."
+    },
+    "decoder_geometry": {
+      "status": "COMPLETED",
+      "key_finding": "Conditional cosine + firing rate filter operational.",
+      "action": "De-prioritized in updated candidate (unsupervised pipeline now secondary)."
+    }
+  },
+  "pilot_gates": [
+    {
+      "gate": 1,
+      "name": "Control Calibration Gate",
+      "task_id": "first_letter_improved",
+      "estimated_minutes": 15,
+      "pass_criteria": "Random control (C1) < 5% AND shuffled control (C2) < 20%. Pilot showed C1=9.2%, C2=59.5% -- both way too high.",
+      "fail_action": "C2 > 30%: investigate shuffling implementation. C1 > 5%: check random direction generation. If unfixable after 2 attempts, report as metric limitation and adjust net absorption = gross - control_rate.",
+      "rationale": "Controls must be calibrated before interpreting any absorption signal as genuine. The 59.5% shuffled rate suggests either metric threshold is too permissive or the shuffling procedure has an implementation bug.",
+      "outputs": ["exp/results/full/first_letter_improved.json"]
+    },
+    {
+      "gate": 2,
+      "name": "CMI Estimation Feasibility Gate",
+      "task_id": "cmi_estimation",
+      "estimated_minutes": 15,
+      "pass_criteria": "k-NN MI estimator produces finite, non-negative CMI values for at least 20/25 letters at d'=20 subspace dimension. Variance across bootstrap resamples < 50% of mean.",
+      "fail_action": "If >5 letters yield NaN/negative: try alternative MI estimator (binning, MINE). If unstable across resamples: increase corpus size or reduce subspace dimension.",
+      "rationale": "The rate-distortion diagnostic is the most novel contribution (8/10). Must verify CMI estimation is numerically feasible before committing to this as primary theoretical framing.",
+      "outputs": ["exp/results/full/cmi_estimation.json"]
+    },
+    {
+      "gate": 3,
+      "name": "Multi-L0 SAE Availability Gate",
+      "task_id": "setup_env",
+      "estimated_minutes": 5,
+      "pass_criteria": "At least 3 of the 4 target L0 configs ({22, 42, 82, 163}) for Gemma Scope L12 16k load successfully in SAELens.",
+      "fail_action": "If only 2 configs available: proceed with reduced L0 range, note limitation. If only 1 config: cannot do multi-L0 decomposition; pivot H2 to cross-config decomposition (width variation instead of L0).",
+      "rationale": "Multi-L0 confound decomposition (H2) is primary contribution. Requires multiple operating points for the same architecture/width.",
+      "outputs": ["exp/results/setup_verification.json"]
+    }
+  ],
+  "pilot_experiments": [
+    {
+      "id": "pilot_control_calibration",
+      "name": "Control Calibration on Improved First-Letter",
+      "gate": 1,
+      "samples": 500,
+      "seed": 42,
+      "timeout_sec": 900,
+      "config": {
+        "model": "google/gemma-2-2b",
+        "sae_release": "gemma-scope-2b-pt-res",
+        "sae_id": "layer_12/width_16k/average_l0_22",
+        "n_letters": 26,
+        "words_per_letter": 50,
+        "probe_k": 5,
+        "absorption_cosine_threshold": 0.025,
+        "absorption_magnitude_gap": 1.0,
+        "controls": ["random_probe", "shuffled_labels", "dense_probe", "untrained_sae"],
+        "bootstrap_n": 10000
+      },
+      "metrics": ["random_control_rate", "shuffled_control_rate", "dense_probe_f1", "net_absorption_rate"],
+      "pass_criteria": "random_control < 5% AND shuffled_control < 20%"
+    },
+    {
+      "id": "pilot_cmi_feasibility",
+      "name": "CMI Estimation Feasibility on 5 Letters",
+      "gate": 2,
+      "samples": 5000,
+      "seed": 42,
+      "timeout_sec": 600,
+      "config": {
+        "model": "google/gemma-2-2b",
+        "sae_release": "gemma-scope-2b-pt-res",
+        "sae_id": "layer_12/width_16k/average_l0_22",
+        "test_letters": ["A", "E", "S", "T", "Z"],
+        "knn_k": 5,
+        "subspace_dims": [10, 20, 30],
+        "mi_estimator": "kraskov",
+        "n_bootstrap": 100
+      },
+      "metrics": ["cmi_values", "cmi_variance", "cmi_non_negative_pct", "estimation_stability"],
+      "pass_criteria": "all 5 test letters yield finite positive CMI AND variance < 50% of mean"
+    },
+    {
+      "id": "pilot_multi_l0_configs",
+      "name": "Multi-L0 SAE Config Availability",
+      "gate": 3,
+      "samples": 10,
+      "seed": 42,
+      "timeout_sec": 300,
+      "config": {
+        "sae_release": "gemma-scope-2b-pt-res",
+        "target_l0_ids": [
+          "layer_12/width_16k/average_l0_22",
+          "layer_12/width_16k/average_l0_42",
+          "layer_12/width_16k/average_l0_82",
+          "layer_12/width_16k/average_l0_163"
+        ]
+      },
+      "metrics": ["n_configs_loaded", "actual_l0_values", "config_metadata"],
+      "pass_criteria": ">=3 of 4 configs load successfully in SAELens"
+    }
+  ],
+  "pilot_schedule": {
+    "order": "gate_3_first_then_parallel",
+    "description": "Gate 3 (multi-L0 availability) runs first during setup. Gates 1 and 2 are embedded in their respective full tasks (first_letter_improved and cmi_estimation) and serve as early checkpoints.",
+    "max_parallel_pilots": 2,
+    "total_time_budget_min": 45
+  },
+  "contingency": {
+    "all_gates_pass": "Proceed to full experiment plan with high confidence. Rate-distortion theory + cross-domain + confound decomposition as three-pronged study.",
+    "gate_1_fails": "Control calibration failed. Adjust thresholds or report net-of-control absorption. May need to shift emphasis from absolute rates to relative rates across domains.",
+    "gate_2_fails": "CMI estimation unstable. Try alternative MI estimator. If fundamentally infeasible, pivot to cand_decomposition_reframing (threshold sensitivity + confound decomposition without rate-distortion theory).",
+    "gate_3_fails": "Limited L0 configs available. Reduce H2 multi-L0 decomposition scope. Use width variation or cross-layer variation instead of L0 variation.",
+    "gates_1_and_2_fail": "Both controls and CMI are problematic. Pivot to cand_decomposition_reframing with strong emphasis on threshold sensitivity, confound decomposition from a metric validation perspective.",
+    "all_gates_fail": "Fundamental methodological issues. Re-evaluate whether this research direction is viable for this iteration. Consider pivoting to a different research question entirely."
+  }
+}

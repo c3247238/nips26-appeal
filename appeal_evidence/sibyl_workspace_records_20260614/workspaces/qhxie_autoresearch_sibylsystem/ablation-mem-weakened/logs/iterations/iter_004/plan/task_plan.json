@@ -1,0 +1,149 @@
+{
+  "tasks": [
+    {
+      "id": "h9_cooccurrence_analysis",
+      "name": "H9: Co-occurrence Strength vs. Absorption Rate",
+      "description": "Compute p_11 (parent-child co-occurrence probability) for each first-letter feature and test correlation with absorption rate. For each of 26 first-letter features, generate 100 child prompts, check if parent latent fires, compute p_11, then correlate with absorption_rate.",
+      "type": "experiment",
+      "depends_on": [],
+      "candidate_id": "cand_g",
+      "expected_output": "exp/results/h9_cooccurrence_analysis.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Pearson r > 0.2 with p < 0.10 (directional signal); if r < 0.1, hypothesis is likely null"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption rate vs. p_11 co-occurrence probability",
+          "x": "p_11",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Feature-level co-occurrence and absorption data",
+          "columns": [
+            "Feature",
+            "Absorption Rate",
+            "p_11",
+            "r",
+            "p-value"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h10_random_sae_baseline",
+      "name": "H10: Random SAE Baseline Absorption",
+      "description": "Construct random SAE baseline (frozen decoder weights, random encoder) and run Chanin absorption metric on same 26 first-letter features. Compare trained vs. random absorption rates to test if absorption is structural or learned.",
+      "type": "experiment",
+      "depends_on": [],
+      "candidate_id": "cand_g",
+      "expected_output": "exp/results/h10_random_sae_baseline.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Random SAE shows non-zero absorption (>1% mean); if zero, absorption may be purely learned"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Trained vs. Random SAE absorption rates per feature",
+          "x": "feature",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Comparison summary: trained vs. random",
+          "columns": [
+            "Metric",
+            "Trained SAE",
+            "Random SAE"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "figure_generation",
+      "name": "Generate Publication Figures",
+      "description": "Generate all figures for the paper using existing experiment data. Includes: absorption distribution, steering scatter, precision-recall plot, EC50 scatter, inhibition graph precision curve, rate-distortion schematic.",
+      "type": "analysis",
+      "depends_on": [
+        "h9_cooccurrence_analysis",
+        "h10_random_sae_baseline"
+      ],
+      "candidate_id": "shared",
+      "expected_output": "exp/results/figures/",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Figure 1: Absorption rate distribution across layers",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Figure 2: Steering success vs. absorption rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "grouped_bar",
+          "description": "Figure 3: Precision-recall decomposition",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Figure 4: EC50 vs. absorption rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Figure 5: Inhibition graph precision@k (flat at 0)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "paper_writing",
+      "name": "Write Full Paper",
+      "description": "Write the complete paper using sequential writing mode. Sections: Abstract, Introduction, Background, Method, Experiments (H1-H6 completed, H9-H10 new), Results, Discussion, Conclusion.",
+      "type": "analysis",
+      "depends_on": [
+        "figure_generation"
+      ],
+      "candidate_id": "shared",
+      "expected_output": "paper/manuscript.md",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60
+    }
+  ],
+  "metadata": {
+    "iteration": 4,
+    "front_runner": "cand_g",
+    "total_experiments_completed": 8,
+    "remaining_experiments": 2,
+    "primary_model": "gpt2-small",
+    "sae_release": "gpt2-small-res-jb",
+    "all_primary_hypotheses_completed": true,
+    "h1_h6_status": "completed",
+    "h9_h10_status": "pending"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "summary": "The paper makes a genuinely interesting empirical finding (H3 reversed: high-absorption features are more steerable, r=+0.35), but has 3 CRITICAL flaws: (1) H2 pilot claims (70.9% reduction) contradict full-scale results (4.5x INCREASE), driven by incompatible absorption metrics; (2) H5 'directional confirmation' uses a non-existent 5% threshold when the actual criterion was >8%, achieved 2.51%; (3) The entanglement/hub mechanism hypothesis is presented as named contribution without empirical support. The CMI analysis has a qualitative sign reversal across dimensions, probe quality confound is unaddressed, and the 18% steering effect lacks mechanistic validation. The paper has honest negative results (H2 falsified, H4 partially confirmed) which are its strongest aspect.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Entanglement hypothesis presented as named contribution without empirical support beyond H3 Spearman r=+0.35. No network analysis performed. 'Hub feature' analogy introduced without evidence. Mechanism claim in abstract ('causally important') overstates the evidence—steering sensitivity measures manipulability, not causal importance per se.",
+      "suggestion": "Remove named hypothesis or present it as speculative interpretation. Add empirical support (feature activation frequency correlation, decoder direction centrality). Replace 'causally important' with 'highly steerable' or 'computationally central' in abstract."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "CMI dimension instability: CMI-absorption correlation at d'=10 reverses sign at d'>=20 (d'=10: rho=-0.383, p=0.059 uncorrected; d'=20: rho=+0.048; d'=30: rho=+0.299; d'=50: rho=+0.197). Bonferroni-corrected p=0.236. Sign reversal is qualitative failure, not sensitivity issue. Explanations (post-hoc signal capture at low d', k-NN estimator bias, probe quality confound) are equally plausible.",
+      "suggestion": "Do not cherry-pick d'=10 as primary dimension. Add ablation and baseline comparisons. Discuss the sign reversal as a limitation. Consider restricting analysis to quality-gated letters (F1>0.85)."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Probe quality confound in CMI analysis: Absorption rate correlates with probe F1 at rho=-0.67 (p<0.001). CMI-absorption analysis uses rates from L0=82 where mean probe F1=0.817. Low-CMI letters may be inherently harder to probe, causing both low estimated CMI and artificially high absorption rates. Paper never computes partial correlation controlling for probe F1.",
+      "suggestion": "Compute partial correlation controlling for probe F1. Restrict CMI analysis to 10 quality-gated letters (F1>0.85). Acknowledge this as a limitation in Discussion."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "OrtSAE ablation (without penalty: 0.230 at L0~920) is compared against OrtSAE with penalty (0.247 at L0~550) to conclude 'the orthogonality penalty does not appear to reduce absorption.' This comparison is at UNMATCHED L0—the very confound the paper criticizes. The ablation conclusion is self-contradictory.",
+      "suggestion": "Compare OrtSAE variants at matched L0 values. Or compare each variant to vanilla SAE at similar L0. Do not compare OrtSAE-with-penalty to OrtSAE-without-penalty at different L0."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "The core novelty claim—that L0 confounds architecture comparisons—is important but may be considered a methodological observation rather than research contribution. SAEBench (Karvonen et al., 2025) already compares architectures and notes sparsity differences. The contribution is quantifying the magnitude, not discovering the confound.",
+      "suggestion": "Reframe the L0 confound as a contribution to experimental methodology, not a standalone research contribution. Emphasize what is genuinely novel about the specific findings."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The r~+0.93 sparsity-absorption correlation is based on n=4 data points with TWO points at identical L0=50 (TopK and MultiScale pilot). With two points stacked vertically, the correlation is driven by only 3 unique L0 values. Bootstrap CI does not address this fundamental sample-size limitation.",
+      "suggestion": "Do not present n=4 correlation as robust finding. Either add more data points or explicitly acknowledge the limitation. Consider using the 4 points as descriptive rather than inferential."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "MCC ~0.21 across ALL variants including Random control suggests Hungarian matching on overcomplete dictionaries yields chance-level recovery regardless of training. If SAEs are not recovering ground-truth features, what does 'absorption reduction' actually mean? Paper acknowledges MCC failure but does not address the implication.",
+      "suggestion": "Address the implication: absorption reduction may reflect sparsity-induced suppression rather than genuine hierarchical feature recovery. Discuss what MCC=0.21 means for the validity of all absorption metrics used."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Section 3.5 promises one-way ANOVA across all completed variants but this is not reported in Results. With only 3 variants and 5 replicates, ANOVA would have 2,12 df and low power. Focus on pairwise effect sizes is more appropriate but unfulfilled promise undermines credibility.",
+      "suggestion": "Either report the ANOVA or remove the promise from Section 3.5. If ANOVA was skipped due to low power, explain this transparently."
+    }
+  ],
+  "metric_gaming_risks": [
+    "H2 absorption metric switches between pilot (first-letter probe, ~0.225 vanilla) and full-scale (Gini, ~0.015 vanilla), making the 70.9% reduction claim untestable",
+    "CMI analysis cherry-picks d'=10 as primary dimension where the correlation is negative; d'>=20 shows opposite sign",
+    "H5 pass criterion uses non-existent 5% threshold when actual criterion was >8%"
+  ],
+  "novelty_risks": [
+    "The core H3 finding is a real correlation (r=+0.35) but its mechanism is unvalidated. Entanglement/hub hypothesis is post-hoc and unsupported",
+    "The 18% effect size is modest. Without mechanism or Gemma-2B replication, finding could be GPT-2-specific or confounded by feature characteristics correlated with UAS",
+    "Tian et al. (2025) 'activation sensitivity' vs our 'steering sensitivity' distinction is vague; both are measuring feature behavior, not causal importance"
+  ],
+  "reproducibility_gaps": [
+    "CMI-absorption correlation is dimension-dependent (sign reversal at d'>=20). Protocol does not specify which d' is primary",
+    "Absorption metric inconsistent between pilot (first-letter probe) and full-scale (Gini). Cross-experiment comparisons are invalid",
+    "Feature selection threshold (UAS > 1.0 stated, ~0.57 actual) is undocumented",
+    "Null control protocol (alpha=5 only) does not match main experiment (alpha range [1,3,5,10,20])"
+  ]
+}

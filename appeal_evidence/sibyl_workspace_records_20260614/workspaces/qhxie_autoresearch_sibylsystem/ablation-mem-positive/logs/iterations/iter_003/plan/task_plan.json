@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "planning_detail": {
+    "samples": 100,
+    "seeds": [
+      42
+    ],
+    "timeout_seconds": 900,
+    "candidate_id": "cand_cv_actionability"
+  },
+  "tasks": [
+    {
+      "id": "pilot_cv_feature_classification",
+      "name": "CV Feature Classification (Pilot)",
+      "description": "Classify absorbed features into high-CV (CV > 1.0) and low-CV (CV <= 1.0) groups on GPT-2 layer 6 SAE. Target 30+ features in each group.",
+      "type": "baseline",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/pilot_cv_classification.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 30 features in each CV group (high/low)"
+      }
+    },
+    {
+      "id": "pilot_steering_comparison",
+      "name": "Steering Comparison by CV (Pilot)",
+      "description": "Test steering on 30 high-CV vs 30 low-CV absorbed features at +5 strength. Measure logit change at semantically appropriate tokens.",
+      "type": "experiment",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [
+        "pilot_cv_feature_classification"
+      ],
+      "expected_output": "exp/results/pilots/pilot_steering_comparison.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "High-CV vs Low-CV steering effects",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "High-CV steering effect > Low-CV with p < 0.05"
+      }
+    },
+    {
+      "id": "full_steering_cv",
+      "name": "Full Steering Comparison at Multiple Strengths",
+      "description": "Run steering on 30 high-CV vs 30 low-CV absorbed features at strengths +3, +5, +7. Statistical test with Welch's t-test (one-sided, alpha=0.01, BH correction).",
+      "type": "experiment",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [
+        "pilot_steering_comparison"
+      ],
+      "expected_output": "exp/results/full/full_steering_cv.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Steering effects by CV group and strength",
+          "columns": [
+            "Group",
+            "Strength+3",
+            "Strength+5",
+            "Strength+7"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Steering strength vs effect size by CV group",
+          "x": "steering_strength",
+          "y": "logit_change",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "High-CV effect > Low-CV effect at all strengths (p < 0.01)"
+      }
+    },
+    {
+      "id": "full_decoder_orthogonality",
+      "name": "Decoder Orthogonality as Alternative Predictor",
+      "description": "Compute decoder weight cosine similarity matrix. Test whether orthogonality predicts steering effectiveness: 30 high-orthogonality vs 30 low-orthogonality features.",
+      "type": "ablation",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [
+        "pilot_steering_comparison"
+      ],
+      "expected_output": "exp/results/full/full_decoder_orthogonality.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Decoder orthogonality vs steering effect",
+          "x": "mean_cosine_similarity",
+          "y": "steering_effect",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Correlation r > 0.3 between orthogonality and steering"
+      }
+    },
+    {
+      "id": "full_non_absorbed_baseline",
+      "name": "Non-Absorbed Feature Steering Baseline",
+      "description": "Compare steering effects for absorbed vs non-absorbed features. Establishes whether 'robust absorbed' is comparable to non-absorbed or still degraded.",
+      "type": "baseline",
+      "candidate_id": "shared",
+      "depends_on": [
+        "pilot_steering_comparison"
+      ],
+      "expected_output": "exp/results/full/full_non_absorbed_baseline.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Comparison of steering effects across feature types",
+          "columns": [
+            "Feature Type",
+            "Mean Steering Effect",
+            "N"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Non-absorbed baseline provides context for absorbed results"
+      }
+    },
+    {
+      "id": "full_cross_architecture",
+      "name": "Cross-Architecture Validation (Gemma-2-2B)",
+      "description": "Replicate steering protocol on Gemma-2-2B JumpReLU SAE layer 6. Test whether CV threshold (1.0) generalizes or model-specific.",
+      "type": "experiment",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [
+        "full_steering_cv"
+      ],
+      "expected_output": "exp/results/full/full_cross_architecture.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Cross-architecture steering results",
+          "columns": [
+            "Model",
+            "High-CV Effect",
+            "Low-CV Effect",
+            "Ratio"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "CV effect replicates on Gemma-2 with similar ratio"
+      }
+    },
+    {
+      "id": "analysis_hypothesis_tests",
+      "name": "Hypothesis Testing and Summary",
+      "description": "Compute statistical tests (Welch's t-test, BH correction), generate summary figures, produce hypothesis_test_summary.json with findings.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [
+        "full_steering_cv",
+        "full_decoder_orthogonality",
+        "full_non_absorbed_baseline"
+      ],
+      "expected_output": "exp/results/full/hypothesis_test_summary.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Summary of hypothesis test results",
+          "columns": [
+            "Hypothesis",
+            "Status",
+            "Statistic",
+            "p-value"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": null
+    }
+  ],
+  "shared_resources": [
+    {
+      "type": "model",
+      "name": "GPT-2 Small",
+      "path": "gpt2-small",
+      "notes": "86M params, fast inference"
+    },
+    {
+      "type": "model",
+      "name": "Gemma-2-2B",
+      "path": "gemma-2-2b-it",
+      "notes": "2B params, requires more VRAM"
+    },
+    {
+      "type": "sae",
+      "name": "GPT-2 Layer 6 SAE",
+      "path": "gpt2-small-res-jb/blocks.6.hook_resid_pre",
+      "notes": "~16k latents"
+    },
+    {
+      "type": "dataset",
+      "name": "text samples",
+      "path": " Pile validation set",
+      "notes": "1000 samples for CV computation"
+    }
+  ]
+}

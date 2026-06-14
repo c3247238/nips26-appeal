@@ -1,0 +1,116 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_composeaccel",
+      "title": "ComposeAccel: Systematic Composition and Orthogonality Analysis of Training-Free DLM Acceleration Methods",
+      "status": "front_runner",
+      "summary": "First controlled factorial composition study of training-free DLM acceleration methods across three orthogonal axes (KV caching, adaptive step scheduling via IGSD, AR-guided decoding), with quantified orthogonality metrics, speedup decomposition framework, and task-specific acceleration recipes. Grounded in iter_001 pilot evidence showing M1+M3 achieves 2.25x at 99.7% accuracy retention and M1+IGSD achieves 8.88x at 52% retention.",
+      "hypotheses": [
+        "H1: Composition ratio < 0.5 on reasoning tasks, > 0.7 on code tasks",
+        "H2: Quality-first composition (M1+M3) dominates any single aggressive method on QAS",
+        "H3: M1+IGSD composition ratio > 0.8 (near-multiplicative, orthogonal axes)",
+        "H4: Pareto-optimal recipes differ by task category"
+      ],
+      "pilot_focus": "Run M1 (with d2Cache kernel), IGSD, M3 individually, then M1+M3 and M1+IGSD, on GSM8K 200 samples with 3 seeds. Compare composition ratios against iter_001 baselines.",
+      "key_risks": [
+        "d2Cache integration complexity",
+        "All compositions subadditive (publishable as negative result)",
+        "Unmasking order confound on reasoning tasks"
+      ],
+      "estimated_hours": 26,
+      "novelty_score": 7,
+      "feasibility_score": 8,
+      "impact_score": 9,
+      "evidence_from_iter_001": {
+        "M1_M3_speedup": 2.25,
+        "M1_M3_acc_ret": 0.997,
+        "M1_IGSD_speedup": 8.88,
+        "M1_IGSD_acc_ret": 0.52,
+        "baseline_gsm8k_acc": 0.712,
+        "baseline_tps": 31.0
+      }
+    },
+    {
+      "candidate_id": "cand_convergence_theory",
+      "title": "Token-Level Information-Theoretic Convergence Bounds for Masked Diffusion Language Models",
+      "status": "backup",
+      "summary": "Per-token convergence rate bounds via conditional mutual information, proving entropy is a near-optimal proxy for per-token denoising budget. Unifies and formally justifies EntropyCache, KLASS, DyLLM, ES-dLLM under a single information-theoretic framework. Derives water-filling optimal per-token budget allocation.",
+      "hypotheses": [
+        "H7: Per-token convergence hierarchy (function words fast, novel terms slow)",
+        "H5: Entropy has highest Spearman correlation with true convergence budget among 4 proxy signals",
+        "Oracle per-token scheduler matches 64-step quality at ~40 effective steps"
+      ],
+      "pilot_focus": "Measure per-token KL convergence curves on 50 GSM8K + 50 HumanEval samples across all 64 denoising steps. Compute proxy signal correlations.",
+      "key_risks": [
+        "Bounds may be too loose to distinguish proxy signals",
+        "Per-token independence assumption may break for strongly correlated tokens",
+        "Perceived as incremental over KLASS (NeurIPS 2025)"
+      ],
+      "estimated_hours": 16,
+      "novelty_score": 8,
+      "feasibility_score": 6,
+      "impact_score": 7,
+      "pivot_trigger": "Composition study yields only incremental results or a competing composition study is published first"
+    },
+    {
+      "candidate_id": "cand_order_first",
+      "title": "Order-First Acceleration: Why DLM Speedup Methods Are Optimizing a Broken Baseline",
+      "status": "backup",
+      "summary": "Challenges the entire DLM acceleration paradigm by showing that the default confidence-based unmasking order is fundamentally flawed for reasoning tasks. Proposes training-free entropy-based priority inversion as a preprocessing step. Tests whether acceleration methods compose more additively under corrected order. Draws on Flexibility Trap and LogicDiff evidence.",
+      "hypotheses": [
+        "H8: Entropy priority inversion improves GSM8K by > 10pp at < 5% latency overhead",
+        "Composition ratio under corrected order > 0.7 (vs. < 0.5 under default order)",
+        "The order confound accounts for > 30% of accuracy variation in accelerated DLM inference"
+      ],
+      "pilot_focus": "Implement entropy priority inversion. Run on GSM8K 100 samples with default vs. corrected order. Measure accuracy gap.",
+      "key_risks": [
+        "Training-free order correction may not match LogicDiff's trained classifier",
+        "Order correction may only matter for reasoning (narrow scope)",
+        "Perceived as incremental over LogicDiff"
+      ],
+      "estimated_hours": 11,
+      "novelty_score": 8,
+      "feasibility_score": 7,
+      "impact_score": 8,
+      "pivot_trigger": "Composition study diagnostic reveals order confound dominates; or M2/IGSD accuracy collapse is traced to unmasking order rather than step count"
+    },
+    {
+      "candidate_id": "cand_multigrid",
+      "title": "Multigrid Denoising: Accelerating DLMs via Hierarchical Token-Adaptive V-Cycle Steps",
+      "status": "backup",
+      "summary": "Cross-disciplinary transplant from numerical analysis. Each denoising step is decomposed into a multigrid V-cycle: smooth (cached KV pass), restrict (identify uncertain tokens), correct (full attention on uncertain subset), prolongate (inject corrections), post-smooth (reconcile). Unifies KV caching (smoothing) and token selection (correction) into a principled hierarchical framework.",
+      "hypotheses": [
+        "H9: V-cycle outperforms both smoothing-only and correction-only on QAS",
+        "Post-smoothing is necessary for reasoning tasks but optional for simple generation",
+        "Uncertain set |U| decreases from ~80% at early steps to ~10% at late steps"
+      ],
+      "pilot_focus": "Implement V-cycle on LLaDA-8B. Ablate: smooth-only vs. correct-only vs. full V-cycle on GSM8K 100 samples.",
+      "key_risks": [
+        "Implementation complexity (custom attention masking)",
+        "V-cycle may reduce to a marginal improvement over DyLLM",
+        "Batch inference complications (heterogeneous uncertain sets)"
+      ],
+      "estimated_hours": 10,
+      "novelty_score": 8,
+      "feasibility_score": 5,
+      "impact_score": 7,
+      "pivot_trigger": "Composition study reveals KV caching and token selection are highly complementary, motivating V-cycle unification"
+    }
+  ],
+  "selection_rationale": {
+    "front_runner": "cand_composeaccel",
+    "rationale": "ComposeAccel is selected as front-runner because: (1) It fills the single largest practical gap in the field -- no systematic composition study exists despite 20+ individual methods. (2) It has the strongest empirical grounding from iter_001 pilot data (M1+M3 at 2.25x/99.7%, M1+IGSD at 8.88x/52%). (3) It includes IGSD as a novel algorithmic contribution within the composition framework. (4) It addresses concerns from all 6 perspectives: composition (pragmatist, empiricist), IGSD (innovator, theoretical), order confound (contrarian), multigrid principles (interdisciplinary). (5) Results are immediately actionable for practitioners. (6) The study is publishable regardless of outcome (multiplicative or subadditive composition are both interesting findings).",
+    "weighting": {
+      "pragmatist": 0.30,
+      "empiricist": 0.25,
+      "contrarian": 0.15,
+      "theoretical": 0.12,
+      "innovator": 0.10,
+      "interdisciplinary": 0.08
+    },
+    "weighting_rationale": "Pragmatist and empiricist perspectives weighted highest because the project spec demands training-free methods with 1-hour experiment budget, making engineering feasibility and experimental rigor paramount. The contrarian's unmasking-order insight is incorporated as a diagnostic control experiment. The theoretical perspective's per-token convergence theory provides analytical depth. The innovator's TCV concept is partially absorbed into IGSD's temporal consistency hypothesis. The interdisciplinary multigrid idea is the strongest backup for a future pivot."
+  },
+  "iteration": 2,
+  "prior_round_evidence": "iter_001 provided full baseline (GSM8K=0.712, MATH500=0.111, HumanEval=0.024, MBPP=0.0) and partial method results (M1, M2, M3, IGSD, pairwise compositions) that ground all hypotheses in empirical data rather than theoretical speculation.",
+  "created_at": "2026-04-14"
+}

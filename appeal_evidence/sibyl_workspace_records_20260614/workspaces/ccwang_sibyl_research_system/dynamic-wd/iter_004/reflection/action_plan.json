@@ -1,0 +1,240 @@
+{
+  "iteration": 3,
+  "date": "2026-03-18",
+  "overall_quality_score": 5.75,
+  "quality_trajectory": "stagnant",
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 20,
+  "issues_classified": [
+    {
+      "id": "E1",
+      "description": "Critically narrow experimental scope: entire empirical foundation rests on ResNet-20 (270K params) on CIFAR-10/100 with AdamW. No ImageNet, no architecture diversity, no optimizer comparison. Project spec explicitly requires ImageNet. Three independent reviews (supervisor, final critic, Codex) identify this as the primary reason for rejection.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Add ImageNet/ResNet-50 experiment: 4 methods (constant, cwd_hard, cosine_schedule, no_wd), 3 seeds, 90 epochs. Launch immediately at start of Iteration 4 before any writing begins. Expected compute: 4×3×~4h = ~48 GPU-hours on local 8×RTX PRO 6000. Verify completion before writing begins.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "evidence": "supervisor_review.md §2.1, final_review.md §3, writing/final_review.md Major Issue #1",
+      "issue_key": "experiment:270k-adamw-architecture-as-cifar-codex-comparison-critic:ba9c64328c4d"
+    },
+    {
+      "id": "E2",
+      "description": "VGG-16-BN experiments not executed despite being listed as a P0 condition in the experiment decision. Batch normalization scale-invariance confound not resolved: ResNet-20+BN results may reflect BN rendering WD irrelevant, not AdamW absorbing WD modulation.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run VGG-16-BN on CIFAR-10/100, all 7 methods, 3 seeds. Expected compute: 42 runs × ~8 min each = ~5.6 GPU-hours. Launch in parallel with ImageNet experiments at start of Iteration 4. Also consider 1-2 methods without BN (raw VGG or a custom variant) to separate BN effect from AdamW effect.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "evidence": "experiment_analysis.md Condition 2, codex_review.md Critical Issue 3, supervisor_review.md §2.1",
+      "issue_key": "experiment:a-absorbing-adamw-as-batch-being-bn-bn:fdbb8e0a11b3"
+    },
+    {
+      "id": "E3",
+      "description": "Only 3 seeds per configuration. Minimum detectable effect at 80% power is ~0.7% with σ≈0.3%, larger than observed differences. For a null-result paper, this is insufficient: cannot distinguish 'no effect' from 'effect too small to detect'. TOST at δ=±0.5% confirms only 1 of 12 comparisons as equivalent.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Increase to 5 seeds (add seeds 789 and 999) for all AdamW configurations on CIFAR-10/100 (2 extra seeds × 7 methods × 2 datasets = 28 additional runs, ~3-4 GPU-hours). Run TOST with pre-registered δ=±0.5% margin and report formal equivalence results with improved power (detectable effect drops to ~0.45% with N=5). Can run in parallel with VGG-16 experiments.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "evidence": "supervisor_review.md §2.1, writing/final_review.md §2 Statistical power, critic/critique_writing.md",
+      "issue_key": "experiment:a-as-at-at-cannot-comparisons-configuration-confirms:69b23012563b"
+    },
+    {
+      "id": "E4",
+      "description": "SGD CIFAR-100 data incomplete: only seed_42 for no_wd, missing all seeds for random_mask, and several other methods. The paper claims 49 total SGD experiments but this is unverifiable from the workspace. CIFAR-10 SGD is complete (7×3=21 runs).",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Complete SGD CIFAR-100 experiments for all 7 methods × 3 seeds = 21 runs (minus the 2-3 already completed). Estimated compute: ~18 additional runs × ~12 min each = ~3.6 GPU-hours. These runs are already scripted and can be launched immediately.",
+      "status": "new",
+      "requires_system_change": false,
+      "evidence": "critic/critique_experiment.md Minor Issue 3, visual_audit.md Remaining Gaps #5",
+      "issue_key": "experiment:all-and-but-cifar-cifar-claims-complete-data:09e951f1d8cf"
+    },
+    {
+      "id": "E5",
+      "description": "Spatial and target-norm modulation axes not tested experimentally. Phi framework claims to cover four axes but experiments cover only temporal (SWD, cosine) and directional (CWD). AlphaDecay (spatial) and AdamWN (target-norm) are in Table 1 but not in the experiment suite.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add at minimum AdamWN (target-norm axis) to cover all four framework axes empirically. Also add one spatial modulation variant (per-layer WD with decay proportional to layer depth or gradient norm, similar to AlphaDecay). These 2 new methods × 3 seeds × 2 datasets = 12 additional AdamW runs, ~2 GPU-hours.",
+      "status": "new",
+      "requires_system_change": false,
+      "evidence": "critic/critique_experiment.md Major Issue: Incomplete Method Coverage, writing/final_review.md Minor Issue 6",
+      "issue_key": "experiment:adamwn-alphadecay-and-and-and-are-axes-axes:f64e199c6ccb"
+    },
+    {
+      "id": "E6",
+      "description": "Single hyperparameter setting λ=5×10⁻⁴. Codex review identifies critical confound: at this λ, WD is already a ~1% second-order perturbation of the adaptive gradient step, making the null result almost mechanically expected. Cannot distinguish 'AdamW absorbs WD modulation' from 'λ is too small for WD to matter'.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add 2-3 λ values: λ=5×10⁻³ and λ=5×10⁻² for key methods (constant, CWD, cosine, no_wd) on CIFAR-10. If null result holds at λ=5×10⁻², the AdamW absorption argument is dramatically strengthened. Expected: 4 methods × 2 λ values × 3 seeds × 1 dataset = 24 runs, ~2 GPU-hours.",
+      "status": "new",
+      "requires_system_change": false,
+      "evidence": "codex_review.md Critical Issue 2, critic/critique_ideation.md Flaw 2",
+      "issue_key": "experiment:a-absorbs-adamw-adaptive-almost-already-at-cannot:e0cf006d5d07"
+    },
+    {
+      "id": "E7",
+      "description": "CWD falsification battery incomplete: only C2 (random_mask) executed. C1 (effective-lambda matched constant), C3 (inverted mask), C4 (soft cosine-weighted WD) not run. Cannot formally rule out that CWD's alignment mechanism matters through an alternative mechanism.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Add C3 (inverted CWD mask) as the highest-priority falsification experiment: 3 seeds × 2 datasets = 6 runs. If inverted mask performs similarly to correct mask, alignment direction is irrelevant. Estimated: 6 runs × ~8 min each = ~1 GPU-hour.",
+      "status": "new",
+      "requires_system_change": false,
+      "evidence": "critic/critique_ideation.md Flaw 4, experiment_analysis.md Condition 4",
+      "issue_key": "experiment:alignment-alternative-an-battery-c1-c2-c3-c4:ae0604cdc757"
+    },
+    {
+      "id": "W1",
+      "description": "CSI component weights (0.4, 0.3, 0.3) are unjustified and the three components (CV of weight norm, log spectral condition number, CV of effective LR) are on different scales with no normalization specified. Appendix C referenced for sensitivity analysis but does not exist.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Add normalization step to CSI computation: normalize each component to [0,1] range using min-max scaling over the 7 methods before applying weights. Additionally, conduct sensitivity analysis: compute CSI with equal weights (1/3, 1/3, 1/3) and with individual components; report correlation with other metrics. Add this analysis as a paragraph in Section 5.3 or a real Appendix C.",
+      "status": "new",
+      "requires_system_change": false,
+      "evidence": "supervisor_review.md §2.3, writing/final_review.md §2 Major Issue 5",
+      "issue_key": "writing:analysis-and-appendix-are-are-but-c-component:14ac47bfd8c0"
+    },
+    {
+      "id": "W2",
+      "description": "Naming inconsistencies not fully resolved: 'alignment-aware' vs 'directional,' 'cosine_schedule' vs 'cosine schedule' vs 'Cosine WD,' 'structural' vs 'spatial'. Critique reports these persist in the final manuscript.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Perform global find-replace pass over full_paper.md: standardize to 'directional' (not 'alignment-aware'), 'temporal' (not 'scheduled'), 'spatial' (not 'structural'), 'target-norm' (not 'norm-matched'). Use code_style cosine_schedule for code references and 'Cosine WD Schedule' for prose. This is a ~30-minute editing task.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "evidence": "critic/critique_writing.md Unresolved Issues 4, supervisor_review.md §2.5",
+      "issue_key": "writing:alignment-aware-cosine-cosine-cosine_schedule-critique-directional-final:0521e4f43ec0"
+    },
+    {
+      "id": "W3",
+      "description": "Appendix B (diagnostic panels for all 42 runs) referenced in text but does not exist. Creates a broken reference that reviewers will notice.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Either: (A) Generate Appendix B using the existing diagnostic logging data — create a 6×7 grid of diagnostic panel plots from epoch_metrics.jsonl files, or (B) Remove the Appendix B reference from the main text and note in Section 4.4 that 'full diagnostic panels are available in the supplementary code repository.' Option B takes 15 minutes; Option A takes ~2 hours of figure generation.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "evidence": "supervisor_review.md §2.5, visual_audit.md Remaining Gaps #2, final_review.md Minor Issue m6",
+      "issue_key": "writing:a-all-appendix-b-broken-but-creates-diagnostic:321a18b117bd"
+    },
+    {
+      "id": "A1",
+      "description": "Framework is notational, not analytical. Proposition 1 (composition closure) follows trivially from positivity. No convergence analysis, no generalization bounds, no formal proof of Phi invariance even in simplified settings. All three reviews cite this as a weakness in the theoretical contribution.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Prove Phi invariance for quadratic loss as Theorem 1: For L(θ) = (1/2)||Aθ - b||², show that the gradient descent update with AdamW converges to the same minimizer regardless of φ(t, θ, g), provided E[φ] > 0 and the convergence conditions hold. This is achievable analytically in ~1 day and transforms the 'notation' objection. Alternatively, derive a formal bound: ||Phi perturbation|| / ||adaptive gradient step|| = O(λ√v̂/|m̂|) and show this is < 0.1 under standard conditions. Add this as Section 3.5 'Theoretical Analysis'.",
+      "status": "new",
+      "requires_system_change": false,
+      "evidence": "supervisor_review.md §2.4, critic/critique_ideation.md Flaw 1, writing/final_review.md §2 Major Issue 6",
+      "issue_key": "analysis:a-all-analysis-analytical-as-bounds-cite-closure:8a2af836acec"
+    },
+    {
+      "id": "A2",
+      "description": "Batch normalization scale-invariance confound unaddressed. In BN networks, weight decay magnitude is provably irrelevant to the final solution (only direction matters). The null result may reflect BN properties, not AdamW absorption. This is identified as a critical blind spot by the Codex review.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Explicitly discuss BN scale-invariance in Section 5.4 (mechanistic analysis) and Section 6.2 (limitations). Cite the BN implicit LR scaling literature (e.g., van Laarhoven 2017). Add to the experimental plan: test one architecture without BN (VGG-16 plain or a custom ResNet-20 variant with GroupNorm) to directly measure the BN contribution to the null result.",
+      "status": "new",
+      "requires_system_change": false,
+      "evidence": "codex_review.md Critical Issue 3",
+      "issue_key": "analysis:a-absorption-adamw-as-batch-blind-bn-bn:3ccbd264ba42"
+    },
+    {
+      "id": "A3",
+      "description": "Cosine schedule variance anomaly (σ=0.07% vs ~0.25-0.32% for all other methods on CIFAR-10) identified by three reviewers as a genuine finding requiring mechanistic discussion. Currently receives no explanation.",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Add a paragraph in Section 6.4 (or a new Section 6.5 'Variance Reduction Under Cosine Schedule') analyzing the cosine schedule variance reduction. Potential explanations: (1) the smooth decay reduces LR-WD coupling oscillations; (2) the cosine schedule acts as a form of loss landscape smoothing at late training. Check whether this variance reduction persists on CIFAR-100 and under SGD to determine if it's a general phenomenon.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "evidence": "final_review.md Minor Issue m10, writing/final_review.md Questions #4, supervisor_review.md §2.5",
+      "issue_key": "analysis:a-all-anomaly-as-by-cifar-cosine-currently:1ed25d8eb8a2"
+    },
+    {
+      "id": "I1",
+      "description": "Scope-evidence mismatch: paper title asks 'When Does Dynamic Weight Decay Help?' and implies a general answer, but experiments cover only one cell of the design space (CIFAR-scale, BN-ResNets, AdamW, moderate λ). The conjecture scope was narrowed in the final revision but the title and abstract still suggest broader generality than the evidence supports.",
+      "category": "ideation",
+      "severity": "medium",
+      "suggestion": "After adding ImageNet and VGG-16 experiments, the title becomes more defensible. If ImageNet results show the null result holds at scale, the conjecture can be broadened. If they show differences, the title should be updated to reflect the scale-dependence finding. Do not update the title until the expanded experimental evidence is available.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "evidence": "critic/critique_ideation.md §1, codex_review.md §1",
+      "issue_key": "ideation:a-abstract-adamw-and-and-answer-asks-bn:022d10bb7c2a"
+    },
+    {
+      "id": "P1",
+      "description": "Writing stage proceeded without waiting for P0 experiments (VGG-16-BN, ImageNet) to complete. The experiment decision explicitly conditioned PROCEED on completing these experiments during the writing stage, but writing was finalized without this data.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "In Iteration 4, enforce an experiment gate before writing finalization: writing integration should not be marked complete until P0 experiment data is incorporated. The orchestrator should check that ImageNet and VGG-16 results are available in the workspace before transitioning from experiment_cycle to writing_integrate. If needed, add an experiment_gate stage that explicitly validates P0 data presence before proceeding to writing.",
+      "status": "new",
+      "requires_system_change": true,
+      "evidence": "supervisor_review.md §6 P0 conditions, experiment_analysis.md Conditions 1-2",
+      "issue_key": "pipeline:bn-but-complete-completing-conditioned-data-decision-during:c5470f6fb30c"
+    },
+    {
+      "id": "P2",
+      "description": "Efficiency: 8 GPUs available but no evidence of maximum parallelism utilization. VGG-16-BN (42 runs, ~5.6h) and additional seed runs (28 runs, ~3-4h) could have been run concurrently with CIFAR-10/100 AdamW experiments, completing within a single day.",
+      "category": "efficiency",
+      "severity": "medium",
+      "suggestion": "In Iteration 4, batch all CIFAR-scale experiments (AdamW + SGD + VGG-16 + extra seeds) into a single experiment batch that runs in parallel across all 8 GPUs. At 42+42+42+28+24 = ~178 total CIFAR-scale runs × ~8 min each = ~23.7 GPU-hours / 8 GPUs = ~3 hours wall time. ImageNet runs (~48 GPU-hours / 8 GPUs = ~6 hours) can overlap. Total: ~9 hours to complete all P0 experiments.",
+      "status": "new",
+      "requires_system_change": false,
+      "evidence": "experiment_analysis.md execution priority section",
+      "issue_key": "efficiency:a-adamw-additional-and-available-been-bn-but:df67139f9e0e"
+    }
+  ],
+  "issues_fixed": [
+    "SGD data integrity error: original Table 5 had inflated p-values (SWD p=0.013 claimed, actual p=0.054; half_lambda p=0.028 claimed, actual p=0.062). Corrected in final draft to use actual values.",
+    "TOST equivalence testing added to Section 5.1 with pre-registered δ=±0.5% and δ=±1.0% margins.",
+    "Phi Invariance Conjecture scope narrowed from 'sufficiently overparameterized problem' to 'batch-normalized ResNet trained with AdamW on CIFAR-scale data, moderate λ≈5×10⁻⁴.'",
+    "Conclusion expanded from ~150 to ~400 words with structured subsections.",
+    "All 6 figures generated and visually verified (Figures 5 and 6 were previously placeholders).",
+    "CIFAR-100 diagnostic metrics table (Table 4b) added.",
+    "AIS range corrected: using |ρ_S| absolute value for operational [0,1] interpretation, with correct statement that mathematical range is [-1,1].",
+    "BEM [0,1] boundedness claim qualified to 'within tested methods.'",
+    "SWD h(·) sensitivity function definition added to Table 1.",
+    "AdamWN phi direction clarified as 'target-norm projection' in Table 1.",
+    "Figure 6 (SGD vs AdamW weight norm comparison) generated and verified.",
+    "Absorption bound formalized in Section 5.4: |Δ_WD|/|Δ_grad| = O(λ|θ|√v̂/|m̂|) ≪ 1.",
+    "Weight norm trajectory analysis (Section 5.4) added with quantitative convergence evidence.",
+    "Power analysis explicitly discussed in text with minimum detectable effect size stated."
+  ],
+  "success_patterns": [
+    "Rigorous statistical treatment: paired t-tests with Bonferroni correction, Cohen's d, TOST equivalence testing, and explicit power analysis. This is above the community norm for null-result papers.",
+    "Well-framed falsifiable conjecture with explicit scope narrowing to match evidence — the Phi Invariance Conjecture is a model of how to handle null results scientifically.",
+    "Three-stage review pipeline (supervisor + final_critic + Codex independent) consistently identifies issues before writing finalization.",
+    "Visual audit with cell-by-cell data verification catches data integrity errors (e.g., SGD p-value inflation).",
+    "Result debate synthesis with six perspectives produces well-balanced strategic decisions.",
+    "Full 42-experiment design is clean, reproducible, and well-documented; serves as a reusable benchmark infrastructure."
+  ],
+  "systemic_patterns": [
+    "Evidence deficit is systemic: every iteration plans ambitious experiments (ImageNet, ViT, more architectures) but fails to execute them before the writing deadline. This is the single most important systemic issue to resolve.",
+    "Writing stage decouples from experiment completion: writing is finalized without waiting for P0 experiments. The orchestrator needs a hard gate between experiment_cycle and writing that validates P0 data presence.",
+    "Planning overreach: framework proposals (four axes, full falsification battery, WD Stability Theorem) consistently exceed execution capacity. Better alignment between planning and execution through explicit experiment budgeting at the plan stage.",
+    "Scope-evidence mismatch is a second-order effect of the above: ambitious claims are planned before experiments can support them."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 70,
+    "total_gpu_idle_minutes": null,
+    "bottleneck_stages": [
+      "experiment_planning_overreach",
+      "writing_without_p0_experiments",
+      "sequential_writing_revision_rounds"
+    ],
+    "suggestions": [
+      "Batch all CIFAR-scale experiments into a single parallel run at the start of each iteration: AdamW + SGD + VGG-16 + extra seeds = ~178 runs / 8 GPUs = ~3 hours wall time",
+      "Launch ImageNet experiments immediately after experiment_decision; do not wait for CIFAR experiments to complete first",
+      "Enforce an experiment_gate stage that validates P0 data presence before writing_integrate proceeds",
+      "Merge three writing revision rounds into two: round 1 (initial draft + all sections), round 2 (editor pass incorporating all experiment data + statistical tables)"
+    ]
+  },
+  "recommended_focus": [
+    "ImageNet/ResNet-50 experiments: 4 methods × 3 seeds × 90 epochs — highest-impact, required by project spec",
+    "VGG-16-BN experiments: 7 methods × 3 seeds × 2 datasets — resolves BN confound and architecture diversity gap",
+    "Complete SGD CIFAR-100: missing seeds for several methods — low compute cost, fixes paper's claimed 49-experiment count",
+    "Increase seeds to 5 for all key AdamW comparisons — improves TOST power",
+    "Prove Phi invariance for quadratic loss — transforms 'notation' objection into 'theoretical' strength",
+    "Test large λ (5×10⁻³) to disambiguate AdamW absorption from λ-too-small confound",
+    "Do not begin writing_integrate until P0 experiments (ImageNet, VGG-16) are complete and incorporated"
+  ]
+}

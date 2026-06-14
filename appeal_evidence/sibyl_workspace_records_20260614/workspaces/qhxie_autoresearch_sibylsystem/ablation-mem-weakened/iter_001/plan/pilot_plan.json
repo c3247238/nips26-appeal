@@ -1,0 +1,82 @@
+{
+  "pilot_summary": {
+    "objective": "Validate the core experimental pipeline (absorption detection -> steering -> probing -> correlation) on a single SAE configuration before scaling up.",
+    "target_sae": "Gemma-2-2B, Gemma Scope, layer 8, dictionary size 16K",
+    "total_estimated_minutes": 115,
+    "total_gpu_hours": 1.75,
+    "seed": 42,
+    "sample_size": 100
+  },
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Absorption Detection",
+      "task_id": "pilot_absorption",
+      "description": "Run Chanin differential correlation metric on first-letter features (A-Z) for Gemma-2-2B layer 8, 16K dict.",
+      "expected_features": 26,
+      "min_absorbed_threshold": 10,
+      "timeout_sec": 900,
+      "pass_criteria": "At least 10 features with absorption rate > 10% detected; metric computation completes without error; output is valid JSON with feature_id, absorption_rate, absorbing_latents fields",
+      "estimated_minutes": 30,
+      "gpu_count": 1
+    },
+    {
+      "phase": 2,
+      "name": "Feature Steering",
+      "task_id": "pilot_steering",
+      "description": "Steer each first-letter feature at strengths [1.0, 2.0, 5.0, 10.0]. Include random feature baseline (26 random latents) and null steering control.",
+      "prompts_per_feature": 100,
+      "steering_strengths": [1.0, 2.0, 5.0, 10.0],
+      "controls": ["random_baseline", "null_steering"],
+      "timeout_sec": 900,
+      "pass_criteria": "Random baseline steering success < 15%; At least 5 first-letter features show >30% steering success; Null steering shows < 5% effect; computation completes within timeout",
+      "estimated_minutes": 45,
+      "gpu_count": 1
+    },
+    {
+      "phase": 3,
+      "name": "Sparse Probing",
+      "task_id": "pilot_probing",
+      "description": "Train k-sparse linear probes (k=1, 5, 10) on first-letter classification. Measure F1 using main feature latents vs. all latents.",
+      "k_values": [1, 5, 10],
+      "train_test_split": "80/20",
+      "timeout_sec": 900,
+      "pass_criteria": "Full-latent probing F1 > 0.6; k=1 sparse probing F1 > 0.3; Absorbed features show lower F1 than non-absorbed (directional); computation completes within timeout",
+      "estimated_minutes": 30,
+      "gpu_count": 1
+    },
+    {
+      "phase": 4,
+      "name": "Correlation Analysis",
+      "task_id": "pilot_correlation",
+      "description": "Compute Pearson/Spearman correlation between absorption rate and steering success / probing F1. Fit linear model. Test shuffled label control.",
+      "statistical_tests": ["pearson", "spearman", "linear_regression", "shuffled_control"],
+      "timeout_sec": 900,
+      "pass_criteria": "Shuffled control correlation |r| < 0.15; Analysis script runs without error; All p-values correctly computed; Confidence intervals reported",
+      "estimated_minutes": 10,
+      "gpu_count": 0
+    }
+  ],
+  "go_no_go_criteria": {
+    "proceed_to_full": [
+      "Absorption detection yields >= 10 features with rate > 10%",
+      "Steering pipeline produces interpretable success rates (random baseline < 15%)",
+      "Probing pipeline produces non-random F1 scores (> 0.3 for k=1)",
+      "Correlation analysis runs without errors",
+      "Total pilot time < 2 hours"
+    ],
+    "abort_conditions": [
+      "Zero absorbed features found (indicates SAE or metric issue)",
+      "Random baseline steering success > 30% (indicates non-specific steering)",
+      "All first-letter features show < 10% steering success (task may be too hard)",
+      "Probing F1 < 0.2 for all configurations (task may be ill-posed)",
+      "Pilot exceeds 3 hours (indicates unexpected complexity)"
+    ],
+    "pivot_conditions": [
+      "Absorption rates are all < 5% -> try different SAE config or metric",
+      "Steering success uncorrelated with absorption but high overall -> focus on probing only",
+      "Probing shows strong correlation but steering doesn't -> H1 falsified, H2 supported"
+    ]
+  },
+  "sample_count_note": "Pilot uses 100 prompts per feature for steering (n=2600 total data points for correlation). This exceeds the minimum n=100 per the planning detail and provides adequate power for medium-to-large effect sizes."
+}

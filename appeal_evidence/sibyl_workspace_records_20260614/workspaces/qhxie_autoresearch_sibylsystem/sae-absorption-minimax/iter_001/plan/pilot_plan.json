@@ -1,0 +1,119 @@
+{
+  "pilot_batch": "pilot_h3_null_and_h1_gemma",
+  "pilot_config": {
+    "samples": 100,
+    "seed": 42,
+    "timeout_seconds": 900,
+    "gpu_count": 1,
+    "model": "gpt2-small",
+    "sae_release": "gpt2-small-res-jb",
+    "sae_layer": 8,
+    "dataset": "monology/pile-uncopyrighted",
+    "dataset_subsample": 10000
+  },
+  "pilot_tasks": [
+    {
+      "task_id": "pilot_h3_null",
+      "objective": "Confirm H3 REVERSED finding with null controls (shuffled/random directions)",
+      "substeps": [
+        {
+          "step": 1,
+          "description": "Load GPT-2 Small + SAE at layer 8 from gpt2-small-res-jb",
+          "expected_time_min": 1
+        },
+        {
+          "step": 2,
+          "description": "Load 100 features from full_h3 (reuse same indices)",
+          "expected_time_min": 1
+        },
+        {
+          "step": 3,
+          "description": "Compute steering effects for all 100 features at alpha=3 and alpha=10",
+          "expected_time_min": 5
+        },
+        {
+          "step": 4,
+          "description": "Compute null controls: shuffled directions and random unit vectors",
+          "expected_time_min": 3
+        },
+        {
+          "step": 5,
+          "description": "Compare effect sizes: high-abs vs low-abs vs shuffled vs random",
+          "expected_time_min": 1
+        },
+        {
+          "step": 6,
+          "description": "Save results to exp/results/pilots/h3_null_control.json",
+          "expected_time_min": 1
+        }
+      ],
+      "pass_criteria": {
+        "null_controls_near_zero": "Mean effect for shuffled/random < 0.05",
+        "high_abs_stronger": "High-absorption mean effect > Low-absorption mean effect at alpha in {3, 10}",
+        "spearman_r_positive": "Spearman r(UAS, steering_effect) > 0 at alpha=5",
+        "no_errors": "No NaN, no OOM, no CUDA errors"
+      },
+      "fallback_plan": {
+        "if_null_controls_non_zero": "Investigate: is the steering effect from residual stream interference rather than genuine feature causation?",
+        "if_high_abs_weaker": "H3 reversal is confirmed as pilot artifact — revert to original H3 prediction",
+        "if_spearman_r_negative": "H3 direction inconsistent with full_h3 — investigate measurement difference"
+      },
+      "reuse_from": "full_h3 feature indices and alpha=5 results"
+    },
+    {
+      "task_id": "pilot_h1_gemma",
+      "objective": "Check Gemma-2B SAE availability and compute preliminary absorption atlas",
+      "substeps": [
+        {
+          "step": 1,
+          "description": "Attempt to load Gemma-2B SAEs from gemma-2b-res release",
+          "expected_time_min": 2
+        },
+        {
+          "step": 2,
+          "description": "If gated, attempt HuggingFace token auth or fall back to Pythia-2B",
+          "expected_time_min": 2
+        },
+        {
+          "step": 3,
+          "description": "Compute absorption scores at layers [4, 8, 12] (quick check)",
+          "expected_time_min": 5
+        },
+        {
+          "step": 4,
+          "description": "Compare with GPT-2 layer-wise pattern",
+          "expected_time_min": 2
+        },
+        {
+          "step": 5,
+          "description": "Save results to exp/results/pilots/h1_gemma_pilot.json",
+          "expected_time_min": 1
+        }
+      ],
+      "pass_criteria": {
+        "sae_loads": "Gemma-2B or Pythia-2B SAE loads successfully",
+        "layers_computed": "Absorption computed for at least 3 layers",
+        "pattern_visible": "Layer-wise pattern observable (peak or monotonic)"
+      },
+      "fallback_plan": {
+        "if_gemma_gated": "Use Pythia-2B (pythia-70m-deduped) as GPT-2 alternative for cross-model validation",
+        "if_both_fail": "Report Gemma/Pythia unavailable; focus paper on GPT-2 only"
+      }
+    }
+  ],
+  "full_experiment_trigger": {
+    "condition": "pilot_h3_null passes ALL pass_criteria",
+    "if_triggered": "Proceed to full_h3_null in parallel with pilot_h1_gemma analysis",
+    "if_not_triggered": "Diagnose failure, revise null control protocol, re-run pilot"
+  },
+  "subsequent_pilots": [
+    {
+      "task_id": "pilot_h5_counterfact",
+      "depends_on": [],
+      "objective": "Evaluate absorption effect on TruthfulQA (real causal reasoning) instead of synthetic pairs",
+      "trigger_condition": "pilot_h3_null passes",
+      "expected_time_min": 20,
+      "note": "Addresses evolution lesson: H5 pilot causal task has near-random discriminability (AUC ~0.5)"
+    }
+  ]
+}

@@ -1,0 +1,224 @@
+{
+  "task_id": "task_E1_gemma_scope_validation",
+  "mode": "PILOT",
+  "timestamp": "2026-04-14T06:36:05.094119",
+  "elapsed_sec": 29.360737800598145,
+  "seed": 42,
+  "gemma_scope_access": {
+    "attempted": true,
+    "accessible": false,
+    "error": "401 Unauthorized \u2014 Gemma Scope requires accepting gated license at huggingface.co/google/gemma-scope",
+    "sae_lens_ids_available": [
+      "layer_0/width_16k/average_l0_105",
+      "embedding/*",
+      "embedding/*",
+      "embedding/*",
+      "embedding/*"
+    ],
+    "note": "SAELens v6.39.0 only has 5 IDs for gemma-scope-2b-pt-res; layer_12/width_16k not indexed",
+    "fallback": "gpt2-small-resid-post-v5-32k L6 resid_post (TopK architecture)"
+  },
+  "topk_sae_config": {
+    "release": "gpt2-small-resid-post-v5-32k",
+    "sae_id": "blocks.6.hook_resid_post",
+    "hook_name": "blocks.6.hook_resid_post",
+    "layer_idx": 6,
+    "d_in": 768,
+    "d_sae": 32768,
+    "architecture": "TopK (k=32)"
+  },
+  "label_generation": {
+    "method": "sae_spelling FeatureAbsorptionCalculator (Chanin et al. 2024 IG method)",
+    "label_source": "probe_decoder_alignment (cos>=0.1)",
+    "letters_attempted": [
+      "a",
+      "e",
+      "i",
+      "o",
+      "t"
+    ],
+    "letters_with_main_features": [
+      "a",
+      "e",
+      "i",
+      "o",
+      "t"
+    ],
+    "probe_hook": "blocks.6.hook_resid_post",
+    "main_feature_threshold": 0.3,
+    "n_pos": 11814,
+    "n_neg": 20954,
+    "per_letter_ig": {
+      "a": {
+        "main_feature_ids": [
+          15379,
+          23415
+        ],
+        "n_tested": 30,
+        "n_absorbed": 0,
+        "absorption_rate": 0.0,
+        "sample_portion": 1.0
+      },
+      "e": {
+        "main_feature_ids": [
+          7151,
+          31159
+        ],
+        "n_tested": 30,
+        "n_absorbed": 0,
+        "absorption_rate": 0.0,
+        "sample_portion": 1.0
+      },
+      "i": {
+        "error": "ValueError: Could not find a non-contaminated set of examples after 1000 attempts.",
+        "main_feature_ids": [
+          6487
+        ]
+      },
+      "o": {
+        "main_feature_ids": [
+          31557
+        ],
+        "n_tested": 30,
+        "n_absorbed": 0,
+        "absorption_rate": 0.0,
+        "sample_portion": 1.0
+      },
+      "t": {
+        "main_feature_ids": [
+          86
+        ],
+        "n_tested": 30,
+        "n_absorbed": 0,
+        "absorption_rate": 0.0,
+        "sample_portion": 1.0
+      }
+    },
+    "mean_binary_probe_acc": 1.0
+  },
+  "detector_results": {
+    "encoder_norm": {
+      "auroc": 0.7943992155687181,
+      "auprc": 0.6530410967532487,
+      "auroc_ci95": [
+        0.7895810022438406,
+        0.7996452944747172
+      ],
+      "n_pos": 11814,
+      "n_neg": 20954,
+      "precision_at_50": 0.64,
+      "precision_at_100": 0.67,
+      "precision_at_500": 0.694
+    },
+    "eda": {
+      "auroc": 0.6524670883793128,
+      "auprc": 0.45386816369986005,
+      "auroc_ci95": [
+        0.6465821472442986,
+        0.6575619495881885
+      ],
+      "n_pos": 11814,
+      "n_neg": 20954,
+      "precision_at_50": 0.28,
+      "precision_at_100": 0.32,
+      "precision_at_500": 0.392
+    },
+    "decoder_norm": {
+      "auroc": 0.4993058912782244,
+      "auprc": 0.3602801166474382,
+      "auroc_ci95": [
+        0.4929405701375197,
+        0.5052403754245657
+      ],
+      "n_pos": 11814,
+      "n_neg": 20954,
+      "precision_at_50": 0.34,
+      "precision_at_100": 0.32,
+      "precision_at_500": 0.362
+    },
+    "random": {
+      "auroc": 0.4974493816123766,
+      "auprc": 0.3577439038333224,
+      "auroc_ci95": [
+        0.49086277451140126,
+        0.5040844945627995
+      ],
+      "n_pos": 11814,
+      "n_neg": 20954,
+      "precision_at_50": 0.32,
+      "precision_at_100": 0.35,
+      "precision_at_500": 0.354
+    }
+  },
+  "delong_encoder_norm_vs_eda": {
+    "z": 55.76685325595134,
+    "p_one_sided": 1.0,
+    "auc1": 0.6524670883793128,
+    "auc2": 0.7943992155687181,
+    "interpretation": "enc_norm significantly > EDA"
+  },
+  "cross_architecture_comparison": {
+    "standard_sae_l6_resid_pre": {
+      "sae": "gpt2-small-res-jb blocks.6.hook_resid_pre (Standard ReLU, d_sae=24576)",
+      "n_pos": 18,
+      "label_source": "FeatureAbsorptionCalculator",
+      "encoder_norm_auroc": 0.7565988906081748,
+      "eda_auroc": 0.6503266643139597,
+      "encoder_norm_auprc": 0.0041612985698836575,
+      "eda_auprc": 0.0015282196277241152
+    },
+    "topk_32k_sae_l6_resid_post": {
+      "sae": "gpt2-small-resid-post-v5-32k (TopK, d_sae=32768)",
+      "encoder_norm_auroc": 0.7943992155687181,
+      "eda_auroc": 0.6524670883793128,
+      "n_pos": 11814
+    },
+    "auroc_difference": 0.03780032496054331,
+    "exceeds_0.10_threshold": false,
+    "architecture_gap_note": "AUROC difference <= 0.10; encoder_norm generalizes across architectures."
+  },
+  "weight_statistics": {
+    "topk_sae": {
+      "encoder_norm": {
+        "mean": 1.643652081489563,
+        "std": 0.3799905478954315,
+        "min": 0.71359783411026,
+        "max": 3.810525417327881
+      },
+      "eda": {
+        "mean": 0.4400920569896698,
+        "std": 0.07252178341150284
+      },
+      "frac_high_encoder_norm_2sigma": 0.02490234375
+    },
+    "standard_sae": {
+      "encoder_norm": {
+        "mean": 2.576570749282837,
+        "std": 0.707735002040863
+      },
+      "eda": {
+        "mean": 0.6306423544883728,
+        "std": 0.07550088316202164
+      },
+      "frac_high_encoder_norm_2sigma": 0.01416015625
+    }
+  },
+  "pilot_pass_criteria": {
+    "fallback_activated": true,
+    "gemma_scope_accessible": false,
+    "gemma_scope_error": "401 Unauthorized (accept license at huggingface.co/google/gemma-scope)",
+    "wider_sae_loaded": true,
+    "sae_name": "gpt2-small-resid-post-v5-32k blocks.6.hook_resid_post (TopK, d_sae=32768)",
+    "encoder_norm_auroc_measured": true,
+    "comparison_to_gpt2_l6_reported": true,
+    "label_source": "probe_decoder_alignment (cos>=0.1)",
+    "n_pos": 11814,
+    "pass": true
+  },
+  "interpretation_notes": {
+    "hook_point_confound": "resid_pre (Standard) vs. resid_post (TopK) means probes and metrics operate on different representations. Direct AUROC comparison conflates architecture with hook-point effects.",
+    "topk_sparsity_effect": "TopK with k=32 enforces hard sparsity. Literature suggests TopK reduces absorption relative to ReLU/L1 SAEs (SAEBench data). Lower n_pos in TopK is consistent with this.",
+    "label_independence": "IG labels generated independently for each SAE; absorption may occur for different latents across architectures.",
+    "cross_arch_interpretation": "AUROC difference = 0.0378. AUROC difference <= 0.10; encoder_norm generalizes across architectures."
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "overall_recommendation": "ADVANCE",
+  "selected_candidate_id": "cand_cross_domain_unsupervised",
+  "candidates": [
+    {
+      "candidate_id": "cand_cross_domain_unsupervised",
+      "go_no_go": "GO_WITH_CAUTION",
+      "confidence": 0.72,
+      "supported_hypotheses": ["H1_partial", "probe_quality_partial"],
+      "failed_assumptions": [],
+      "key_metrics": {
+        "first_letter_absorption_rate_l12_16k": 0.1337,
+        "first_letter_absorption_rate_l12_65k": 0.4705,
+        "first_letter_mean_probe_f1": 0.5647,
+        "city_country_mean_cv_f1": 0.7729,
+        "city_country_median_cv_f1": 0.8933,
+        "city_country_mean_test_f1": 0.8368,
+        "city_country_countries_tested": 29,
+        "city_country_countries_above_085": 16,
+        "city_country_countries_above_080": 18,
+        "city_country_countries_above_070": 22,
+        "city_country_countries_zero_f1": 3,
+        "city_country_n_cities": 189,
+        "city_country_dense_probe_f1": 0.617,
+        "city_country_bootstrap_ci_95": [0.6532, 0.8761]
+      },
+      "notes": "Probe Quality Gate result: GO_WITH_CAUTION. Mean CV F1=0.773, median=0.893, across 29 countries with 189 single-token cities. 16/29 countries achieve F1>0.85, 18/29 achieve F1>0.80, 22/29 above 0.70. Three countries (Argentina, Egypt, Greece) show F1=0.0 due to very small samples (3-4 cities each). Notably, SAE probes OUTPERFORM dense probes (0.773 vs 0.617 mean F1), indicating that the SAE captures geographic knowledge well. Strong performers (F1=1.0): Australia, Canada, China, India, Indonesia, Italy, Japan, Mexico, Netherlands, South Africa, Thailand, Turkey. Weak performers: Argentina (0.0, n=4), Brazil (0.47, n=6), Egypt (0.0, n=3), Greece (0.0, n=3), Portugal (0.4, n=5). The weak performers are predominantly countries with few (3-5) cities. Decision: PROCEED with caution. For full cross-domain experiments, exclude countries with <5 cities or F1<0.50, and report probe quality per-country as a key caveat."
+    }
+  ],
+  "decision_gate_results": {
+    "first_letter_validation": {
+      "condition": "absorption rate differs >3x from published 15-35% range",
+      "rate": 0.1337,
+      "within_range": true,
+      "action": "PROCEED with refinement - rate is within range but controls need calibration"
+    },
+    "probe_quality_pilot": {
+      "condition": "F1 < 0.70 -> pivot; 0.70 <= F1 < 0.85 -> caution; F1 >= 0.85 -> proceed",
+      "mean_cv_f1": 0.7729,
+      "median_cv_f1": 0.8933,
+      "decision": "GO_WITH_CAUTION",
+      "action": "Proceed with caution; report probe quality as limitation. Countries with F1<0.50 should be excluded from absorption measurement or flagged."
+    }
+  },
+  "refinement_plan": [
+    "For full cross-domain experiments: exclude countries with <5 cities or probe F1<0.50",
+    "Report per-country probe F1 prominently alongside absorption rates",
+    "Increase per-letter word count from 25 to 50+ for better first-letter probe quality",
+    "Calibrate cosine threshold using null distribution for first-letter absorption",
+    "Consider stratifying absorption analysis by probe quality tier (F1>0.85 vs 0.70-0.85)",
+    "City-continent and city-language probes may perform better due to fewer classes"
+  ],
+  "pilot_timing": {
+    "first_letter_validation": {
+      "planned_min": 45,
+      "actual_min": 1
+    },
+    "probe_quality_pilot": {
+      "planned_min": 15,
+      "actual_min": 1,
+      "note": "189 cities across 29 countries, completed in 19s"
+    }
+  }
+}

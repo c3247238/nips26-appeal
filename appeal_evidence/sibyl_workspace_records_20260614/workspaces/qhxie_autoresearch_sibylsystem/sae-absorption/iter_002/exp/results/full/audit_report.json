@@ -1,0 +1,841 @@
+{
+  "task_id": "task_STAT_audit",
+  "timestamp": "2026-04-13T22:52:02.628205",
+  "mode": "PILOT",
+  "summary": {
+    "n_claims_total": 79,
+    "n_verified": 17,
+    "n_reported": 49,
+    "n_discrepancy": 0,
+    "n_missing": 5,
+    "n_flagged": 4,
+    "n_flagged_critical": 3,
+    "n_noted": 4,
+    "writing_blocked": true,
+    "block_reasons": [
+      "3 CRITICAL flags require resolution"
+    ]
+  },
+  "table1_completeness": {
+    "available_cells": [
+      "TABLE1_ASI_AUROC_GPT2_L6",
+      "TABLE1_ASI_AUPRC_GPT2_L6",
+      "TABLE1_EDA_AUROC_GPT2_L6",
+      "TABLE1_EDA_AUPRC_GPT2_L6",
+      "TABLE1_cos2_AUROC_GPT2_L6",
+      "TABLE1_freq_ratio_AUROC_GPT2_L6",
+      "TABLE1_null_AUROC_mean_ASI",
+      "TABLE1_null_AUROC_std_ASI"
+    ],
+    "missing_cells": [
+      "TABLE1_GPT2_L10_missing",
+      "TABLE1_Gemma_missing"
+    ],
+    "GPT2_L6_complete": true,
+    "GPT2_L10_complete": false,
+    "Gemma_complete": false,
+    "note": "Only GPT-2 L6 values are available. Table 1 as designed in methodology.md cannot be fully populated."
+  },
+  "critical_issues": [
+    {
+      "id": "B1_7_direction_check",
+      "desc": "B1 CRITICAL: Absorbed (letter) features have LOWER cos^2 than non-absorbed \u2014 OPPOSITE to H1 prediction. AUROC < 0.5.",
+      "detail": "pos_mean=0.0518 < neg_mean=0.1265. Absorbed features are NOT more geometrically aligned. H1 (RD threshold) is FALSIFIED by this direction."
+    },
+    {
+      "id": "C1_4_city_country_shuffle",
+      "desc": "C1 FLAGGED: city_country_binary fails shuffle control (shuffled F1 mean=0.621 > 0.60 threshold). This means the binary (US vs non-US) probe may be detecting dataset artifacts.",
+      "detail": "city_country_binary shuffle F1=0.6209 > 0.60 gate. This hierarchy should NOT be used in C2 analysis."
+    },
+    {
+      "id": "D2_10_asi_fails",
+      "desc": "D2 CRITICAL: ASI AUROC=0.4215, BELOW 0.55 threshold. H3 (ASI predicts absorption) is FALSIFIED. Best detector is EDA (AUROC=0.6810). Paper cannot claim ASI as primary contribution.",
+      "detail": "ASI AUROC=0.4215, null mean=0.4973. ASI is BELOW random. EDA AUROC=0.6810 (passes pilot threshold). If writing proceeds, ASI must be reported as failed H3."
+    }
+  ],
+  "missing_results": [
+    {
+      "id": "C2_MISSING_FULL",
+      "desc": "C2 MISSING: No full C2_cross_domain_absorption.json found. Only pilot exists. All hierarchies in pilot show absorption_rate=0.0 (NO_GO). Cross-domain H2 claim cannot be verified.",
+      "detail": "Pilot results: all hierarchies show absorption_rate=0.0. null_rate=1.0 for random latents. ratio_to_null=0 for all. H2 falsified at pilot stage (C2 pilot go_nogo=NO_GO for all hierarchies). Full C2 results file is ABSENT."
+    },
+    {
+      "id": "C3",
+      "desc": "C3 Hierarchy Property Correlation",
+      "detail": "Depends on C2 which is absent. MISSING."
+    },
+    {
+      "id": "D3",
+      "desc": "D3 ASI Cross-Domain Predictive Validity",
+      "detail": "Depends on C2 which is absent. MISSING."
+    },
+    {
+      "id": "TABLE1_GPT2_L10_missing",
+      "desc": "Table 1: GPT-2 L10 column values NOT computed in D2. Only L6 was validated.",
+      "detail": "D2 task only ran on GPT-2 L6. L10 values absent. Table 1 will be incomplete."
+    },
+    {
+      "id": "TABLE1_Gemma_missing",
+      "desc": "Table 1: Gemma L5-16k and L12-16k columns NOT computed. Gemma was not tested.",
+      "detail": "No Gemma Scope results anywhere. All Gemma columns will be absent."
+    }
+  ],
+  "discrepancies": [],
+  "all_claims": [
+    {
+      "claim_id": "A1_ASI_AUROC",
+      "description": "Pilot A: ASI AUROC",
+      "source_file": "pilots/pilot_A_pipeline.json",
+      "expected": null,
+      "actual": "0.47641383908429147",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "A2_RD_AUROC",
+      "description": "Pilot A: RD threshold AUROC",
+      "source_file": "pilots/pilot_A_pipeline.json",
+      "expected": null,
+      "actual": "0.4103244235870231",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "A3_EDA_AUROC",
+      "description": "Pilot A: EDA baseline AUROC",
+      "source_file": "pilots/pilot_A_pipeline.json",
+      "expected": null,
+      "actual": "0.681037787631728",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "A4_n_pos",
+      "description": "Pilot A: n_pos (expected ~67 from task plan, got 71)",
+      "source_file": "pilots/pilot_A_pipeline.json",
+      "expected": null,
+      "actual": "71",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "A5_pass_criteria",
+      "description": "Pilot A: overall go_nogo",
+      "source_file": "pilots/pilot_A_pipeline.json",
+      "expected": null,
+      "actual": "NO_GO",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "A6_null_mean",
+      "description": "Pilot A: ASI null mean near 0.5 (sanity check)",
+      "source_file": "pilots/pilot_A_pipeline.json",
+      "expected": "0.5",
+      "actual": "0.4962493742294617",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B1_1_L6_wilcoxon_p",
+      "description": "B1: L6 Wilcoxon p-value (absorbed vs non-absorbed cos^2)",
+      "source_file": "full/B1_decoder_geometry.json",
+      "expected": null,
+      "actual": "1.337962781630643e-06",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B1_2_L6_cohens_d",
+      "description": "B1: L6 Cohen's d",
+      "source_file": "full/B1_decoder_geometry.json",
+      "expected": null,
+      "actual": "-0.5695706945336164",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B1_3_L6_auroc_cos2",
+      "description": "B1: L6 AUROC for cos^2 threshold classifier",
+      "source_file": "full/B1_decoder_geometry.json",
+      "expected": null,
+      "actual": "0.3183495338226542",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B1_4_L10_wilcoxon_p",
+      "description": "B1: L10 Wilcoxon p-value",
+      "source_file": "full/B1_decoder_geometry.json",
+      "expected": null,
+      "actual": "3.621141379964922e-11",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B1_5_L10_cohens_d",
+      "description": "B1: L10 Cohen's d",
+      "source_file": "full/B1_decoder_geometry.json",
+      "expected": null,
+      "actual": "-0.722915174338802",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B1_6_pass_gate",
+      "description": "B1: Both L6 and L10 Wilcoxon p<0.05 gate",
+      "source_file": "full/B1_decoder_geometry.json",
+      "expected": "GO",
+      "actual": "GO",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B1_7_direction_check",
+      "description": "B1 CRITICAL: Absorbed (letter) features have LOWER cos^2 than non-absorbed \u2014 OPPOSITE to H1 prediction. AUROC < 0.5.",
+      "source_file": "full/B1_decoder_geometry.json",
+      "expected": null,
+      "actual": null,
+      "status": "FLAGGED_CRITICAL",
+      "discrepancy": "pos_mean=0.0518 < neg_mean=0.1265. Absorbed features are NOT more geometrically aligned. H1 (RD threshold) is FALSIFIED by this direction."
+    },
+    {
+      "claim_id": "B2_1_n_configs",
+      "description": "B2: Number of SAE configs tested",
+      "source_file": "full/B2_scaling_curve.json",
+      "expected": null,
+      "actual": "11",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B2_2_linear_r2",
+      "description": "B2: Linear fit R^2",
+      "source_file": "full/B2_scaling_curve.json",
+      "expected": null,
+      "actual": "0.0388852861215887",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B2_3_sigmoid_r2",
+      "description": "B2: Sigmoid fit R^2",
+      "source_file": "full/B2_scaling_curve.json",
+      "expected": null,
+      "actual": "0.5013244106789247",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B2_4_lrt_pvalue",
+      "description": "B2: LRT p-value (sigmoid vs linear)",
+      "source_file": "full/B2_scaling_curve.json",
+      "expected": null,
+      "actual": "0.027085437797061962",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B2_5_inflection_l0c",
+      "description": "B2: Inflection point L0_c",
+      "source_file": "full/B2_scaling_curve.json",
+      "expected": null,
+      "actual": "81.42096191420862",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B2_6_spearman_rho",
+      "description": "B2: Spearman rho (1/L0 vs mean EDA, all configs)",
+      "source_file": "full/B2_scaling_curve.json",
+      "expected": null,
+      "actual": "0.19090909090909092",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B2_7_pilot_pass",
+      "description": "B2: Pilot pass (>=3 distinct L0 settings)",
+      "source_file": "full/B2_scaling_curve.json",
+      "expected": "True",
+      "actual": "True",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B2_8_proxy_note",
+      "description": "B2 METHODOLOGY NOTE: Absorption rate proxy is EDA (1-cos(enc,dec)), not direct sae-spelling measurement. Task plan specified direct measurement.",
+      "source_file": "full/B2_scaling_curve.json",
+      "expected": null,
+      "actual": null,
+      "status": "NOTED",
+      "discrepancy": "EDA is used as proxy. Sigmoid fit R^2=0.501 (all configs) but L0 range is limited. Spearman rho=0.191 (p=0.574) \u2014 no significant trend. LRT p=0.027 for sigmoid over linear (marginal)."
+    },
+    {
+      "claim_id": "B3_1_arch1_l0",
+      "description": "B3: Architecture 1 (Standard/ReLU) L0",
+      "source_file": "full/B3_cross_arch.json",
+      "expected": null,
+      "actual": "44.57017543859649",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B3_2_arch2_l0",
+      "description": "B3: Architecture 2 (TopK k=32) L0",
+      "source_file": "full/B3_cross_arch.json",
+      "expected": null,
+      "actual": "32.0",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B3_3_mean_eda_arch1",
+      "description": "B3: Mean EDA letter features (Standard/ReLU)",
+      "source_file": "full/B3_cross_arch.json",
+      "expected": null,
+      "actual": "0.6760234832763672",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B3_4_mean_eda_arch2",
+      "description": "B3: Mean EDA letter features (TopK)",
+      "source_file": "full/B3_cross_arch.json",
+      "expected": null,
+      "actual": "0.47619011998176575",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "B3_5_l0_mismatch_note",
+      "description": "B3 METHODOLOGY NOTE: L0 not matched (Standard ~45 vs TopK k=32). Different hook points (resid_pre vs resid_post). Comparison confounded.",
+      "source_file": "full/B3_cross_arch.json",
+      "expected": null,
+      "actual": null,
+      "status": "NOTED",
+      "discrepancy": "L0 not matched (TopK k=32 gives exact sparsity; Standard L0 ~50). Comparison is at available L0 values, not matched L0. Different hook points: Standard uses resid_pre, TopK uses resid_post at layer 6."
+    },
+    {
+      "claim_id": "C1_1_first_letter_f1",
+      "description": "C1: First-letter probe mean F1",
+      "source_file": "full/C1_probe_training.json",
+      "expected": null,
+      "actual": "0.8201993101761714",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "C1_2_first_letter_gate",
+      "description": "C1: First-letter probe passes F1>=0.80 gate",
+      "source_file": "full/C1_probe_training.json",
+      "expected": "True",
+      "actual": "True",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "C1_3_n_passing",
+      "description": "C1: Number of hierarchies passing F1 gate",
+      "source_file": "full/C1_probe_training.json",
+      "expected": null,
+      "actual": "4",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "C1_4_city_country_shuffle",
+      "description": "C1 FLAGGED: city_country_binary fails shuffle control (shuffled F1 mean=0.621 > 0.60 threshold). This means the binary (US vs non-US) probe may be detecting dataset artifacts.",
+      "source_file": "full/C1_probe_training.json",
+      "expected": null,
+      "actual": null,
+      "status": "FLAGGED_CRITICAL",
+      "discrepancy": "city_country_binary shuffle F1=0.6209 > 0.60 gate. This hierarchy should NOT be used in C2 analysis."
+    },
+    {
+      "claim_id": "C1_5_animate_perfect",
+      "description": "C1 FLAGGED: animate_inanimate probe F1=1.0 on n_test=22. May indicate overfitting or trivially separable dataset.",
+      "source_file": "full/C1_probe_training.json",
+      "expected": null,
+      "actual": null,
+      "status": "FLAGGED",
+      "discrepancy": "F1=1.0 on n_test=22 is suspicious. Small test set. Treat as potentially inflated."
+    },
+    {
+      "claim_id": "C2_MISSING_FULL",
+      "description": "C2 MISSING: No full C2_cross_domain_absorption.json found. Only pilot exists. All hierarchies in pilot show absorption_rate=0.0 (NO_GO). Cross-domain H2 claim cannot be verified.",
+      "source_file": "full/C2_cross_domain_absorption.json",
+      "expected": null,
+      "actual": null,
+      "status": "MISSING",
+      "discrepancy": "Pilot results: all hierarchies show absorption_rate=0.0. null_rate=1.0 for random latents. ratio_to_null=0 for all. H2 falsified at pilot stage (C2 pilot go_nogo=NO_GO for all hierarchies). Full C2 results file is ABSENT."
+    },
+    {
+      "claim_id": "C3",
+      "description": "C3 Hierarchy Property Correlation",
+      "source_file": "full/C3_hierarchy_correlation.json",
+      "expected": null,
+      "actual": null,
+      "status": "MISSING",
+      "discrepancy": "Depends on C2 which is absent. MISSING."
+    },
+    {
+      "claim_id": "D3",
+      "description": "D3 ASI Cross-Domain Predictive Validity",
+      "source_file": "full/D3_ASI_cross_domain.json",
+      "expected": null,
+      "actual": null,
+      "status": "MISSING",
+      "discrepancy": "Depends on C2 which is absent. MISSING."
+    },
+    {
+      "claim_id": "D1_1_n_pairs_before",
+      "description": "D1: n_pairs_before_filter",
+      "source_file": "full/D1_ASI_scores.json",
+      "expected": null,
+      "actual": "12995288",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D1_2_n_pairs_after",
+      "description": "D1: n_pairs_after_filter",
+      "source_file": "full/D1_ASI_scores.json",
+      "expected": null,
+      "actual": "1726619",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D1_3_pass_criteria",
+      "description": "D1: >= 1000 pairs after filter",
+      "source_file": "full/D1_ASI_scores.json",
+      "expected": "True",
+      "actual": "True",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D1_4_compute_time",
+      "description": "D1: Compute time (seconds)",
+      "source_file": "full/D1_ASI_scores.json",
+      "expected": null,
+      "actual": "0.40447354316711426",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D1_5_l0_empirical",
+      "description": "D1: L0 empirical",
+      "source_file": "full/D1_ASI_scores.json",
+      "expected": null,
+      "actual": "50.5716552734375",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_1_ASI_auroc",
+      "description": "D2: ASI AUROC (primary claim)",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.421484548999773",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_2_ASI_auprc",
+      "description": "D2: ASI AUPRC",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.002836988821987434",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_3_EDA_auroc",
+      "description": "D2: EDA baseline AUROC",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.681037787631728",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_4_cos2_auroc",
+      "description": "D2: cos^2 alone AUROC",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.2059229073687175",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_5_freq_ratio_auroc",
+      "description": "D2: freq_ratio alone AUROC",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.6124769018107832",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_6_delong_delta_consistency",
+      "description": "D2: DeLong delta_AUROC consistency check (ASI - EDA should match)",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": "-0.259553",
+      "actual": "-0.259553",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_7_null_mean",
+      "description": "D2: ASI null AUROC mean (should be ~0.5)",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": "0.5",
+      "actual": "0.49732488052165275",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_8_n_pos",
+      "description": "D2: n_pos (letter features)",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "71",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_9_d1_d2_consistency",
+      "description": "D2: D1 and D2 ASI AUROC agree",
+      "source_file": "full/D2_ASI_validation.json vs D1",
+      "expected": "0.421485",
+      "actual": "0.421485",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "D2_10_asi_fails",
+      "description": "D2 CRITICAL: ASI AUROC=0.4215, BELOW 0.55 threshold. H3 (ASI predicts absorption) is FALSIFIED. Best detector is EDA (AUROC=0.6810). Paper cannot claim ASI as primary contribution.",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": null,
+      "status": "FLAGGED_CRITICAL",
+      "discrepancy": "ASI AUROC=0.4215, null mean=0.4973. ASI is BELOW random. EDA AUROC=0.6810 (passes pilot threshold). If writing proceeds, ASI must be reported as failed H3."
+    },
+    {
+      "claim_id": "E1_1_h4a_result",
+      "description": "E1: H4a phase transition result",
+      "source_file": "full/E1_phase_transition.json",
+      "expected": null,
+      "actual": "NOT SUPPORTED (BIC diff=-3.22, LRT p=0.4555)",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E1_2_n_configs",
+      "description": "E1: Number of configs tested",
+      "source_file": "full/E1_phase_transition.json",
+      "expected": null,
+      "actual": "11",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E1_3_pilot_pass",
+      "description": "E1: Pilot pass (>=4 distinct L0 values)",
+      "source_file": "full/E1_phase_transition.json",
+      "expected": "True",
+      "actual": "True",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E1_4_lrt_pvalue",
+      "description": "E1: LRT p-value (sigmoid vs linear)",
+      "source_file": "full/E1_phase_transition.json",
+      "expected": null,
+      "actual": "0.3777411725960427",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E1_5_bic_diff",
+      "description": "E1: BIC difference (linear - sigmoid)",
+      "source_file": "full/E1_phase_transition.json",
+      "expected": null,
+      "actual": "-2.8486984526404804",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E1_6_lrt_supported",
+      "description": "E1: H4a LRT supported",
+      "source_file": "full/E1_phase_transition.json",
+      "expected": "False",
+      "actual": "False",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E1_7_ceiling_effect",
+      "description": "E1 NOTED: Absorption rates at ceiling (~87-98%) across all L0 values. Direct absorption measurement shows no L0 sensitivity \u2014 likely because letter features rarely fire (saturation artifact of the measurement method). EDA proxy analysis also shows no clear trend.",
+      "source_file": "full/E1_phase_transition.json",
+      "expected": null,
+      "actual": null,
+      "status": "NOTED",
+      "discrepancy": "Absorption rate range: [0.8762254901960784, 0.9780701754385965]. H4a (phase transition) NOT SUPPORTED by LRT (p=0.3777). B2 Spearman rho=0.191 p=0.574."
+    },
+    {
+      "claim_id": "E2_1_confirmed",
+      "description": "E2: Hysteresis confirmed",
+      "source_file": "full/E2_hysteresis.json",
+      "expected": "False",
+      "actual": "False",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E2_2_baseline_abs",
+      "description": "E2: Baseline absorption rate",
+      "source_file": "full/E2_hysteresis.json",
+      "expected": null,
+      "actual": "0.9589603283173734",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E2_3_finetuned_abs",
+      "description": "E2: Fine-tuned absorption rate (step 500)",
+      "source_file": "full/E2_hysteresis.json",
+      "expected": null,
+      "actual": "0.960328317373461",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "E2_4_h4b_interpretation",
+      "description": "E2: H4b interpretation",
+      "source_file": "full/E2_hysteresis.json",
+      "expected": null,
+      "actual": "SATURATION: absorption high at all L0 values tested; hysteresis not testable in this regime",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "F1_1_theorem_present",
+      "description": "F1: Theorem 1 statement present",
+      "source_file": "full/F1_theory_analysis.md",
+      "expected": "True",
+      "actual": "True",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "F1_2_proof_present",
+      "description": "F1: Formal proof present",
+      "source_file": "full/F1_theory_analysis.md",
+      "expected": "True",
+      "actual": "True",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "F1_3_derivation_present",
+      "description": "F1: Complete derivation section present",
+      "source_file": "full/F1_theory_analysis.md",
+      "expected": "True",
+      "actual": "True",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "F1_4_not_circular",
+      "description": "F1: No 'proof sketch' language (circularity check)",
+      "source_file": "full/F1_theory_analysis.md",
+      "expected": "False",
+      "actual": "False",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "F1_5_length",
+      "description": "F1: Theory analysis word count (>=500 expected)",
+      "source_file": "full/F1_theory_analysis.md",
+      "expected": null,
+      "actual": "3182",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "FIG1_1_pdf_exists",
+      "description": "Figure 1 PDF exists",
+      "source_file": "full/fig1_method.pdf",
+      "expected": "True",
+      "actual": "True",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "FIG1_2_pdf_size",
+      "description": "Figure 1 PDF size (bytes)",
+      "source_file": "full/fig1_method.pdf",
+      "expected": null,
+      "actual": "64.6KB",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_ASI_AUROC_GPT2_L6",
+      "description": "Table 1 cell: ASI_AUROC_GPT2_L6",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.421484548999773",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_ASI_AUPRC_GPT2_L6",
+      "description": "Table 1 cell: ASI_AUPRC_GPT2_L6",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.002836988821987434",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_EDA_AUROC_GPT2_L6",
+      "description": "Table 1 cell: EDA_AUROC_GPT2_L6",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.681037787631728",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_EDA_AUPRC_GPT2_L6",
+      "description": "Table 1 cell: EDA_AUPRC_GPT2_L6",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.005897865236753317",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_cos2_AUROC_GPT2_L6",
+      "description": "Table 1 cell: cos2_AUROC_GPT2_L6",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.2059229073687175",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_freq_ratio_AUROC_GPT2_L6",
+      "description": "Table 1 cell: freq_ratio_AUROC_GPT2_L6",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.6124769018107832",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_null_AUROC_mean_ASI",
+      "description": "Table 1 cell: null_AUROC_mean_ASI",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.49732488052165275",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_null_AUROC_std_ASI",
+      "description": "Table 1 cell: null_AUROC_std_ASI",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": "0.03574281235205134",
+      "status": "REPORTED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "TABLE1_GPT2_L10_missing",
+      "description": "Table 1: GPT-2 L10 column values NOT computed in D2. Only L6 was validated.",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": null,
+      "status": "MISSING",
+      "discrepancy": "D2 task only ran on GPT-2 L6. L10 values absent. Table 1 will be incomplete."
+    },
+    {
+      "claim_id": "TABLE1_Gemma_missing",
+      "description": "Table 1: Gemma L5-16k and L12-16k columns NOT computed. Gemma was not tested.",
+      "source_file": "full/D2_ASI_validation.json",
+      "expected": null,
+      "actual": null,
+      "status": "MISSING",
+      "discrepancy": "No Gemma Scope results anywhere. All Gemma columns will be absent."
+    },
+    {
+      "claim_id": "NPOS_1_l6_consistency",
+      "description": "n_pos consistency across L6 result files",
+      "source_file": "multiple",
+      "expected": "71",
+      "actual": "71",
+      "status": "VERIFIED",
+      "discrepancy": null
+    },
+    {
+      "claim_id": "NPOS_2_vs_task_plan",
+      "description": "n_pos discrepancy: task plan expected n_pos=67 (Chanin et al. exact labels), all result files report n_pos=71 at threshold=0.32. This is because proxy labels (probe_decoder_alignment) are used, not exact Chanin labels.",
+      "source_file": "multiple",
+      "expected": null,
+      "actual": null,
+      "status": "NOTED",
+      "discrepancy": "Expected=67 (Chanin et al.), Got=71 (proxy threshold=0.32). Labels are proxy labels, not ground truth."
+    }
+  ],
+  "main_findings": {
+    "EDA_is_best_detector": {
+      "AUROC_L6": 0.681037787631728,
+      "source": "pilots/pilot_A_pipeline.json and full/D2_ASI_validation.json",
+      "status": "VERIFIED (consistent across files)"
+    },
+    "ASI_fails_H3": {
+      "ASI_AUROC_L6": 0.421484548999773,
+      "verdict": "BELOW_RANDOM (AUROC=0.4215 < null mean=0.4973)",
+      "status": "H3 FALSIFIED"
+    },
+    "H1_RD_threshold_falsified": {
+      "detail": "Absorbed features have LOWER cos^2(theta) than non-absorbed (opposite to H1 prediction). AUROC of RD threshold classifier < 0.5 on both L6 and L10.",
+      "L6_auroc_cos2": 0.3183495338226542,
+      "status": "H1 FALSIFIED (direction reversed)"
+    },
+    "H2_cross_domain_not_tested": {
+      "detail": "C2 full results absent. Pilot C2 shows absorption_rate=0.0 for all hierarchies. H2 appears falsified at pilot stage.",
+      "status": "H2 NOT SUPPORTED (pilot NO_GO)"
+    },
+    "H4a_phase_transition_not_supported": {
+      "detail": "E1 LRT p=0.456 (all configs). H4a NOT supported. Ceiling effect in absorption rates (~87-98% across all L0 values).",
+      "status": "H4a NOT SUPPORTED"
+    },
+    "H4b_hysteresis_not_confirmed": {
+      "detail": "E2: All L0 values show absorption_rate ~0.96. Saturation regime; hysteresis untestable.",
+      "status": "H4b NOT CONFIRMED (saturation)"
+    },
+    "Figure1_PDF_exists": {
+      "path": "full/fig1_method.pdf",
+      "exists": true,
+      "size_bytes": 66123
+    },
+    "theory_proof": {
+      "complete_derivation": true,
+      "circular_argument": false,
+      "note": "F1_theory_analysis.md contains complete algebraic derivation of Theorem 1 from SDL loss stationarity conditions. Not a proof sketch."
+    },
+    "n_pos_proxy_labels": {
+      "expected_chanin": 67,
+      "actual_proxy": 71,
+      "note": "Proxy labels used throughout (probe_decoder_alignment at threshold=0.32), not exact Chanin et al. labels. 4 extra positives vs task plan expectation."
+    }
+  }
+}

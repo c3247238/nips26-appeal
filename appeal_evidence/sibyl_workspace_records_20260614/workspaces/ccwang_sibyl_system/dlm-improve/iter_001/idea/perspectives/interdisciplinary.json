@@ -1,0 +1,177 @@
+{
+  "round": "evidence_driven_refinement_2",
+  "topic": "在 training-free 条件下改进 Diffusion Language Models (DLMs) 的生成性能，或在维持性能的同时提升 DLMs 的推理速度。",
+  "workspace": "/Users/cwan0785/sibyl-system/workspaces/dlm-improve/current",
+  "runtime_notes": {
+    "google_scholar_mcp_available": false,
+    "biorxiv_mcp_available": false,
+    "fallback_used": [
+      "arxiv",
+      "web"
+    ]
+  },
+  "evidence_constraints": {
+    "selected_candidate_id": "cand_diag",
+    "tiger_pivoted": true,
+    "tiger_gsm8k_accuracy": 0.39,
+    "entropy_gsm8k_accuracy": 0.39,
+    "core_proxy_gsm8k_accuracy": 0.46,
+    "gated_humaneval_pass1": 0.04,
+    "standard_humaneval_pass1": 0.06,
+    "diagnostic_max_ece": 0.0443,
+    "diagnostic_best_entropy_error_corr": -0.6225
+  },
+  "literature_searches": [
+    {
+      "type": "arxiv",
+      "query": "(\"predictive coding\" OR \"active inference\") AND (\"language model\" OR decoding OR generation)",
+      "fields": [
+        "neuroscience",
+        "cognitive_science"
+      ],
+      "key_sources": [
+        "arXiv:2107.12979",
+        "arXiv:2104.09163",
+        "arXiv:2207.06970"
+      ]
+    },
+    {
+      "type": "arxiv",
+      "query": "(\"kinetic proofreading\" OR \"error correction\") AND (decoding OR generation OR \"language model\")",
+      "fields": [
+        "biology",
+        "quantum_error_correction"
+      ],
+      "key_sources": [
+        "arXiv:1109.4965",
+        "arXiv:2601.09921",
+        "arXiv:quant-ph/0304016"
+      ]
+    },
+    {
+      "type": "arxiv",
+      "query": "(\"statistical physics\" OR nucleation OR \"energy landscape\") AND (\"language model\" OR sequence OR decoding)",
+      "fields": [
+        "statistical_physics",
+        "protein_folding"
+      ],
+      "key_sources": [
+        "arXiv:1703.01222",
+        "arXiv:q-bio/0611061",
+        "arXiv:cond-mat/9905309"
+      ]
+    },
+    {
+      "type": "arxiv",
+      "query": "(metacognition OR confidence OR uncertainty) AND (\"dynamic computation\" OR \"selective prediction\" OR \"adaptive computation\")",
+      "fields": [
+        "cognitive_science",
+        "reliability"
+      ],
+      "key_sources": [
+        "arXiv:2302.11874",
+        "arXiv:2402.10665",
+        "arXiv:2508.07556"
+      ]
+    },
+    {
+      "type": "web",
+      "query_family": "predictive coding / neuroscience / precision weighting",
+      "key_sources": [
+        "Neuroscience and Biobehavioral Reviews predictive coding review page",
+        "PubMed / Cerebral Cortex predictive error evidence page"
+      ]
+    },
+    {
+      "type": "web",
+      "query_family": "kinetic proofreading / biology / specificity",
+      "key_sources": [
+        "Nature Immunology: Proving kinetic proofreading",
+        "Annual Review of Biochemistry kinetic proofreading review"
+      ]
+    },
+    {
+      "type": "web",
+      "query_family": "metacognition / confidence / speed-accuracy tradeoff",
+      "key_sources": [
+        "Psychological Science 2022 cognition-metacognition tradeoff",
+        "eLife confidence predicts speed-accuracy tradeoff"
+      ]
+    }
+  ],
+  "ranked_candidates": [
+    {
+      "id": "cand_selective_commitment_benchmark",
+      "rank": 1,
+      "title": "Selective Commitment Benchmark",
+      "mode": "diagnostic_benchmark_first",
+      "outside_fields": [
+        "neuroscience",
+        "cognitive_science",
+        "biology"
+      ],
+      "why_now": [
+        "Fits the TIGER pivot and diagnostic-first evidence.",
+        "Uses uncertainty as compute-allocation signal instead of overclaiming a new decoding heuristic.",
+        "Explains reasoning/code divergence under matched compute."
+      ],
+      "testable_predictions": [
+        "Sample-level selective commitment will be more stable than complex token-level revision on reasoning tasks.",
+        "Rollback/freeze after structural alarms will outperform continued local revision on code tasks.",
+        "Calibration improvements may help selective risk-coverage even when end-task accuracy stays flat."
+      ],
+      "compute_cost": "small-model pilot 1-2 GPU days; 8B follow-up 0.5-1.5 GPU days",
+      "success_probability": 0.72
+    },
+    {
+      "id": "cand_proofread_then_commit",
+      "rank": 2,
+      "title": "Proofread-Then-Commit",
+      "mode": "secondary_method_appendix",
+      "outside_fields": [
+        "biology",
+        "quantum_error_correction"
+      ],
+      "why_now": [
+        "Directly grounded in the observed value of rollback-to-standard on code.",
+        "Cheaper and more honest than inventing another instability signal."
+      ],
+      "testable_predictions": [
+        "Will beat ungated revision on code boundary tasks.",
+        "Will not reliably beat simple entropy revision on reasoning."
+      ],
+      "compute_cost": "<1 GPU day on small models; ~0.5 GPU day on 8B",
+      "success_probability": 0.41
+    },
+    {
+      "id": "cand_energy_landscape_diagnostic",
+      "rank": 3,
+      "title": "Energy-Landscape Diagnostic",
+      "mode": "analysis_framing",
+      "outside_fields": [
+        "statistical_physics",
+        "protein_folding"
+      ],
+      "why_now": [
+        "Best lens for explaining why local edits help reasoning but damage code.",
+        "Useful for theory/analysis even if not promoted to a method."
+      ],
+      "testable_predictions": [
+        "Code failures will show stronger cluster-level coupling than reasoning failures.",
+        "Local token edits will correlate weakly with success unless structural nuclei are preserved."
+      ],
+      "compute_cost": "mostly analysis + targeted probing, low extra cost",
+      "success_probability_framing": 0.68,
+      "success_probability_method": 0.18
+    }
+  ],
+  "recommended_primary_direction": {
+    "id": "cand_selective_commitment_benchmark",
+    "headline": "Reframe the campaign as a compute-normalized selective commitment benchmark for DLMs.",
+    "next_actions": [
+      "Add/select cand_selective_commitment_benchmark in current/idea/candidates.json",
+      "Rewrite current/idea/proposal.md away from TIGER and toward diagnostic/benchmark-first framing",
+      "Run small-model pilots on GPT-2, BERT-base corruption proxy, and Qwen-0.5B before any new 8B scale-out"
+    ]
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_sec": 900,
+    "epochs": 20,
+    "batch_size": 128
+  },
+  "pilot_tasks": [
+    {
+      "task_id": "setup_codebase",
+      "pilot_needed": false,
+      "reason": "Setup task, no pilot required"
+    },
+    {
+      "task_id": "tier0_diagnostic",
+      "pilot_needed": true,
+      "pilot_description": "Quick alignment probe: Run 1 fixed WD (5e-4) ResNet20/CIFAR-10 for 20 epochs. Compute delta_hat_t at epochs 5, 10, 15, 20 using both B=128 and B=8192. Verify alignment computation works and shows non-trivial variation.",
+      "pilot_pass_criteria": "delta_hat_t is computable (no NaN), varies across epochs (std > 0.01), and mini-batch vs large-batch Pearson r > 0.5 at 20 epochs",
+      "pilot_estimated_minutes": 8,
+      "pilot_gpu_count": 1,
+      "go_nogo_gate": true,
+      "fail_action": "Check alignment computation code for bugs. If correct, increase EMA beta to 0.999. If still no signal, abort cand_aadwd and pivot to cand_empirical."
+    },
+    {
+      "task_id": "tier1_fixed_wd_grid",
+      "pilot_needed": true,
+      "pilot_description": "Sanity check: Run No-WD + 2 fixed WD values (5e-4, 1e-3) on ResNet20/CIFAR-10 for 20 epochs. Verify training pipeline correctness.",
+      "pilot_pass_criteria": "All 3 runs produce monotonically decreasing training loss. Best WD run has test acc > 50% at epoch 20 (sanity check).",
+      "pilot_estimated_minutes": 8,
+      "pilot_gpu_count": 1,
+      "go_nogo_gate": false,
+      "fail_action": "Debug training pipeline (LR, augmentation, model definition)."
+    },
+    {
+      "task_id": "tier1_stagewise_cwd",
+      "pilot_needed": true,
+      "pilot_description": "Run Stagewise-WD and CWD for 20 epochs with WD=5e-4 on ResNet20/CIFAR-10.",
+      "pilot_pass_criteria": "Both produce reasonable loss curves (test acc > 45% at epoch 20)",
+      "pilot_estimated_minutes": 6,
+      "pilot_gpu_count": 1,
+      "go_nogo_gate": false,
+      "fail_action": "Debug CWD implementation against paper description."
+    },
+    {
+      "task_id": "tier1_aadwd_variants",
+      "pilot_needed": true,
+      "pilot_description": "Run 3 AADWD variants (Conservative, Aggressive, Square) with c=1.0, beta=0.99 on ResNet20/CIFAR-10 for 20 epochs.",
+      "pilot_pass_criteria": "All 3 variants produce non-degenerate lambda_t (not all clipped to min or max for >90% of steps) AND test acc > 45% at epoch 20",
+      "pilot_estimated_minutes": 8,
+      "pilot_gpu_count": 1,
+      "go_nogo_gate": true,
+      "fail_action": "If lambda_t is degenerate: adjust c or clip bounds. If all 3 fail, check alignment computation. If only one variant works, proceed with that variant only."
+    },
+    {
+      "task_id": "tier2_cross_arch",
+      "pilot_needed": true,
+      "pilot_description": "Run best AADWD + Fixed-WD-best on ResNet20/CIFAR-100 and VGG16-BN/CIFAR-10 for 20 epochs.",
+      "pilot_pass_criteria": "AADWD produces non-degenerate lambda_t on both settings AND test acc within 5% of Fixed-WD at epoch 20",
+      "pilot_estimated_minutes": 10,
+      "pilot_gpu_count": 1,
+      "go_nogo_gate": false,
+      "fail_action": "If VGG16 fails: check BN interaction with weight decay. If CIFAR-100 fails: adjust c or lambda bounds."
+    },
+    {
+      "task_id": "tier2_hyperparam_sensitivity",
+      "pilot_needed": true,
+      "pilot_description": "Run AADWD with c in {0.25, 1.0, 2.0} on ResNet20/CIFAR-10 for 20 epochs.",
+      "pilot_pass_criteria": "All c values produce valid training (test acc > 40% at epoch 20, no NaN)",
+      "pilot_estimated_minutes": 8,
+      "pilot_gpu_count": 1,
+      "go_nogo_gate": false,
+      "fail_action": "Narrow c range if extreme values cause instability."
+    },
+    {
+      "task_id": "tier2_ablations",
+      "pilot_needed": true,
+      "pilot_description": "Run Random-Dynamic-WD and Equivalent-Cumulative-WD for 20 epochs on ResNet20/CIFAR-10.",
+      "pilot_pass_criteria": "Both produce valid training curves (no NaN, test acc > 40% at epoch 20)",
+      "pilot_estimated_minutes": 6,
+      "pilot_gpu_count": 1,
+      "go_nogo_gate": false,
+      "fail_action": "Debug ablation implementations."
+    }
+  ],
+  "pilot_execution_order": [
+    {
+      "phase": 1,
+      "tasks": ["tier0_diagnostic", "tier1_fixed_wd_grid"],
+      "reason": "Can run in parallel on separate GPUs. Tier 0 is the primary gate; baseline grid is independent setup validation.",
+      "total_gpu_count": 2,
+      "total_estimated_minutes": 8
+    },
+    {
+      "phase": 2,
+      "tasks": ["tier1_aadwd_variants", "tier1_stagewise_cwd"],
+      "reason": "Depends on phase 1 passing. AADWD pilot gates the main experiment; CWD baseline is independent.",
+      "total_gpu_count": 2,
+      "total_estimated_minutes": 8
+    },
+    {
+      "phase": 3,
+      "tasks": ["tier2_cross_arch", "tier2_hyperparam_sensitivity", "tier2_ablations"],
+      "reason": "All Tier 2 pilots can run in parallel after Tier 1 pilots pass.",
+      "total_gpu_count": 3,
+      "total_estimated_minutes": 10
+    }
+  ],
+  "total_pilot_time_estimate_minutes": 26,
+  "total_pilot_gpu_hours": 0.85
+}

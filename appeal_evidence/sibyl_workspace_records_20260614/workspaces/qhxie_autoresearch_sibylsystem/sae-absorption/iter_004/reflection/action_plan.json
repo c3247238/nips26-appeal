@@ -1,0 +1,236 @@
+{
+  "iteration": 4,
+  "score": 6.5,
+  "verdict": "continue",
+  "quality_trajectory": "improving",
+  "issues_classified": [
+    {
+      "id": "EXP001",
+      "description": "H3 downstream correlation confounded by width and L0. All 5 high-absorption SAEs in C3B matched comparison are 1M-width (L0 16-58); all 5 low-absorption SAEs are 16k/65k (L0 137-297). Partial correlations control for log(width), layer, arch_class but NOT L0 (which varies 15x, range 9-445). SCR partial r inflation from -0.431 to -0.677 is a suppressor effect red flag. Without within-width-tier correlations and L0 as covariate, the H3 result may be an ecological fallacy driven by width-quality confound.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Three zero-GPU analyses: (1) Add L0 as covariate in partial correlations for all 4 downstream metrics. If r remains significant after L0 control, the confound objection is substantially weakened. (2) Compute within-width-class correlations: absorption vs. downstream at 16k-only (n~15), 65k-only (n~15), 1M-only (n~18). If correlation disappears within tiers, the H3 claim is an ecological fallacy. (3) Sequential suppressor diagnosis: compute partial r controlling for each covariate individually (width-only, layer-only, arch-only, L0-only) to identify which produces the SCR inflation. Estimated effort: 2-3 hours analysis. Verify: paper reports L0-controlled partial r, within-width r values, and suppressor diagnosis for SCR.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:16k-1m-65k-a-absorption-absorption-all-all:9eb003314209"
+    },
+    {
+      "id": "EXP002",
+      "description": "Type II taxonomy rate (88.5%, 23/26 letters) is driven by systematic measurement artifact: n_comparison_tokens=0 for almost all letters forces fallback to global mean-when-active baseline biased upward. The resulting 92.3% comprehensive rate is presented in abstract, introduction, and conclusion as a primary finding, contradicting the paper's own CRITICAL suspicious_flag acknowledging inflation. Only Type I (3.8%) and Type III (0%) are validated; 92.3% is an upper bound, not a measurement.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Two options: (1) MINIMUM: Reframe 92.3% as 'upper bound' in abstract (add '(upper bound)' immediately after 92.3%), introduction, and conclusion. Lead with validated rates: Type I strict 3.8%, Chanin any-absorption 80.8%. Acknowledge gap between 3.8% validated and 92.3% upper bound as motivating future work with proper ground truth. (2) BETTER: Rerun taxonomy with sae-spelling ground-truth parent feature IDs, providing definitive evidence and replacing the heuristic identification. Option 1 is writing-only (2 hours); Option 2 requires 1-2 GPU-hours. Verify: abstract does not present 92.3% without 'upper bound' qualifier.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "system:a-a-abstract-acknowledging-active-all-almost-an:0b9febae7040"
+    },
+    {
+      "id": "EXP003",
+      "description": "LV detector pre-filter (decoder cosine > 0.15) captures only 34% of absorbed pairs, imposing a fundamental recall ceiling of 0.34. The F1 > 0.35 success criterion was structurally unachievable before alpha_ij was evaluated. The paper reports F1=0.128 but does not disambiguate whether failure is due to pre-filter coverage or alpha_ij discrimination ability within the filtered set. ROC-AUC=0.148 (below 0.5 = random) indicates anti-prediction, which is more informative than F1 but is not prominently reported.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Two zero-GPU analyses: (1) Compute F1 and AUROC restricted to the filtered candidate set (pairs with cos > 0.15). If alpha_ij achieves reasonable discrimination within the filtered set, the result is 'LV has discriminative power conditional on proximity but the pre-filter is too aggressive.' If alpha_ij is also poor within the filtered set, both components fail independently. (2) Report ROC-AUC < 0.5 prominently in Section 5.1 with mechanistic explanation (absorbed parents have suppressed f_i, so alpha_ij is paradoxically low for absorbed pairs). Effort: 1-2 hours. Verify: paper distinguishes pre-filter failure from alpha_ij failure and reports ROC-AUC prominently.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-ability-absorbed-alpha_ij-alpha_ij-anti-auc-before:5bf5ac3e31e6"
+    },
+    {
+      "id": "EXP004",
+      "description": "Safety probe experiment (C3C, Table 6) is underpowered (n=3 SAEs) and confounded (layers 5/8/10, widths 768/24k/32k, different hook types). Non-monotone pattern (highest absorption = smallest probe gap: 0.051) directly undermines the H3 narrative at the single-experiment level. At n=3 with 3+ confounding factors, the experiment contributes noise, not signal. Presenting it alongside the strong SAEBench results in Section 5.4 creates a false equivalence.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Move Table 6 and the safety probe discussion to an appendix or supplementary section. Reduce in-text treatment to one paragraph: 'We attempted a safety probe comparison but the design is confounded (n=3, varying layer/width/hook) and underpowered; the result is uninformative and presented in Appendix X for completeness.' The SAEBench correlational results stand on their own. Effort: 30 minutes writing. Verify: Table 6 is not in main results section.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:24k-32k-a-absorption-alongside-and-at-at:39a665081ed2"
+    },
+    {
+      "id": "EXP005",
+      "description": "Cross-model gap between GPT-2 Small (H1/H2/H4/taxonomy) and Gemma Scope (H3) means no single hypothesis is tested on both models. The paper frames itself as a 'unified three-part study' in abstract and conclusion, but it is actually two disconnected analyses. A reviewer will ask: does the LV coefficient also fail on Gemma? Does the taxonomy hold on Gemma? Does the PMI null hold on Gemma? Without same-model replication, the results cannot be composed into a single narrative.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Two options: (a) MINIMUM: Frame the cross-model gap as a central limitation in Section 1 and the abstract (not buried in 7.5). State: 'our detection and taxonomy results are limited to GPT-2 Small; cross-model validation is a priority for future work.' (b) BETTER: Compute alpha_ij statistics for 1-2 Gemma Scope SAEs to test whether the LV detector generalizes. The taxonomy could be approximately tested using Gemma SAEBench absorption scores as proxy for Type I rates. Option (a) is writing-only; option (b) requires 1-2 GPU-hours. Verify: abstract/introduction explicitly states which model is used for which hypothesis.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-a-a-abstract-actually-also-analyses-and:42c8e5beeea9"
+    },
+    {
+      "id": "EXP006",
+      "description": "PMI regression (C2C) uses HC3 robust standard errors but does not cluster at the letter level. The 806 observations are 31 configs x 26 letters; each letter appears 31 times with correlated residuals. L0 significance (p=0.012) is marginal and likely non-significant under proper letter-level clustering (26 clusters). The Durbin-Watson statistic of 1.335 indicates positive autocorrelation; Jarque-Bera p=0.00 confirms non-normality; skewness=5.186 suggests a zero-inflated or beta distribution would be more appropriate than OLS.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Rerun the regression with letter-level clustered SEs (26 clusters). Report both HC3 and clustered results side by side. If L0 becomes non-significant under clustering, revise the discussion to state that only layer is a robust predictor of absorption. Consider a beta regression or zero-inflated model given the extreme right skew. Estimated effort: 1 hour analysis. Verify: paper reports clustered SE results alongside HC3 results.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-and-appears-appropriate-are-at-autocorrelation-be:ccd6445bf619"
+    },
+    {
+      "id": "EXP007",
+      "description": "H4 (width paradox) DAS results show high per-letter variance (e.g., letter N: DAS(k=1) = 0.571 at 24k but 0.100 at 98k; letter X: 0.0 to 1.0 at 98k) with no confidence intervals on mean DAS values and no significance tests comparing means across widths. Only 42.3% of letters show positive slope (target 80%). 'Partial support' framing is not warranted without formal tests. DAS estimation uses n_word_act_samples=40 per letter, not the 10,000 tokens claimed in methodology.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Three analyses: (1) Add 95% bootstrap CIs on mean DAS values at each width. (2) Apply paired Wilcoxon signed-rank test comparing DAS(k=3) at 24k vs. 98k across 26 letters. If non-significant, report H4 as a clear negative result rather than 'partial support.' (3) Clarify the actual DAS sample size (40 or 10,000) and note the discrepancy in the paper. Effort: 1-2 hours analysis. Verify: H4 section reports CIs, significance test, and corrected sample size.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:24k-98k-98k-across-and-at-at-at:68e9fd3c89fb"
+    },
+    {
+      "id": "WRI001",
+      "description": "Abstract uses 'validated quality indicator' to describe H3 downstream correlation. Correlational evidence cannot 'validate' a metric; it shows association. 'Validated' implies interventional evidence (reduce absorption, observe quality improvement) that does not exist. The conclusion repeats this overclaim.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Replace 'validated quality indicator' with 'quality-correlated metric' or 'quality-associated metric' in abstract, conclusion, and all occurrences. Add explicit sentence: 'Causal evidence would require intervention experiments (e.g., reducing absorption and measuring downstream quality improvement), which we leave to future work.' Effort: 30 minutes. Verify: no instance of 'validated quality indicator' in paper.md.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-absorption-abstract-association-cannot-conclusion-correlation-correlat:8b8a8c76b090"
+    },
+    {
+      "id": "WRI002",
+      "description": "Title 'When Features Compete' implies the competitive exclusion framework is supported. The paper's main finding is that competition-based detection fails (F1=0.128, ROC-AUC=0.148). The title creates a misleading first impression.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Revise title to foreground actual findings. Examples: 'Feature Absorption Predicts SAE Quality But Resists Unsupervised Detection' or 'Feature Absorption in Sparse Autoencoders: Detection Fails, Downstream Correlation Succeeds.' Effort: 15 minutes. Verify: title reflects the paper's actual findings, not the failed framework.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-auc-based-compete-competition-competitive-creates-detection:a615561f62e2"
+    },
+    {
+      "id": "WRI003",
+      "description": "Figure 1 (LV framework conceptual diagram, fig_lv_framework.pdf) does not exist as a rendered PDF. Only fig_lv_framework_desc.md exists in writing/figures/. The paper references 'Figure 1' in Introduction and Section 3. Without this figure, the paper cannot be compiled for external review. Four other figures (fig_das_width.pdf, fig_downstream_scatter.pdf, fig_sharpness.pdf, fig_taxonomy_bar.pdf) exist and are well-generated.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Generate fig_lv_framework.pdf from the description in fig_lv_framework_desc.md using TikZ or matplotlib. This is the paper's conceptual anchor figure showing the competitive exclusion analogy. Effort: 1-2 hours. Verify: fig_lv_framework.pdf exists in writing/figures/ and is correctly referenced in paper.md.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-and-and-are-as-be-cannot-compiled:b8e36a282e20"
+    },
+    {
+      "id": "WRI004",
+      "description": "Redundancy between Discussion (Section 7.3/7.6) and Conclusion (Section 8). Same four correlation values (r=-0.595, -0.454, -0.431, -0.175) with identical qualifying text repeated. Limitations paragraph in Section 8 duplicates Section 7.6 material. Costs approximately 150 words of space.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Compress Section 8 to reference the Discussion. Replace duplicated correlation values with 'the correlations reported in Section 7.3.' Remove duplicated Limitations paragraph from Section 8 or replace with 'See Section 7.6 for limitations.' Effort: 30 minutes. Verify: Section 8 does not re-list H3 correlation values.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:and-approximately-between-conclusion-correlation-costs-discussion-duplic:06dc592b4d5f"
+    },
+    {
+      "id": "WRI005",
+      "description": "Introduction lists three contributions but two are negative results (failed LV detector, failed PMI predictor). Only H3 downstream correlation is a positive contribution. Framing failed predictions as 'contributions' is technically correct for science but creates a mismatch for NeurIPS reviewers who expect positive findings in the contribution list.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Restructure contribution list to lead with the positive finding (H3: absorption correlates with downstream quality) and frame the negative results as 'empirical tests that clarify the field' rather than standalone contributions. Alternatively, honestly frame the paper around the question 'Does absorption matter?' (H3, positive answer) rather than 'Can we detect and predict absorption?' (H1/H2, negative answers). Effort: 1-2 hours. Verify: contribution list leads with H3.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-a-are-as-but-but-contribution-contribution:926cd94f935d"
+    },
+    {
+      "id": "WRI006",
+      "description": "Section 2.2 includes unsupported speculation about JumpReLU absorption: 'We hypothesize this is consistent with longer training amplifying the sparsity-gradient dynamics that produce absorption.' This is never tested and has no supporting evidence in the paper.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Remove speculation or qualify with 'One untested possibility is that longer training amplifies sparsity-gradient dynamics, but we do not investigate this.' Effort: 10 minutes. Verify: Section 2.2 does not present untested hypotheses as reasoning.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:about-absorption-absorption-amplifying-and-consistent-dynamics-evidence:5d4dab18173e"
+    },
+    {
+      "id": "WRI007",
+      "description": "Type III taxonomy count (0/26) is partly an artifact of the sequential evaluation order (Type II before Type III). Letter B has DAS(k=3)=0.695 exceeding the 0.6 threshold but is classified Type II because the sequential check finds Type II first. Zero Type III at 24k may mislead readers into thinking distributed absorption does not exist at that width.",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Add one sentence in Section 5.3: 'Note that some Type II features also meet the Type III criterion (e.g., letter B: DAS(k=3)=0.695). The zero Type III count reflects the sequential evaluation order, not the absence of distributed absorption.' Effort: 15 minutes. Verify: paper acknowledges evaluation order artifact.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:24k-absorption-an-artifact-at-at-b-because:2dbe19766cd2"
+    },
+    {
+      "id": "REPR001",
+      "description": "SAELens version and sae-spelling version are not pinned in the paper or code. The exact version affects reproducibility of feature loading and absorption calculation. Safety probe dataset (50 harmful + 50 benign prompts) is not released or described.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Pin SAELens and sae-spelling versions in Section 4 and/or in a requirements file. Describe the safety probe prompt categories and release the dataset with the paper. Pin SAEBench data version (adamkarvonen/sae_bench_results commit hash). Effort: 30 minutes. Verify: version numbers present in paper.md Section 4.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:absorption-affects-and-and-are-benign-calculation-code:806018a4c522"
+    },
+    {
+      "id": "PLAN001",
+      "description": "No plan for within-width stratification of H3 was included in the experimental plan. Given that 54 SAEs span three very different widths (16k/65k/1M) and width is the dominant confound, stratification should have been a primary analysis, not an afterthought discovered in review. Similarly, no plan for mixed-effects or clustered regression for H2.",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "For iteration 5 planning: pre-specify all confound control analyses in the experimental plan. For any correlation analysis, list the required stratifications (within-tier, with/without specific covariates) before running the main analysis. For any regression, specify the clustering structure upfront. Effort: 30 minutes at planning stage. Verify: iter_005 plan includes confound control analyses as explicit tasks.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "planning:16k-1m-65k-a-afterthought-an-analysis-and:9c7a3048b68c"
+    },
+    {
+      "id": "EFF001",
+      "description": "GPU utilization was excellent: 13 tasks completed with zero failures, many finishing well under planned time (C2B: 78 min vs 480 planned; C3C: 3 min vs 60 planned). Total actual GPU time approximately 2.5 hours vs 17 hours planned. However, the safety probe experiment (3 min) and DAS width paradox (3 min) contributed noise rather than signal, consuming pipeline time and downstream review/writing effort without informing any conclusion.",
+      "category": "efficiency",
+      "severity": "low",
+      "suggestion": "Maintain dual-GPU parallel scheduling. In iteration 5, gate safety probe on having matched SAEs (same layer, similar width) and drop if matching is impossible. For DAS, increase n_word_act_samples from 40 to at least 200 before running, or drop the experiment if the sample-size issue cannot be resolved. Focus GPU time on confound-control analyses (within-width correlations, L0-controlled partial correlations) which are the single most impactful use of compute. Verify: no experiment with known confounding issues reaches the writing phase.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "efficiency:actual-and-and-any-approximately-c2b-c3c-completed:647248ecfcd6"
+    }
+  ],
+  "issues_fixed": [
+    "RECURRING BLOCKER RESOLVED: All core experiments now run at FULL scale (C1B: 1,900 pairs; C2B: 806 observations across 31 SAEs; C3A: 54 Gemma SAEs; C1D: 26 letters at 3 widths; C2D: 26 letters full taxonomy). After 3 consecutive iterations stuck at PILOT mode, the pilot-to-full escalation was successfully executed in iter_004.",
+    "Complete research pivot from failed OMP/EncNorm approach to LV competitive exclusion framework with clean hypothesis structure (H1-H4 with pre-registered success criteria). This resolved the stagnation at 5.5 for 3 iterations.",
+    "Cross-model validation achieved for H3: Gemma Scope 54 SAEs used for downstream correlation, GPT-2 used for detection/taxonomy. Gemma access issue resolved (not via HuggingFace gating but via SAEBench pre-computed data).",
+    "All 4 required figures generated (fig_das_width.pdf, fig_downstream_scatter.pdf, fig_sharpness.pdf, fig_taxonomy_bar.pdf). Previous 3 iterations had zero or stale figures. Fig 1 (LV framework diagram) still missing.",
+    "Negative result reporting maintained and expanded: H1 (F1=0.128), H2 (partial R^2=0.0006), H4 (42.3% vs 80% target) all reported with pre-registered criteria. This remains the paper's strongest methodological aspect.",
+    "Writing quality substantially improved: clear structure, honest hedging, appropriate statistical reporting. Writing review score 8/10, up from previous iterations.",
+    "OMP experiment ceiling issue resolved: the entire OMP approach was abandoned in favor of the LV framework, eliminating the pilot-scale ceiling problem.",
+    "Label set circularity resolved: the paper uses sae-spelling ground truth for H1/H2 and SAEBench absorption scores for H3, rather than re-using the same n_pos=18 label set from iter_001.",
+    "TopK-32k AUROC misrepresentation resolved: the paper no longer presents proxy-label AUROC as cross-architecture absorption detection replication.",
+    "Section 4.1/3.4 redundancy resolved: the paper has a clean Section 3/4 structure without verbatim duplication."
+  ],
+  "success_patterns": [
+    "BREAKTHROUGH: Complete pivot to LV framework + full-scale execution raised score from 5.5 (stagnant for 3 iterations) to 6.5. This demonstrates that the research direction was not the problem; execution quality (scale, scope) was.",
+    "Pre-registered falsification criteria with explicit success thresholds (F1>0.35, partial R^2>0.10, |r|<0.2, 80% monotonicity) enable clean interpretation of both positive and negative results. This should be maintained in all future iterations.",
+    "Honest negative result reporting: the LV detector failure (F1=0.128, ROC-AUC=0.148), PMI null (partial R^2=0.0006), and width paradox partial failure (42.3%) are reported transparently with appropriate hedging. This builds reviewer trust for the positive H3 claim.",
+    "H3 downstream correlation (r=-0.595, partial r=-0.661, surviving Bonferroni at n=54) is a genuinely novel finding: no prior work systematically quantifies the absorption-performance link across 54 SAEs.",
+    "Training-free design: operating on pre-trained SAEs with no retraining enables broad coverage (31 GPT-2 configs, 54 Gemma SAEs) within a modest compute budget.",
+    "Claim-evidence chain is well-maintained: numerical values in paper text match source JSON files (verified by writing review), ensuring data integrity.",
+    "GPU utilization excellent: 13 tasks completed with zero failures, most finishing well under planned time, demonstrating efficient experimental execution.",
+    "Paper structure follows a logical arc: framework -> taxonomy -> downstream impact -> ablations -> limitations, with each section building on the previous."
+  ],
+  "systemic_patterns": [
+    "RESOLVED (after 3 iterations): Pilot-to-full escalation now works. All core experiments carry mode='FULL'. The complete research pivot forced a fresh experiment plan with full-scale specification from the start.",
+    "NEW PATTERN: Confound control is systematically under-planned. H3 width confound, H2 clustering, H4 significance tests were all discovered in post-analysis review rather than specified in the experimental plan. Confound analysis must be pre-specified.",
+    "NEW PATTERN: Post-hoc theoretical frameworks tend to overclaim. The LV framework is presented as a 'formal test' with 8 pages of motivation for a result that fails. Theoretical contributions should be sized proportional to their empirical support.",
+    "IMPROVING: Writing quality has improved dramatically across 4 iterations. Score trend: iter_001 writing issues -> iter_004 writing review 8/10. The paper's honest hedging and caveat infrastructure are now strengths.",
+    "PERSISTENT: Cross-model gap remains an issue but is now better managed (explicit two-model design) rather than entirely absent (iter_001-003).",
+    "PERSISTENT: Figure generation lags one step behind writing. Fig 1 (conceptual diagram) is still missing. Figures should be generated as part of the experiment phase, not deferred to writing."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 92,
+    "total_gpu_idle_minutes": 10.0,
+    "bottleneck_stages": [
+      "confound_control_analysis",
+      "figure_generation"
+    ],
+    "suggestions": [
+      "Pre-specify confound control analyses (within-width, L0-controlled, clustered SEs) as explicit tasks in the experiment plan, not as post-review discoveries",
+      "Generate conceptual diagram (Fig 1) during planning phase, not during writing",
+      "Drop underpowered experiments (safety probe, DAS with n=40) at planning stage rather than executing and then discovering they are uninformative",
+      "Prioritize zero-GPU analysis tasks (within-width correlations, suppressor diagnosis, clustered regression) as they have the highest impact-to-cost ratio"
+    ]
+  },
+  "recommended_focus": [
+    "PRIORITY 1 (PUBLICATION-BLOCKING): Add L0 as covariate in H3 partial correlations + compute within-width-tier correlations. If H3 survives both controls, the downstream contribution is defensible. If it collapses, the paper needs fundamental restructuring. ZERO GPU COST.",
+    "PRIORITY 2 (PUBLICATION-BLOCKING): Reframe 92.3% as 'upper bound' throughout abstract, introduction, and conclusion. Lead with validated rates (Type I: 3.8%, Chanin: 80.8%).",
+    "PRIORITY 3 (MAJOR): Replace 'validated quality indicator' with 'quality-correlated metric' throughout paper.",
+    "PRIORITY 4 (MAJOR): Rerun PMI regression with letter-level clustered SEs. Report whether L0 significance survives clustering.",
+    "PRIORITY 5 (MAJOR): Compute alpha_ij AUROC within the filtered candidate set to disambiguate pre-filter failure from coefficient failure in H1.",
+    "PRIORITY 6 (MAJOR): Add bootstrap CIs and Wilcoxon test to H4 DAS results. Reclassify as negative result if non-significant.",
+    "PRIORITY 7 (MAJOR): Move safety probe (Table 6) to appendix.",
+    "PRIORITY 8 (MAJOR): Generate fig_lv_framework.pdf for Figure 1.",
+    "PRIORITY 9 (MODERATE): Move model-mismatch caveat from Section 7.5 to Section 1.",
+    "PRIORITY 10 (MODERATE): Revise title to reflect actual findings, not the failed framework."
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

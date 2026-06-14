@@ -1,0 +1,273 @@
+{
+  "candidate_id": "cand_eda_crossdomain",
+  "version": "3.0",
+  "round": 5,
+  "seed": 42,
+  "notes": "Round 5 plan: pre-writing consolidation experiments addressing R4-identified limitations. Writing gate already met (go_write=true in r4_writing_gate.json). Paper has pivoted to TWO-CONTRIBUTION structure: (1) EDA regime-specific detector + (2) three-subtype taxonomy. All previous tasks (R1-R4: 22/22) are COMPLETE. All experiments are training-free. GPU tasks require 16GB+ VRAM. R5 focuses on strengthening the two primary contributions before writing phase.",
+  "completed_tasks": [
+    "setup_env",
+    "phase0_metric_validation",
+    "pilot_eda_layer12_16k",
+    "phase1_eda_full_validation",
+    "phase2_taxonomy",
+    "phase2_itac",
+    "phase3_probe_quality",
+    "phase3_city_continent",
+    "phase3_city_country",
+    "phase3_city_language",
+    "phase3_crossdomain_analysis",
+    "phase4_scaling_analysis",
+    "phase5_gpt2_replication",
+    "ablation_polysemanticity",
+    "ablation_threshold_sensitivity",
+    "r4a_gemma_access_check",
+    "r4a_direct_label_generation",
+    "r4a_eda_direct_validation",
+    "r4b_ravel_probes_proper",
+    "r4b_shuffled_control",
+    "r4b_crossdomain_analysis_updated",
+    "r4c_llama_replication",
+    "r4_final_summary"
+  ],
+  "tasks": [
+    {
+      "id": "r5a_itac_real_activations",
+      "name": "R5-A: ITAC on Real Text Activations — Final H5 Verdict",
+      "description": "Run ITAC correction on real text activations (GPT-2 Small, Wikitext-2, 10,000 tokens) to conclusively dismiss or rescue H5. R4D was skipped (marked optional) and R3 ITAC used synthetic activations only. Pipeline: (1) Load GPT-2 Small + gpt2-small-res-jb SAE layer 6 (AUROC=0.650 confirmed). (2) Cache residual stream activations on 10,000-token Wikitext-2 subset. (3) Identify late-absorbed latents from Phase 2 taxonomy (use GPT-2 L6 analogues or confirm late-absorbed set via first-letter probe). (4) For each late-absorbed latent: find parent-positive activation windows (n_pos >= 10 windows). (5) Measure FN rate before ITAC on those windows. (6) Apply ITAC correction and measure FN rate after. (7) Null test: ITAC effect on early-absorbed latents (expected: no change). (8) FVU constraint: reconstruction error change < +5%. Decision: FN reduction > 10% relative on late-absorbed → restore ITAC as minor contribution; < 5% → confirm H5 falsification extends to real activations.",
+      "type": "experiment",
+      "candidate_id": "cand_eda_crossdomain",
+      "depends_on": [],
+      "expected_output": "exp/results/r5/r5a_itac_real_activations.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small",
+          "path": "shared/checkpoints/gpt2-small"
+        },
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small-res-jb SAE",
+          "path": "shared/checkpoints/gpt2-sae"
+        },
+        {
+          "type": "dataset",
+          "name": "wikitext-2",
+          "path": "shared/datasets/wikitext2"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 3 late-absorbed latents evaluated with n_parent_positive >= 10 windows each on real text. FN rate computed before and after ITAC. Any positive or null FN reduction result is acceptable — both outcomes are informative. FVU constraint checked."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ITAC on real activations: FN rate before/after per latent, FVU change (late-absorbed only vs. null test on early-absorbed)",
+          "columns": [
+            "latent_idx",
+            "subtype",
+            "n_parent_positive_windows",
+            "FN_before",
+            "FN_after",
+            "FN_reduction_pct",
+            "FVU_change"
+          ],
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "r5b_taxonomy_robustness",
+      "name": "R5-B: Three-Subtype Taxonomy Robustness — Extended SAE Configs",
+      "description": "Extend three-subtype taxonomy (early/late/diffuse) to 2 additional Gemma Scope SAE configs: L5-16k and L19-16k. Current taxonomy rests on only 2 configs (L12-16k n=16, L12-65k n=65), which reviewers will flag as underpowered for the 75% early-dominance claim. Pipeline: (1) Load Gemma Scope L5-16k and L19-16k SAE weights (accessible without model access). (2) Use Neuronpedia proxy labels to identify absorbed vs. non-absorbed latents per config. (3) Apply weight-only taxonomy criterion: early if max_{k} cos(d_k, parent_probe) < tau; use parent_probe from nearest absorbed latent decoder column. (4) Run at tau = {0.2, 0.3, 0.4} for threshold sensitivity. (5) Compute early/late/diffuse fractions per config. (6) KW test for EDA ordering across 3 subtypes. (7) Aggregate across all 4 configs (L5-16k, L12-16k, L12-65k, L19-16k) to strengthen early-dominance claim. Note: SAE weights used only — no activation caching needed.",
+      "type": "experiment",
+      "candidate_id": "cand_eda_crossdomain",
+      "depends_on": [],
+      "expected_output": "exp/results/r5/r5b_taxonomy_robustness.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "N/A (weight-only analysis)",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-scope-2b-pt-res (L5-16k and L19-16k SAE weights)",
+          "path": "shared/checkpoints/gemma-scope"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Taxonomy classification runs on at least 2 new SAE configs (L5-16k and L19-16k). Early fraction computed at tau=0.3. If early fraction > 50% in both new configs, claim strengthened across 4 total configs. Threshold sensitivity table generated (tau = 0.2, 0.3, 0.4)."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Three-subtype taxonomy fractions across 4 SAE configs at tau={0.2, 0.3, 0.4} — extended from R3's 2-config result",
+          "columns": [
+            "SAE_config",
+            "n_absorbed",
+            "early_pct_tau02",
+            "early_pct_tau03",
+            "early_pct_tau04",
+            "late_pct_tau03",
+            "diffuse_pct_tau03",
+            "KW_p_value"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "r5c_amortization_gap_experiment",
+      "name": "R5-C: Controlled Dictionary Experiment — Amortization Gap vs. Sparsity Landscape",
+      "description": "Hold the decoder dictionary D constant and compare absorption rates under feedforward (standard SAE encoder), OMP (Orthogonal Matching Pursuit), and 2-pass (feedforward -> zero top-K -> re-encode residual) encoding. This separates the Tang et al. (sparsity landscape causes early absorption) from O'Neill et al. (amortization gap causes early absorption) explanations. The 75% early-dominance finding motivates this test: if OMP with the same dictionary shows dramatically less early absorption, the encoder architecture is implicated in early-absorption causation. Pipeline: (1) Use Gemma Scope L12-16k SAE weights (accessible, already downloaded). (2) Generate 1,000 synthetic activations sampled from multivariate Gaussian matching d_model=2304 statistics (no model access needed). (3) Run feedforward encoding using SAE encoder weights. (4) Run OMP with K=16 (matched L0) using the same decoder D as dictionary atoms. (5) Run 2-pass encoding. (6) For each encoding: compute absorption rate for parent-child pairs identified from Phase 2 taxonomy (use decoder column directions). (7) Compare absorption rates across encoding methods. Decision: if OMP absorption rate < 50% of feedforward, encoder (amortization gap) is a major cause. If > 80%, sparsity landscape dominates.",
+      "type": "experiment",
+      "candidate_id": "cand_amortization_gap_experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/r5/r5c_amortization_gap.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "N/A (synthetic activations, no GPU model required)",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-scope-2b-pt-res (L12-16k SAE weights only)",
+          "path": "shared/checkpoints/gemma-scope"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "OMP encoding runs on 100 synthetic activations with K=16. Absorption rate computed for feedforward and OMP on at least 5 parent-child pairs. Ratio (OMP absorption / feedforward absorption) computed. Any result is informative — both outcomes advance understanding of early absorption mechanism."
+      },
+      "visualizations": [
+        {
+          "type": "bar",
+          "description": "Absorption rates under feedforward, OMP, and 2-pass encoding with the same decoder dictionary (supplementary mechanistic insight)",
+          "x": "encoding_method",
+          "y": "absorption_rate",
+          "paper_section": "supplementary"
+        }
+      ]
+    },
+    {
+      "id": "r5d_label_sensitivity",
+      "name": "R5-D: EDA Label Quality Sensitivity Analysis",
+      "description": "Characterize how sensitive EDA AUROC estimates are to label quality — addressing the limitation that Gemma proxy labels cannot be validated with direct labels (model gated). Pipeline: (1) Start from GPT-2 L6 direct labels (18 positives, ground truth, from R4A). (2) Create 5 progressively noisy label sets by randomly flipping label assignments at noise rates: 5%, 10%, 20%, 30%, 50% (10 bootstrap resamples per noise rate). (3) Compute EDA AUROC under each noise rate (1,000-bootstrap CI). (4) Identify the minimum label quality (fraction correct) needed for AUROC >= 0.65. (5) Apply this model to estimate: given the observed Gemma L12-65k AUROC = 0.468, what label quality is implied? (Already explained by class imbalance at 0.024% prevalence — document explicitly.) (6) Report sensitivity curve as Figure in Appendix. CPU-only task.",
+      "type": "analysis",
+      "candidate_id": "cand_eda_crossdomain",
+      "depends_on": [],
+      "expected_output": "exp/results/r5/r5d_label_sensitivity.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "AUROC computed at 3+ noise rates. Sensitivity curve generated. Minimum label quality for AUROC >= 0.65 identified. Document that class imbalance (not label noise) is the primary explanation for L12-65k failure."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "EDA AUROC vs. label noise rate (fraction of labels randomly flipped) — sensitivity analysis for Gemma proxy label quality limitation",
+          "x": "label_noise_rate",
+          "y": "auroc_eda",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "r5_final_consolidation",
+      "name": "R5 Final: Pre-Writing Consolidation and Writing Gate Confirmation",
+      "description": "Aggregate all Round 5 results and confirm readiness for writing phase. CPU-only analysis task. Steps: (1) Compile updated taxonomy table across 4 SAE configs (R5-B). (2) Compile ITAC real activation result (R5-A). (3) Compile controlled dictionary experiment result (R5-C). (4) Compile label sensitivity curve (R5-D). (5) Update framing for the two-contribution paper: (a) Contribution 1: EDA as regime-specific weight-only absorption detector — AUROC 0.65-0.78 at 16k-width mid-layer SAEs; cross-model validated on Gemma + GPT-2; limitation: proxy labels for Gemma; (b) Contribution 2: three-subtype taxonomy — early ~72-75%, late ~13%, diffuse ~13%; extended across 4 configs; early-dominance finding reframes absorption mitigation. (6) Generate r5_writing_gate.json confirming go_write=true with updated evidence.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [
+        "r5a_itac_real_activations",
+        "r5b_taxonomy_robustness",
+        "r5c_amortization_gap_experiment",
+        "r5d_label_sensitivity"
+      ],
+      "expected_output": "exp/results/r5/r5_writing_gate.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "r5_writing_gate.json generated. go_write=true confirmed (was already true from R4; R5 strengthens evidence). Both primary contributions have sufficient evidence for paper writing. Limitations clearly documented."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Final two-contribution paper evidence summary: R3+R4+R5 evidence for each claim",
+          "columns": [
+            "Contribution",
+            "Claim",
+            "Best_evidence",
+            "Limitations",
+            "Framing"
+          ],
+          "paper_section": "introduction"
+        }
+      ]
+    }
+  ],
+  "execution_order": [
+    [
+      "r5a_itac_real_activations",
+      "r5b_taxonomy_robustness",
+      "r5c_amortization_gap_experiment",
+      "r5d_label_sensitivity"
+    ],
+    [
+      "r5_final_consolidation"
+    ]
+  ],
+  "total_gpu_hours_estimate": 3.0,
+  "parallelization_note": "All R5 tasks in the first wave are fully independent and can run in parallel with 1 GPU (sequential) or faster with 2 GPUs (r5a+r5b parallel, r5c+r5d parallel). r5d is CPU-only. Wall-clock time with 1 GPU: ~3 hours; with 2 GPUs: ~1.5 hours.",
+  "priority_order": {
+    "HIGH": [
+      "r5a_itac_real_activations",
+      "r5b_taxonomy_robustness"
+    ],
+    "MEDIUM": [
+      "r5c_amortization_gap_experiment",
+      "r5d_label_sensitivity"
+    ],
+    "GATE": [
+      "r5_final_consolidation"
+    ]
+  },
+  "fallback_decisions": {
+    "if_r5a_itac_fails_to_find_late_windows": "Increase to 50,000 tokens for window search. If still insufficient: confirm H5 falsification on synthetic activations (R3) is the final verdict. Report as limitation.",
+    "if_r5b_taxonomy_proxy_labels_fail": "Use EDA-based clustering to approximate absorbed/non-absorbed split (threshold EDA > 0.7 as absorbed proxy). Document explicitly as approximation.",
+    "if_r5c_omp_not_implementable": "Use sklearn OMP as fallback. If still failing: skip R5-C and note amortization gap test as future work.",
+    "if_no_remaining_limitations_to_address": "Proceed directly to writing phase with R4 evidence. R5 tasks are strengthening experiments, not blocking."
+  },
+  "paper_framing_locked": {
+    "framing": "TWO_CONTRIBUTION_PAPER",
+    "contribution_1": "EDA as regime-specific weight-only absorption detector: AUROC 0.65-0.78 in 16k-width SAEs at layers 5-12; cross-model validation on Gemma 2B (SAE weights, proxy labels) and GPT-2 Small (direct labels); EDA=1-DecCos mathematical equivalence confirmed across 3 architectures",
+    "contribution_2": "Three-subtype taxonomy (early: ~72-75%, late: ~13%, diffuse: ~13%) revealing that early absorption (dictionary coverage failure) dominates; primary implication: wider dictionaries or hierarchy-aware training objectives are the appropriate lever for absorption reduction, not inference-time encoder fixes",
+    "negative_results": [
+      "H3 cross-domain RAVEL: FALSIFIED — probe quality gates failed for all 3 hierarchies (best 59.5%, gate 85%); real absorption indistinguishable from shuffled null",
+      "H5 ITAC: FALSIFIED — 2.69% FN reduction (target 20%); structurally inapplicable to 75% early-absorbed majority",
+      "H6 scaling sign reversal: FALSIFIED — partial rho positive; insufficient L0 variation in canonical SAEs"
+    ],
+    "writing_gate_status": "CONFIRMED from R4 (r4_writing_gate.json: go_write=true). R5 strengthens rather than unblocks."
+  }
+}

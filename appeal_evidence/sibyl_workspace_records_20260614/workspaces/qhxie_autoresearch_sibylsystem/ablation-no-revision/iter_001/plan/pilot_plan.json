@@ -1,0 +1,55 @@
+{
+  "pilot_config": {
+    "model": "Qwen/Qwen2.5-Math-7B-Instruct",
+    "dataset": "MATH test subset",
+    "samples": 100,
+    "seeds": [42],
+    "timeout_seconds": 900,
+    "gpu_count": 1,
+    "multi_gpu_strategy": "single"
+  },
+  "pilot_groups": [
+    {
+      "id": "g0_pilot",
+      "name": "G0 Baseline Pilot",
+      "description": "Single-pass evaluation on 100 MATH problems",
+      "time_estimate_min": 20,
+      "pass_threshold": "Accuracy > 40% OR consistent with published"
+    },
+    {
+      "id": "g1_pilot",
+      "name": "G1 Saturation Pilot",
+      "description": "k=1,2,4,8,16 sampling on 100 problems",
+      "time_estimate_min": 45,
+      "pass_threshold": "Exponential fit R² > 0.85"
+    },
+    {
+      "id": "g2_pilot",
+      "name": "G2 Consistency Pilot",
+      "description": "Answer consistency tracking and Ea estimation",
+      "time_estimate_min": 30,
+      "pass_threshold": "Spearman(Ea_estimate, Ea_actual) > 0.5"
+    },
+    {
+      "id": "g3_pilot",
+      "name": "G3 Routing Pilot",
+      "description": "Ea-based routing validation",
+      "time_estimate_min": 20,
+      "pass_threshold": "Single-pass accuracy > 75% on low-Ea"
+    }
+  ],
+  "total_pilot_time_min": 115,
+  "pilot_go_criteria": {
+    "h1_arrhenius": "R² > 0.85",
+    "h2_ea_difficulty": "Spearman > 0.4",
+    "h3_threshold": "Low-Ea accuracy > 75%"
+  },
+  "pilot_stop_criteria": {
+    "any_hypothesis": "All three hypotheses falsified (R² < 0.5, Spearman < 0.2, accuracy < 60%)"
+  },
+  "fallback_plan": {
+    "if_h1_fails": "Document Arrhenius form as insufficient, pivot to power-law analysis",
+    "if_h2_fails": "Document Ea-difficulty as uncorrelated, analyze other difficulty proxies",
+    "if_h3_fails": "Document no single-pass threshold exists, analyze optimal k routing"
+  }
+}

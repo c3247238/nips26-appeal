@@ -1,0 +1,609 @@
+{
+  "candidate_id": "cand_a",
+  "version": "1.0",
+  "total_estimated_minutes": 780,
+  "tasks": [
+    {
+      "id": "P0_pipeline_validation",
+      "name": "Pilot: Pipeline Validation and L0 Gate",
+      "description": "Load Gemma 2 2B + Gemma Scope SAEs at layer 12 widths 16k and 65k. Run sae-spelling on letters A-E (n=100 tokens each, seed 42). Measure empirical L0 for both widths on 500-token sample. Compute alpha_ij for top-100 candidate pairs by decoder cosine similarity on 1k activations; log top-10 alpha_ij pairs and verify whether any correspond to letter-feature parent-child relationships. Write go/no-go gate decision to exp/results/pilots/P0_pipeline.json. Decision gate: absorption rate in [10%, 45%] AND top-10 alpha_ij contains >= 1 letter-feature pair. If L0 difference > 20% between widths, set flag 'l0_confound=true' in output for downstream use.",
+      "type": "setup",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/pilots/P0_pipeline.json",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        },
+        {
+          "type": "dataset",
+          "name": "openwebtext-sample",
+          "path": "shared/datasets/openwebtext"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "letters": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E"
+        ],
+        "pass_criteria": "absorption_rate in [0.05, 0.50] for at least 3 of 5 letters AND sae-spelling pipeline executes without errors AND at least 1 alpha_ij pair in top-10 is a known letter-feature parent-child"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Pilot validation summary: absorption rate per letter, L0 for each SAE width",
+          "columns": [
+            "letter",
+            "absorption_rate_16k",
+            "L0_16k",
+            "L0_65k"
+          ],
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "C1A_activation_stats",
+      "name": "Component 1A: Activation Statistics and Alpha_ij Computation",
+      "description": "For each SAE configuration (Gemma 2 2B, layers {6, 12, 20, 25}, widths {16k, 65k}), run 10k OpenWebText tokens through the SAE using SAELens. Record: per-latent mean activation frequency f_i (fraction of tokens where latent > 0); pairwise co-activation rate P(a_i>0, a_j>0) for all pairs where both f_i>0.001 and f_j>0.001 AND decoder cosine similarity > 0.15. Compute sigma_ij = P(a_i>0, a_j>0) / min(f_i, f_j) and alpha_ij = sigma_ij * (f_j / f_i). Save parquet output per SAE config. This is the foundation for all H1 and H4 analyses.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "P0_pipeline_validation"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 90,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C1A_alpha_ij_stats/",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        },
+        {
+          "type": "dataset",
+          "name": "openwebtext-10k",
+          "path": "shared/datasets/openwebtext"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "layer 12 only, width 16k only, 1k tokens instead of 10k",
+        "pass_criteria": "alpha_ij parquet file written with >= 500 valid pairs AND no NaN/inf values in alpha_ij column AND at least 10 pairs with alpha_ij > 1.0"
+      },
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "Distribution of alpha_ij values across all candidate pairs",
+          "x": "alpha_ij",
+          "y": "count",
+          "paper_section": "methods"
+        }
+      ]
+    },
+    {
+      "id": "C1B_lv_detector_validation",
+      "name": "Component 1B: LV Detector Threshold Calibration and Validation (H1)",
+      "description": "Load sae-spelling ground-truth absorption labels for Gemma Scope 16k layer 12, all 26 letters (n=100 test tokens per letter, seed 42). Split letters A-M as calibration (13 letters), N-Z as test (13 letters). For calibration letters: load alpha_ij from C1A output; for each absorbed pair, look up alpha_ij value; for each non-absorbed pair (sampled as negatives, ratio 3:1), look up alpha_ij. Fit threshold tau via F1 maximization over tau in {0.5, 0.75, 1.0, 1.25, 1.5}. Apply best tau to test letters; report precision, recall, F1, ROC-AUC. Also compute LV sharpness diagnostic: bin alpha_ij in bins of 0.1 over [0, 3], compute empirical absorption rate per bin, fit both sigmoid and linear models, compare AIC. Save full results to exp/results/full/C1B_lv_validation.json.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "C1A_activation_stats"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C1B_lv_validation.json",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "calibration on letters A-E only (5 letters instead of 13); test on letters F-H only (3 letters)",
+        "pass_criteria": "F1 > 0.35 on 3-letter pilot test set (below full criterion but confirms pipeline works) AND sigmoid fit converges without error AND AIC values are finite"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main H1 validation: precision, recall, F1, AUC for LV detector vs cosine-only baseline",
+          "columns": [
+            "Method",
+            "Threshold",
+            "Precision",
+            "Recall",
+            "F1",
+            "AUC"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "LV sharpness test: absorption rate vs alpha_ij bins with sigmoid and linear fits",
+          "x": "alpha_ij_bin",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "C1C_cross_arch_validation",
+      "name": "Component 1C: Cross-Architecture Validation of LV Detector",
+      "description": "Apply the calibrated tau from C1B (no re-fitting) to two alternative SAE architectures at Gemma 2 2B layer 12: (1) Gemma Scope JumpReLU SAEs (check SAELens release list for availability), (2) Gemma Scope TopK SAEs if available. For each architecture: run same activation stats collection as C1A (10k tokens, same pre-filter), compute alpha_ij, apply fixed tau, compare predicted absorbed pairs against sae-spelling ground truth labels for that architecture. Report F1 and F1 degradation vs. within-architecture calibration. If JumpReLU or TopK not available via SAELens, use second L0 setting of standard SAEs as substitute and document this.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "C1B_lv_detector_validation"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C1C_cross_arch.json",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "JumpReLU SAEs only (skip TopK); use letters A-E only for validation",
+        "pass_criteria": "JumpReLU SAE loads successfully via SAELens AND F1 is computable (i.e., alpha_ij scores are non-degenerate for JumpReLU) AND F1 degradation < 30 percentage points (lenient criterion for pilot)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Cross-architecture F1 comparison: standard vs JumpReLU vs TopK",
+          "columns": [
+            "SAE Architecture",
+            "F1",
+            "F1 Degradation vs Standard"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "C1D_width_paradox",
+      "name": "Component 1D: Width Paradox — DAS(k=1) and DAS(k=3) vs SAE Width (H4)",
+      "description": "For Gemma Scope SAEs at widths {16k, 65k, 131k}, layer 12 (same layer as H1 validation for consistency). For each width: (1) run sae-spelling to get DAS(k=1) absorption rates for all 26 letter-feature parents; (2) from C1A alpha_ij outputs, identify top-3 children C1, C2, C3 per parent by alpha_ij value; (3) compute DAS(P, k=3) via multi-label logistic regression: fit logistic regression predicting binary parent activation from {f_C1, f_C2, f_C3} on 10k activation samples; DAS(k=3) = 1 - McFadden_R2_of_3child_model / McFadden_R2_of_baseline. Report DAS(k=1) and DAS(k=3) per letter per width. Compute linear regression slope of DAS(k=3) vs log(width) across {16k, 65k, 131k} for each letter. Report fraction of letters with positive slope for k=3 and non-positive slope for k=1.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "C1A_activation_stats",
+        "C1B_lv_detector_validation"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C1D_das_vs_width.json",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "widths {16k, 65k} only (skip 131k until 16k/65k show expected pattern); letters A-E only",
+        "pass_criteria": "DAS(k=1) and DAS(k=3) both computable for all 5 pilot letters at both widths AND DAS(k=3) >= DAS(k=1) for at least 3 of 5 letters at 65k (distributed > concentrated at wider SAE)"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Width paradox figure: DAS(k=1) and DAS(k=3) vs SAE width across letters",
+          "x": "log_width",
+          "y": "DAS_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "C2A_pmi_extraction",
+      "name": "Component 2A: PMI Extraction from OpenWebText (CPU task)",
+      "description": "Extract corpus PMI features for all 26 letter-token pairs from a 1M-token OpenWebText sample. Steps: (1) Load tokenized OpenWebText using HuggingFace datasets (Skylion007/openwebtext or stas/openwebtext-10k); tokenize with Gemma 2 tokenizer; take first 1M tokens. (2) For each of the 26 letters: compute marginal token frequency P(token_starts_with_L) across the corpus; compute joint frequency P(child_token, context_within_5_tokens) using a sliding window; compute PMI = log[ P(child|context) / P(child) ] for each specific child token with its parent letter category. (3) Save to exp/results/full/C2A_pmi_features.json with columns: [letter, token_id, token_str, pmi_score, child_frequency, parent_frequency]. This is a CPU task — no GPU needed.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "N/A (CPU)",
+      "expected_output": "exp/results/full/C2A_pmi_features.json",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext-1m",
+          "path": "shared/datasets/openwebtext"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "Use first 100k tokens instead of 1M; compute PMI for letters A-E only",
+        "pass_criteria": "PMI values computed for >= 5 distinct child tokens per pilot letter AND PMI values span range [-3, 5] (not degenerate) AND no NaN/inf in output"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Top PMI child tokens per letter (A-E), showing which tokens are most associated with each letter category",
+          "x": "token",
+          "y": "PMI_score",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "C2B_absorption_survey_30sae",
+      "name": "Component 2B: 30-SAE Absorption Survey",
+      "description": "Run sae-spelling absorption measurement on 30 Gemma Scope SAE configurations to build the regression dataset for H2. Configurations: widths {16k, 65k, 131k} x layers {6, 12, 20, 25} x L0 settings {low, medium} where available = up to 24 unique configs; augment with additional L0 settings at layer 12 (most data) to reach ~30 total. For each config: run sae-spelling on all 26 letters, n=100 test tokens per letter, seed 42. Record absorption_rate per (SAE config, letter). Save merged dataset to exp/results/full/C2B_absorption_survey.parquet. NOTE: This is the longest single task (~8 GPU-hours in proposal). Consider parallelizing across width groups if multiple GPU slots available; otherwise run sequentially. Estimated time assumes 30 configs x ~15 min each = 450 min total; can be split into 3 subtasks if needed.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "P0_pipeline_validation"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 480,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C2B_absorption_survey.parquet",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "3 configs only: (layer=12, width=16k, L0=low), (layer=12, width=65k, L0=medium), (layer=20, width=16k, L0=low); letters A-E only",
+        "pass_criteria": "absorption_rate measured for all 5 pilot letters x 3 configs (15 data points) AND absorption rates vary across configs (std > 0.02) AND at least 2 configs show absorption > 0.10 for at least 1 letter"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Absorption rate heatmap: 30 SAE configs (rows) x 26 letters (columns)",
+          "paper_section": "appendix"
+        }
+      ],
+      "notes": "LONG TASK (8 hrs). Consider splitting C2B into three subtasks by layer group if a second GPU slot becomes available: C2B_layer6_12, C2B_layer20_25, C2B_extra_l0. Each subtask ~160 min."
+    },
+    {
+      "id": "C2C_pmi_regression",
+      "name": "Component 2C: PMI Regression Analysis (H2)",
+      "description": "Load C2B absorption survey parquet and C2A PMI features. Merge on (letter, SAE config). Fit regression model: absorption_rate_il = beta0 + beta1*log(L0_i) + beta2*log(width_i) + beta3*layer_i + beta4*log(PMI_l) + epsilon_il. Use OLS regression with HC3 heteroskedasticity-robust standard errors. Report: R^2, adjusted R^2, partial R^2 for PMI term (from partial regression), p-value for beta4, coefficient signs for all terms. Visualize partial regression plot of absorption_rate vs log(PMI) with SAE config residualized. Ablation A3/A4: also fit PMI-only model and per-layer regression. Save results to exp/results/full/C2C_regression_results.json.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "C2A_pmi_extraction",
+        "C2B_absorption_survey_30sae"
+      ],
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "N/A (CPU)",
+      "expected_output": "exp/results/full/C2C_regression_results.json",
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "Use pilot data from C2B (3 configs x 5 letters = 15 data points) and C2A (5 letters PMI). Fit simplified regression: absorption_rate = beta0 + beta1*log(L0) + beta4*log(PMI). Note: 15 data points is too few for reliable inference; pilot only checks that regression runs without error and PMI coefficient has expected positive sign.",
+        "pass_criteria": "Regression executes without error AND beta4 (PMI coefficient) is positive AND regression R^2 is finite"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Partial regression plot: absorption rate residuals vs log(PMI) residuals; each point is one (SAE config, letter) cell",
+          "x": "log_PMI_residualized",
+          "y": "absorption_rate_residualized",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "C2D_taxonomy",
+      "name": "Component 2D: Absorption Taxonomy Type I/II/III (H5)",
+      "description": "Operationalize and measure three absorption types on Gemma Scope 16k layer 12. For all 26 letter features: (1) Type I (Full): Chanin metric > 0.5 AND single absorbing latent accounts for > 80% of parent suppression (measured via activation magnitude ratio). (2) Type II (Partial): Parent latent activation at < 50% expected magnitude on expected-parent-token set; 'expected magnitude' is median activation of the latent on the non-absorbed comparison set. (3) Type III (Distributed): DAS(k=3) > 0.60 AND Type I not triggered. Each letter feature is classified as one type (Type I takes priority, then II, then III, then None). Report: count and fraction of 26 features in each type; comprehensive absorption rate = fraction with Type I OR II OR III. Compare to Chanin et al. 15-35% Type I rate. Save to exp/results/full/C2D_taxonomy.json.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "C1D_width_paradox",
+        "C2B_absorption_survey_30sae"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C2D_taxonomy.json",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "Letters A-E only; Type I from existing C1B output; Type II and III computed on pilot",
+        "pass_criteria": "All three type classification rules execute without error AND at least 1 letter classified as each type (or at least 2 different types observed across A-E) AND comprehensive rate for pilot letters exceeds Type I rate for same letters"
+      },
+      "visualizations": [
+        {
+          "type": "stacked_bar",
+          "description": "Absorption taxonomy: Type I/II/III/None fraction per SAE width (16k, 65k, 131k)",
+          "x": "SAE_width",
+          "y": "fraction",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "C3A_saebench_correlation",
+      "name": "Component 3A: SAEBench Downstream Correlation Analysis (H3 Stage 1, CPU)",
+      "description": "Download SAEBench CSV from neuronpedia.org/sae-bench (or via HuggingFace if available). Filter to Gemma 2 2B SAEs. For each available downstream task (RAVEL, SCR, sparse probing F1, unlearning): compute Pearson r and Spearman rho between absorption_score column and task performance. Apply Bonferroni correction for 4 tests (alpha_corrected = 0.0125). Compute partial Pearson r after controlling for: SAE width (log), layer, architecture class (dummy variable). Report full correlation matrix, 95% CIs, corrected p-values, and partial correlations. Flag pre-specified 'meaningful' threshold: |r| > 0.30. Save to exp/results/full/C3A_saebench_corr.json. This is a CPU-only task with zero GPU required.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "N/A (CPU)",
+      "expected_output": "exp/results/full/C3A_saebench_corr.json",
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "Download SAEBench CSV; compute Pearson r for absorption_score vs RAVEL only (single task); check whether CSV loads and absorption_score column exists",
+        "pass_criteria": "SAEBench CSV downloads successfully AND absorption_score column present AND RAVEL column present AND Pearson r is finite (correlation computed on >= 10 SAEs)"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Correlation matrix: absorption score vs downstream task performance metrics with significance markers",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "C3B_matched_ravel",
+      "name": "Component 3B: Matched RAVEL Comparison (H3 Stage 2)",
+      "description": "From SAEBench data (C3A output), select top-5 lowest absorption SAEs and top-5 highest absorption SAEs matched on: model = Gemma 2 2B, layer in {12, 20}. Run RAVEL evaluation directly on each matched pair using SAEBench evaluation code (github.com/adamkarvonen/SAEBench). For each of the 10 selected SAEs: run RAVEL task and record performance score. Perform paired t-test (one-sided, H0: low-absorption SAEs do not outperform high-absorption SAEs on RAVEL), alpha = 0.05. Also report Cohen's d as effect size. Save to exp/results/full/C3B_matched_ravel.json.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "C3A_saebench_correlation"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 120,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C3B_matched_ravel.json",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "Select top-2 lowest and top-2 highest absorption SAEs (4 total instead of 10); run RAVEL on 50 prompts per SAE instead of full eval",
+        "pass_criteria": "RAVEL evaluation code runs without error AND produces numeric scores for all 4 pilot SAEs AND scores differ by > 0.01 between any two SAEs (not degenerate constant output)"
+      },
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "RAVEL performance distribution for low-absorption vs high-absorption SAE groups",
+          "x": "absorption_group",
+          "y": "RAVEL_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "C3C_safety_probe",
+      "name": "Component 3C: Safety Probe Pilot (H3 Stage 3)",
+      "description": "Build binary harmful intent classification using 3 Gemma 2 2B SAEs at lowest, median, and highest absorption rates (from C3A data). Dataset: 50 harmful prompts from AdvBench subset + 50 benign prompts from OpenWebText. For each of the 3 SAEs: (1) Dense linear probe: run prompts through Gemma 2 2B, extract residual stream at layer 12, train logistic regression classifier. (2) 1-sparse SAE probe: encode residual stream through SAE, constrain to top-1 most active feature (L0=1 equivalent), train logistic regression. For each probe type on each SAE: compute ROC-AUC via 5-fold cross-validation. Report: AUC_dense vs AUC_1sparse per absorption level; does probe gap (AUC_dense - AUC_1sparse) decrease as absorption decreases? Save to exp/results/full/C3C_safety_probe.json.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "C3A_saebench_correlation"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C3C_safety_probe.json",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "1 SAE only (lowest absorption); 20 harmful + 20 benign prompts; dense probe only (skip 1-sparse for pilot speed); 3-fold cross-validation",
+        "pass_criteria": "Logistic regression trains without error AND ROC-AUC > 0.50 (better than random) for dense probe on pilot data AND no NaN in cross-validation scores"
+      },
+      "visualizations": [
+        {
+          "type": "roc_curve",
+          "description": "ROC curves: dense probe vs 1-sparse SAE probe at low/median/high absorption SAEs",
+          "x": "FPR",
+          "y": "TPR",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "C1_ablations",
+      "name": "Component 1 Ablations: Threshold Sensitivity and Cosine Pre-filter (A1, A2)",
+      "description": "Run ablation experiments for H1 detector: (A1) Threshold sensitivity: re-evaluate H1 LV detector at tau values {0.5, 0.75, 1.0, 1.25, 1.5} on the 13-letter test set; report F1 for each tau; confirm F1 peak is within {0.75, 1.25}. (A2) Cosine pre-filter threshold: re-run C1A with cosine thresholds {0.10, 0.15, 0.25}; for each threshold, compute coverage (fraction of known absorbed pairs that have a candidate pair in the pre-filtered set) and precision; confirm >= 80% of absorbed pairs are captured at threshold=0.15. Also compare LV detector (alpha_ij > tau) vs cosine-only baseline (cosine > threshold) at matched precision; report F1 delta. Save to exp/results/full/C1_ablations.json.",
+      "type": "ablation",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "C1B_lv_detector_validation"
+      ],
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "expected_output": "exp/results/full/C1_ablations.json",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "scope": "A1 only (threshold sweep); use letters N-Z test set from C1B; run 5 tau values",
+        "pass_criteria": "F1 values computed for all 5 tau values AND F1 is non-zero for at least 3 tau values AND results written to output file without error"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "F1 vs threshold tau for LV detector vs cosine-only baseline",
+          "x": "tau",
+          "y": "F1_score",
+          "paper_section": "appendix"
+        }
+      ]
+    }
+  ],
+  "execution_order": {
+    "parallel_groups": [
+      {
+        "group_id": "group_0",
+        "description": "Independent parallel start: pilot validation, PMI extraction, SAEBench download",
+        "tasks": [
+          "P0_pipeline_validation",
+          "C2A_pmi_extraction",
+          "C3A_saebench_correlation"
+        ],
+        "notes": "C2A and C3A require no GPU and can run in parallel with P0 on CPU"
+      },
+      {
+        "group_id": "group_1",
+        "description": "After P0 passes gate: activation stats collection (unblocks H1, H4 tasks)",
+        "tasks": [
+          "C1A_activation_stats"
+        ],
+        "depends_on_group": "group_0",
+        "gate": "P0_pipeline_validation must output go=true"
+      },
+      {
+        "group_id": "group_2",
+        "description": "After C1A: LV detector + 30-SAE survey can run in parallel if 2 GPUs available",
+        "tasks": [
+          "C1B_lv_detector_validation",
+          "C2B_absorption_survey_30sae"
+        ],
+        "depends_on_group": "group_1",
+        "notes": "C2B is the longest task (480 min); if only 1 GPU, run C1B first then C2B"
+      },
+      {
+        "group_id": "group_3",
+        "description": "After C1B: cross-architecture + width paradox in parallel with C3A downstream",
+        "tasks": [
+          "C1C_cross_arch_validation",
+          "C1D_width_paradox"
+        ],
+        "depends_on_group": "group_2"
+      },
+      {
+        "group_id": "group_4",
+        "description": "After C2B and C2A: regression analysis (CPU-only, fast)",
+        "tasks": [
+          "C2C_pmi_regression"
+        ],
+        "depends_on_group": "group_2"
+      },
+      {
+        "group_id": "group_5",
+        "description": "After C1D and C2B: taxonomy; after C3A: matched RAVEL and safety probe",
+        "tasks": [
+          "C2D_taxonomy",
+          "C3B_matched_ravel",
+          "C3C_safety_probe"
+        ],
+        "depends_on_group": "group_3"
+      },
+      {
+        "group_id": "group_6",
+        "description": "After C1B: ablation analysis",
+        "tasks": [
+          "C1_ablations"
+        ],
+        "depends_on_group": "group_2"
+      }
+    ]
+  },
+  "critical_path": [
+    "P0_pipeline_validation",
+    "C1A_activation_stats",
+    "C1B_lv_detector_validation",
+    "C2B_absorption_survey_30sae",
+    "C2C_pmi_regression"
+  ],
+  "total_gpu_hours": {
+    "single_a100_estimate": 14.0,
+    "breakdown": {
+      "C1A_activation_stats": 1.5,
+      "C1B_lv_detector_validation": 0.75,
+      "C1C_cross_arch_validation": 0.75,
+      "C1D_width_paradox": 1.0,
+      "C2B_absorption_survey_30sae": 8.0,
+      "C2D_taxonomy": 0.75,
+      "C3B_matched_ravel": 2.0,
+      "C3C_safety_probe": 1.0,
+      "C1_ablations": 0.5,
+      "P0_pilot": 0.25
+    }
+  }
+}

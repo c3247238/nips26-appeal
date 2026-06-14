@@ -1,0 +1,112 @@
+{
+  "schema_version": 2,
+  "pilot_experiments": [
+    {
+      "id": "pilot_activation_patching",
+      "name": "Pilot: Activation Patching Validation",
+      "objective": "Validate 9 persistent core words using activation patching. Zero child feature -> measure parent recovery. Tests whether persistent words are genuine absorption or metric artifact.",
+      "hypothesis_tested": "H4 persistence (hierarchy-driven absorption vs metric artifact)",
+      "description": "CRITICAL VALIDATION: This is the ONLY experiment that can distinguish 'metric miscalibrated' from 'JumpReLU genuinely has minimal absorption'. Never executed in 3 consecutive iterations despite being recommended.",
+      "complexity": "medium",
+      "configuration": {
+        "samples": 100,
+        "seed": 42,
+        "timeout_seconds": 900,
+        "core_words": ["eight", "lower", "liked", "offer", "often", "warm", "best", "right", "around"],
+        "steering_strength": 5
+      },
+      "estimated_minutes": 15,
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "pass_criteria": {
+        "min_recovery_words": 3,
+        "min_recovery_pct": 10.0,
+        "no_crashes": true
+      },
+      "metrics_to_compute": [
+        "parent_recovery_pct",
+        "child_suppression_effect",
+        "logit_change_at_target_token"
+      ],
+      "failure_action": "If all 9 words show zero recovery: report as metric artifact confirmed; update paper narrative to remove hierarchy claims",
+      "expected_output": "exp/results/pilots/pilot_activation_patching.json",
+      "next_steps": {
+        "go": "Proceed to full_activation_patching with 1000 samples",
+        "refine": "Reduce to 3 most confident core words; increase samples to 200",
+        "pivot": "Report as metric artifact; reframe as 'persistence does not imply hierarchy'"
+      }
+    },
+    {
+      "id": "pilot_steering_cv",
+      "name": "Pilot: Steering Effectiveness by CV",
+      "objective": "Test whether CV predicts steering effectiveness. Compare steering on 10 high-CV vs 10 low-CV features.",
+      "hypothesis_tested": "H4 (variance paradox) -> actionability connection; tests Basu et al. actionability paradox",
+      "description": "Connects H4 variance paradox to steering actionability. High-CV features (absorbed) may route through specialized child channels that resist steering.",
+      "complexity": "medium",
+      "configuration": {
+        "samples": 100,
+        "seed": 42,
+        "timeout_seconds": 900,
+        "n_high_cv": 10,
+        "n_low_cv": 10,
+        "steering_strengths": [-5, 5]
+      },
+      "estimated_minutes": 15,
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "pass_criteria": {
+        "high_cv_effect_greater": true,
+        "effect_size_ratio": 1.5,
+        "no_crashes": true
+      },
+      "metrics_to_compute": [
+        "logit_change_high_cv",
+        "logit_change_low_cv",
+        "effect_ratio",
+        "p_value"
+      ],
+      "failure_action": "If no difference: report as actionability paradox confirmed; aligns with Basu et al. finding of 98.2% AUROC but 0% output change",
+      "expected_output": "exp/results/pilots/pilot_steering_cv.json",
+      "next_steps": {
+        "go": "Proceed to full_steering_cv with 30 vs 30 features and multiple steering strengths",
+        "refine": "Focus on high-CV absorbed features only vs non-absorbed baseline",
+        "pivot": "Report as actionability paradox confirmed; connect to Basu et al."
+      }
+    }
+  ],
+  "pilot_execution_order": [
+    "setup_env",
+    "pilot_activation_patching",
+    "pilot_steering_cv"
+  ],
+  "pilot_parallel_groups": [
+    ["pilot_activation_patching"],
+    ["pilot_steering_cv"]
+  ],
+  "pilot_decision_matrix": {
+    "activation_patching": {
+      "strong_go": "At least 5/9 words show >30% parent recovery",
+      "go": "At least 3/9 words show >10% parent recovery",
+      "refine": "At least 1/9 words show >10% recovery but high variance",
+      "pivot": "0/9 words show >10% recovery (metric artifact confirmed)"
+    },
+    "steering_cv": {
+      "strong_go": "High-CV group shows >2x steering effect of low-CV group",
+      "go": "High-CV group shows >1.5x steering effect of low-CV group",
+      "refine": "High-CV group shows >1.2x effect but high variance",
+      "pivot": "No difference between groups (actionability paradox confirmed)"
+    }
+  },
+  "iteration_2_lessons_applied": [
+    "Activation Patching UNEXECUTED for 3 consecutive reviews - this is the ONLY experiment that distinguishes metric artifact from genuine absorption",
+    "H10 (Homeostatic Rebalancing) is a phantom contribution - never executed but appears as key contribution in Section 1.4 and abstract",
+    "LCA Framework logical incoherence - H6 falsified (precision@20=0.0) but paper claims support from H7 precision-recall asymmetry",
+    "All 4 supported hypotheses (H1,H2,H4,H5) have strong empirical backing - focus on validation now",
+    "H6 OrtSAE ablation compares unmatched L0 values (0.230 at L0~920 vs 0.247 at L0~550) - confound the paper criticizes elsewhere"
+  ],
+  "resource_requirements": {
+    "total_pilot_time_minutes": 30,
+    "gpu_count": 1,
+    "max_concurrent_pilots": 2
+  }
+}

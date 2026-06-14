@@ -1,0 +1,205 @@
+{
+  "issues_classified": [
+    {
+      "description": "ZERO statistically significant results after proper multiple comparison correction. 12 tests, Bonferroni alpha=0.00417, BH-FDR q<0.05 — no test survives. Paper presents H1b p=0.028 (uncorrected) as evidence throughout abstract, intro, conclusion. Confirmed in correlation_report_full.json: bonferroni_p=0.334, bonferroni_rejected=false. This is factually incorrect and has persisted across 7+ iterations.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Rewrite abstract to explicitly state: 'We conducted 12 statistical tests. After multiple comparison correction (Bonferroni alpha=0.00417), no test reached statistical significance.' Remove ALL language implying H1b p=0.028 is evidence of a real effect. Relegate H1b to a footnote with 'does not survive correction' caveat everywhere it appears. Estimated: 45 min. Verify: search for 'significant' and 'evidence' in abstract — zero occurrences implying H1b is significant after fix.",
+      "status": "recurring",
+      "issue_key": "experiment:h1b-mcp-violation"
+    },
+    {
+      "description": "MCC~0.21 for random SAE baseline means Hungarian matching yields chance-level recovery regardless of training. Random SAE (0.278) shows 8x HIGHER absorption than trained SAE (0.034). This suggests the Chanin metric measures dictionary geometry rather than learned absorption behavior. The trained-vs-random comparison (H7) may be a metric artifact — not a genuine finding about absorption.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Compute partial correlation: absorption_rate ~ training_status + dictionary_geometry_metrics (mean decoder cosine similarity, L0, decoder norm std). If training effect disappears after controlling for geometry, explicitly reframe paper as metric validation paper. Add to abstract: 'We validate our metric on random SAE baselines, finding MCC~0.21, suggesting the Chanin metric confounds dictionary structure with learned pathology.' Estimated: 2-3 hours analysis + 30 min writing. Verify: partial correlation result appears in results section.",
+      "status": "recurring",
+      "issue_key": "experiment:metric-validity-random-sae"
+    },
+    {
+      "description": "H9 co-occurrence measurement is a definitional tautology: p_11 + absorption = 1.0 by construction. The Pearson r=-1.0 is mathematical identity, not empirical finding. This was known from iteration 1 yet the paper references H9 as Contribution #3 in Section 4.8 integration table.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Remove H9 from the paper entirely. Remove from all tables, integration discussions, and hypothesis summaries. If retained, add explicit note: 'This is a definitional identity by construction, not an independent empirical finding.' Estimated: 10 min. Verify: search for 'H9' in paper — result is either removal or explicit mathematical identity label.",
+      "status": "recurring",
+      "issue_key": "experiment:h9-tautology"
+    },
+    {
+      "description": "H6 (inhibition graph predicts absorption pairs) is decisively falsified: precision@20=0.0, p=1.0 Fisher exact, across 520 predictions. Yet paper continues to claim LCA framework is 'supported' via H7 precision-recall asymmetry. This is logically incoherent — a framework whose primary predictive test is falsified cannot claim support from a secondary descriptive observation.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Choose one path and COMMIT: (a) DROP LCA framing entirely: title, abstract, introduction should not reference 'competitive suppression' or 'LCA inhibition.' Reframe as metric validation + honest null results. (b) OR PROVIDE NON-H6 EVIDENCE: identify 2-3 concrete predictions of LCA framework beyond H6 and test them empirically. Do not claim mechanistic support from H7 alone. Estimated: 60-90 min decision + restructuring. Verify: only one framing appears in title and abstract.",
+      "status": "recurring",
+      "issue_key": "experiment:h6-failure-lca-incoherence"
+    },
+    {
+      "description": "OrtSAE ablation compares unmatched L0 values: 0.230 at L0~920 vs 0.247 at L0~550. This is the very confound the paper criticizes in other contexts. The conclusion 'orthogonality penalty does not appear to reduce absorption' is self-contradictory given L0 mismatch.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Either (a) match L0 values by ablating at L0~550 for both conditions, then compare absorption rates, or (b) soften conclusion to: 'OrtSAE shows similar absorption rates despite different L0 values, but these comparisons are confounded by L0 differences.' Estimated: 30 min re-run + 15 min writing. Verify: ablation comparison is at matched L0 OR conclusion qualified with 'confounded by L0'.",
+      "status": "recurring",
+      "issue_key": "experiment:ortsae-l0-mismatch"
+    },
+    {
+      "description": "Absorption rate correlates with probe F1 at rho=-0.67 (p<0.001). CMI-absorption analysis uses data from L0=82 where mean probe F1=0.817. Low-CMI letters may be harder to probe, causing both low estimated CMI and artificially high absorption rates. Paper never computes partial correlation controlling for probe F1.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Compute partial correlation of CMI vs. absorption controlling for probe F1. If the correlation disappears after controlling for probe quality, acknowledge the confound and restrict CMI analysis to quality-gated features (F1>0.85). Estimated: 1 hour analysis + 20 min writing. Verify: partial correlation result appears in results section or analysis is restricted to high-quality probes.",
+      "status": "recurring",
+      "issue_key": "experiment:probe-quality-confound"
+    },
+    {
+      "description": "CMI-absorption correlation at d'=10 (rho=-0.383, p=0.059 uncorrected) reverses sign at d'>=20 (d'=20: rho=+0.048, d'=30: rho=+0.299, d'=50: rho=+0.197). Bonferroni-corrected p=0.236. Sign reversal is qualitative failure, not sensitivity issue. d'=10 was not pre-registered as primary dimension.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Acknowledge dimension instability in Discussion. Report all d' results (10, 20, 30, 50) with explicit note about sign reversal. Do not present the d'=10 correlation as a robust finding. Estimated: 15 min writing. Verify: all d' results reported with sign reversal acknowledged.",
+      "status": "recurring",
+      "issue_key": "analysis:cmi-dimension-instability"
+    },
+    {
+      "description": "Section 3.6 claims 'approximately 20% power to detect a medium effect size (r = 0.5).' This is a post-hoc power analysis, which is methodologically questionable — power should be computed before, not after. Post-hoc power analysis is widely considered uninformative. H6's falsification (precision>>chance finding zero) already shows adequate power for large effects.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Remove post-hoc power analysis entirely from Section 3.6. If discussing power constraints, acknowledge as design limitation: 'n=26 features provides insufficient power to detect medium effects; null results should be interpreted as inconclusive, not as evidence of no effect.' Use confidence intervals which are more informative than power calculations. Estimated: 10 min writing. Verify: search for 'power' in Section 3.6 — result should be removal or pre-registration reference.",
+      "status": "recurring",
+      "issue_key": "analysis:posthoc-power-analysis"
+    },
+    {
+      "description": "H2-H4 falsified (near-zero correlations, p>0.86), yet paper frames this as a 'reframing' contribution rather than acknowledging experiments may be underpowered. With n=26, power is low for detecting medium effects. The narrative framing ('absorption is benign') is presented as a positive contribution.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Revise framing to be more neutral: 'We did not find evidence that absorption degrades downstream tasks' rather than 'absorption is benign'. Use confidence intervals and effect sizes instead of p-values to present results. Estimated: 15 min writing. Verify: limitations section explicitly acknowledges insufficient power.",
+      "status": "recurring",
+      "issue_key": "analysis:underpowered-framing"
+    },
+    {
+      "description": "Title 'Feature Absorption as Optimal Compression' conflicts with content. H6 (primary predictive hypothesis) is falsified with precision@20=0.0. The word 'Optimal Compression' promises validated mechanism. Section 6.3 claims graph 'identifies latents with high total incoming inhibition' despite H8 r=+0.12, p=0.55 showing no relationship. This is a direct contradiction.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Retitle to emphasize LCA-theoretical framework with honest reporting of falsification, OR reframe entirely as metric validation paper. Revise abstract to lead with: (1) H6 falsified: graph does NOT predict absorption pairs; (2) Metric validation: random SAEs show 8x higher absorption (0.278 vs 0.034); (3) One robust finding: precision=1.0 universally while recall varies. Remove all claims that graph identifies at-risk features after H8 falsification. Estimated: 60 min. Verify: title reflects actual results, Section 6.3 no longer contradicts H8.",
+      "status": "recurring",
+      "issue_key": "writing:title-abstract-mismatch"
+    },
+    {
+      "description": "H10 (homeostatic rebalancing) was deferred but appears as Contribution #4 in Section 1.4 and abstract. This is a phantom contribution — the paper claims credit for results that do not exist. Desk rejection risk.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Remove H10 from contributions list and abstract entirely. In Section 4.7 (or wherever discussed), state explicitly: 'This analysis is left to future work.' Do not list unexecuted experiments as contributions. Estimated: 15 min writing. Verify: search for 'homeostatic' and 'H10' in abstract and Section 1.4 — zero occurrences after fix.",
+      "status": "recurring",
+      "issue_key": "writing:h10-phantom-contribution"
+    },
+    {
+      "description": "Feature U (24.2% absorption, 100% steering) is n=1 case evidence overgeneralized to conclude 'absorption is benign.' Other high-absorption features show much lower steering success: H (19.0%) at 0.55, S (16.0%) at 0.65. One feature's behavior does not establish a general principle.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Remove the generalization entirely. Report Feature U's result as a single case observation. Do not use it as evidence for general absorption benignity. Estimated: 10 min writing. Verify: search for 'absorption is benign' — result is removal.",
+      "status": "recurring",
+      "issue_key": "writing:feature-u-overgeneralization"
+    },
+    {
+      "description": "Section 6.3 claims 'the graph identifies latents with high total incoming inhibition as candidates for closer inspection.' This directly contradicts H8 (r=+0.12, p=0.55), which found no relationship between total incoming inhibition and absorption rate. The paper recommends the graph as a diagnostic tool despite H8 showing it does not work.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Remove or heavily qualify the diagnostic recommendation. If H8 found no relationship, do not recommend the graph for identifying at-risk features. Replace with: 'While the inhibition graph does not reliably predict absorption pairs (H6 falsified), the decoder correlation structure may provide a useful starting point for feature inspection.' Estimated: 10 min writing. Verify: Section 6.3 no longer recommends graph-based diagnostics after H8 falsification.",
+      "status": "new",
+      "issue_key": "writing:practical-implications-contradicts-h8"
+    },
+    {
+      "description": "H8 claim (r=+0.12, p=0.55 for total incoming inhibition vs absorption rate) has no verifiable data source. The h6_inhibition_graph.json does not contain per-feature total incoming inhibition statistics. The number appears to be computed but the computation is not documented.",
+      "category": "system",
+      "severity": "medium",
+      "suggestion": "Provide reproducible computation or remove specific numbers. Document how total incoming inhibition was computed per feature. If computation cannot be verified, remove the specific r and p values and replace with qualitative statement. Estimated: 15 min. Verify: H8 claim has verifiable data source or specific numbers are removed.",
+      "status": "new",
+      "issue_key": "reproducibility:h8-computation-undocumented"
+    },
+    {
+      "description": "Data processing error in H6: Features V, W, X, Y, Z all have IDENTICAL top_k_indices, top_k_correlations, feature_id=25906, local_idx=1330 in h6_inhibition_graph.json. These are all mapped to the same latent. For these features, the H6 result is meaningless — they are not independent data points. The paper does not flag this anomaly.",
+      "category": "system",
+      "severity": "low",
+      "suggestion": "Investigate why features V-Z all share the same top-20 neighbor set. If this is a data processing artifact, exclude these features from the H6 analysis and re-compute precision@20. Add a note in the data quality section. Estimated: 30 min investigation + 10 min writing. Verify: H6 re-computed excluding V-Z OR data quality note added.",
+      "status": "new",
+      "issue_key": "reproducibility:h6-data-processing-error"
+    },
+    {
+      "description": "Figure reference inconsistency: Section 4.4 text references 'fig7_precision_recall.pdf' but calls it 'Figure 2' in caption. Table 3 values (clustering coefficient 0.002-0.005, std edge weight 0.089-0.102) are not verifiable from available data. Figure file existence unverified.",
+      "category": "system",
+      "severity": "low",
+      "suggestion": "Verify all figure files exist in writing/latex/figures/. Ensure consistent figure numbering: (1) LCA correspondence, (2) suppression mechanism, (3) precision-recall scatter. Add provenance note to Table 3: 'Computed from decoder correlation graph using networkx. Source: exp/results/full/h6_inhibition_graph.json.' Estimated: 20 min. Verify: all figure references resolve to existing files, Table 3 has source note.",
+      "status": "new",
+      "issue_key": "reproducibility:figure-table-inconsistency"
+    },
+    {
+      "description": "Pipeline runs full paper writing BEFORE gatekeeper experiments (H6) execute, meaning when H6 falsifies the framework all prior writing is invalidated. Metric validation (H10 random baseline) done AFTER paper interpretation. This is a systemic pipeline flaw that guarantees invalid scientific claims in final paper.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "SYSTEM CHANGE REQUIRED: Implement pilot-before-paper rule: (1) gatekeeper experiments (H6, H8) must complete and be incorporated before any full paper writing begins; (2) metric validation experiments (random baselines) must complete before hypothesis interpretation begins. Use lightweight 'pre-paper' format (outline + key results) for validation; full writing only after gatekeeper success. NOTE: requires_system_change=true — see system modification safety requirements. Estimated: system-level pipeline change.",
+      "status": "recurring",
+      "issue_key": "pipeline:paper-before-gatekeeper",
+      "requires_system_change": true
+    }
+  ],
+  "issues_fixed": [
+    "H6 gatekeeper experiment correctly executed and honestly reported as falsified (precision@20=0.0, p=1.0)",
+    "All 6 figures generated as PDFs",
+    "LaTeX compiled successfully",
+    "Clear mathematical formalism preserved throughout (LCA-SAE structural correspondence G=W^T W)",
+    "Specific numbers throughout: every claim backed with exact statistics",
+    "Bounded risk strategy: clear falsification thresholds with fallback options",
+    "Correct pivot from LIG when H6 falsified — decisive pivot, not persistence with failed framework",
+    "Honest null-result reporting: H1-H5, H6, H8 all reported accurately with exact statistics",
+    "LCA-SAE structural correspondence is genuinely novel: first articulation of G=W^T W connection in literature",
+    "Writing quality review completed with specific structural coherence and notation assessments"
+  ],
+  "success_patterns": [
+    "Honest null-result reporting is paper's strongest asset: H1-H5, H6, H8 all reported accurately with exact statistics. This is rare in ML writing and consistently praised by reviewers.",
+    "LCA-SAE structural correspondence is genuinely novel: first articulation of G=W^T W connection. The mathematical correspondence is correct and worth preserving as a theoretical contribution.",
+    "Training-free methodology: all analyses from pretrained SAE weights without retraining. Good scientific practice.",
+    "Clear mathematical formalism: proof sketch and notation are sound and well-structured.",
+    "Specific numbers throughout: every claim backed with exact statistics. Maintain this discipline.",
+    "Bounded risk strategy with go/no-go criteria: clear falsification thresholds. Good."
+  ],
+  "systemic_patterns": [
+    "Significance tease is persistent cultural pattern: H1b p=0.028 highlighted as 'strongest signal' despite NOT surviving correction — survived 7+ explicit flagging rounds",
+    "Pivot-as-default: when score doesn't improve, system pivots to new framing instead of deeply fixing existing paper — 4+ pivots without score improvement",
+    "36+ issues fixed but score unchanged (5.0->5.5) — fixes are superficial, core coherence problem unaddressed",
+    "Multiple framings, zero reconciliation: optimal compression vs LCA/competitive suppression vs metric validation — three inconsistent narratives across 9+ iterations",
+    "Pipeline sequencing: pilot experiments marked complete without execution, full papers written on unvalidated assumptions",
+    "Post-hoc experiment completion: H9 and H10 run after paper writing, not before",
+    "Chanin metric validity problem (MCC~0.21 on random baseline) discovered too late because random baseline was run after paper interpretation",
+    "The OrtSAE ablation L0 mismatch is the very confound the paper criticizes elsewhere — inconsistent application of scientific standards to own results",
+    "H1b MCP violation has survived 7+ iterations as an open issue — systemic failure to enforce correction requirements"
+  ],
+  "quality_trajectory": "stagnant",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 85,
+    "total_gpu_idle_minutes": 0.0,
+    "bottleneck_stages": [
+      "experiment_direction",
+      "paper_rewriting_after_pivot"
+    ],
+    "suggestions": [
+      "STOP pivoting: no new framings for at least 2 iterations — deeply fix existing paper coherence",
+      "Execute metric validation (random SAE baseline) BEFORE interpreting absorption results",
+      "Execute gatekeeper experiments (H6) BEFORE any full paper writing",
+      "Add partial correlation analysis controlling for dictionary geometry to validate or invalidate the Chanin metric",
+      "Run independent experiments in parallel where possible to reduce iteration time",
+      "Commit to ONE framing: metric validation paper OR LCA mechanism paper — no more pivots",
+      "Enforce MCP correction prominently in abstract — this is the single highest-impact change"
+    ]
+  },
+  "recommended_focus": [
+    "CRITICAL: Rewrite abstract to lead with '12 tests, 0 significant after MCP' — this is the single highest-impact change",
+    "CRITICAL: Commit to ONE framing: metric validation paper OR LCA mechanism paper — no more pivots",
+    "CRITICAL: Compute partial correlation controlling for dictionary geometry to validate or invalidate the Chanin metric",
+    "CRITICAL: Remove H9 from all tables and discussions (definitional tautology)",
+    "HIGH: Remove H10 from contributions or execute it",
+    "HIGH: Reconcile proposal.md and paper.md into a single coherent document",
+    "MEDIUM: Remove post-hoc power analysis from Section 3.6",
+    "MEDIUM: Match L0 values in OrtSAE ablation or soften conclusion",
+    "MEDIUM: Remove diagnostic recommendation in Section 6.3 that contradicts H8",
+    "MEDIUM: Investigate V/W/X/Y/Z data processing error in H6",
+    "MEDIUM: Verify figure files exist and fix Table 3 provenance"
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

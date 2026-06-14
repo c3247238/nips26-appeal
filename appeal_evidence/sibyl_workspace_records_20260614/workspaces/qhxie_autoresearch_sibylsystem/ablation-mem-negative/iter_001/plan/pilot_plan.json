@@ -1,0 +1,105 @@
+{
+  "pilot_config": {
+    "samples": 1000,
+    "seed": 42,
+    "timeout_seconds": 900,
+    "model": "gpt2-small",
+    "layer": 8,
+    "sae_width": 4096,
+    "dataset": "openwebtext",
+    "dataset_samples": 1000
+  },
+  "pilots": [
+    {
+      "id": "p1_caab",
+      "name": "CAAB Feasibility Pilot",
+      "description": "Test absorption detection pipeline on 2 architectures (JumpReLU vs TopK) with first-letter features",
+      "objective": "Verify that absorption rate differs significantly across architectures and the pipeline completes within 15 minutes",
+      "steps": [
+        "Load GPT-2 Small via TransformerLens",
+        "Load pre-trained JumpReLU SAE for layer 8 (or train small TopK if unavailable)",
+        "Train small TopK SAE (width 4k, k=50) on 1k OpenWebText samples",
+        "Run Chanin et al. absorption detection on first-letter features (a-z)",
+        "Compute absorption rate for both architectures",
+        "Compare and verify >10% difference"
+      ],
+      "pass_criteria": [
+        "Absorption rate difference between architectures > 10 percentage points",
+        "Total runtime < 15 minutes",
+        "No fatal errors in pipeline"
+      ],
+      "fail_action": "If JumpReLU SAE unavailable, train both architectures from scratch with reduced width (2k). If still failing, mark CAAB as high-risk and focus on single-architecture analysis."
+    },
+    {
+      "id": "p2_causal",
+      "name": "Causal Evaluation Feasibility Pilot",
+      "description": "Test sparse probing pipeline with high vs low absorption SAEs",
+      "objective": "Verify that absorption rate correlates with probe accuracy and the pipeline completes within 15 minutes",
+      "steps": [
+        "Train two TopK SAEs on GPT-2 Small layer 8: k=25 (high absorption) and k=100 (low absorption)",
+        "Define 20 concepts (4 per domain: animals, colors, numbers, countries)",
+        "Generate positive/negative examples for each concept",
+        "Train linear probes on SAE features for each concept",
+        "Compare probe AUROC between high and low absorption SAEs"
+      ],
+      "pass_criteria": [
+        "Probe accuracy difference > 5 percentage points between high and low absorption",
+        "Total runtime < 15 minutes",
+        "Probe training converges (loss decreases)"
+      ],
+      "fail_action": "If no accuracy difference, try more concepts (50) or different concept types. If still no difference, note that H2 may be falsified."
+    },
+    {
+      "id": "p3_uad",
+      "name": "UAD Feasibility Pilot",
+      "description": "Test co-occurrence-based unsupervised detection on small feature set",
+      "objective": "Verify that unsupervised methods can detect absorbed pairs with reasonable precision",
+      "steps": [
+        "Load pre-trained SAE (GemmaScope or GPT-2)",
+        "Select 100 features (first-letter features + random sample)",
+        "Build activation co-occurrence matrix on 1k tokens",
+        "Compute mutual information and exclusivity scores for each pair",
+        "Compare top-scoring pairs with Chanin et al. supervised labels",
+        "Calculate precision and recall"
+      ],
+      "pass_criteria": [
+        "Precision > 40% compared to supervised labels",
+        "Recall > 30% compared to supervised labels",
+        "Total runtime < 15 minutes"
+      ],
+      "fail_action": "If precision/recall too low, try alternative scoring functions (reconstruction redundancy, activation ratio). If still failing, mark UAD as infeasible for this iteration."
+    },
+    {
+      "id": "p4_dfda",
+      "name": "DFDA Feasibility Pilot",
+      "description": "Test residual compensation network on small number of absorbed pairs",
+      "objective": "Verify that a small MLP can recover absorbed parent feature activations",
+      "steps": [
+        "Identify 10 known absorbed pairs from Chanin et al. method",
+        "Build training dataset: (child_activation, parent_activation) pairs",
+        "Train small MLP: input=child feature, output=parent feature prediction",
+        "Evaluate: probe accuracy on parent concept before/after compensation",
+        "Measure reconstruction error change"
+      ],
+      "pass_criteria": [
+        "Probe accuracy improvement > 5% OR reconstruction error increase < 10%",
+        "MLP training converges within 5 minutes",
+        "Total runtime < 15 minutes"
+      ],
+      "fail_action": "If no improvement, try larger MLP or different loss function. If compensation hurts reconstruction, mark DFDA as infeasible."
+    }
+  ],
+  "pilot_decision_matrix": {
+    "all_pass": "Proceed with all full experiments (F1-F6)",
+    "p1_p2_pass_only": "Proceed with core experiments (F1-F4), skip exploratory (F5-F6)",
+    "p1_pass_only": "Proceed with F1, F3, F4 (architecture comparison + trends). Skip causal and exploratory.",
+    "p2_pass_only": "Proceed with F2 only (causal analysis on limited SAE set). Consider training more architectures.",
+    "none_pass": "REFINE: Revisit methodology. Consider simpler detection metrics, smaller models, or alternative research questions."
+  },
+  "shared_pilot_resources": {
+    "model": "gpt2-small",
+    "device": "cuda",
+    "batch_size": 8,
+    "max_sequence_length": 128
+  }
+}

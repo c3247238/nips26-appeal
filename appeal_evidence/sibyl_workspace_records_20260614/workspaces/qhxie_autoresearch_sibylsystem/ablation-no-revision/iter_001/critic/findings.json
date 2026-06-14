@@ -1,0 +1,125 @@
+{
+  "summary": "The paper presents a valuable negative result---consistency-derived activation energy (Ea) cannot predict single-pass solveability (AUC=0.436)---but suffers from critical data-formula inconsistencies, contradictory source data labeling, missing quantitative evidence for key claims, and a small sample size that limits generalizability. The novelty claim is defensible but narrow, relying entirely on the H3 falsification since H1/H2 collide with Yang et al. (2025). Reproducibility is compromised by undocumented Ea computation, post-hoc thresholding, and missing bibliography.",
+  "findings": [
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "CRITICAL FORMULA-DATA INCONSISTENCY: The paper defines Ea = -ln(c0), but the data shows Ea = 9.465 with c0 = 0.10565. Under the stated formula, -ln(0.10565) ≈ 2.25, not 9.465. This is a showstopper inconsistency---either the formula is wrong, the data computation is wrong, or c0 is not what the paper claims it is. The notation.md Usage Note 3 incorrectly states 'Ea ≈ 9.47 corresponds to c0 ≈ 0.106', which is mathematically impossible under Ea = -ln(c0).",
+      "suggestion": "Verify the actual formula used in the experiment code (analysis_h3.py, analysis_h2.py). If Ea is computed differently (e.g., Ea = -ln(c0/c_ref) with c_ref ≈ 7.7e-5, or c0 is not the consistency fraction but some transformed value), correct the formula in the paper. If the formula is correct, the data is wrong and all reported Ea values must be recomputed."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "SOURCE DATA CONTRADICTS PAPER NARRATIVE: analysis_h3.json labels H3 as 'CONFIRMED' with note 'Ea is a useful routing signal', while the paper correctly interprets the same data as falsified due to AUC=0.436. The 75% low-Ea accuracy is achieved only via post-hoc threshold optimization (threshold=9.9999999999, essentially a data-dependent split), but the source summary ignores this and reports 'CONFIRMED'. This creates a documentation inconsistency that undermines reproducibility and could confuse reviewers.",
+      "suggestion": "Update analysis_h3_summary.md and analysis_h3.json to reflect the correct interpretation: H3 is FALSIFIED because AUC=0.436 < 0.5 and Spearman=-0.063 (p=0.66) show zero predictive power. The 75% threshold pass is a post-hoc artifact, not genuine confirmation. Add an explicit note in the source data explaining why the threshold test is overridden by the AUC/Spearman evidence."
+    },
+    {
+      "category": "writing",
+      "severity": "critical",
+      "description": "MISSING BIBLIOGRAPHY: The paper cites [1] through [11] but has no References section. This is a critical omission for any paper intended for external review. Citations to Yang et al., Li, ACAR, and others cannot be verified without a bibliography.",
+      "suggestion": "Add a complete References section with full bibliographic entries for all numbered citations. Include arXiv IDs where applicable. Verify that all cited works exist (e.g., 'Li 2026' may be a future-dated reference that needs verification)."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "TABLE 8 (ERROR CLASSIFICATION) LACKS QUANTITATIVE DATA: The paper claims 'Execution errors dominate low-Ea failures' in Section 6.2 and Table 8, but provides no counts, proportions, or statistical evidence. Table 8 only has qualitative descriptions and examples. The outline explicitly planned for 'count/proportion' columns, but these are absent. This is a significant evidence gap for a central diagnostic claim.",
+      "suggestion": "Either (a) perform quantitative error classification on the low-Ea failures and add Count/Proportion columns to Table 8, or (b) soften the claim from 'Execution errors dominate' to 'We hypothesize that execution errors dominate' and note that quantitative classification is future work. Given the small sample (50 problems), even a manual classification of the ~12-15 low-Ea failures would be feasible and valuable."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "SAMPLE SIZE TOO SMALL FOR ROBUST CONCLUSIONS: n=50 problems is pilot-scale. With only 2 problems at Level 1 and 13 at Level 5, the per-level statistics are unstable. The Spearman correlation of 0.448 has wide confidence intervals that are not reported. The bimodal Ea distribution (clusters at ~9.47 and ~10.0) may be an artifact of the small sample rather than a genuine property.",
+      "suggestion": "Report confidence intervals for all key statistics (Spearman correlation, AUC). Acknowledge more prominently that n=50 is a limitation. If feasible, expand to at least 100-200 problems. The pilot_summary.json from Round 4 used n=30; the full analysis uses n=50---but 'full' is misleading given the small size."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "POST-HOC THRESHOLD = DATA LEAKAGE: The 'optimal threshold' of 9.9999999999 is optimized on the same data used for evaluation. The paper correctly notes this is 'post-hoc' and 'data leakage', yet still uses the 75% figure derived from it to compute the 'irreducible error floor' of 25pp. The logic is internally consistent ('at best, 75%') but the phrasing in Section 6.3 could be clearer that 25pp is an upper bound on the error floor, not a measured floor.",
+      "suggestion": "Clarify in Section 6.3 that 25pp represents the gap between the post-hoc-optimized low-Ea accuracy and perfect accuracy, making it an optimistic upper bound on what any real routing system could achieve. A held-out validation set or cross-validation would provide a realistic lower bound on the error floor."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "NOVELTY CLAIM IS NARROW AND FRAGILE: The novelty_report.json correctly identifies that H1/H2 collide with Yang et al. (2025) and that the core novelty is the H3 negative result. However, the H3 falsification itself is not entirely unprecedented---ACAR (2026) reports an 'agreement-but-wrong' ceiling of ~8pp for variance-based routing, which is conceptually related. The paper does not clearly differentiate its contribution from ACAR's finding. The novelty score of 6/10 is accurate but borderline for publication.",
+      "suggestion": "Strengthen the differentiation from ACAR by: (a) explicitly contrasting consistency-based routing (our focus) with variance-based routing (ACAR's focus), (b) quantifying the larger error floor for consistency (~25pp) vs. variance (~8pp), and (c) providing the diagnostic analysis (error classification) that ACAR does not. Cite ACAR properly with full bibliographic details."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "PER-PROBLEM FIT FAILURE UNDERMINES H1 CLAIM: While aggregate R²=0.924 confirms H1 at the group level, the per-problem statistics are devastating: median R²=0.000, 80% of problems fail to fit, and only 8/50 problems prefer the exponential model by AICc. The paper mentions this as a 'critical caveat' but does not adequately address the implication: the Arrhenius framework may be a curve-fitting artifact of averaging over problems with heterogeneous dynamics, not a genuine physical law.",
+      "suggestion": "Expand the discussion of per-problem fit failure in Section 5.1 and Section 6. Consider testing whether the aggregate fit is robust to resampling (bootstrap confidence intervals for R²). Discuss whether the exponential form is simply the best-fitting function among alternatives for this specific dataset, or whether it reflects a genuine mechanism."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "SINGLE MODEL LIMITS GENERALIZABILITY: All experiments use Qwen2.5-Math-7B-Instruct. The paper acknowledges this in Limitations (Section 6.5) but the core claim---that Ea cannot predict single-pass solveability---is presented as a general finding about consistency-based routing. A single model on 50 problems is insufficient to support such a broad claim. The Round 4 pilot on DeepSeek-Math-7B (26% baseline) was abandoned, so no cross-model validation exists.",
+      "suggestion": "Either (a) run the same experiment on a second model (e.g., DeepSeek-Math-7B or a larger Qwen variant) to test generalizability, or (b) significantly temper the claims to 'on Qwen2.5-Math-7B-Instruct' rather than general statements about consistency-based routing. The abstract and conclusion currently make broad claims that exceed the evidence."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "H5 FALSIFICATION IS UNDER-REPORTED: H5 (consistency-Ea matches saturation-k0) is falsified (Spearman=-0.219, p=0.54, only 10/50 valid k0 pairs), but this is only briefly mentioned in Section 5.4 and Table 7. The theoretical framework assumes these two 'difficulty' measures should agree; their disagreement is a significant theoretical problem that challenges the internal consistency of Activation Energy Theory. The paper should discuss why the two measures diverge and what this means for the theory.",
+      "suggestion": "Expand the discussion of H5 falsification in Section 6. Explain why consistency-derived Ea and saturation-derived k0 capture different constructs: Ea measures answer stability (agreement among samples), while k0 measures convergence rate to asymptotic accuracy. Their divergence suggests that 'difficulty' is not a unitary construct and that different operationalizations measure different things."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "INCONSISTENT TERMINOLOGY: 'Arrhenius kinetics' vs. 'Arrhenius-like kinetics' appears inconsistently. The glossary prefers 'Arrhenius-like kinetics' and explicitly avoids 'Arrhenius equation' and 'Arrhenius law', but Section 5.1 heading uses 'Aggregate Arrhenius Saturation'. Table 7 uses 'Confirmed (aggregate only)' and 'Confirmed (modest effect)' with inconsistent capitalization compared to bolded 'Falsified'.",
+      "suggestion": "Standardize terminology throughout: use 'Arrhenius-like kinetics' or 'exponential saturation' consistently. Update Section 5.1 heading to 'Aggregate Arrhenius-Like Saturation'. Standardize Table 7 status entries to consistent formatting (e.g., all lowercase with bold for falsified only, or bold all status entries)."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "SECTION 3.2 PRODUCT INTERPRETATION IS MISLEADING: The sentence 'The product P_∞ · k0 has units of samples and can be interpreted as a problem-difficulty parameter: larger values indicate slower convergence toward the ceiling' is confusing. P_∞ is dimensionless (probability) and k0 has units of samples, so the product has units of samples. But for fixed P_∞, larger k0 means slower convergence---the product conflates ceiling and rate. A problem with high P_∞ and low k0 could have the same product as one with low P_∞ and high k0 but very different behavior.",
+      "suggestion": "Remove or rephrase the sentence to avoid conflating ceiling and rate parameters. If a combined difficulty parameter is needed, define it more carefully (e.g., 'for problems with similar P_∞, larger k0 indicates slower convergence')."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "'PROVE' IS TOO STRONG FOR STATISTICAL EVIDENCE: Section 5.3 states 'These values prove Ea cannot predict single-pass solveability.' The glossary recommends 'confirmed' and 'falsified' rather than 'proven' and 'disproven.' Statistical evidence demonstrates or shows, but does not prove.",
+      "suggestion": "Replace 'prove' with 'demonstrate' or 'show' in Section 5.3 and throughout the paper."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "MISSING APPENDIX CONTENT: The outline plans Appendix sections (per-problem fit statistics, Ea distribution histogram, full problem data table, extraction audit results) but these are not present in the paper. For a pilot-scale study, the full problem data table would strengthen reproducibility claims and allow readers to verify the analysis.",
+      "suggestion": "Add the planned appendix content, at minimum: (a) a table of all 50 problems with Level, Ea, c0, consistency, single-pass correctness, and k0, and (b) the answer extraction audit methodology and results."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "LEVEL 5 Ea SHOWS NEAR-ZERO VARIANCE (σ ≈ 1.9e-6): This suggests algorithmic saturation or a numerical precision artifact, not genuine consistency. All 13 Level 5 problems have Ea ≈ 10.0 with virtually identical values. The paper mentions this as a 'bimodal artifact' but does not explain why it occurs or how it affects the H2 correlation.",
+      "suggestion": "Investigate why Level 5 Ea values are nearly identical. Possible explanations: (a) all Level 5 problems have c0 at the numerical floor due to very low consistency, (b) the consistency computation hits a precision limit, or (c) the Ea formula transformation amplifies small differences. Report the raw consistency values (c0) for Level 5 problems to help readers assess this artifact."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "ALTERNATIVES DOCUMENT PROPOSES H4/H5 FOLLOW-UPS THAT ARE NOT IN THE PAPER: The alternatives.md proposes H4 (error analysis) and H5 (entropy routing) as next steps, but the paper presents H4 as a qualitative discussion (Table 8 without data) and H5 as 'pending' in Table 9. The paper feels incomplete because the diagnostic analysis (H4) and alternative signal comparison (H5) are promised but not delivered with evidence.",
+      "suggestion": "Either (a) complete the H4 quantitative error classification and H5 entropy routing experiments and integrate the results, or (b) reframe the paper as a focused falsification study (H1-H3-H5 only) and move H4/H5 to Future Work. The current structure promises more than it delivers."
+    }
+  ],
+  "metric_gaming_risks": [
+    "Post-hoc threshold optimization achieves 75% low-Ea accuracy but AUC=0.436 reveals this is not genuine predictive signal---a clear case of threshold gaming on a bimodal distribution",
+    "The 25pp 'irreducible error floor' is computed from the post-hoc 75% figure, making it an optimistic upper bound rather than a measured floor",
+    "H3 source data labels the hypothesis 'CONFIRMED' based on threshold test alone, ignoring AUC and Spearman---this is metric cherry-picking",
+    "Per-problem median R²=0.000 with 80% fit failure, yet H1 is reported as 'confirmed' based solely on aggregate R²=0.924---aggregate metrics can mask individual failure",
+    "Spearman(Ea, Level)=0.448 is reported as 'confirmed' with p=0.001, but with n=50 and bimodal Ea distribution, the effect size may be driven by a few outliers"
+  ],
+  "novelty_risks": [
+    "Yang et al. (2025) exact collision on exponential saturation formula eliminates H1/H2 novelty claims",
+    "ACAR (2026) 'agreement-but-wrong' finding is conceptually related to H3 falsification, though ACAR uses variance-based routing rather than consistency-based",
+    "Novelty rests entirely on a single negative result (H3) with diagnostic analysis (H4), which is defensible but narrow",
+    "The paper does not clearly differentiate from RASC, CGES, and other related work beyond the 'negative result' framing---reviewers may ask why this deserves a full paper rather than a workshop paper or blog post",
+    "If the Ea formula-data inconsistency is resolved and reveals a different computation, the interpretation of H3 may change, potentially weakening the negative result"
+  ],
+  "reproducibility_gaps": [
+    "Ea formula is inconsistent with data---readers cannot reproduce Ea values from the stated formula",
+    "No code or data repository is referenced---the experiment scripts (analysis_h1.py, analysis_h2.py, analysis_h3.py) exist but are not documented or linked",
+    "Missing bibliography prevents verification of cited works",
+    "Post-hoc threshold (9.9999999999) is not reproducible without the exact dataset and optimization procedure",
+    "Single model, single dataset, n=50---results may not generalize",
+    "Answer extraction depends on regex parser accuracy; only 10% manual audit was performed and results are not reported",
+    "No confidence intervals or bootstrap estimates are reported for key statistics",
+    "Level 5 Ea near-zero variance suggests a computational artifact that is not explained"
+  ]
+}

@@ -1,0 +1,167 @@
+[
+  {
+    "priority": 1,
+    "category": "analysis",
+    "severity": "critical",
+    "title": "Report pre-threshold parent activations for all 8 patching experiments",
+    "description": "The 0/8 activation patching result is confounded by JumpReLU hard thresholds. If competitive exclusion causes the parent's pre-threshold activation to be slightly below theta_j, zeroing the child may increase it without crossing the threshold -- yielding 0/8 recovery even when competitive exclusion is the true mechanism. The paper acknowledges this in one sentence (Section 7.5) but does not report the pre-threshold magnitudes.",
+    "action": "For each of the 8 persistent core words, extract the parent latent's pre-threshold activation (w_e^T x + b_e) before and after child zeroing. Report: (a) the pre-threshold activation before patching, (b) the pre-threshold activation after patching, (c) the JumpReLU threshold theta_j for that latent, (d) the ratio (activation_change / gap_to_threshold). If the ratio is substantial (>0.3) for any word, this is evidence FOR competitive exclusion masked by the hard threshold. If the pre-threshold activation does not change at all, competitive exclusion is genuinely absent. This analysis requires no additional GPU time -- just re-reading the patching output data.",
+    "effort_hours": 1.0,
+    "blocking": true,
+    "locations": ["Section 4.5", "Table 5", "Section 7.5"]
+  },
+  {
+    "priority": 2,
+    "category": "analysis",
+    "severity": "critical",
+    "title": "Investigate and explain the 93.8% non-hedging category",
+    "description": "615/656 FN tokens at L0=22 have NONE of the 5 parent-associated latents firing at L0=176, yet are NOT false negatives at L0=176. The paper does not explain this. The most natural explanation is that different latents handle first-letter classification at different L0 values, which would undermine the confound decomposition's cross-L0 persistence assumption.",
+    "action": "Compute the Jaccard similarity between top-5 probe latents at L0=22 vs L0=176 for each of the 25 letters (excluding X). If mean Jaccard < 0.3, the confound decomposition is comparing different feature sets. Add a paragraph in Section 4.4 or 7.1 discussing: (a) the finding, (b) the Jaccard overlap, (c) the implication that 'parent features' may be L0-specific rather than universal. This is a zero-GPU analysis.",
+    "effort_hours": 1.5,
+    "blocking": true,
+    "locations": ["Section 4.4", "Section 7.1"]
+  },
+  {
+    "priority": 3,
+    "category": "experiment",
+    "severity": "critical",
+    "title": "Clarify whether CMI L0=22 result is from pilot (125 words) or full run",
+    "description": "The file cmi_replication_l0_22.json in the pilots directory shows 'mode: PILOT' with 'total_words: 125' (5 per letter). The full CMI at L0=82 used 1,092 words. If the paper's L0=22 result (rho=+0.044) comes from the pilot, the k-NN MI estimation with k=5 on 5 positive examples per letter in d'=10 is at the estimator's reliability floor. A reviewer will question the comparison.",
+    "action": "Check whether a full CMI run at L0=22 exists in the results/full directory. If not, either (a) run the full version using the complete 1,196-word vocabulary, or (b) clearly label the result as 'pilot (n=125 words)' in Section 6.3 and acknowledge the reduced statistical power. If only the pilot exists, the null result may reflect estimator failure, not true absence of signal.",
+    "effort_hours": 1.0,
+    "blocking": true,
+    "locations": ["Section 6.3"]
+  },
+  {
+    "priority": 4,
+    "category": "writing",
+    "severity": "critical",
+    "title": "Rewrite Section 6.1 narrative to match CMI falsification",
+    "description": "Section 6.1 opens with 'The successive refinement theorem predicts that features with low conditional mutual information should be more susceptible to absorption.' The word 'predicts' implies success. The reader expects confirmation. Section 6.3 then delivers the null (rho=+0.044). This up-then-down structure is inconsistent with the paper's identity as honest negative-results reporting.",
+    "action": "Rewrite Section 6.1 opening to: 'We hypothesized that conditional mutual information (CMI) could predict absorption susceptibility, motivated by the successive refinement theorem. We report two experiments: a marginally significant correlation at L0=82 that does not survive probe quality controls, and a pre-registered replication at L0=22 that yields a null result.'",
+    "effort_hours": 0.5,
+    "blocking": true,
+    "locations": ["Section 6.1"]
+  },
+  {
+    "priority": 5,
+    "category": "writing",
+    "severity": "critical",
+    "title": "Soften activation patching claim in abstract and conclusion",
+    "description": "Abstract states '0/8 parent recovery after child zeroing, ruling out competitive exclusion.' With 95% CI [0%, 36.9%] and the JumpReLU threshold confound, 'ruling out' is overclaiming.",
+    "action": "Replace 'ruling out competitive exclusion' with 'finding no evidence of competitive exclusion (0/8 recovery; 95% CI: [0%, 36.9%])' in the abstract. In Section 8 conclusion Q1 paragraph, replace 'ruling out competitive exclusion for these tokens' with 'finding no evidence of competitive exclusion for these tokens (95% CI: [0%, 36.9%]).'",
+    "effort_hours": 0.25,
+    "blocking": true,
+    "locations": ["Abstract", "Section 4.5", "Section 8"]
+  },
+  {
+    "priority": 6,
+    "category": "writing",
+    "severity": "major",
+    "title": "Add hypothesis enumeration table to paper body",
+    "description": "Section 7.4 references 'five pre-registered hypotheses' and Section 8 references 'four of seven' but the paper never lists H1-H7 with pre-registered targets. A reviewer cannot verify falsification claims.",
+    "action": "Add a table in Section 3 (after methodology) or at the start of Section 7.4 listing each hypothesis with: (a) ID, (b) statement, (c) pre-registered prediction, (d) observed value, (e) status (confirmed/falsified/partial).",
+    "effort_hours": 0.5,
+    "blocking": false,
+    "locations": ["Section 3 or Section 7.4"]
+  },
+  {
+    "priority": 7,
+    "category": "writing",
+    "severity": "major",
+    "title": "Add method diagram to Section 3",
+    "description": "Five pages of methodology with no visual. The measurement pipeline, four-control suite, and confound decomposition are described entirely in text. A reviewer unfamiliar with the Chanin protocol will struggle.",
+    "action": "Create a pipeline schematic showing: input tokens -> SAE encoding -> probe training -> candidate identification -> FN classification -> four controls (C1-C4) -> confound decomposition (multi-L0 persistence) -> activation patching. Place as Figure 1 (renumber existing figures).",
+    "effort_hours": 1.5,
+    "blocking": false,
+    "locations": ["Section 3"]
+  },
+  {
+    "priority": 8,
+    "category": "analysis",
+    "severity": "major",
+    "title": "Report strict hedging z-test excluding letter G",
+    "description": "Letter G accounts for 19/41 (46%) of strict-hedging cases with 90.5% rate. Excluding G, strict hedging drops from 6.2% to 3.5%, barely above shuffled control 3.4%. The z-test without G is not reported.",
+    "action": "Compute and report z-test for strict hedging excluding letter G. If p>0.05 without G, qualify the strict hedging claim as 'driven primarily by letter G' and investigate what makes G anomalous (letter frequency, word count, SAE latent properties).",
+    "effort_hours": 0.5,
+    "blocking": false,
+    "locations": ["Section 4.4"]
+  },
+  {
+    "priority": 9,
+    "category": "writing",
+    "severity": "major",
+    "title": "Fix table numbering sequence",
+    "description": "Table 7 (Section 5.1) precedes Table 6 (Section 6.2) in text. Table 8 (Section 3.7) has highest number but appears earliest.",
+    "action": "Renumber all tables sequentially as they appear. Minimal fix: swap Tables 6 and 7.",
+    "effort_hours": 0.25,
+    "blocking": false,
+    "locations": ["Sections 3-6"]
+  },
+  {
+    "priority": 10,
+    "category": "writing",
+    "severity": "major",
+    "title": "Update Section 7.2 (Two Interpretations) with patching evidence",
+    "description": "Section 7.2 presents Interpretations A (metric miscalibrated) and B (genuine low absorption) as unresolved. The 0/8 patching result partially distinguishes them but is not mentioned.",
+    "action": "Add: 'Activation patching (Section 4.5) partially favors Interpretation B: the 0/8 recovery result is more consistent with genuinely low absorption than with metric miscalibration that overlooks real competitive exclusion. However, the JumpReLU hard-threshold confound (Section 7.5) means the patching result cannot definitively distinguish the interpretations.'",
+    "effort_hours": 0.25,
+    "blocking": false,
+    "locations": ["Section 7.2"]
+  },
+  {
+    "priority": 11,
+    "category": "novelty",
+    "severity": "major",
+    "title": "Reframe cross-domain contribution",
+    "description": "Contribution #4 claims 'first cross-domain absorption measurements' but the paper acknowledges these are uninterpretable. A measurement that cannot be interpreted is not a scientific contribution.",
+    "action": "Reframe as 'demonstration that the Chanin metric's control failure is universal across five hierarchy domains, including four not previously tested.' The contribution is the universality of the failure, not the measurements.",
+    "effort_hours": 0.25,
+    "blocking": false,
+    "locations": ["Abstract", "Section 1", "Section 8"]
+  },
+  {
+    "priority": 12,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Replace 'stark' with quantitative description",
+    "description": "Section 4.4: 'The discrepancy between permissive (98.6%) and strict (6.2%) hedging is stark.' Subjective.",
+    "action": "Replace with: 'The discrepancy between permissive (98.6%) and strict (6.2%) hedging spans 92.4 percentage points.'",
+    "effort_hours": 0.1,
+    "blocking": false,
+    "locations": ["Section 4.4"]
+  },
+  {
+    "priority": 13,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Fix placeholder URL",
+    "description": "Section 8 ends with '[URL]' placeholder for code release.",
+    "action": "Replace with actual URL or 'Code and data will be released upon acceptance at [URL].'",
+    "effort_hours": 0.1,
+    "blocking": false,
+    "locations": ["Section 8"]
+  },
+  {
+    "priority": 14,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Update notation.md stale value",
+    "description": "notation.md lists C1 (Random probe) expected absorption as '~9.2%' but paper reports 11.8%.",
+    "action": "Update notation.md to 11.8%.",
+    "effort_hours": 0.1,
+    "blocking": false,
+    "locations": ["writing/notation.md"]
+  },
+  {
+    "priority": 15,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Consider splitting abstract first sentence",
+    "description": "First sentence of abstract is 98 words. Dense and taxes working memory.",
+    "action": "Split into 2-3 sentences separating the definition of absorption, the Chanin metric context, and the mitigation literature motivation.",
+    "effort_hours": 0.25,
+    "blocking": false,
+    "locations": ["Abstract"]
+  }
+]

@@ -1,0 +1,98 @@
+{
+  "score": 7.0,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 8,
+    "soundness": 7,
+    "experiments": 6,
+    "reproducibility": 7
+  },
+  "summary": "This iteration successfully addresses the previous review's critical concerns by removing the Goodhart's Law overreach, eliminating estimated PCA and low-cooccurrence data, and reverting to a clean construct-validity study framed around three research questions (H1-H3). The paper now presents an honest, well-scoped contribution: the first empirical test of whether the SAEBench absorption metric generalizes from first-letter to semantic hierarchies. The hierarchy-specificity failure (H2 rejected, t=-4.748, p=0.003, d=-1.68) and Random-SAE anomaly (trained=random on semantic tasks) are the strongest findings and survive scrutiny. However, the construct-validity test (H1) remains inconclusive due to small sample size (n=7), and the GPT-2 replication shows near-zero scores that complicate interpretation. The paper is methodologically sound but thin on experimental breadth---it tests one model, one layer, and 10 shallow hierarchies. Score 7.0: a solid, honest paper with a defensible negative result, but needs more experimental breadth or deeper analysis to reach acceptance caliber.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The paper reports Cohen's d=-1.68 in the abstract and throughout, but the source data (e3_ttest_results.json) shows Cohen's d=-1.794. This is a data integrity issue---the paper uses a rounded/incorrect value. The difference is small but reviewers will notice the inconsistency if they check.",
+      "suggestion": "Recompute Cohen's d from the raw per-architecture scores and use a single consistent value throughout. The correct value from e3_ttest_results.json is d=-1.794. Update abstract, results, discussion, and conclusion."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The Random-SAE semantic-hierarchy score is reported as 0.352 (identical to Standard SAE) in Table 1 and throughout the paper, but the raw data (statistical_analysis_summary.json) shows Random semantic-hierarchy=0.175 and non-hierarchy=0.233. These are very different values. The paper's central claim---that Random=Standard on semantic hierarchies---is contradicted by the actual data. This appears to be a data error where the Standard SAE scores were copied to the Random row in Table 1.",
+      "suggestion": "Verify the Random SAE scores from the actual experiment output (semantic_hierarchy_pythia_results.json shows Random mean=0.175, nonhierarchy_control_pythia_results.json shows Random mean=0.233). Update Table 1 and all text references. The corrected finding is: Random SAE scores 0.175 on semantic hierarchies (below Standard's 0.352) and 0.233 on non-hierarchy (below Standard's 0.416). This WEAKENS the Random-SAE anomaly claim but does not eliminate it---the first-letter task still distinguishes trained from random (0.030 vs 0.026), and the semantic scores are still in the same ballpark as trained architectures. The paper needs honest reframing of this finding."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The construct-validity test (H1) is the paper's primary research question, but with n=7 trained SAEs, the bootstrap 95% CI [-0.389, 0.981] spans nearly the entire correlation range. The paper correctly labels this 'inconclusive,' but the abstract prominently features the point estimate (r=0.463) without emphasizing the uncertainty. A reader skimming the abstract may conclude there IS a moderate relationship.",
+      "suggestion": "Lead with the inconclusiveness in the abstract: 'The Pearson correlation is r=0.463, but the 95% confidence interval [-0.389, 0.981] is too wide for confident inference.' De-emphasize the point estimate and emphasize the uncertainty. Add a power analysis: 'Detecting r=0.6 with 80% power at alpha=0.05 requires n~19 architectures.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The GPT-2 replication shows near-zero absolute scores (Standard: 0.000 hierarchy, 0.025 non-hierarchy; TopK: 0.003 hierarchy, 0.098 non-hierarchy) compared to Pythia-160M. The paper interprets this as 'model-specific behavior,' but an alternative interpretation is that the semantic-hierarchy adaptation simply doesn't work on GPT-2---perhaps because GPT-2 small's layer 8 representations don't encode these hierarchies, or because the GPT-2 SAEs used (different release, different checkpoint quality) are not comparable. The GPT-2 SAEs achieve perfect k-sparse accuracy on most hierarchies, suggesting the SAEs are not being stressed.",
+      "suggestion": "Add discussion of why GPT-2 shows near-zero scores: (1) GPT-2 SAEs may be better quality or differently structured, (2) the hook location differs (resid_pre vs resid_post), (3) GPT-2's representations may handle these hierarchies differently. Acknowledge that the GPT-2 replication is exploratory and the near-zero scores could indicate either genuine model differences or a failure of the metric adaptation on this model. Do not over-interpret."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "All 10 semantic hierarchies achieve perfect probe AUROC=1.0 on residual activations (80/80 scores). This ceiling effect means the absorption formula's numerator is bounded by (1.0 - acc_sae), minimizing absolute absorption scores. The paper mentions this as a limitation but does not address whether the ceiling effect itself invalidates the metric adaptation. If all hierarchies are perfectly discriminable in the residual stream, then ANY drop in SAE accuracy produces a maximally penalized absorption score, potentially exaggerating small differences.",
+      "suggestion": "Add a sensitivity analysis: compute what absorption scores would be with residual AUROC=0.9 or 0.8 instead of 1.0. Show whether the relative architecture ranking changes. Acknowledge explicitly that the perfect probe ceiling effect may inflate apparent absorption differences."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The non-hierarchy control pairs include 'animal-pet' and 'food-fish' in the semantic hierarchies, while the non-hierarchy pairs include 'tree-wood' and 'river-water.' These pairings are conceptually similar---both involve thematic relationships. The distinction between 'hierarchy' and 'non-hierarchy' may be weaker than the paper claims. 'Tree-wood' is arguably a meronymy (part-whole) relationship, which is a type of hierarchical structure. This blurs the hierarchy-specificity test.",
+      "suggestion": "Discuss this limitation explicitly: 'Some non-hierarchy pairs (tree-wood, river-water) involve meronymy or strong thematic relationships that may share structural properties with hierarchies. Future work should use more clearly non-hierarchical pairs (e.g., randomly paired words from different semantic domains).'"
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "The paper does not apply multiple comparison correction across the three hypotheses (H1-H3) and the various tests within each. At alpha=0.05 with ~8 reported tests, ~0.4 false positives are expected. The hierarchy specificity result (p=0.0032) would survive Bonferroni correction (0.0032 * 8 = 0.026 < 0.05), but this is not reported.",
+      "suggestion": "Apply Bonferroni or Benjamini-Hochberg correction across all reported tests and report corrected p-values. Explicitly state that the hierarchy specificity result survives correction---this would actually strengthen the claim."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The paper mentions 'open-source replication materials' (Contribution 4) but does not provide a code repository URL or data release location.",
+      "suggestion": "Include a link to the code repository in the abstract or introduction, or state 'Code and data will be released upon publication.'"
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "Figure references use .pdf extension (fig2_scatter.pdf, fig3_specificity.pdf, fig4_robustness.pdf) but the actual files are .png. This will cause compilation errors in LaTeX.",
+      "suggestion": "Update all figure references to match actual file extensions (.png)."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The paper uses k=10 for k-sparse probing, chosen to match the median active latents at tau_fs=0.03. But the paper does not test whether k=10 is appropriate for all architectures or hierarchies. Different architectures may have different optimal k values.",
+      "suggestion": "Add a brief sensitivity analysis testing k in {5, 10, 20, 50} on a subset of architectures, or acknowledge this as a limitation: 'The fixed k=10 threshold may not be optimal for all architectures; architecture-specific k selection could refine the analysis.'"
+    }
+  ],
+  "risks": [
+    "The Random-SAE data error (0.352 reported vs 0.175 actual) is the most serious risk. If reviewers check the data, this will damage credibility.",
+    "The small sample size (n=7) for H1 means the construct-validity test is genuinely inconclusive. Reviewers may ask why the paper was written before collecting more data.",
+    "The GPT-2 replication's near-zero scores could be interpreted as the metric adaptation failing entirely, not just showing model-specific behavior.",
+    "The perfect probe ceiling effect (all AUROC=1.0) may lead reviewers to question whether the metric adaptation has any discriminative power at all."
+  ],
+  "evidence_gaps": [
+    "No empirical validation that the Random-SAE score matches Standard on semantic hierarchies (the data actually shows it does not).",
+    "No sensitivity analysis for the perfect probe ceiling effect.",
+    "No multiple comparison correction reported.",
+    "No architecture-specific random baselines (single Random SAE from Standard decoder used for all).",
+    "No deeper hierarchies (2+ levels) tested.",
+    "No additional base models beyond Pythia-160M and GPT-2 small."
+  ],
+  "what_would_raise_score": "To raise to 7.5-8.0: (1) Fix the Random-SAE data error and honestly reframe the finding; (2) Add sensitivity analysis for probe ceiling effect; (3) Apply multiple comparison correction; (4) Add 2-3 more SAE architectures to strengthen H1; (5) Test 1-2 deeper hierarchies (3-4 levels). To raise to 8.5+: (6) Add a second base model with non-zero scores (e.g., Gemma-2-2B); (7) Include causal ablation validation (activation patching) to distinguish 'truly absorbed' from 'merely distributed' parent features; (8) Test with natural-language templates instead of synthetic ones."
+}

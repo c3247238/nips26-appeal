@@ -1,0 +1,239 @@
+{
+  "schema_version": 2,
+  "iteration": 3,
+  "project": "ablation-mem-negative",
+  "plan_date": "2026-04-28",
+  "status": "ALL_EXPERIMENTS_COMPLETE",
+  "overall_strategy": "Iteration 3 experiments definitively falsified UAD (F1=0.0005) and confirmed collision rate proxy (r=0.87). The root cause is token-level mutual exclusivity of absorption features. All planned experiments have been executed. The paper should be written from existing data as a negative result paper with constructive forward look.",
+  "key_assumptions": [
+    "Collision rate is a validated proxy for absorption rate (r=0.869, n=56, CI=[0.780, 0.938])",
+    "UAD co-occurrence clustering cannot detect hierarchical absorption (F1=0.00048, identical to random)",
+    "Token-level mutual exclusivity is the structural root cause",
+    "All experiments complete - no further GPU experiments needed for this iteration"
+  ],
+  "completed_tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "status": "COMPLETED",
+      "output": "current/exp/logs/setup_complete.json",
+      "gpu_count": 1,
+      "actual_minutes": 10
+    },
+    {
+      "id": "p1_collision_proxy_validation",
+      "name": "Pilot P1: Collision Rate Proxy Validation",
+      "status": "COMPLETED",
+      "output": "current/exp/results/pilots/p1_collision_proxy_results.json",
+      "result_summary": "Spearman r=0.711, n=10, CI=[0.219, 0.887]. All 10 vowel pairs detected.",
+      "gpu_count": 1,
+      "actual_minutes": 15
+    },
+    {
+      "id": "p2_uad_reproduce",
+      "name": "Pilot P2: UAD Reproducibility",
+      "status": "COMPLETED",
+      "output": "current/exp/results/pilots/p2_uad_reproduce_results.json",
+      "result_summary": "F1=0.0, Precision=0.0, Recall=0.143, 1/7 TP. UAD fails on pretrained SAE.",
+      "gpu_count": 1,
+      "actual_minutes": 15
+    },
+    {
+      "id": "p3_random_baseline",
+      "name": "Pilot P3: Random Baseline",
+      "status": "COMPLETED",
+      "output": "current/exp/results/pilots/p3_random_baseline_results.json",
+      "result_summary": "UAD F1(0.00048) == Same-Cluster Random F1(0.00048). Zero value over random.",
+      "gpu_count": 1,
+      "actual_minutes": 10
+    },
+    {
+      "id": "f2_uad_ablations",
+      "name": "Full F2: UAD Ablations",
+      "status": "COMPLETED",
+      "output": "current/exp/results/full/f2_uad_ablations_results.json",
+      "result_summary": "All variants fail. Best: K-means F1=0.0037, Recall=85.7% but 3237 FP.",
+      "gpu_count": 1,
+      "actual_minutes": 25
+    },
+    {
+      "id": "f4_collision_correlation_full",
+      "name": "Full F4: Extended Collision Correlation",
+      "status": "COMPLETED",
+      "output": "current/exp/results/full/f4_collision_correlation_results.json",
+      "result_summary": "Spearman r=0.869, n=56, CI=[0.780, 0.938]. Validated across numbers and punctuation.",
+      "gpu_count": 1,
+      "actual_minutes": 10
+    },
+    {
+      "id": "f5_false_positive_analysis",
+      "name": "Full F5: False Positive Analysis",
+      "status": "COMPLETED",
+      "output": "current/exp/results/full/f5_false_positive_results.json",
+      "result_summary": "99.98% FP rate. Root cause: token-level mutual exclusivity.",
+      "gpu_count": 1,
+      "actual_minutes": 5
+    },
+    {
+      "id": "analysis_main",
+      "name": "Main Results Analysis",
+      "status": "COMPLETED",
+      "output": "current/exp/results/analysis/main_analysis.json",
+      "result_summary": "PIVOT recommendation: negative result paper. UAD fails, proxy valid, root cause identified.",
+      "gpu_count": 0,
+      "actual_minutes": 5
+    }
+  ],
+  "skipped_tasks": [
+    {
+      "id": "f1_uad_multisae",
+      "name": "Full E1: UAD Multi-SAE Validation",
+      "status": "SKIPPED",
+      "reason": "P2/P3 failure made this moot. UAD fails structurally, not due to SAE choice."
+    },
+    {
+      "id": "f3_uad_multiseed",
+      "name": "Full E3: UAD Multi-seed Reproducibility",
+      "status": "SKIPPED",
+      "reason": "P2/P3 failure made this moot. UAD fails consistently."
+    },
+    {
+      "id": "f6_dfda_validation",
+      "name": "Full E6: DFDA Validation",
+      "status": "SKIPPED",
+      "reason": "UAD cannot identify absorption pairs, so DFDA has no input."
+    }
+  ],
+  "future_tasks": [
+    {
+      "id": "decoder_weight_similarity_pilot",
+      "name": "Pilot: Decoder Weight Similarity for Absorption Detection",
+      "description": "Compute cosine similarity between SAE decoder weight vectors for known absorption pairs vs random pairs. Test hypothesis: absorption pairs have higher decoder cosine similarity than random pairs. Use the 7 known absorption pairs from number hierarchy + 93 random pairs (100 total).",
+      "type": "pilot",
+      "candidate_id": "cand_b",
+      "depends_on": [],
+      "expected_output": "current/exp/results/pilots/decoder_similarity_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "pass_criteria": [
+        "Mean cosine similarity of absorption pairs > mean of random pairs",
+        "Effect size (Cohen's d) > 0.5",
+        "Runtime < 15 minutes"
+      ],
+      "fail_action": "If decoder similarity does not distinguish absorption pairs, promote cand_c (collision rate standalone) or cand_d (causal intervention)",
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Decoder cosine similarity: absorption pairs vs random pairs",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "decoder_weight_correlation",
+      "name": "Decoder Weight Similarity vs Collision Rate Correlation",
+      "description": "Compute decoder cosine similarity for all 56 pairs from F4. Test correlation with collision rate and true absorption rate. Expected: decoder similarity correlates with both.",
+      "type": "experiment",
+      "candidate_id": "cand_b",
+      "depends_on": ["decoder_weight_similarity_pilot"],
+      "expected_output": "current/exp/results/full/decoder_similarity_correlation.json",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "pass_criteria": [
+        "Spearman r (decoder similarity vs true absorption) > 0.3",
+        "Spearman r (decoder similarity vs collision rate) > 0.3"
+      ],
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Decoder similarity vs collision rate vs true absorption (3D or faceted)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "causal_intervention_pilot",
+      "name": "Pilot: Causal Intervention (Activation Patching)",
+      "description": "Test 10 known absorption pairs + 10 random pairs with activation patching. Zero out child feature activations and measure parent feature recovery. Use TransformerLens HookPoints.",
+      "type": "pilot",
+      "candidate_id": "cand_d",
+      "depends_on": ["decoder_weight_similarity_pilot"],
+      "expected_output": "current/exp/results/pilots/causal_intervention_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "pass_criteria": [
+        "Ablating absorbed child features increases parent feature activation",
+        "Effect size > 0.5 for absorption pairs vs random",
+        "Runtime < 30 minutes"
+      ],
+      "fail_action": "If causal intervention is inconclusive, focus on decoder weight similarity (cand_b) or collision rate standalone (cand_c)",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Parent feature activation change: absorption pairs vs random pairs",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ],
+  "go_no_go_gates": [
+    {
+      "gate": "G1",
+      "condition": "P1 (Proxy Validation) Spearman r >= 0.3",
+      "outcome": "PASSED (r = 0.711, CI excludes 0)"
+    },
+    {
+      "gate": "G2",
+      "condition": "P2 (UAD Reproduce) F1 >= 0.5",
+      "outcome": "FAILED (F1 = 0.0)"
+    },
+    {
+      "gate": "G3",
+      "condition": "P3 (Random Baseline) UAD F1 - random F1 >= 0.3",
+      "outcome": "FAILED (difference = 0.00037, UAD = same-cluster random)"
+    }
+  ],
+  "pilot_decision": {
+    "recommendation": "PIVOT to negative result paper",
+    "reason": "All three pilots tell a clear story: (1) collision proxy is valid, (2) UAD fails structurally, (3) UAD equals random. The paper should be 'Why Co-occurrence Clustering Cannot Detect Feature Absorption'."
+  },
+  "paper_positioning": {
+    "title": "Why Co-occurrence Clustering Cannot Detect Feature Absorption in Sparse Autoencoders",
+    "contribution_type": "Negative result with constructive insight",
+    "key_contributions": [
+      "Empirical falsification: UAD F1 = 0.00048, identical to random baseline",
+      "Root cause: token-level mutual exclusivity of absorption features",
+      "Validated proxy: collision rate correlates with absorption at r = 0.87 (n=56)",
+      "Constructive proposals: decoder weight similarity and causal intervention as alternatives"
+    ]
+  },
+  "risk_mitigation": [
+    {
+      "risk": "Single SAE limits generalizability claims",
+      "mitigation": "Acknowledge in limitations. The root cause (token-level mutual exclusivity) is architecture-independent."
+    },
+    {
+      "risk": "Only 7 ground truth pairs (small sample)",
+      "mitigation": "Use exact counts, not rates. Report bootstrap CI. Be honest about statistical power."
+    },
+    {
+      "risk": "Negative result papers face publication bias",
+      "mitigation": "Emphasize constructive contributions (validated proxy + proposed alternatives). Target venues that value negative results (e.g., ML Reproducibility track)."
+    },
+    {
+      "risk": "Collision rate is still a proxy",
+      "mitigation": "Clearly distinguish proxy from ground truth. Discuss when proxy may break down."
+    }
+  ],
+  "honesty_checklist": [
+    "All numerical claims supported by non-empty result files",
+    "Negative results reported prominently with exact observed values",
+    "Statistical reports use effect sizes + CI, no p-values",
+    "Limitations clearly stated in paper",
+    "No fabricated claims (lesson from Iteration 2)"
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Absorption Has a Downstream Cost: Re-evaluating Feature Absorption in Sparse Autoencoders",
+      "status": "front_runner",
+      "summary": "Conduct a systematic downstream causal meta-analysis showing that absorption has a unique negative effect on interpretability utility (sparse probing, RAVEL), independent of reconstruction and L0. Complement this with a critique of the first-letter absorption benchmark (degenerate on some families) and a pilot task-agnostic metric showing domain-dependent absorption patterns.",
+      "hypotheses": [
+        "After controlling for L0 sparsity and reconstruction loss, higher absorption rates correlate negatively with downstream interpretability utility (sparse probing F1, RAVEL Cause/Isolation).",
+        "The first-letter absorption benchmark is unrepresentative for many SAE families, showing near-zero variance on some open-model families.",
+        "A task-agnostic absorption metric shows domain-dependent patterns that do not correlate strongly (r < 0.4) with the first-letter benchmark."
+      ],
+      "pilot_focus": "Validate E2 with real SAEBench metrics on Pythia-160M (200+ SAEs). Run official absorption metric on 20-30 GPT-2/Pythia checkpoints to confirm variance patterns. Run task-agnostic pilot on 1 SAE x 3 domains x 10 pairs. Expected total: ~2 hours.",
+      "novelty_claim": "First controlled causal analysis treating absorption as a predictor of downstream SAE utility. First systematic evidence that the canonical first-letter benchmark may be unrepresentative for some families. First pilot of a domain-dependent, task-agnostic absorption metric.",
+      "alignment_with_spec": "Directly addresses spec goals 1 (quantify absorption prevalence) and 3 (develop reproducible evaluation metrics). Fully training-free.",
+      "key_papers": [
+        "Chanin et al. (2024) — A is for Absorption",
+        "Chanin et al. (2025) — Feature Hedging",
+        "Karvonen et al. (2025) — SAEBench",
+        "Korznikov et al. (2025) — OrtSAE",
+        "Bussmann et al. (2025) — Matryoshka SAEs",
+        "Wang et al. (2025) — Does Higher Interpretability Imply Better Utility?"
+      ],
+      "risks": [
+        "E2 effect attenuates on real SAEBench data, weakening the causal-cost claim.",
+        "Official absorption metric integration fails or is too slow.",
+        "Task-agnostic metric correlates strongly with first-letter benchmark, falsifying the domain-dependence claim."
+      ],
+      "mitigations": [
+        "If E2 attenuates, pivot to metric critique (H2/H3) as the lead contribution.",
+        "Fallback to SAEBench's built-in absorption evaluation if sae-spelling fails.",
+        "Strong correlation would validate the first-letter benchmark---still a useful result."
+      ]
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Towards a Task-Agnostic Absorption Metric: Automated Hierarchy Discovery for Generalizable SAE Evaluation",
+      "status": "backup",
+      "summary": "If the causal-cost claim (H1) fails validation on real SAEBench data, pivot to a methods paper focused on developing and validating a task-agnostic absorption metric. Use LLM-based automated hierarchy discovery to identify parent-child feature relationships in arbitrary semantic domains, then apply the Chanin et al. causal ablation framework.",
+      "hypotheses": [
+        "A task-agnostic absorption metric will correlate moderately-to-strongly (r > 0.4) with the original first-letter absorption benchmark while enabling absorption measurement across arbitrary semantic domains.",
+        "SAEs with higher scores on the task-agnostic metric will exhibit measurably worse downstream interpretability utility on parent-level features."
+      ],
+      "pilot_focus": "Run hierarchy discovery and absorption detection on Pythia-160M for one domain (geography: continent -> country) with 5-10 parent-child pairs. Expected duration: 10-15 minutes.",
+      "novelty_claim": "No prior work has proposed a fully task-agnostic absorption metric using automated hierarchy discovery.",
+      "alignment_with_spec": "Addresses spec goal 3 (develop reproducible evaluation metrics). Fully training-free.",
+      "key_papers": [
+        "Chanin et al. (2024) — A is for Absorption",
+        "Karvonen et al. (2025) — SAEBench"
+      ],
+      "risks": [
+        "LLM-generated hierarchies may be noisy or hallucinated.",
+        "New metric may not correlate with the first-letter benchmark.",
+        "Higher engineering complexity than the front-runner."
+      ],
+      "mitigations": [
+        "Start with small, easily validated domains; manually audit a random sample.",
+        "If correlation is weak, analyze divergence as a negative result.",
+        "Scope pilot tightly to 1 SAE x 1 domain before scaling."
+      ]
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Is Feature Absorption a Training Artifact? A Controlled Baseline Study with Random-Decoder Sparse Autoencoders",
+      "status": "dropped",
+      "summary": "Test whether absorption is a training-dynamics pathology or a geometric inevitability of sparse coding. Compare a trained SAE baseline against a random-decoder SAE (frozen decoder, train only encoder) matched for L0 sparsity.",
+      "hypotheses": [
+        "Randomly initialized, frozen-decoder SAEs matched for sparsity will exhibit absorption rates comparable to fully trained SAEs, indicating absorption is a geometric consequence of sparse dictionary learning on hierarchical data."
+      ],
+      "pilot_focus": "GPT-2-small, layer 8. One trained SAE vs. one random-decoder SAE trained to matched L0. Expected duration: ~15 minutes GPU time.",
+      "novelty_claim": "No prior work has applied the canonical feature absorption metric to random-decoder SAE baselines.",
+      "alignment_with_spec": "Explicitly violates the training-free constraint. Dropped unless the constraint is relaxed.",
+      "key_papers": [
+        "Chanin et al. (2024) — A is for Absorption",
+        "Korznikov et al. (2026) — Sanity Checks for Sparse Autoencoders"
+      ],
+      "risks": [
+        "Explicitly violates the project's training-free constraint.",
+        "Random-decoder SAE may fail to converge to reasonable MSE.",
+        "Result may fall in an ambiguous 50-80% range."
+      ],
+      "mitigations": [
+        "Only pursue if training-free constraint is explicitly relaxed.",
+        "Use TopK for exact sparsity control; monitor MSE during training.",
+        "Pre-register interpretation thresholds."
+      ]
+    }
+  ],
+  "synthesis_notes": {
+    "front_runner_selection_reason": "Cand_a remains the front-runner but has been strategically reframed. The original 'impossibility triangle' / Pareto narrative was downgraded from primary to supporting contribution because the pilot revealed the first-letter absorption proxy is degenerate on GPT-2 Small (zero for 26/27 checkpoints). The new lead contribution is the downstream causal cost analysis (E2), supported by a metric critique (E2/E3) and a domain-dependent absorption pilot (E3). This reframing was mandated by the result_debate verdict (4/10) and the consensus that E2 provides the strongest signal while E1 is currently too compromised to lead.",
+    "perspective_weights": {
+      "contrarian": "Highest weight. Provided the central thesis that absorption is not a fixable bug but an intrinsic tradeoff, and the metric critique that current evaluations are selectively reported on a single objective.",
+      "empiricist": "Highest weight. Insisted on rigorous controls, pre-registered thresholds, confounder analysis, and the mandatory use of real SAEBench data. The revised experimental design is much stronger because of this.",
+      "innovator": "High weight. Contributed the task-agnostic metric idea and the domain-dependence hypothesis (H3), which became a key supporting experiment.",
+      "pragmatist": "High weight. Supplied the engineering reality check and confirmed Pythia-160M as the most reliable open-model anchor with abundant SAEBench data.",
+      "theoretical": "Medium weight. Provided learning-theoretic intuition for why absorption increases effective complexity, enriching the causal-cost narrative.",
+      "interdisciplinary": "Low-medium weight. The ecological niche-partitioning and explaining-away frameworks enriched conceptual vocabulary but the direct experiments were deprioritized due to training-free constraints and novelty collisions."
+    },
+    "dropped_ideas": [
+      "Original 'impossibility triangle' as lead narrative — downgraded because E1 absorption proxy is degenerate and the Pareto claim is untestable with current data.",
+      "Random-decoder baseline (Cand_c) — dropped due to training-free constraint violation.",
+      "Interdisciplinary LCA-SAE intervention — dropped due to training-free constraint and partial novelty collision."
+    ],
+    "evidence_driven_revisions": [
+      "Pilot e1_full_gpt2 showed degenerate absorption proxy (0.0 for 26/27 checkpoints) and unreliable dead-neuron rates at 2k tokens.",
+      "Result debate verdict (4/10) concluded E1 is methodologically compromised, E2 has strong signal but needs real-data validation, and H3 is refuted (weak negative correlation with first-letter benchmark).",
+      "Verdict: PROCEED with strategic reframing around E2 (downstream causal cost) and E3 (metric critique), not pivot to backup."
+    ],
+    "novelty_verification_summary": {
+      "downstream_causal_cost": "No prior work has performed a controlled partial-correlation / regression analysis treating absorption as the specific predictor of downstream utility while controlling for L0, reconstruction, and architecture family.",
+      "first_letter_critique": "No prior work has provided systematic evidence that the canonical first-letter benchmark is degenerate or unrepresentative for specific SAE families.",
+      "task_agnostic_metric": "No prior work has proposed a fully domain-dependent, task-agnostic absorption metric using automated hierarchy discovery."
+    }
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "priority_critical": [
+    {
+      "id": "C1",
+      "category": "analysis",
+      "issue": "Collision rate and 'true absorption rate' are the same metric (Jaccard overlap), making the correlation validation circular",
+      "action": "Reframe collision rate validation as 'reliability of operational definition' rather than 'proxy validation'. Distinguish between Chanin et al.'s conceptual definition (probe-based) and the paper's operational definition (top-K overlap). Add explicit discussion of this circularity.",
+      "files_to_edit": ["writing/paper.md (Sections 3.2, 3.4, 4.3)", "idea/proposal.md (Section 6.2)"],
+      "estimated_effort": "30 minutes"
+    },
+    {
+      "id": "C2",
+      "category": "experiment",
+      "issue": "Only 7 ground truth pairs for UAD evaluation; F1 estimate has huge variance",
+      "action": "Add bootstrap confidence intervals for F1/precision/recall. Acknowledge the small sample size explicitly in the abstract, introduction, and limitations. Frame conclusions as 'UAD fails on this test set' rather than universal claims.",
+      "files_to_edit": ["writing/paper.md (Abstract, Section 4.1, Section 5.5)", "idea/proposal.md (Section 6.1, Section 9)"],
+      "estimated_effort": "45 minutes"
+    },
+    {
+      "id": "C3",
+      "category": "writing",
+      "issue": "F1 = 0.00048 vs same-cluster random F1 = 0.00048 is a mathematical identity (same TP/FP/FN), presented as empirical finding",
+      "action": "Reframe: 'UAD detects exactly 1 true positive out of 4,155 candidates. Randomly sampling 4,155 pairs from the same cluster structure yields the same 1 true positive by chance. UAD's sophisticated pipeline provides zero improvement over this trivial baseline.'",
+      "files_to_edit": ["writing/paper.md (Abstract, Section 4.1)", "idea/proposal.md (Abstract, Section 6.1)"],
+      "estimated_effort": "20 minutes"
+    }
+  ],
+  "priority_major": [
+    {
+      "id": "M1",
+      "category": "analysis",
+      "issue": "Token-level mutual exclusivity claimed as universal property, but only demonstrated on one synthetic number sequence",
+      "action": "Soften universal claims. State that mutual exclusivity holds for tested token-disjoint hierarchies (numbers, punctuation). Acknowledge that semantic hierarchies (animal/dog) may show different patterns. Add semantic hierarchy test if time permits.",
+      "files_to_edit": ["writing/paper.md (Section 4.4, Section 5.1, Section 5.3)", "idea/proposal.md (Section 7.1)"],
+      "estimated_effort": "30 minutes (+ optional 15 min experiment)"
+    },
+    {
+      "id": "M2",
+      "category": "methodological",
+      "issue": "K-means achieves 85.7% recall but is dismissed without analyzing why it outperforms other variants",
+      "action": "Add analysis of K-means cluster assignments for GT features. Investigate what property K-means uses to group absorption features. Discuss whether a post-hoc threshold could improve precision.",
+      "files_to_edit": ["writing/paper.md (Section 4.2)", "exp/results/full/f2_uad_ablations_results.json (add analysis)"],
+      "estimated_effort": "30 minutes"
+    },
+    {
+      "id": "M3",
+      "category": "novelty",
+      "issue": "Novelty check performed on original positive-result framing, not current negative-result paper",
+      "action": "Re-assess novelty for actual contributions: (1) first systematic evaluation of co-occurrence clustering for absorption, (2) token-level mutual exclusivity insight, (3) collision rate validation at scale. Search for prior work on these specific contributions.",
+      "files_to_edit": ["idea/novelty_check.md", "writing/paper.md (Section 2)"],
+      "estimated_effort": "20 minutes"
+    },
+    {
+      "id": "M4",
+      "category": "methodological",
+      "issue": "Only one SAE (gpt2-small-res-jb, layer 8) tested; architecture-independence claim is unsupported",
+      "action": "Add at least one additional test (different layer or SAE architecture) OR explicitly state this as a major limitation and downgrade architecture-independence from assertion to hypothesis.",
+      "files_to_edit": ["writing/paper.md (Section 5.5)", "idea/proposal.md (Section 9, Section 12)"],
+      "estimated_effort": "20 minutes (writing) or 30 minutes (experiment)"
+    },
+    {
+      "id": "M5",
+      "category": "writing",
+      "issue": "Abstract claims 'establishes a dead-end direction' and Conclusion calls to 'abandon co-occurrence-based approaches' --- stronger than evidence supports",
+      "action": "Soften impact claims. Replace 'dead-end direction' with 'this specific approach.' Replace 'abandon' with 'exercise caution' or 'consider alternatives.' Add scope restriction to token-disjoint hierarchies.",
+      "files_to_edit": ["writing/paper.md (Abstract, Section 6.2)", "idea/proposal.md (Abstract, Section 12)"],
+      "estimated_effort": "20 minutes"
+    }
+  ],
+  "priority_minor": [
+    {
+      "id": "m1",
+      "category": "writing",
+      "issue": "'Collision rate' introduced in abstract without definition",
+      "action": "Add parenthetical definition in abstract: 'collision rate (Jaccard overlap of top-K activating features).'",
+      "files_to_edit": ["writing/paper.md (Abstract)"],
+      "estimated_effort": "5 minutes"
+    },
+    {
+      "id": "m2",
+      "category": "writing",
+      "issue": "Missing recent related work (CE-Bench, FMS, Jiang et al. 2025)",
+      "action": "Add CE-Bench and FMS to Related Work with clear differentiation from UAD. Cite Jiang et al. for co-occurrence analysis precedent.",
+      "files_to_edit": ["writing/paper.md (Section 2)", "idea/novelty_check.md"],
+      "estimated_effort": "20 minutes"
+    },
+    {
+      "id": "m3",
+      "category": "methodological",
+      "issue": "Ablation filters (dead feature, phi) appear to be no-ops; identical TP/FP/FN across variants",
+      "action": "Report how many features were actually removed by each filtering step. If zero, explain why.",
+      "files_to_edit": ["writing/paper.md (Section 4.2)", "exp/results/full/f2_uad_ablations_results.json"],
+      "estimated_effort": "15 minutes"
+    },
+    {
+      "id": "m4",
+      "category": "methodological",
+      "issue": "Single seed (42); no sensitivity analysis",
+      "action": "Run UAD with 2-3 additional seeds and report variance in F1. Quick check for robustness.",
+      "files_to_edit": ["exp/ (new experiment)", "writing/paper.md (Section 5.5)"],
+      "estimated_effort": "15 minutes"
+    },
+    {
+      "id": "m5",
+      "category": "writing",
+      "issue": "False positive rate terminology non-standard (uses 1-precision instead of FP/(FP+TN))",
+      "action": "Replace 'false positive rate = 99.98%' with 'precision = 0.024%'. Use standard ML terminology.",
+      "files_to_edit": ["writing/paper.md (Section 4.1)", "exp/results/full/f5_false_positive_results.json"],
+      "estimated_effort": "10 minutes"
+    },
+    {
+      "id": "m6",
+      "category": "analysis",
+      "issue": "Combined collision correlation (r=0.869) inflated by between-hierarchy variance",
+      "action": "Acknowledge this statistical artifact. Report individual hierarchy correlations prominently alongside combined correlation.",
+      "files_to_edit": ["writing/paper.md (Section 4.3)", "idea/proposal.md (Section 6.2)"],
+      "estimated_effort": "15 minutes"
+    },
+    {
+      "id": "m7",
+      "category": "reproducibility",
+      "issue": "No code repository link; custom UAD implementation not described in detail",
+      "action": "Add reproducibility statement with code link (even placeholder). Add pseudocode for UAD pipeline in Methods.",
+      "files_to_edit": ["writing/paper.md (Section 3.3)", "plan/methodology.md (Section 9)"],
+      "estimated_effort": "30 minutes"
+    },
+    {
+      "id": "m8",
+      "category": "writing",
+      "issue": "Conclusion missing memorable restatement of core insight",
+      "action": "Add crisp summary: 'Co-occurrence clustering asks which features fire together. Absorption requires answering which features represent the same concept at different granularities. These are different questions, and UAD conflates them.'",
+      "files_to_edit": ["writing/paper.md (Section 6.1)"],
+      "estimated_effort": "10 minutes"
+    }
+  ],
+  "summary": {
+    "total_items": 16,
+    "critical": 3,
+    "major": 5,
+    "minor": 8,
+    "estimated_total_effort": "5-6 hours (including optional experiments)"
+  }
+}

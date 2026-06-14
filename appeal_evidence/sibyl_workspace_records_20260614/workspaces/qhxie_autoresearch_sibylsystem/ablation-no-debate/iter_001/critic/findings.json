@@ -1,0 +1,97 @@
+{
+  "summary": "The paper makes a genuine methodological contribution (multi-child proportional ablation) but suffers from critical data integrity issues, severe underpowered analyses, a broken steering experiment presented as a negative result, and overclaiming on causal/epistemic conclusions. The core H1 result is real but the zero-variance trained SAE (std=0.0) is deeply suspicious. H2 and H3 are not merely 'not supported' -- they are methodologically compromised. The paper's strongest aspect is honest negative result reporting, but this is undermined by presenting a broken experiment as a valid null result.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H1 trained SAE shows ZERO variance (std=0.0) across all 100 samples with absorption locked at exactly 0.5. Every single sample shows identical absorption_k5=0.5, overlap_parent_child1=0.4, overlap_parent_child2=0.6. This is not biological variation -- it is deterministic arithmetic. The t-test vs random decoder (t=63.2, p=3e-133) is statistically valid but practically meaningless because the 'variance' being tested is between conditions, not within the trained SAE. The paper presents this as strong evidence without acknowledging that the measurement is effectively a deterministic geometric computation.",
+      "suggestion": "Investigate why absorption is deterministic. The formula may reduce to a constant given the synthetic hierarchy geometry (cos=0.67). Add stochastic noise to hierarchy generation or vary geometric parameters. Report that absorption is invariant to sample variation under the current design."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H3 steering experiment is BROKEN, not merely 'not supported'. Baseline mean equals steered mean exactly (37.44512171672082) to full double precision for BOTH absorbed and non-absorbed features. t-statistic = NaN. The paper acknowledges 'steering was not applied' in the proposal but in the paper presents this as 'zero improvement for both groups' and draws causal conclusions ('absorption may be epistemic rather than causal'). Drawing epistemic vs causal conclusions from a broken experiment is a severe methodological error.",
+      "suggestion": "Remove ALL causal/epistemic claims from H3. State clearly: 'Steering implementation failed to produce measurable activation changes; causal claims cannot be evaluated.' Do not present broken methodology as a negative result. Either fix and rerun, or remove H3 entirely from the paper."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "H2 frequency-absorption correlation (rho=+0.171) is based on absorption_per_feature data that is 98.5% zeros. Of 1024 features, only 15 show non-zero absorption (0.0175, 0.5, 0.5, 0.5335, 0.321, 0.5865, 0.179, 0.5, 0.5, 0.5, 0.5, 0.321, 0.5865, 0.5, 0.179). The correlation is driven entirely by 15 outlier features against a background of zeros. The 'positive correlation' may simply reflect that high-frequency features occasionally appear in the tiny non-zero set. The competitive exclusion hypothesis was never properly testable with this data distribution.",
+      "suggestion": "Report the zero-inflation explicitly: '98.5% of features show zero absorption, making correlation analysis unreliable.' Consider zero-inflated models or restrict analysis to the small subset with non-zero absorption. Do not present rho=+0.17 as a meaningful finding."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Only 7 'absorbed' features identified out of 1024 (0.7%), using threshold=0.5. This is an extremely small sample for any statistical test. The paper mentions 'only 7 absorbed features were tested, limiting statistical power' but does not quantify how limited: with n=7, power to detect a medium effect (d=0.5) is approximately 18% at alpha=0.01. The paper should not have attempted H3 with this sample size, and certainly should not draw conclusions from it.",
+      "suggestion": "Report exact power calculation: 'With n=7 absorbed features, power to detect d=0.5 at alpha=0.01 is 18%. The null result is uninformative.' Remove all H3 conclusions or rerun with a lower absorption threshold to increase n."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The paper claims H1 differentiates 'trained SAEs from random baselines' but the shuffled features baseline (0.487) and permuted encoder baseline (0.484) are statistically indistinguishable from trained SAE (0.500) with tiny effect sizes (d=0.54, d=0.61). The ONLY baseline that differs is the random decoder (0.059). This means the 'differentiation' is not about training per se but about whether decoder geometry is preserved. The paper's framing ('trained SAEs show genuine absorption') overstates the finding.",
+      "suggestion": "Reframe H1: 'Absorption differentiates structured decoder geometry from random decoders, but shuffled and permuted baselines with preserved geometry match trained SAE performance.' Emphasize that the key factor is decoder geometry, not training."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The paper uses a single seed (42) for all reported results. The proposal explicitly identifies 'zero-variance concern' and plans multi-seed validation (seeds 42-46), but the full paper presents only seed=42 data. The SAE config in multichild_absorption.json shows d_model=128, d_sae=1024, L0=32 -- contradicting the paper's stated d_model=512, d_sae=4096. This config discrepancy is never explained.",
+      "suggestion": "Either run multi-seed validation and report variance across seeds, or explicitly state 'Results shown for single seed due to computational constraints; multi-seed validation planned.' Resolve the d_model=128 vs 512 discrepancy with a clear explanation."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "The paper claims 'causal validation via steering' as Contribution #2, but H3 is broken and cannot support causal claims. The novelty report (9/10 for H_Safe) is not reflected in the paper -- H_Safe was never tested. The paper's actual contributions are: (1) multi-child proportional ablation methodology, and (2) honest negative results. The claimed contributions oversell what was actually achieved.",
+      "suggestion": "Revise contributions to reflect actual results: (1) Multi-child proportional ablation methodology, (2) Evidence that absorption is primarily geometric, (3) Honest negative results (H2, H3). Remove 'causal validation' as a contribution. Add H_Safe as future work with explicit 'not tested' status."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Section 5.1 contains a critical typo: 'Single-child ablation, which ablates the top-k children simultaneously' -- this describes MULTI-child ablation, not single-child. This contradicts the entire methodological argument. The writing review identified this but it remains in the paper.",
+      "suggestion": "Fix immediately: Change 'Single-child ablation' to 'Multi-child ablation' in Section 5.1."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "The experiment code (p1_multichild_absorption.py) is not included in the repository. Only results JSONs are present. Without the code, it is impossible to verify: (1) why absorption is deterministic at 0.5, (2) why steering produced identical baseline/steered values, (3) how the overlap metric is computed. The pilot summary recommends 'proceed to full experiment (5 seeds x 3 L0 targets x 4 conditions)' but this was never done.",
+      "suggestion": "Include experiment code in the repository or provide a detailed algorithmic description. Document exactly why the full experiment was not run."
+    },
+    {
+      "category": "analysis",
+      "severity": "minor",
+      "description": "The paper presents H2 as 'falsifying competitive exclusion' but the competitive exclusion hypothesis was only one possible interpretation. The positive correlation could also indicate that the absorption metric is confounded by feature frequency (frequent features have more opportunities to show overlap). The paper does not consider alternative explanations.",
+      "suggestion": "Add a paragraph discussing alternative explanations for the positive correlation, including the confound that frequent features have more activation samples to measure overlap."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "The abstract claims 'Steering experiments reveal that absorbed features do not respond to parent-direction interventions, suggesting absorption may reflect learned geometric structure rather than active causal interference.' This is an overclaim from broken data. The abstract also claims 'Causal validation via steering' as a contribution, which is unsupported.",
+      "suggestion": "Rewrite abstract to remove causal claims from H3. State: 'Steering experiments could not be evaluated due to implementation issues; causal status of absorption remains open.'"
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "The paper claims 15 SAE configurations (3 L0 x 5 seeds) but only reports results for L0=32, seed=42. The other 14 configurations are never mentioned again. This creates a misleading impression of experimental breadth.",
+      "suggestion": "Either report all 15 configurations or state clearly that results are for a single configuration (L0=32, seed=42) with others planned."
+    }
+  ],
+  "metric_gaming_risks": [
+    "Deterministic absorption metric (0.5 constant) masquerades as a measured phenomenon with reported std=0.0",
+    "H3 broken experiment presented as valid negative result with causal conclusions drawn",
+    "H2 correlation driven by 1.5% non-zero outliers against 98.5% zeros -- not a meaningful pattern",
+    "Large effect size (d=8.94) from comparing deterministic constant vs random variable inflates perceived significance",
+    "Only 7 absorbed features (0.7%) used for H3, but paper draws population-level conclusions"
+  ],
+  "novelty_risks": [
+    "Multi-child proportional ablation is genuinely novel but the deterministic result undermines its value as a measurement",
+    "Safety-critical feature analysis (H_Safe) was planned as highest novelty contribution but never executed",
+    "Geometric vs learned decomposition (H_Mech) was planned but never executed",
+    "The paper's actual novelty is limited to: (a) multi-child ablation formula, (b) honest negative result reporting"
+  ],
+  "reproducibility_gaps": [
+    "Experiment code not in repository -- cannot verify deterministic absorption or broken steering",
+    "Single seed used despite plan for 5 seeds -- no variance estimate for key result",
+    "d_model=128 in data vs d_model=512 in paper -- config discrepancy unexplained",
+    "H3 steering code produced NaN t-statistics -- implementation not debugged or documented",
+    "No held-out test set results reported despite 80/20 split mentioned in methodology"
+  ]
+}

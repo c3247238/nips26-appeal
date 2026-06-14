@@ -1,0 +1,211 @@
+{
+  "iteration": 7,
+  "date": "2026-03-19",
+  "overall_quality_score": 6.0,
+  "quality_trajectory": "improving",
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 20,
+  "issues_classified": [
+    {
+      "id": "E1",
+      "description": "Theorem 2 (Cumulative Alignment Bound) validated but result is NEGATIVE: bar_delta vs gen_gap Spearman rho=-0.379, p=0.121 (not significant); sup_delta vs gen_gap rho=0.045, p=0.858 (not significant). Neither cumulative nor worst-case alignment predicts generalization. Paper currently claims bound 'strictly improves on worst-case analysis' -- this is empirically unsupported.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Demote Theorem 2 from 'major contribution' to 'theoretical proposition.' Rewrite Section 4.4 honestly: 'The cumulative alignment bound is theoretically tighter (rho=-0.38 vs rho=0.05 for worst-case), but neither achieves statistical significance at n=18.' Add scatter plot (theorem2_validation.png already exists) as Figure 7 with honest caption. Remove 'strictly improves' language. Estimated: 2 hours writing.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:theorem2-negative-validation-cumulative-alignment-bound:validation001"
+    },
+    {
+      "id": "E2",
+      "description": "Lyapunov function V_t empirically INCREASES throughout training, directly contradicting Theorem 1's guarantee V_{t+1} <= V_t. Paper hand-waves this as 'dominated by mu_t*||w_t||^2 term.' Task fix_lyapunov_definition is in task_plan but not yet executed (status: not started, depends_on: []).",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Execute task fix_lyapunov_definition from task_plan.json. Three concrete options: (1) Redefine V_t = f(w_t) alone and verify it decreases. (2) Acknowledge the practical learning rate exceeds 1/L making the guarantee vacuous, and present as asymptotic/theoretical. (3) Decompose V_t = f(w_t) + mu_t*||w_t||^2, show f(w_t) decreases while ||w_t||^2 increases, explain V_t increase is driven by norm growth not divergence. Update Sections 4.2 and 6.3. Estimated: 3 hours.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:lyapunov-vt-increasing-contradiction-theorem1:308946362337"
+    },
+    {
+      "id": "E3",
+      "description": "Paper scope STILL narrower than claimed: abstract promises 105 experiments, 7 methods, 2 optimizers, 2 architectures, but paper body evaluates only ResNet-20 with AdamW on CIFAR-10/100. VGG-16-BN data exists (iter_005, 4 methods x 3 seeds, phi spread 0.16%) and task integrate_vgg_data exists in task_plan but is not yet executed. Figures now include multi_arch_comparison.pdf but paper text does not reference it.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Execute integrate_vgg_data task immediately -- zero compute cost. Add VGG-16-BN data as Table 3 in paper. Reference multi_arch_comparison.pdf/png figure. Also add half_lambda + random_mask to ResNet-20 Table 2 from iter_003 data. This addresses the scope gap with zero GPU time. Estimated: 2 hours writing.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:scope-narrow-vgg-data-exists-not-integrated:f6b24bb1dd52"
+    },
+    {
+      "id": "E4",
+      "description": "Theory-experiment optimizer mismatch: ALL theorems assume SGD dynamics. ALL experiments use AdamW. PMP-WD costate derived for SGD momentum but applied to AdamW. Paper now has SGD experiments (iter_003) but these are NOT referenced in current paper.md (paper was rewritten in iter_007 without SGD section).",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Two actions: (1) Re-add SGD results section from iter_003/005 data showing WD matters under SGD (validates Phi Invariance Conjecture boundary condition). (2) Add explicit limitation: 'Our theoretical analysis assumes vanilla SGD dynamics; extending to AdamW preconditioner is left to future work.' Estimated: 2 hours.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:sgd-adamw-theory-experiment-mismatch:0a28bc5819e7"
+    },
+    {
+      "id": "E5",
+      "description": "CIFAR-100 data provenance mismatch persists: 5 of 6 methods' CIFAR-100 data from iter_003, PMP-WD from iter_006. Different code versions. Writing review flags this as Critical -- numbers cannot be independently verified from current workspace.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Option A (fast, 1 hour): copy iter_003 summary.json files into current workspace and add explicit provenance note in paper. Option B (thorough, 6 GPU-hours): rerun all CIFAR-100 with same code version. Recommend Option A for iteration 7, Option B if scope expansion to iter_008. Fix CIFAR-100 spread inconsistency (0.76pp vs 0.58pp) simultaneously.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:cifar100-data-provenance-mismatch:cb234bada009"
+    },
+    {
+      "id": "W1",
+      "description": "Figure 1 is STILL a markdown placeholder. Writing review scores Visual Communication 5/10. certified_band.png/pdf and theorem2_validation.png now exist in writing/figures/ but are not referenced in paper.md. Paper references 6 figures but some reference filenames that don't match actual files.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "P0: (1) Replace Figure 1 placeholder with fig1_taxonomy.png (already exists). (2) Add certified_band.pdf as new figure showing certified band with method trajectories. (3) Add theorem2_validation.png as Figure 7. (4) Fix all figure filename references to match actual files in writing/figures/. Estimated: 2 hours.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:figure1-placeholder-missing-certified-band-viz:22644fd96bdf"
+    },
+    {
+      "id": "W2",
+      "description": "Four appendices cited in main text (B.1 Theorem 1 proof, B.3 PMP-WD derivation, B.4 RG derivation, A.3 CSI sensitivity) -- none exist. 5th consecutive iteration flagging this. Writing review: 'Appendix A referenced but no appendix exists.'",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Write at minimum: B.1 (Theorem 1 proof, 2 hours) and B.3 (PMP-WD derivation, 2 hours). These are essential for a theory-heavy paper. If time-constrained, remove all appendix references from main text instead. Do NOT leave dangling references. Estimated: 4-6 hours for writing, or 30 minutes for reference removal.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:missing-appendices-cited-since-iter3:0f862c80a4ac"
+    },
+    {
+      "id": "W3",
+      "description": "Theorem numbering non-sequential: Theorems appear as 1, 3, 2, 4 in text. CIFAR-100 spread reported as 0.76pp (abstract), 0.58pp (Section 6.2), 0.76pp (Section 7.1). Random mask (90.12%) cited in Section 7.3 but absent from tables.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "(1) Renumber theorems sequentially. (2) Standardize CIFAR-100 spread: report 0.58pp (WD methods only) as primary, note 0.76pp inclusive of no-WD parenthetically. (3) Add half_lambda + random_mask to Table 2 or remove dangling Section 7.3 reference. Estimated: 1 hour.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:theorem-numbering-cifar100-spread-random-mask:3176fecdec8c"
+    },
+    {
+      "id": "W4",
+      "description": "Paper's Phi Invariance Conjecture abstract claims 105 experiments across 2 optimizers, 2 architectures -- but paper body has only ResNet-20/AdamW. The abstract-body disconnect will be flagged by any reviewer reading past the first page.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Either: (1) Integrate all existing data (VGG-16-BN, SGD, NoBN) into paper body to justify abstract claims, or (2) Narrow abstract to match actual paper content. Option 1 is strongly preferred -- the data EXISTS. Estimated: 3 hours.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:abstract-body-scope-disconnect:abstract001"
+    },
+    {
+      "id": "W5",
+      "description": "PMP-WD framing still misleading: paper says 'consistent with optimality' but p=0.12 (not significant), method ordering reversed between iter_003 and iter_006. Cohen's d formula still mislabeled (paired vs unpaired). Banned phrase 'to our knowledge' variant in Section 2.6.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Rewrite PMP-WD section: 'PMP-WD achieves comparable accuracy (p=0.12, not significant); method ordering is not reproducible across batches, confirming narrow certified band.' Fix Cohen's d label. Remove banned phrase. Estimated: 1 hour.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:pmpwd-misleading-framing-cohens-d:c53dfa5c34c0"
+    },
+    {
+      "id": "A1",
+      "description": "BEM = 0.000 for half_lambda still flagged as mathematically impossible (should be ~0.5). Iteration 4 fixed this to -0.500 but unclear if current paper reflects the fix.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Verify BEM computation for half_lambda in current paper. If still 0.000, update to corrected value. If -0.500, verify this makes physical sense under the BEM definition. Estimated: 30 minutes.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:bem-half-lambda-impossible-value:49cd490ca179"
+    },
+    {
+      "id": "P1",
+      "description": "Writing-experiment decoupling: 7th consecutive iteration. Paper was rewritten in iter_007 without all planned experiments complete (validate_theorem2 and create_certified_band_viz still 'running' in experiment_state.json). Writing critique checkpoint shows all 6 sections at 'pending' status, meaning the critique pipeline was skipped.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "Implement experiment_gate: writing_sections must not begin until all experiment tasks in task_plan.json reach 'completed' status AND data audit verifies table numbers match summary.json. This is a system change to orchestrate.py. Estimated: 4 hours system change.",
+      "status": "recurring",
+      "requires_system_change": true,
+      "issue_key": "pipeline:writing-experiment-decoupling-7th-iteration:fd42c7e35b5d"
+    },
+    {
+      "id": "P2",
+      "description": "ImageNet experiments have failed in 3+ iterations with no root cause diagnosis. Project constraints explicitly require ImageNet. No fallback strategy implemented.",
+      "category": "efficiency",
+      "severity": "medium",
+      "suggestion": "Before any retry: (1) Check failure logs for OOM/path/data errors. (2) Verify ImageNet data path exists on compute server. (3) Run single-epoch smoke test with batch_size=32. (4) If infrastructure-blocked, use ImageNet-100 (100 classes, ~13% of data) as lower-risk alternative. Estimated: 2 hours diagnosis.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "efficiency:imagenet-failure-no-diagnosis:94ed75e64c03"
+    },
+    {
+      "id": "EF1",
+      "description": "Two tasks (validate_theorem2, create_certified_band_viz) registered as 'running' in experiment_state.json since 2026-03-19T08:57:27 but experiment results directories are empty. These are analysis tasks (gpu_count=0) that should have completed quickly. Possible stale state.",
+      "category": "system",
+      "severity": "medium",
+      "suggestion": "Check if these tasks actually ran. Results exist: theorem2_validation.json has full data, certified_band.png/pdf exist in writing/figures/. The experiment_state.json may not have been updated to 'completed'. Manually verify and mark as completed if outputs exist. Estimated: 15 minutes.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "system:stale-running-tasks-experiment-state:stale001"
+    },
+    {
+      "id": "A2",
+      "description": "Lambda_max vs lambda_max(t) notation confusion. Per-layer state variables n_l(t), r_l(t) defined in notation.md but absent from paper. bar_delta_T and delta_T^sup notation inconsistency between notation.md and paper.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Add clarifying sentence distinguishing Lambda_max (PMP bound) from lambda_max(t) (certified band). Remove unused per-layer variables from notation.md. Standardize delta notation. Estimated: 30 minutes.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:notation-inconsistencies:notation001"
+    }
+  ],
+  "issues_fixed": [
+    "Theorem 2 now has empirical validation data: 18 data points (6 methods x 3 seeds) with bar_delta, sup_delta, gen_gap computed. Spearman correlations calculated. Scatter plot generated (theorem2_validation.png). Resolves the 'zero validation' gap from iter_006, though the result is negative.",
+    "Certified band visualization now exists: certified_band.png/pdf generated showing [lambda_min(t), lambda_max(t)] with method trajectories. Resolves the 'no visualization for central contribution' gap from iter_006.",
+    "Paper fully rewritten with unified Phi Invariance Conjecture framing, incorporating multi-optimizer (AdamW + SGD) narrative in abstract. Writing quality scored 8/10 by writing review.",
+    "Figure count increased from placeholder+4 to 12+ actual figure files including multi_arch_comparison, theorem2_validation, certified_band, SGD comparison."
+  ],
+  "success_patterns": [
+    "Table 2 data integrity remains impeccable: writing review cross-validated every CIFAR-10 accuracy value against summary.json. Zero discrepancies. This standard must be applied to ALL tables.",
+    "Phi modulator taxonomy (Table 1) continues to receive universal praise. The observation that CWD, random mask, and PMP-WD all implement bang-bang control is a genuine structural insight.",
+    "Statistical honesty maintained: paired t-tests with Bonferroni correction, explicit p-values, non-significance acknowledged. This IS the paper's competitive advantage.",
+    "'Weight decay illusion' framing is compelling and memorable. Writing review specifically highlights the directness of the practical takeaway.",
+    "PMP-WD implementation efficiency: 6-minute implementation from theory demonstrates the framework produces practical algorithms. Key marketing point.",
+    "Three-stage review pipeline (supervisor, critic, writing review) catches distinct non-overlapping issues. All three are essential. Writing review in iter_007 identified 8 issues missed by earlier stages.",
+    "Abstract now correctly frames the dual AdamW/SGD finding, which is the paper's strongest empirical contribution."
+  ],
+  "systemic_patterns": [
+    "Writing-experiment decoupling: 7th consecutive iteration. The pipeline completes writing stages before all planned experiments finish. Critique checkpoint shows all 6 sections 'pending' -- the quality gate was bypassed.",
+    "Missing appendices since iter_003: 5 consecutive iterations flag missing proofs. Zero writing time allocated to appendices. The pipeline systematically deprioritizes appendix writing.",
+    "Data integration gap: VGG-16-BN data (iter_005), SGD data (iter_003), NoBN data (iter_005), half_lambda/random_mask data (iter_003) all exist but are not in the current paper. The paper's abstract claims coverage the body does not deliver.",
+    "Theoretical claims outrun validation: Theorem 2 now validated but result is negative (rho=-0.38, p=0.12). V_t increasing contradicts Theorem 1. Subsumption fraction (>=95%) unsubstantiated. The paper has more contested theory than confirmed theory.",
+    "Quality oscillation: iter_002=8.2, iter_003=5.5, iter_004=5.5, iter_005=7.0, iter_006=5.5, iter_007~6.0. The pivot to unified framework destabilized quality. Each writing rewrite introduces new inconsistencies faster than old ones are resolved."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 30,
+    "total_gpu_idle_minutes": null,
+    "bottleneck_stages": [
+      "validate_theorem2_and_certified_band_stalled",
+      "writing_before_analysis_tasks_complete",
+      "zero_new_experiments_run_in_iter_007",
+      "critique_pipeline_skipped"
+    ],
+    "suggestions": [
+      "Iteration 7 ran ZERO new GPU experiments. All effort was analysis + writing. This is appropriate IF the analysis tasks complete, but they appear stalled.",
+      "Integrate ALL existing cross-iteration data (VGG, SGD, NoBN) into paper -- zero compute, maximum ROI.",
+      "Complete the 5 tasks in task_plan.json before starting another writing cycle.",
+      "Do not skip the critique pipeline -- it catches issues that supervisor and writing review miss.",
+      "Diagnose ImageNet failures before iter_008 allocates GPU time to it."
+    ]
+  },
+  "recommended_focus": [
+    "P0: Complete fix_lyapunov_definition -- this is the paper's most dangerous theoretical contradiction (3 hours)",
+    "P0: Integrate ALL existing data into paper body: VGG-16-BN (Table 3), SGD (Section 5.x), half_lambda+random_mask (Table 2) -- zero compute, 3 hours writing",
+    "P0: Fix abstract-body scope disconnect -- abstract claims 105 experiments, body has ~36. Either narrow abstract or integrate data.",
+    "P0: Reference existing figures correctly: certified_band, theorem2_validation, multi_arch_comparison are generated but not in paper text (2 hours)",
+    "P0: Rewrite Theorem 2 presentation with honest negative result from validation data (rho=-0.38, p=0.12) (1 hour)",
+    "P1: Write Appendix B.1 (Theorem 1 proof) and B.3 (PMP-WD derivation) -- 5th consecutive iteration of neglect (4-6 hours)",
+    "P1: Fix all remaining writing issues: theorem numbering, CIFAR-100 spread, PMP-WD framing, Cohen's d, banned phrase, notation (2 hours)",
+    "P1: Run critique pipeline that was skipped in iter_007 (1 hour)",
+    "P2: Diagnose ImageNet failures and implement fallback strategy (2 hours diagnosis)",
+    "P2: Implement experiment_gate system change to prevent future writing-experiment decoupling (4 hours system change)"
+  ]
+}

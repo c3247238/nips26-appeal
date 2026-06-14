@@ -1,0 +1,457 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{natbib}
+
+\title{Beyond Competitive Exclusion: Hedging Dominance, Rate-Distortion Diagnostics, and the $L_0$ Phase Transition in SAE Feature Absorption}
+
+\author{%
+  Anonymous Authors \\
+  Anonymous Institution \\
+  \texttt{anonymous@institution.edu} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Feature absorption---where a parent SAE latent silently fails to fire when a child latent is active---is the primary reliability concern for SAE-based mechanistic interpretability, motivating architectural mitigations including Matryoshka SAE (ICML 2025), OrtSAE, and ATM-SAE. All published absorption measurements use GPT-2 Small with L1-ReLU SAEs; none validates the Chanin metric on modern JumpReLU SAEs. We audit the metric on Gemma 2 2B with Gemma Scope JumpReLU SAEs across five hierarchy domains and report three findings. First, the metric does not transfer without recalibration: shuffled-label controls produce higher absorption than true labels in all five domains (up to $4.7\times$ on first-letter), and confound decomposition at $L_0{=}22$ with perfect probes (F1${=}1.0$) reveals that 98.6\% of detected false negatives are hedging---information spreading across many latents---not competitive exclusion. Genuine hierarchy-driven absorption amounts to 9 of 1,196 words (0.75\%). Second, absorption declines monotonically from 42.85\% at $L_0{=}22$ to 0.84\% at $L_0{=}176$, with a phase transition in the $L_0 \approx 40$--$80$ range that is stable across three layers (CV $< 10\%$). The $L_0$ operating point, not the encoder architecture, emerges as the primary control parameter. Third, conditional mutual information $I(X; f_{\text{parent}} \mid f_{\text{child}})$ at subspace dimension $d'{=}10$ separates absorbed from non-absorbed letters (mean CMI 0.649 vs.\ 0.861; Mann-Whitney $p = 0.045$; Cohen's $d = -0.924$), consistent with rate-distortion theory. For unit-normalized decoders, the geometric constant degenerates, simplifying the threshold to $L_{0,\text{crit}} \approx \lambda / \text{CMI}$. The CMI correlation holds only at $d'{=}10$ and does not survive Bonferroni correction ($p = 0.236$)---a limitation we report transparently. These results recommend validating absorption metrics on new SAE architectures before building mitigations.
+\end{abstract}
+
+
+%% ================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Sparse Autoencoders (SAEs) decompose the polysemantic activations of large language models into sparse, interpretable features---the primary unsupervised tool for mechanistic interpretability at scale \citep{cunningham2023sparse, bricken2023monosemanticity, templeton2024scaling}. Feature absorption undermines this decomposition: a general ``parent'' SAE latent silently fails to fire on inputs where a more specific ``child'' latent is active, even though the parent concept is present \citep{chanin2024absorption}. The failure is invisible to standard evaluation---the parent feature achieves high precision on its activating examples but has systematic, undetected holes in recall.
+
+\citet{chanin2024absorption} (NeurIPS 2025 Oral) measured absorption rates of 15--35\% across hundreds of SAEs on first-letter spelling using GPT-2 Small with L1-ReLU SAEs. This finding triggered an architectural mitigation wave: Matryoshka SAE \citep{bussmann2025matryoshka}, OrtSAE \citep{korznikov2025ortsae}, ATM-SAE \citep{li2025atm}, and masked regularization \citep{narayanaswamy2026masked} all propose encoder modifications to reduce absorption. The entire mitigation wave assumes the diagnostic is valid---that the Chanin metric measures hierarchy-driven competitive exclusion where child latents actively suppress parent latents under sparsity pressure. No study has systematically validated this assumption on a different SAE architecture with appropriate controls. JumpReLU SAEs \citep{rajamanoharan2024jumprelu}, which use hard activation thresholds rather than soft L1 penalties and dominate the Gemma Scope ecosystem \citep{lieberum2024gemmascope}, have fundamentally different activation dynamics that could alter both the mechanism and measurement of absorption.
+
+Three open questions motivate our study:
+
+\textbf{Q1---Metric validity.} Does the Chanin absorption metric transfer from L1-ReLU SAEs on GPT-2 to JumpReLU SAEs on Gemma 2 2B? What fraction of measured ``absorption'' reflects genuine competitive exclusion versus hedging (information spreading across many latents) or metric artifact?
+
+\textbf{Q2---Sparsity dynamics.} How does absorption scale with the $L_0$ operating point (the number of active SAE latents per forward pass)? Is there a sparsity threshold below which absorption becomes negligible?
+
+\textbf{Q3---Theoretical criterion.} Can information theory predict which parent-child feature pairs are susceptible to absorption, and at what sparsity level absorption becomes information-theoretically unavoidable?
+
+We audit the Chanin metric on Gemma 2 2B with Gemma Scope JumpReLU SAEs across five hierarchy domains and report three findings.
+
+\textbf{1.\ The absorption metric does not transfer to JumpReLU SAEs without recalibration (Section~\ref{sec:metric}).} Shuffled-label controls produce higher ``absorption'' than true labels in all five tested domains (up to $4.7\times$ on first-letter). Confound decomposition at $L_0{=}22$, where probes achieve F1${=}1.0$ for all 25 first-letter classes, classifies 98.6\% of 657 false negatives as hedging and only 1.4\% as hierarchy-driven. Genuine absorption---the 9 words that remain absorbed at all tested $L_0$ values---amounts to 0.75\% of the 1,196-word vocabulary.
+
+\textbf{2.\ Absorption declines monotonically with $L_0$, exhibiting a phase transition (Section~\ref{sec:phase}).} On L12-16k, the absorption rate drops from 42.85\% at $L_0{=}22$ to 37.49\% at $L_0{=}41$, 14.39\% at $L_0{=}82$, and 0.84\% at $L_0{=}176$ (Spearman $\rho_s = -1.0$). This profile is stable across layers 10, 12, and 20 (CV $< 10\%$ at $L_0{=}82$). The $L_0$ operating point---not the encoder architecture---emerges as the primary control parameter for absorption severity. The 9 persistent core words are candidates for genuine competitive exclusion, pending validation via activation patching.
+
+\textbf{3.\ Conditional mutual information predicts absorption susceptibility (Section~\ref{sec:cmi}).} Absorbed letters have lower CMI than non-absorbed letters (mean 0.649 $\pm$ 0.187 vs.\ 0.861 $\pm$ 0.258; Mann-Whitney $p = 0.045$; Cohen's $d = -0.924$), consistent with rate-distortion theory. The Spearman rank correlation is $\rho_s = -0.383$ (marginally significant, $p = 0.059$). For unit-normalized Gemma Scope decoders, the geometric constant degenerates, simplifying the threshold to $L_{0,\text{crit}} \approx \lambda / \text{CMI}$. This correlation holds only at $d'{=}10$; at higher dimensions the signal reverses---a limitation discussed in Section~\ref{sec:discussion}.
+
+These results suggest that the field should validate absorption metrics on new SAE architectures before building mitigations, and that hedging---not competitive exclusion---is the dominant false-negative mechanism on JumpReLU SAEs at typical operating points.
+
+Sections~\ref{sec:background}--\ref{sec:method} provide background and methodology; Sections~\ref{sec:metric}--\ref{sec:cmi} present the metric audit, $L_0$ phase transition, and rate-distortion diagnostic; Section~\ref{sec:discussion} discusses implications and limitations.
+
+
+%% ================================================================
+\section{Background and Related Work}
+\label{sec:background}
+
+\subsection{Sparse Autoencoders in Mechanistic Interpretability}
+
+An SAE maps a residual stream activation $x \in \mathbb{R}^{d_{\text{model}}}$ to a sparse latent vector $z \in \mathbb{R}^{d_{\text{SAE}}}$ via encoder $W_e$ and reconstructs $\hat{x} = W_d z$, where decoder columns $d_j$ are unit-normalized. Two architecture families dominate current practice. L1-ReLU SAEs \citep{cunningham2023sparse, bricken2023monosemanticity} apply a soft L1 penalty to encourage sparsity: $z_j = \text{ReLU}(w_{e,j}^\top x + b_{e,j})$. JumpReLU SAEs \citep{rajamanoharan2024jumprelu} impose a hard per-latent threshold $\theta_j$:
+\begin{equation}
+z_j = (w_{e,j}^\top x + b_{e,j}) \cdot \mathbb{1}[w_{e,j}^\top x + b_{e,j} > \theta_j],
+\end{equation}
+trained via the straight-through estimator. The $L_0$ operating point---the configured number of non-zero latents per forward pass---controls the sparsity-fidelity tradeoff. Gemma Scope \citep{lieberum2024gemmascope} provides 400+ open JumpReLU SAEs on Gemma 2 2B/9B/27B with configurable $L_0$ values, making it the primary evaluation target for absorption research. SAEs have been scaled to frontier models \citep{templeton2024scaling, gao2024topk} and used for circuit analysis \citep{lindsey2025circuits}, but their theoretical guarantees remain limited: \citet{leask2025canonical} show SAE features are neither canonical nor atomic, and \citet{cui2025recovery} prove that recovery fails unless features are extremely sparse.
+
+\subsection{Feature Absorption}
+
+\citet{chanin2024absorption} formalize absorption: a parent latent $z_p$ (e.g., ``starts-with-A words'') has activation $z_p = 0$ on parent-positive inputs when a child latent $z_c$ (e.g., ``starts-with-A proper nouns'') is active ($z_c > 0$). Their measurement protocol trains $k$-sparse logistic regression probes on SAE latent activations to identify parent features, finds SAE latents whose decoder directions align with the probe (cosine similarity $\geq \tau_{\cos}$), and computes the false-negative rate of those latents on parent-positive inputs. Across hundreds of SAEs in SAEBench \citep{karvonen2025saebench}, absorption rates range from 15\% to 35\% on first-letter spelling---the only task on which absorption has been systematically measured. All published results use GPT-2 Small with L1-ReLU SAEs; no study has validated the metric on JumpReLU SAEs with appropriate controls.
+
+\citet{tang2025theoretical} provide a theoretical account: the biconvex optimization landscape of sparse dictionary learning contains partial minima where absorption is locally optimal. \citet{oneill2024amortization} identify a structural cause---the amortization gap in feedforward encoding means the encoder cannot recover all dictionary atoms. \citet{chanin2025hedging} show that incorrect $L_0$ (common in practice) causes SAEs to learn systematically wrong features, with too-low $L_0$ triggering feature hedging---correlated features merged due to insufficient capacity. Hedging produces false negatives that mimic absorption but arise from information spreading rather than competitive suppression. In our confound decomposition (Section~\ref{sec:confound}), we distinguish hedging from hierarchy-driven absorption by their $L_0$ profile: hedging-induced false negatives resolve when sparsity is relaxed (higher $L_0$), while hierarchy-driven false negatives persist across all tested $L_0$ values.
+
+\subsection{Architectural Mitigations}
+
+Matryoshka SAE \citep{bussmann2025matryoshka} trains nested dictionaries of increasing size, organizing features hierarchically so smaller dictionaries learn general concepts. OrtSAE \citep{korznikov2025ortsae} enforces orthogonality via a pairwise cosine penalty, reducing absorption by 65\%. ATM-SAE \citep{li2025atm} uses adaptive temporal masking with per-latent importance scoring, reporting Chanin metric absorption scores of 0.007 versus 0.140 for TopK and 0.011 for JumpReLU on Gemma 2 2B. KronSAE \citep{kronsae2025} exploits Kronecker factorization of latents. MP-SAE \citep{costa2025mpsae} applies iterative encoding. Masked regularization \citep{narayanaswamy2026masked} disrupts co-occurrence patterns during training. All mitigations assume the Chanin metric measures competitive exclusion. None validates the metric on JumpReLU SAEs---the architecture on which the metric's thresholds (cosine $\geq 0.025$, magnitude gap $\geq 1.0$) were not developed.
+
+\subsection{Rate-Distortion Theory and Successive Refinement}
+
+The successive refinement theorem \citep{equitz1991successive} states that a source is successively refinable---encodable in stages without loss---if and only if the descriptions form a Markov chain. Applied to SAE features: if $X \to f_{\text{child}} \to f_{\text{parent}}$ is Markov, then $I(X; f_{\text{parent}} \mid f_{\text{child}}) = 0$ and the parent carries no unique information beyond the child. Absorbing the parent is then information-theoretically lossless. When CMI is positive, absorption destroys unique information the parent encodes about the input. No prior work has applied successive refinement to SAE absorption. This provides the theoretical basis for our diagnostic (Section~\ref{sec:cmi}): features with low CMI are information-theoretically cheap to absorb under sparsity pressure, while features with high CMI should resist absorption.
+
+
+%% ================================================================
+\section{Methodology}
+\label{sec:method}
+
+\subsection{Models and SAE Configurations}
+
+Table~\ref{tab:configs} summarizes the SAE configurations. The primary model is Gemma 2 2B ($d_{\text{model}} = 2304$) with Gemma Scope JumpReLU SAEs \citep{lieberum2024gemmascope, rajamanoharan2024jumprelu}. Layer 12 is the primary analysis layer, tested across four $L_0$ operating points (22, 41, 82, 176) at 16k width ($d_{\text{SAE}} = 16{,}384$) and one configuration at 65k width ($d_{\text{SAE}} = 65{,}536$). Layers 10 and 20 at 16k width provide cross-layer validation. For cross-architecture comparison, we include GPT-2 Small ($d_{\text{model}} = 768$) with SAELens L1-ReLU SAEs ($d_{\text{SAE}} = 24{,}576$) at layers 8, 10, and 11.
+
+JumpReLU SAEs differ from L1-ReLU SAEs in a way directly relevant to absorption measurement. L1-ReLU SAEs apply a continuous penalty, producing graded suppression of latent activations. JumpReLU SAEs impose a hard per-latent threshold $\theta_j$: activations either exceed the threshold and fire or equal zero. This binary activation regime means that a parent latent is either fully active or fully silent---there is no partial suppression. The Chanin metric's cosine and magnitude thresholds were developed on L1-ReLU SAEs, where this binary regime does not hold.
+
+\begin{table}[t]
+\caption{SAE configurations. Gemma Scope SAEs provide configurable $L_0$ via per-latent JumpReLU thresholds. GPT-2 SAEs use L1-ReLU with no explicit $L_0$ control.}
+\label{tab:configs}
+\centering
+\small
+\begin{tabular}{llcccc}
+\toprule
+Config & Model & Layer & $d_{\text{SAE}}$ & $L_0$ & Architecture \\
+\midrule
+L12-16k-$L_0{=}22$ & Gemma 2 2B & 12 & 16,384 & 22 & JumpReLU \\
+L12-16k-$L_0{=}41$ & Gemma 2 2B & 12 & 16,384 & 41 & JumpReLU \\
+L12-16k-$L_0{=}82$ & Gemma 2 2B & 12 & 16,384 & 82 & JumpReLU \\
+L12-16k-$L_0{=}176$ & Gemma 2 2B & 12 & 16,384 & 176 & JumpReLU \\
+L12-65k & Gemma 2 2B & 12 & 65,536 & varies & JumpReLU \\
+L10-16k & Gemma 2 2B & 10 & 16,384 & 82 & JumpReLU \\
+L20-16k & Gemma 2 2B & 20 & 16,384 & 82 & JumpReLU \\
+GPT2-L8/L10/L11 & GPT-2 Small & 8/10/11 & 24,576 & --- & L1-ReLU \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Absorption Measurement Protocol}
+
+We adapt the \citet{chanin2024absorption} protocol for Gemma 2 2B with the following refinements.
+
+\textbf{Vocabulary.} For the first-letter task, we construct a vocabulary of 1,204 single-token alphabetic words (26 letters; 15 letters with 50+ words, all 22 letters with $\geq 20$ words included; letter X excluded due to $n = 1$, yielding 25 tested letters and 1,203 tested words at $L_0{=}82$). The confound decomposition (Section~\ref{sec:confound}) uses a separately tokenized vocabulary of 1,196 words (1,195 tested after excluding X); the minor size difference reflects separate tokenization runs on the same raw word list. For cross-domain experiments, we use 189 single-token cities across 29 countries from RAVEL \citep{huang2024ravel} and 140 animals across 6 taxonomic classes from WordNet.
+
+\textbf{Probe training.} We train $k$-sparse logistic regression probes ($k = 5$) per parent class on SAE latent activations, following the \citet{chanin2024absorption} protocol. The probe selects the $k = 5$ SAE latents with highest decoder cosine similarity to the probe direction. The probe direction $v_p$ is the learned weight vector.
+
+\textbf{Quality gate.} We require probe F1 $> 0.85$ per parent class for inclusion in primary absorption claims. At $L_0{=}82$ on L12-16k, 10 of 25 letters pass this gate (mean probe F1 $= 0.817$); at $L_0{=}22$, all 25 letters achieve F1 $= 1.0$. Parents failing the gate are reported separately.
+
+\textbf{Main feature identification.} SAE latents with decoder cosine similarity $\cos(d_j, v_p) \geq \tau_{\cos} = 0.025$ to the probe direction are identified as candidate features for the parent.
+
+\textbf{Absorption criterion.} A token is classified as absorbed when (1) all $k$ probe-associated latents fail to activate ($z_j = 0$) and (2) the probe correctly classifies the token as belonging to the parent class. Among these false negatives, absorption is confirmed when the highest-activation latent has magnitude ratio $\geq \tau_{\text{mag}} = 1.0$ relative to the second-highest. Reported absorption rates use the false-negative condition (1)+(2); the magnitude ratio filter is applied for identifying specific absorbing features.
+
+\textbf{Confidence intervals.} All absorption rates are reported with 95\% bootstrap CIs (10,000 resamples, seed $= 42$).
+
+\subsection{Control Suite}
+
+Four controls assess metric validity:
+
+\begin{itemize}
+\item \textbf{C1 (Random probe):} A random unit-sphere direction replaces the trained probe. Expected: $< 2\%$. Observed: 11.8\% on first-letter (L12-16k, $L_0{=}82$), indicating substantial baseline metric noise.
+
+\item \textbf{C2 (Shuffled labels):} Parent-class labels are randomly permuted before probe training. Expected: absorption rate lower than measured. Observed: 74.6\% on first-letter (mean over 5 shuffles, $\sigma = 2.1\%$), exceeding the true-label rate of 15.96\% by $4.7\times$. This control fails across all 5 tested domains: city-continent (45.2\% vs.\ 6.49\%), animal-class (39.3\% vs.\ 1.43\%), city-language (18.0\% vs.\ 6.56\%), and city-country (10.3\% vs.\ 0.0\%).
+
+\item \textbf{C3 (Dense probe):} Logistic regression on raw model activations provides a probe quality ceiling. Mean dense probe F1 $= 0.962$ across first-letter classes.
+
+\item \textbf{C4 (Untrained SAE):} An SAE with randomly initialized encoder and decoder of the same dimensions yields 0.0\% absorption, confirming the measured signal depends on the trained SAE structure.
+\end{itemize}
+
+\subsection{Confound Decomposition}
+\label{sec:confound}
+
+We decompose false negatives across four $L_0$ operating points (22, 41, 82, 176) on L12-16k, with 1,196 words tested at each setting and all 25 probes achieving F1 $= 1.0$ at $L_0{=}22$. For each false-negative token at each $L_0$, we classify the cause:
+
+\begin{itemize}
+\item \textbf{Hedging.} The token is a false negative at the current $L_0$ but recovers at a higher $L_0$---its parent information is distributed across multiple latents, none clearing the JumpReLU threshold at the current sparsity level.
+
+\item \textbf{Hierarchy-driven absorption.} The token is a false negative at all four tested $L_0$ values with reconstruction error below $2\sigma$---genuine competitive exclusion that persists regardless of sparsity pressure.
+
+\item \textbf{Reconstruction error.} The SAE fails to reconstruct the parent direction (residual norm $> 2\sigma$ above the per-$L_0$ mean).
+\end{itemize}
+
+At $L_0{=}22$, 657 false negatives decompose into 648 hedging (98.6\%), 9 hierarchy-driven (1.4\%), and 0 reconstruction error. The 9 hierarchy-driven words---including ``eight,'' ``lower,'' ``liked,'' ``offer,'' and ``often''---persist at all four $L_0$ values and constitute the persistent core candidates for genuine competitive exclusion.
+
+\subsection{CMI Estimation}
+
+Conditional mutual information $I(X; f_{\text{parent}} \mid f_{\text{child}})$ is estimated via the $k$-nearest neighbor method \citep{kraskov2004estimating} ($k_{\text{NN}} = 5$). For each of 25 first-letter features, we collect activations from the word vocabulary (1,092 words) plus approximately 2,600 corpus tokens (3,691 combined samples per letter) and project them onto a $d'$-dimensional subspace spanned by the top decoder directions associated with each letter's parent-child pair. The primary analysis uses $d' = 10$; sensitivity is reported at $d' \in \{20, 30, 50\}$. The absorbed/non-absorbed partition uses an absorption rate threshold from the L12-16k $L_0{=}82$ improved first-letter results: absorbed letters ($\alpha \geq 0.10$; $n = 13$) versus non-absorbed ($\alpha < 0.05$; $n = 9$), with 3 letters in between excluded from the group comparison. The partition is defined at $L_0{=}82$; CMI values are computed independently of $L_0$.
+
+\subsection{Cross-Domain Hierarchy Suite}
+
+Five hierarchy domains are tested, spanning syntactic, geographic, linguistic, and taxonomic relationships (Table~\ref{tab:domains}).
+
+\begin{table}[t]
+\caption{Cross-domain hierarchy suite. Five domains spanning syntactic, geographic, linguistic, and taxonomic relationships.}
+\label{tab:domains}
+\centering
+\small
+\begin{tabular}{llccl}
+\toprule
+Domain & Parent Feature & $N_{\text{parents}}$ & $N_{\text{children}}$ & Source \\
+\midrule
+First-letter & ``starts with X'' & 25 & 1,204 & \citet{chanin2024absorption} \\
+City $\to$ Country & ``in France'' & 28 & 184 & RAVEL \\
+City $\to$ Continent & ``in Europe'' & 6 & 185 & RAVEL \\
+City $\to$ Language & ``French-speaking'' & 18 & 183 & RAVEL \\
+Animal $\to$ Class & ``mammal'' & 6 & 140 & WordNet \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Probes, quality gates (F1 $> 0.85$), and all four controls are applied per domain. Countries with fewer than 5 cities or probe F1 $< 0.50$ are excluded from absorption claims. For hierarchy predictor analysis, per-domain co-occurrence frequency ratio, fan-out, and parent frequency are computed and correlated with absorption rate using Spearman $\rho_s$ with Bonferroni correction.
+
+
+%% ================================================================
+\section{The Absorption Metric Does Not Transfer to JumpReLU SAEs}
+\label{sec:metric}
+
+\subsection{Universal Control Failure}
+
+Figure~\ref{fig:control} shows that shuffled-label controls exceed measured absorption rates in all five hierarchy domains on L12-16k ($L_0{=}82$). The ratios are striking: shuffled/measured $= 4.7\times$ for first-letter, $6.9\times$ for city-continent, $2.7\times$ for city-language, $27.5\times$ for animal-class, and $\infty$ for city-country (where measured absorption is 0.0\% but shuffled produces 10.3\%). The random probe control, expected to yield $< 2\%$ absorption, produces 11.8\% on first-letter and 12.9--34.3\% on the other four domains.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/control_failure.pdf}
+\caption{Universal control failure across five hierarchy domains on L12-16k ($L_0{=}82$). Grouped bars show measured absorption rate (blue), shuffled-label control (pink), and random probe control (purple). In all five domains, shuffled controls exceed measured rates. Dashed horizontal line marks the expected random probe floor ($< 2\%$).}
+\label{fig:control}
+\end{figure}
+
+Table~\ref{tab:controls} quantifies the control failure across all five domains. The net signal (measured minus shuffled) is negative in every domain, ranging from $-0.103$ (city-country) to $-0.586$ (first-letter). A metric that assigns higher absorption scores to randomized labels than to true hierarchical labels is not measuring hierarchy-driven competitive exclusion.
+
+\begin{table}[t]
+\caption{Control results by domain on L12-16k ($L_0{=}82$). The Ratio column shows shuffled/measured. All ratios exceed 1.0, indicating universal control failure.}
+\label{tab:controls}
+\centering
+\small
+\begin{tabular}{lcccccc}
+\toprule
+Domain & $N_{\text{parents}}$ & Probe F1 & Measured & Shuffled & Random & Ratio \\
+\midrule
+First-letter & 25 & 0.817 & 15.96\% & 74.6\% & 11.8\% & $\mathbf{4.7\times}$ \\
+City $\to$ Continent & 6 & 0.795 & 6.49\% & 45.2\% & 12.9\% & $\mathbf{6.9\times}$ \\
+City $\to$ Language & 18 & 0.745 & 6.56\% & 18.0\% & 20.8\% & $\mathbf{2.7\times}$ \\
+Animal $\to$ Class & 6 & 0.696 & 1.43\% & 39.3\% & 34.3\% & $\mathbf{27.5\times}$ \\
+City $\to$ Country & 28 & 0.602 & 0.0\% & 10.3\% & 19.0\% & $\boldsymbol{\infty}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The untrained SAE control (C4) produces 0.0\% absorption with mean probe F1 $= 0.943$, confirming that the measured signal depends on SAE structure rather than probe artifacts alone. The high probe F1 on untrained SAE latents reflects the random projection's ability to preserve gross linear structure in the activation space. The failure lies in the relationship between the metric's thresholds and JumpReLU feature geometry, not in the probes or the SAE itself.
+
+\subsection{Confound Decomposition: Hedging Dominates}
+
+Figure~\ref{fig:hedging} shows how the composition of false negatives shifts across $L_0$ values. At $L_0{=}22$, where probes achieve perfect F1${=}1.0$ for all 25 letters, confound decomposition classifies 657 false negatives as follows:
+
+\begin{itemize}
+\item \textbf{Hedging:} 648 of 657 (98.6\%)---tokens whose parent information is spread across many latents, none clearing the JumpReLU threshold, but which resolve at higher $L_0$.
+\item \textbf{Hierarchy-driven:} 9 of 657 (1.4\%)---tokens absorbed at all four tested $L_0$ values with low reconstruction error.
+\item \textbf{Reconstruction error:} 0 of 657 (0.0\%)---no tokens exceed the $2\sigma$ residual norm threshold.
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/hedging_decomposition.pdf}
+\caption{Confound decomposition of false negatives across four $L_0$ values on L12-16k. At $L_0{=}22$ with perfect probes (F1${=}1.0$), 98.6\% of false negatives are hedging (blue) and only 1.4\% are hierarchy-driven (red). As $L_0$ increases, hedging tokens resolve and the hierarchy-driven fraction rises to 90\% at $L_0{=}176$.}
+\label{fig:hedging}
+\end{figure}
+
+This pattern shifts monotonically across $L_0$. At $L_0{=}41$: 98.2\% hedging, 1.8\% hierarchy-driven. At $L_0{=}82$: 95.1\% hedging, 4.9\% hierarchy-driven. At $L_0{=}176$: 10.0\% hedging, 90.0\% hierarchy-driven. The hierarchy-driven fraction increases as hedging tokens are resolved by relaxing sparsity, while the 9 core hierarchy-driven tokens persist regardless.
+
+The 9 hierarchy-driven words---``eight'' (letter E), ``lower'' and ``liked'' (letter L), ``offer'' and ``often'' (letter O), plus 4 additional words identified by the cross-$L_0$ persistence criterion---represent the floor of genuine competitive exclusion: 9 out of 1,196 words, or 0.75\% of the vocabulary. This result directly falsifies H2 as proposed ($>80\%$ hierarchy-driven at $L_0{=}22$): the actual figure is 1.4\%.
+
+\subsection{First-Letter Replication with Improved Protocol}
+
+The improved first-letter experiment uses 1,204 single-token words (50+ per letter for 15 letters, 20+ for 22 letters), up from the 25 per letter in the original \citet{chanin2024absorption} protocol. The aggregate absorption rate is 15.96\% (95\% CI: [8.4\%, 17.5\%]) on L12-16k at $L_0{=}82$, within the published 15--35\% range. Mean probe F1 $= 0.817$; 10 of 25 letters pass the F1 $> 0.85$ gate. The replication succeeds in magnitude---the rate falls within the expected range---but the universal control failure (Section~\ref{sec:metric}) means the interpretation as competitive exclusion is unsupported.
+
+Cross-layer stability is strong: L10-16k produces 13.88\%, L12-16k produces 15.96\%, and L20-16k produces 13.55\% at $L_0{=}82$ (CV $< 10\%$). The consistency across layers 10, 12, and 20 suggests the metric's output is determined primarily by the $L_0$ operating point and SAE architecture, not by the specific layer.
+
+Per-letter absorption rates vary substantially, from 0.0\% (J, K, Q, V, Y, Z) to 36.76\% (P) at $L_0{=}82$. Letters with higher absorption tend to have lower probe F1 (Spearman $\rho_s = -0.67$, $p < 0.001$), suggesting probe quality partially drives the measured rates. Among the 10 letters passing the F1 $> 0.85$ gate, the maximum absorption rate is 14.75\% (D), and 6 of 10 show rates below 10\%.
+
+\subsection{Cross-Domain Rates Are Uninterpretable}
+
+Cross-domain absorption rates on L12-16k ($L_0{=}82$) are: city-continent 6.49\% (95\% CI: [0\%, 11.5\%]), city-language 6.56\%, animal-class 1.43\% (CI: [0\%, 3.6\%]), and city-country 0.0\%. These are the first absorption measurements reported on geographic, linguistic, and taxonomic hierarchies.
+
+The city-continent signal is driven by a single continent: Asia shows 21.62\% absorption (probe F1 $= 0.895$), while other continents range from 0\% to 3.3\%. All rates fall below their own shuffled controls (Table~\ref{tab:controls}), so absolute rates cannot be interpreted as genuine absorption.
+
+One noteworthy finding: SAE probes outperform dense probes on city-country (F1 $= 0.773$ vs.\ $0.617$), indicating the SAE does encode geographic knowledge effectively even though absorption is unmeasurable with the current metric. This suggests the SAE's feature geometry captures hierarchical information, but the Chanin metric's thresholds are miscalibrated for JumpReLU activation dynamics.
+
+
+%% ================================================================
+\section{The $L_0$-Absorption Phase Transition}
+\label{sec:phase}
+
+\subsection{Monotonic Decline Across $L_0$}
+
+Figure~\ref{fig:phase} shows that absorption declines monotonically from 42.85\% at $L_0{=}22$ to 0.84\% at $L_0{=}176$ on L12-16k (Spearman $\rho_s = -1.0$). The four data points are: $L_0{=}22$: 42.85\% (95\% CI: [40.1\%, 45.6\%]), $L_0{=}41$: 37.49\% (CI: [34.8\%, 40.2\%]), $L_0{=}82$: 14.39\% (CI: [12.4\%, 16.4\%]), $L_0{=}176$: 0.84\% (CI: [0.3\%, 1.4\%]). The steepest decline occurs between $L_0{=}41$ and $L_0{=}82$, where the rate drops by 23.1 percentage points---a phase transition region in which relaxing sparsity eliminates roughly half the measured absorption per $L_0$ doubling.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/l0_phase_transition.pdf}
+\caption{$L_0$-absorption phase transition on L12-16k (primary trace) with cross-layer validation at L10-16k and L20-16k. Absorption declines monotonically from 42.85\% ($L_0{=}22$) to 0.84\% ($L_0{=}176$). Shaded region marks the phase transition zone ($L_0 \approx 40$--$80$). Error bars are 95\% bootstrap CIs.}
+\label{fig:phase}
+\end{figure}
+
+Cross-layer stability is strong at $L_0{=}82$: L10-16k produces 13.88\% (CI: [6.9\%, 16.1\%]), L12-16k produces 15.96\% (CI: [8.4\%, 17.5\%]), and L20-16k produces 13.55\% (CI: [5.8\%, 16.2\%]). The coefficient of variation across these three layers is 8.6\%, confirming that the $L_0$-absorption profile is layer-invariant within measurement precision.
+
+All measurements at $L_0{=}22$ use probes with F1${=}1.0$ for all 25 letters, eliminating probe quality as a confound for the high-$L_0$ versus low-$L_0$ comparison.
+
+\textbf{Note on absorption rate measurements.} The L12-16k absorption rate at $L_0{=}82$ is reported as 14.39\% in the $L_0$ sweep (confound decomposition protocol, 1,195 tested words, probes with F1${=}1.0$ at $L_0{=}22$) and 15.96\% in the cross-layer comparison (improved first-letter protocol, 1,203 tested words, probes trained at $L_0{=}82$ with mean F1${}=0.817$). The difference of 1.57 percentage points arises from the different vocabulary sizes and probe sets; the cross-layer CV of 8.6\% encompasses both values.
+
+\subsection{Width-$L_0$ Interaction}
+
+OLS regression on the full 34-configuration scaling surface yields a significant width $\times$ $L_0$ interaction ($F = 37.75$, $p = 1.24 \times 10^{-6}$, $\Delta R^2 = 0.252$). A GAM finds the interaction non-significant ($p = 1.0$, pseudo-$R^2 = 0.85$), indicating the relationship is approximately linear in log space. The $L_0$ main effect is significant ($\rho_s = -0.457$, $p = 0.007$), while the width effect is marginal ($\rho_s = 0.308$, $p = 0.076$, not significant after correction). Width increases absorption---wider dictionaries spread parent information across more latents---but $L_0$ remains the dominant factor.
+
+\subsection{JumpReLU vs.\ L1-ReLU Architecture Reference}
+
+Although this comparison is confounded by model capacity differences (Gemma 2 2B, $d_{\text{model}} = 2304$ vs.\ GPT-2 Small, $d_{\text{model}} = 768$), the directional contrast is informative. GPT-2 Small with L1-ReLU SAEs shows uniformly high absorption: 64.29\% at layer 8, 67.29\% at layer 10, and 64.26\% at layer 11 (mean per-letter rates). No $L_0$-dependent phase transition exists because L1-ReLU SAEs lack configurable $L_0$.
+
+The Hartigan dip test confirms bimodal per-letter distributions for both architectures (JumpReLU at $L_0{=}82$: dip $= 0.188$, $p = 0.001$; all L1-ReLU layers: BC $> 0.555$). Both architectures show bimodal patterns, but JumpReLU exhibits a dramatic $L_0$-dependent phase transition (42.9\% $\to$ 0.8\%) while L1-ReLU shows uniformly high absorption (61--67\%). A controlled comparison would require training L1-ReLU SAEs on Gemma 2 2B activations.
+
+\subsection{The Nine Persistent Core Words}
+
+Nine words show non-zero absorption at all four $L_0$ values: ``eight'' (E), ``lower'' and ``liked'' (L), ``offer'' and ``often'' (O), plus four additional words. At $L_0{=}176$, these 9 words account for 9 of 10 total false negatives. Each has an identifiable child latent with high activation (mean 20--42) and magnitude ratio $\geq 1.1$. These are the strongest candidates for genuine competitive exclusion, pending validation via activation patching (zeroing child features and measuring parent recovery).
+
+
+%% ================================================================
+\section{Rate-Distortion Diagnostic: CMI Predicts Absorption Susceptibility}
+\label{sec:cmi}
+
+\subsection{CMI Estimation and the Successive Refinement Connection}
+
+The successive refinement theorem \citep{equitz1991successive} states that $X$ is successively refinable if and only if $X \to f_{\text{child}} \to f_{\text{parent}}$ forms a Markov chain. In this case, $I(X; f_{\text{parent}} \mid f_{\text{child}}) = 0$: the parent carries no unique information beyond the child, and absorbing it is information-theoretically lossless. When CMI is positive, absorption destroys unique information.
+
+We estimate CMI via $k$-nearest neighbors \citep{kraskov2004estimating} ($k_{\text{NN}} = 5$) in a $d' = 10$ decoder subspace for each of 25 first-letter features, using 1,092 word activations plus 2,599 corpus token activations (3,691 combined samples per letter).
+
+\subsection{CMI-Absorption Correlation}
+
+Figure~\ref{fig:cmi} shows that absorbed letters (absorption rate $\geq 10\%$; $n = 13$) have lower CMI than non-absorbed letters (rate $< 5\%$; $n = 9$):
+\begin{itemize}
+\item Absorbed mean CMI: $0.649 \pm 0.187$
+\item Non-absorbed mean CMI: $0.861 \pm 0.258$
+\item Mann-Whitney $U = 28.0$, two-sided $p = 0.045$; one-sided $p = 0.023$
+\item Cohen's $d = -0.924$ (large effect)
+\item Bootstrap 95\% CI on mean difference: $[-0.408, -0.013]$
+\end{itemize}
+
+The Spearman rank correlation between CMI and absorption rate across all 25 letters is $\rho_s = -0.383$ ($p = 0.059$, marginally significant). The negative correlation is consistent with rate-distortion theory: letters whose parent features carry less unique information beyond the child (CMI $\approx 0.4$--$0.6$) are more susceptible to absorption than letters with high CMI ($> 1.0$). Letters J (CMI $= 1.21$), Z (CMI $= 1.18$), Y (CMI $= 1.11$), and U (CMI $= 1.13$) have both high CMI and zero or near-zero absorption. Letters T (CMI $= 0.52$), L (CMI $= 0.59$), and P (CMI $= 0.71$) have both low CMI and high absorption (31--37\%).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/cmi_vs_absorption.pdf}
+\caption{CMI versus absorption rate for 25 first-letter features at $d'{=}10$. Absorbed letters ($\alpha \geq 10\%$; red) cluster at lower CMI than non-absorbed letters ($\alpha < 5\%$; blue). Spearman $\rho_s = -0.383$, Cohen's $d = -0.924$, Mann-Whitney $p = 0.045$.}
+\label{fig:cmi}
+\end{figure}
+
+\subsection{Phase Transition Scale Prediction}
+
+The rate-distortion threshold predicts a critical $L_0$ for each letter: $L_{0,\text{crit}} = \lambda / (\text{CMI} \cdot c)$, where $\lambda$ is the effective sparsity pressure inferred from the empirical half-maximum $L_0$ (22.4). The mean predicted $L_{0,\text{crit}} = 24.7$ across all 25 letters, with range [13.7, 42.1].
+
+The rank-order prediction is directionally correct: letters with higher predicted $L_{0,\text{crit}}$ (lower CMI, cheaper to absorb) tend to have higher absorption ($\rho_s = +0.333$, $p = 0.103$). The scale match ($L_{0,\text{crit}} = 24.7$ vs.\ empirical half-max $L_0 = 22.4$, 10.2\% relative error) is partly by construction because $\lambda$ is estimated from the empirical half-max; the non-trivial prediction is the rank ordering.
+
+\subsection{Geometric Constant Degeneration}
+
+For unit-normalized Gemma Scope decoders ($\|d_j\| = 1.0$ for all features), the geometric constant $c = \sin^2(\text{angle}(w_P, w_C))$ has mean 0.960 and CV $= 2.16\%$. The constant provides negligible modulation beyond CMI: CMI/$c$ correlates with absorption at $\rho_s = -0.375$ versus $\rho_s = -0.383$ for raw CMI, a change of $-2.2\%$ (bootstrap 95\% CI of the difference: [$-0.113$, $+0.085$]).
+
+This degeneration is a useful theoretical simplification: for normalized SAEs, the rate-distortion threshold reduces to $L_{0,\text{crit}} \approx \lambda / \text{CMI}$, eliminating the need to estimate decoder geometry.
+
+\subsection{Dimension Sensitivity}
+
+The negative CMI-absorption correlation holds only at $d' = 10$. Figure~\ref{fig:dimension} and Table~\ref{tab:dimension} show the full dimension sweep:
+
+\begin{table}[t]
+\caption{CMI-absorption correlation sensitivity to subspace dimension $d'$.}
+\label{tab:dimension}
+\centering
+\small
+\begin{tabular}{cccc}
+\toprule
+$d'$ & Spearman $\rho_s$ & $p$-value & Cohen's $d$ \\
+\midrule
+10 & $-0.383$ & 0.059 & $-0.924$ \\
+20 & $+0.048$ & 0.818 & $+0.226$ \\
+30 & $+0.299$ & 0.147 & $+0.616$ \\
+50 & $+0.197$ & 0.345 & $+0.499$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/cmi_dimension_sensitivity.pdf}
+\caption{Spearman $\rho_s$ between CMI and absorption rate as a function of subspace dimension $d'$. The negative correlation (theory-consistent) holds only at $d'{=}10$; at higher dimensions the sign reverses.}
+\label{fig:dimension}
+\end{figure}
+
+At $d' \geq 20$, the correlation reverses sign. Bonferroni-corrected $p$ for $d' = 10$ is 0.236 (4 tests), not significant at the 0.05 level. The dimension instability is a genuine limitation. At low $d'$, the subspace likely captures the most absorption-relevant decoder directions---the directions along which parent and child features compete---while additional dimensions introduce noise from orthogonal feature interactions. An alternative, less favorable explanation is that $d' = 10$ is a statistical coincidence in a 4-test sweep. Dimension-agnostic MI estimators (MINE, KNIFE) or a theoretical derivation of the optimal subspace dimension from the SAE architecture are needed to resolve this question.
+
+
+%% ================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+The three findings connect as follows. The metric does not transfer to JumpReLU SAEs (Section~\ref{sec:metric}) because most of what it measures is hedging, not competitive exclusion. The $L_0$ operating point is the primary control parameter (Section~\ref{sec:phase}), and CMI may eventually predict which specific features are at risk of genuine absorption (Section~\ref{sec:cmi}). The practical implication: validate metrics per architecture, adjust $L_0$ before redesigning encoders, and invest in dimension-agnostic CMI estimators to mature the theoretical diagnostic.
+
+\subsection{Implications for the Absorption Mitigation Literature}
+
+The architectural mitigation wave---Matryoshka SAE, OrtSAE, ATM-SAE, KronSAE, masked regularization---targets competitive exclusion, the mechanism where a child latent actively suppresses a parent latent under sparsity pressure. Our hedging decomposition reveals that 98.6\% of false negatives at $L_0{=}22$ on JumpReLU SAEs arise from information spreading (Section~\ref{sec:confound}), not competitive suppression. If mitigations are evaluated by the Chanin metric on JumpReLU SAEs, they may reduce the metric's output without addressing the dominant failure mode. The $L_0$ phase transition (42.9\% $\to$ 0.8\%) suggests that increasing the $L_0$ operating point---a training-time hyperparameter requiring no architectural change---may be more effective than encoder modifications for reducing the metric's output on JumpReLU SAEs.
+
+Two caveats limit the strength of this conclusion. First, mitigations may genuinely improve feature quality through mechanisms (hierarchical organization, orthogonality) that benefit features independently of competitive exclusion. Second, on L1-ReLU SAEs, where the metric was developed, competitive exclusion may dominate---our GPT-2 Small results show uniformly high absorption (61--67\%) with no $L_0$ phase transition, consistent with a different mechanistic regime.
+
+\subsection{The Metric Validity Question}
+
+The Chanin metric was developed on GPT-2 Small with L1-ReLU SAEs, where the soft L1 penalty produces gradual competition between features. JumpReLU SAEs have fundamentally different activation dynamics: the hard threshold creates a discrete boundary between active ($z_j > \theta_j$) and inactive ($z_j = 0$) states. A latent can be ``almost active'' (pre-activation just below $\theta_j$) without any competitive suppression occurring, yet the metric counts it as a false negative because $z_j = 0$.
+
+The universal control failure---shuffled controls exceeding measured rates by $2.7\times$ to $\infty$ across all five domains---is consistent with the metric's thresholds being miscalibrated for JumpReLU feature geometry. Two specific explanations are compatible with the data. First, the cosine similarity threshold ($\tau_{\cos} = 0.025$) may be too permissive, classifying latents with incidental cosine alignment as candidate parent features and inflating the false-negative denominator. Second, the attribution step---counting every non-firing candidate as a potential absorption event---may over-attribute on JumpReLU SAEs, where the hard threshold produces a larger fraction of near-miss non-activations than L1-ReLU's graded suppression.
+
+We recommend a concrete validation protocol: before measuring absorption on any new SAE architecture, researchers should verify that shuffled-label absorption is lower than measured absorption in at least three hierarchy domains.
+
+\subsection{Rate-Distortion Theory as a Principled Diagnostic}
+
+The CMI-absorption correlation ($\rho_s = -0.383$, $p = 0.059$; Cohen's $d = -0.924$) at $d' = 10$ is directionally consistent with rate-distortion theory. Letters with low CMI---those whose parent features carry little unique information beyond the child ($I(X; f_{\text{parent}} \mid f_{\text{child}}) \approx 0.4$--$0.6$)---are preferentially absorbed. Letters J (CMI $= 1.21$), Z (CMI $= 1.18$), and Y (CMI $= 1.11$) have both high CMI and zero absorption at $L_0{=}82$. Letters T (CMI $= 0.52$), L (CMI $= 0.59$), and P (CMI $= 0.71$) have both low CMI and high absorption (31--37\%). The one-sided Mann-Whitney test is significant ($p = 0.023$), and the large effect size ($d = -0.924$) indicates meaningful group-level separation.
+
+The geometric constant degeneration ($c \approx 0.960$, CV $= 2.16\%$) for unit-normalized Gemma Scope decoders simplifies the theoretical threshold to $L_{0,\text{crit}} \approx \lambda / \text{CMI}$, eliminating decoder geometry as a modulating factor. The scale match between predicted $L_{0,\text{crit}}$ and empirical half-maximum is partly by construction (Section~6.3); the non-circular prediction is the rank ordering of letters by absorption susceptibility.
+
+The CMI-absorption correlation is restricted to $d' = 10$ and reverses sign at $d' \geq 20$ (Figure~\ref{fig:dimension}). The Bonferroni-corrected $p$-value for the $d' = 10$ result is 0.236 (4 tests), not significant at the 0.05 level. This dimension instability is the most significant limitation of the rate-distortion analysis. The top-10 decoder directions may capture the most absorption-relevant subspace---the directions along which parent and child features compete---while additional dimensions introduce noise from orthogonal feature interactions. An alternative, less favorable explanation is that $d' = 10$ is a statistical coincidence in a 4-test sweep. Dimension-agnostic MI estimators (MINE, KNIFE) or a theoretical derivation of the optimal subspace dimension from the SAE architecture are needed to resolve this question.
+
+\subsection{Negative Results}
+
+Four pre-registered hypotheses are falsified or unsupported:
+
+\begin{itemize}
+\item \textbf{H2 falsified.} Hierarchy-driven absorption at $L_0{=}22$ is 1.4\% (9 of 657 false negatives), not the predicted $> 80\%$. The pilot's 96.9\% hierarchy-driven figure was a methodological artifact---it classified based on within-$L_0$ analysis rather than cross-$L_0$ persistence (the classification criterion is defined in Section~\ref{sec:confound}).
+
+\item \textbf{H4 falsified.} Unsupervised detection achieves $\rho_s = -0.125$, AUROC $= 0.47$. No geometric SAE weight signal discriminates absorbed from non-absorbed features.
+
+\item \textbf{H6 underpowered.} With $n = 5$ domains, no hierarchy predictor achieves corrected significance: co-occurrence ratio ($\rho_s = 0.40$, Bonferroni $p = 1.0$), fan-out ($\rho_s = 0.20$, $p = 1.0$), depth ($\rho_s = -0.58$, $p = 1.0$), parent frequency ($\rho_s = 0.40$, $p = 1.0$). Bootstrap 95\% CIs span $[-1.0, +1.0]$ for all predictors---the sample size is too small to distinguish any signal.
+
+\item \textbf{H7 partially falsified.} Both JumpReLU and L1-ReLU show bimodal per-letter distributions (Hartigan's dip test: JumpReLU at $L_0{=}82$, dip $= 0.188$, $p = 0.001$; all L1-ReLU layers BC $> 0.555$). The predicted JumpReLU-specific binary pattern was not observed. The actual architecture-conditional finding: JumpReLU shows a dramatic $L_0$-dependent phase transition (42.9\% to 0.8\%) while L1-ReLU shows uniformly high absorption (61--67\%) across layers.
+\end{itemize}
+
+\subsection{Limitations}
+
+\textbf{Metric dependence.} All absorption measurements depend on the Chanin metric, whose control failure on JumpReLU SAEs is a primary finding. The confound decomposition provides relative information (what fraction is hedging vs.\ hierarchy-driven) but absolute rates remain uncertain until the metric's thresholds are recalibrated. Activation patching---zeroing child features and measuring parent recovery---would provide metric-independent validation.
+
+\textbf{CMI dimension instability.} The negative CMI-absorption correlation holds only at $d' = 10$ and reverses at $d' \geq 20$ (Figure~\ref{fig:dimension}; Bonferroni-corrected $p = 0.236$). This is the most significant limitation of the rate-distortion analysis. Whether $d' = 10$ captures the absorption-relevant signal or is a statistical coincidence requires future investigation with dimension-agnostic MI estimators.
+
+\textbf{Cross-architecture confound.} The JumpReLU vs.\ L1-ReLU comparison is cross-model (Gemma 2 2B, $d_{\text{model}} = 2304$, $d_{\text{SAE}} = 16384$ vs.\ GPT-2 Small, $d_{\text{model}} = 768$, $d_{\text{SAE}} = 24576$). Model capacity differences confound the architecture comparison.
+
+\textbf{Persistent core validation.} The 9 persistent core words identified by cross-$L_0$ analysis are the strongest candidates for genuine competitive exclusion, but causal validation via activation patching (zeroing child features and measuring parent recovery) has not been executed.
+
+\textbf{Confound decomposition sensitivity.} The hedging-vs-hierarchy classification depends on the specific $L_0$ values tested (\{22, 41, 82, 176\}). Including higher $L_0$ values could reclassify some of the 9 persistent core words as hedging; excluding $L_0{=}176$ would increase the hierarchy-driven fraction. The decomposition provides a lower bound on hedging prevalence, not an absolute partition.
+
+\textbf{Cross-domain probe quality.} Mean probe F1 ranges from 0.602 (city-country) to 0.817 (first-letter). Domains with lower probe quality may underestimate true absorption. The city-continent absorption signal (6.49\%) is driven by a single continent (Asia, 21.62\%).
+
+\textbf{Single task family.} All domains test hierarchical classification (parent subsumes child). Absorption in non-hierarchical feature relationships, safety-relevant features, or multi-dimensional features \citep{engels2025multidimensional} remains unstudied.
+
+
+%% ================================================================
+\section{Conclusion}
+
+The Chanin metric does not transfer to Gemma 2 2B JumpReLU SAEs without recalibration: shuffled-label controls exceed measured rates in all five tested hierarchy domains (ratios range from $2.7\times$ to $\infty$; $4.7\times$ on first-letter). Confound decomposition at $L_0{=}22$ with perfect probes (F1${=}1.0$) reveals that 98.6\% of what the metric identifies as absorption is hedging---information spreading across many latents---not competitive exclusion. Genuine hierarchy-driven absorption accounts for 9 of 1,196 words (0.75\%), pending activation patching validation.
+
+Absorption declines monotonically with $L_0$: from 42.85\% ($L_0{=}22$) to 37.49\% ($L_0{=}41$), 14.39\% ($L_0{=}82$), and 0.84\% ($L_0{=}176$), with a phase transition in the $L_0 = 41$--82 range. This profile is stable across three layers (CV $< 10\%$) and is the most robust finding, informative about SAE sparsity dynamics regardless of the metric's absolute interpretation. The $L_0$ operating point, not the encoder architecture, emerges as the primary lever for controlling absorption severity on JumpReLU SAEs. This profile is demonstrated on Gemma 2 2B; controlled comparison with L1-ReLU SAEs on the same model requires training L1-ReLU SAEs on Gemma activations.
+
+Conditional mutual information provides a directionally correct predictor of absorption susceptibility: absorbed letters have lower CMI than non-absorbed letters (0.649 vs.\ 0.861; Mann-Whitney $p = 0.045$; Cohen's $d = -0.924$), consistent with rate-distortion theory. For unit-normalized SAE decoders, the geometric constant degenerates, simplifying the threshold to $L_{0,\text{crit}} \approx \lambda / \text{CMI}$. This correlation holds only at subspace dimension $d' = 10$ and does not survive Bonferroni correction ($p = 0.236$). The result is directionally consistent with theory but requires replication with dimension-agnostic MI estimators.
+
+These results collectively recommend that the field (1) validate absorption metrics on new SAE architectures before building mitigations---the shuffled-label control check (shuffled rate $<$ measured rate in $\geq 3$ domains; Section~7.2) should be standard practice, (2) report shuffled-label and random-probe controls alongside measured rates, and (3) consider the $L_0$ operating point as a first-order intervention for absorption severity before pursuing architectural modifications---on JumpReLU SAEs, increasing $L_0$ from 22 to 176 reduces measured absorption by 98\%, though the absolute interpretation remains contingent on metric recalibration (Section~\ref{sec:metric}).
+
+Code and data are released as an SAEBench extension.
+
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}

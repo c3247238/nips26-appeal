@@ -1,0 +1,163 @@
+{
+  "issues_classified": [
+    {
+      "description": "H2 pilot (Chanin first-letter probe: vanilla=0.225, TopK=0.066, 70.9% reduction) and full-scale (Gini absorption: vanilla=0.015, TopK=0.068, 4.5x INCREASE) use incompatible absorption metrics. Every mitigation variant (JumpReLU, OrtSAE, ATM) has HIGHER absorption than vanilla in full-scale. Paper presents these without labeling which metric produced which numbers.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "In Section 4.4, separate pilot and full-scale reporting with explicit labels. Remove the 70.9% reduction claim from full-scale context or add explicit caveats that this uses a different metric (Chanin probe vs Gini). Make full-scale results (all variants failing) the canonical finding. Add post-experiment consistency check: if pilot and full-scale directions contradict, flag before writing begins.",
+      "status": "recurring",
+      "evidence": "supervisor review.json findings[0], critic findings[0], review_writing.md section 1",
+      "issue_key": "experiment:absorption-absorption-absorption-and-atm-chanin-every-first:3d4064aadec8"
+    },
+    {
+      "description": "H5 paper invents a 5% threshold: '4.95% vs 5% threshold, not significant (p=0.42).' Actual pass criterion was >8% (computed from pilot AUCs). Achieved causal delta: 2.51%. This is a 5.49pp shortfall, not a 'marginal miss.'",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "In Section 4.5, report H5 as FAILED on the causal task criterion (2.51% vs >8% required). Remove the fabricated 5% threshold framing. Report honestly: high-absorption features show consistent direction of degradation but below statistical significance and below the pre-specified task threshold.",
+      "status": "recurring",
+      "evidence": "supervisor review.json findings[1], critic findings[1], review_writing.md section 2",
+      "issue_key": "experiment:a-a-a-achieved-actual-aucs-causal-computed:fe547b6f197c"
+    },
+    {
+      "description": "Null controls use alpha=5 only while main H3 aggregates across [1,3,5,10,20]. At alpha=5: high-absorption=0.7485, low-absorption=0.7543, p=0.94 (statistically identical). Main H3 18.4% difference is driven by high-alpha (10, 20). Paper claims 'driven by high-alpha conditions' -- post-hoc explanation for an internal contradiction.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run full_h3_null with full alpha range [1,3,5,10,20] to match main experiment protocol. This is currently running (gpu_progress.json). Use results to either (a) confirm null controls replicate main finding across alpha range, or (b) acknowledge this as a methodological limitation that weakens H3 confidence.",
+      "status": "recurring",
+      "evidence": "supervisor review.json findings[2], critic findings[6], review_writing.md section 3",
+      "issue_key": "experiment:absorption-absorption-across-aggregates-alpha-alpha-alpha-alpha:50a771c94445"
+    },
+    {
+      "description": "OrtSAE ablation compares without-penalty (0.230 at L0~920) against with-penalty (0.247 at L0~550) to conclude 'orthogonality penalty does not appear to reduce absorption.' Comparison is at unmatched L0 -- the very confound the paper criticizes. Self-contradictory ablation design.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Re-design ablation: either (a) compare OrtSAE variants at matched L0 values, or (b) compare each variant to vanilla SAE at similar L0. Do not compare with/without penalty at different L0. Rewrite ablation conclusion to match the corrected comparison.",
+      "status": "new",
+      "evidence": "supervisor review.json findings[3], critic findings none (newly surfaced)",
+      "requires_system_change": false,
+      "issue_key": "experiment:ablation-ablation-absorption-against-appear-at-at-at:640abfb147e1"
+    },
+    {
+      "description": "Probe quality confound in CMI analysis: absorption rate correlates with probe F1 at rho=-0.67 (p<0.001). CMI-absorption analysis uses L0=82 where mean probe F1=0.817. Low-CMI letters may be harder to probe, causing both low CMI and artificially high absorption rates. Paper never computes partial correlation controlling for probe F1.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Compute partial correlation of CMI vs absorption controlling for probe F1. Restrict CMI analysis to quality-gated letters (F1>0.85). Acknowledge this confound in Discussion. If partial correlation eliminates the CMI-absorption relationship, report this transparently as a limitation of the CMI analysis.",
+      "status": "new",
+      "evidence": "supervisor review.json findings[2], critic findings none",
+      "requires_system_change": false,
+      "issue_key": "experiment:absorption-absorption-absorption-analysis-analysis-and-artificially-at:fe9c1b414a7f"
+    },
+    {
+      "description": "CMI-absorption correlation reverses sign across dimensions: d'=10: rho=-0.383, d'=20: rho=+0.048, d'=30: rho=+0.299, d'=50: rho=+0.197. Bonferroni-corrected p=0.236. Sign reversal is qualitative failure, not sensitivity issue. Paper cherry-picks d'=10 as primary dimension without pre-specification.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Do not cherry-pick d'=10 as primary dimension. Report all dimensions with consistent framing. Discuss the sign reversal as a limitation. If d'=10 analysis is used, pre-register it as primary before running experiments. Consider restricting to quality-gated letters (F1>0.85) to reduce probe quality confound.",
+      "status": "new",
+      "evidence": "supervisor review.json findings[1], critic findings none",
+      "requires_system_change": false,
+      "issue_key": "analysis:absorption-across-as-bonferroni-cherry-cmi-corrected-correlation:418a33cd22ea"
+    },
+    {
+      "description": "Entanglement hypothesis presented as named contribution without empirical support beyond H3 Spearman r=+0.35. 'Hub feature' analogy introduced without network centrality analysis. Abstract claims 'causally important features' -- steering sensitivity does not measure causal importance (would require ablation studies).",
+      "category": "ideation",
+      "severity": "medium",
+      "suggestion": "Present entanglement hypothesis as speculative interpretation, not established contribution. Remove or qualify the 'hub feature' analogy (requires network centrality analysis). Replace 'causally important' with 'highly steerable' or 'computationally central' in abstract. The ablation_hub_interpretation experiment (currently running on GPU 2) may provide empirical support -- use its results if positive.",
+      "status": "recurring",
+      "evidence": "supervisor review.json findings[3], critic findings[4], review_writing.md section 5",
+      "issue_key": "ideation:ablation-abstract-analogy-analysis-as-beyond-causal-causally:0d5217c8b7b6"
+    },
+    {
+      "description": "The n=4 sparsity-absorption correlation (r~+0.93) has two points at identical L0=50. Driven by only 3 unique L0 values. Presented as 'striking relationship' and one of four contributions. Bootstrap CI does not address sample-size limitation.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Do not present n=4 correlation as robust finding. Either (a) add more data points at diverse L0 values, or (b) explicitly acknowledge the limitation and present as descriptive rather than inferential. Remove from list of four contributions or reframe as preliminary observation.",
+      "status": "new",
+      "evidence": "supervisor review.json findings[5], critic findings none",
+      "issue_key": "analysis:absorption-address-and-as-at-bootstrap-by-ci:63fd5ea451ad"
+    },
+    {
+      "description": "MCC~0.21 across ALL variants including Random control suggests Hungarian matching yields chance-level recovery regardless of training. Paper acknowledges MCC failure but does not address implication: absorption reduction may reflect sparsity-induced suppression rather than genuine hierarchical feature recovery.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Add a paragraph to Discussion addressing what MCC=0.21 means for the validity of all absorption metrics. Discuss whether absorption reduction reflects genuine feature recovery or sparsity-induced suppression. This is essential for interpreting all other results.",
+      "status": "new",
+      "evidence": "supervisor review.json findings[6], critic findings none",
+      "issue_key": "analysis:absorption-acknowledges-across-address-all-but-chance-control:5ac72df9f485"
+    },
+    {
+      "description": "Section 3.5 promises one-way ANOVA across all completed variants but this is not reported in Results. Unfulfilled promise undermines credibility.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Either report the ANOVA (note low power with 3 variants, 5 replicates, 2,12 df) or remove the promise from Section 3.5. If skipped due to low power, explain this transparently in the section.",
+      "status": "new",
+      "evidence": "supervisor review.json findings[7], critic findings none",
+      "issue_key": "writing:across-all-anova-but-completed-credibility-in-is:58ef6aad17c1"
+    },
+    {
+      "description": "No figures are included in the paper despite outline planning 6 figures (scatter, bar chart, atlas, etc.). Central H3 result has no visual support. Paper references 'Figure 1 shows...' but figure does not exist.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Generate figures for central results: (1) scatter plot of UAS vs steering sensitivity, (2) bar chart of high vs low absorption mean effects, (3) absorption distribution by layer (H1 atlas). This is a compilation blocker. synthesis_results task (currently running on GPU 2) should produce synthesis figures.",
+      "status": "new",
+      "evidence": "critic findings[5], review_writing.md Visual Communication section",
+      "issue_key": "writing:are-atlas-bar-but-central-chart-despite-does:28f156558f1c"
+    },
+    {
+      "description": "Effect size inconsistency: Section 4.2 says '~15% higher' but correct calculation from 0.1035/0.0874 is 18.4%. Abstract correctly says '18%'.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Change Section 4.2 '~15%' to '18.4%' or 'approximately 18%' to match abstract.",
+      "status": "recurring",
+      "evidence": "supervisor review.json findings[6], critic findings[3]",
+      "issue_key": "writing:abstract-but-calculation-correct-correctly-effect-from-higher:30cbcbcf07f7"
+    },
+    {
+      "description": "Title and abstract promise multi-model scope ('Empirical Study') but Gemma-2B experiments were skipped and H1 layer-wise atlas is inconclusive. Paper covers only GPT-2 Small layer 8.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Update title to specify GPT-2 Small layer 8, or add explicit scope statement early in abstract. Remove multi-model implications. Acknowledge Gemma-2B skipped and H1 inconclusive as limitations.",
+      "status": "recurring",
+      "evidence": "supervisor review.json findings[7], critic findings[2]",
+      "issue_key": "writing:2b-abstract-and-and-atlas-but-covers-empirical:3884310d771f"
+    }
+  ],
+  "issues_fixed": [],
+  "success_patterns": [
+    "H3 full-scale experiment (N=100 features) is solid: Spearman r=+0.35, p<0.001, with cluster-robust standard errors. This is the paper's strongest empirical asset.",
+    "Honest negative results: H2 falsified (all mitigation variants fail in full-scale), H4 partially confirmed, H5 failed. These are reported without spin and represent the right scientific approach.",
+    "UAS validation (r=0.65-0.79 across layers) is a genuine contribution with appropriate statistical methods.",
+    "E2 meta-analysis uses N=314 sample with partial correlation and cluster-robust SEs, providing the strongest empirical signal.",
+    "Pilot before full-scale approach is sound; failure was in metric inconsistency, not in the two-stage approach itself."
+  ],
+  "systemic_patterns": [
+    "Protocol gap: pre-experiment protocol documents do not specify exact absorption metric, null control alpha range, or pass/fail thresholds. This allows metric switching between pilot and full-scale.",
+    "Post-hoc rationalization: results that contradict expectations (H2 full-scale failure, H5 failure, null controls showing no effect) are reframed positively (H2 full-scale failure presented as pilot success, H5 failure framed as 'marginal miss').",
+    "Writing stage applies spin to honest experimental results. The pattern suggests writing agent needs explicit instructions to report failures as failures, not as 'marginal' or 'driven by conditions'.",
+    "Entanglement hypothesis without mechanism validation is presented as named contribution. Correlation results are stated as established fact.",
+    "Unfulfilled promises in section outlines are not caught before writing: ANOVA promised but not reported, figures referenced but not generated."
+  ],
+  "quality_trajectory": "stagnant",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 100,
+    "total_gpu_idle_minutes": 0.0,
+    "bottleneck_stages": [
+      "writing_revision",
+      "experiment_protocol_consistency"
+    ],
+    "suggestions": [
+      "Run full_h3_null first -- its results directly address the null control protocol mismatch (critical issue). This should unblock the H3 confidence level.",
+      "ablation_hub_interpretation results should validate or invalidate the entanglement hypothesis. Use these to either support or remove the mechanism claim.",
+      "synthesis_results should produce the missing figures (scatter, bar chart, atlas). These are compilation blockers.",
+      "Consider running hub_interp with additional metrics (decoder direction centrality) if ablation results are inconclusive."
+    ]
+  },
+  "recommended_focus": [
+    "Fix the three recurring critical issues before any new experiments: H2 metric separation, H5 threshold correction, null control protocol alignment",
+    "Wait for full_h3_null results to determine if null control concern is resolved",
+    "Wait for ablation_hub_interpretation results before deciding whether to keep or remove entanglement hypothesis",
+    "Generate figures for central H3 result -- this is a compilation blocker",
+    "Address probe quality confound in CMI analysis with partial correlation controlling for probe F1"
+  ],
+  "suggested_threshold_adjustment": 7.0,
+  "suggested_max_iterations": 15
+}

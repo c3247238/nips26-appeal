@@ -1,0 +1,107 @@
+[
+  {
+    "stage": "review",
+    "category": "data_consistency",
+    "severity": "critical",
+    "description": "Paper Table 1 and abstract report pilot-scale calibration numbers (SC-ECE=0.220, N=242,828 early) from n=100 samples, but full-scale calibration data exists (exp/results/full/calibration_profile.json, n=1319, SC-ECE=0.203, N=3,377,466 early). The full-scale ECE is 0.203, not 0.220. The paper never acknowledges that full-scale calibration was run, and all calibration claims (abstract, Section 3, Table 1) use pilot numbers. This is the most consequential error: reviewers will ask why the calibration study uses 100 samples while GSM8K evaluation uses 1319.",
+    "suggestion": "Replace all calibration figures (Table 1, abstract, Sections 3.2-3.3) with full-scale n=1319 numbers. Update SC-ECE from 0.220 to 0.203, early ECE from 0.199 to 0.177, and all N counts. If there is a reason to use pilot-scale calibration (e.g., trajectory recording cost), state this explicitly and report both pilot and full-scale numbers."
+  },
+  {
+    "stage": "review",
+    "category": "experimental_rigor",
+    "severity": "critical",
+    "description": "All experiments use seed=42 with zero variance estimates. The two-proportion z-test (p<0.002) only captures binomial sampling noise within a single generation run, not seed-to-seed variance which is the dominant uncertainty source in stochastic DLM decoding. The paper headlines this p-value in the abstract and conclusion, which is misleading.",
+    "suggestion": "Run at minimum 3 seeds (e.g., 42, 123, 456) on the key GSM8K comparison (Standard-64 vs CARD-84). Report mean +/- std. If resources are tight, even 3 seeds on a 500-sample subset would be informative. Reframe the z-test as a conditional significance test (conditional on seed=42)."
+  },
+  {
+    "stage": "review",
+    "category": "experimental_rigor",
+    "severity": "critical",
+    "description": "Only 1 of 6 model/benchmark pairs shows a clear CARD improvement (LLaDA-8B/GSM8K). On HumanEval CARD degrades by -10pp, on MMLU it is neutral, MBPP is floor, Dream-7B is noise. The paper claims CARD 'appears on the Pareto frontier for 4/6 pairs' but 3 of those 4 are trivial (MBPP near 0%, Dream/HumanEval at 0%, MMLU all methods equal). In reality, CARD demonstrates improvement on exactly 1 informative benchmark.",
+    "suggestion": "Add at least one more reasoning benchmark (MATH, ARC-Challenge, or SVAMP) to demonstrate generalization beyond GSM8K. If CARD improves on a second reasoning benchmark, the story becomes much stronger. If it does not, the paper must be reframed as a diagnostic contribution with a proof-of-concept application."
+  },
+  {
+    "stage": "review",
+    "category": "missing_comparison",
+    "severity": "critical",
+    "description": "The paper extensively surveys CORE, STaRR, COVER, SOAR, and other revision-based methods in Section 2.2 but compares CARD to none of them experimentally. CORE is the closest competitor (also identifies uncertain tokens for re-denoising, but uses O(L) perturbation probes vs CARD's 1-NFE entropy scoring). The absence of any competitor comparison is a guaranteed reviewer complaint.",
+    "suggestion": "Implement at least a simplified CORE comparison (perturbation-based fragile token detection + revision) at pilot scale (100 samples). Even if CORE is slower per-sample, showing CARD vs CORE at matched NFE budget would contextualize the contribution. Alternatively, cite CORE's reported numbers on comparable benchmarks and discuss the comparison qualitatively with explicit acknowledgment of the missing head-to-head."
+  },
+  {
+    "stage": "review",
+    "category": "presentation",
+    "severity": "major",
+    "description": "The title 'Calibration-Aware Revision Decoding' is misleading. The method does NOT use calibration correction --- calibration was explicitly found unnecessary (Section 3.3, Table 3). The method uses raw entropy, which is calibration-agnostic. The word 'Calibration-Aware' implies the algorithm incorporates calibration as a component, which it does not.",
+    "suggestion": "Rename to 'Entropy-Guided Revision Decoding' or 'Calibration-Informed Revision Decoding'. The former is more honest about the mechanism; the latter preserves the calibration framing while acknowledging the method is informed by (not dependent on) calibration analysis."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Pilot-to-full shrinkage of 63% (CARD: pilot 43% -> full 34.9%, delta vs DNB: pilot +11pp -> full +4.0pp) is mentioned in two sentences in Section 6.4 but demands deeper analysis. Were the 100 pilot samples a subset of the 1319? If so, what is CARD's accuracy on the non-pilot 1219 samples? The pilot also showed non-monotonic standard denoising (128<64) while full-scale shows monotonic (128>64), contradicting the pilot conclusion.",
+    "suggestion": "Report CARD accuracy separately on the pilot 100 and the remaining 1219 samples. Analyze whether the shrinkage is uniform or concentrated in certain problem types. Acknowledge and explain the non-monotonicity reversal (pilot 128<64 vs full 128>64)."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "NFE comparison is not perfectly matched. CARD-84 uses 71 actual NFE; DNB-84 uses 83 NFE. The paper never reports Standard-71 as a truly compute-matched baseline. For a paper that introduces compute-normalized comparison as a core contribution, this omission is ironic.",
+    "suggestion": "Run Standard-71 on the full GSM8K set (or at minimum on a 500-sample subset) to close this gap."
+  },
+  {
+    "stage": "review",
+    "category": "completeness",
+    "severity": "major",
+    "description": "Appendices B and C are unpopulated. Appendix B promises per-sample flip analysis; Appendix C promises generation examples.",
+    "suggestion": "Populate both appendices with data already available from experiments."
+  },
+  {
+    "stage": "review",
+    "category": "completeness",
+    "severity": "major",
+    "description": "All figures are placeholders ('See gen_fig*.py for rendering'). The paper cannot be assessed for camera-readiness without actual figures.",
+    "suggestion": "Execute all figure generation scripts and embed the resulting figures."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The ablation (Table 3) was conducted only at pilot scale (n=100). Given the 63% pilot-to-full shrinkage on the main result, ablation conclusions may not hold at full scale.",
+    "suggestion": "Either run key ablation conditions at full scale, or soften all ablation conclusions with explicit pilot-scale caveats."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "minor",
+    "description": "Section 3.1 states calibration uses '100 GSM8K samples' but full-scale calibration data exists with 1319 samples.",
+    "suggestion": "Update Section 3.1 to reflect full-scale calibration data."
+  },
+  {
+    "stage": "review",
+    "category": "presentation",
+    "severity": "minor",
+    "description": "Abstract states 'r = 0.40-0.62' but Table 1 shows r = 0.398 at mid-late stage. Range is valid only with rounding.",
+    "suggestion": "Report precise range or add rounding footnote."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "minor",
+    "description": "Section 6.1 claims 'math reasoning tokens exhibit low mutual dependence at the token level' without evidence.",
+    "suggestion": "Soften claim or provide token-level dependency analysis."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "Prompt template and GSM8K answer extraction method not specified.",
+    "suggestion": "Add to appendix or implementation section."
+  },
+  {
+    "stage": "review",
+    "category": "presentation",
+    "severity": "minor",
+    "description": "The '-84' suffix in 'CARD-84' denotes nominal step budget but actual NFE is 71, creating confusion.",
+    "suggestion": "Rename to CARD-71 or consistently annotate as 'CARD-84 (NFE=71)' throughout."
+  }
+]

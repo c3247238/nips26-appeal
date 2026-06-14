@@ -1,0 +1,69 @@
+{
+  "task_id": "train_dal_linear",
+  "experiment": "M2a: DaL-Linear on LLaDA-8B (PILOT)",
+  "model": "LLaDA-8B-Instruct",
+  "mode": "PILOT",
+  "variant": "linear",
+  "config": {
+    "meta_steps": 5000,
+    "k_unroll": 4,
+    "meta_lr": 0.0001,
+    "meta_batch": 2,
+    "seq_len": 256,
+    "insertion_layer": 16,
+    "d_model": 4096,
+    "vocab_size": 126464,
+    "gen_steps": 128,
+    "pilot_samples": 16,
+    "fast_weight_params": 16777216,
+    "total_trainable_params": 534781954
+  },
+  "meta_training": {
+    "variant": "linear",
+    "num_steps": 5000,
+    "k_unroll": 4,
+    "meta_lr": 0.0001,
+    "first_100_avg": 8.2047,
+    "last_100_avg": 5.2422,
+    "decrease_pct": 36.1,
+    "gate_final": 0.0067,
+    "ttt_lr_final": 0.1006,
+    "total_time_s": 1048.0,
+    "total_time_min": 17.5,
+    "converged": true
+  },
+  "vanilla": {
+    "gsm8k": {
+      "accuracy": 0.562,
+      "correct": 9,
+      "total": 16,
+      "time_s": 102.0
+    }
+  },
+  "dal_linear": {
+    "gsm8k": {
+      "accuracy": 0.375,
+      "correct": 6,
+      "total": 16,
+      "time_s": 116.0
+    }
+  },
+  "comparison": {
+    "gsm8k_delta": -0.188
+  },
+  "pass_criteria": {
+    "converged": true,
+    "pilot_assessment": "FAIL"
+  },
+  "timing": {
+    "total_elapsed_s": 1274.0,
+    "total_elapsed_min": 21.2
+  },
+  "gpu_info": {
+    "device": "cuda:0",
+    "gpu_name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "vram_total_mb": 97887
+  },
+  "timestamp": "2026-03-11T11:37:36.888358",
+  "notes": "Gate stuck at 0.0067 (sigmoid(-5) init, not learning). TTT-Linear fast weight = 16.78M params vs GRU 3.45M (not param-matched). Loss decreased 36.1% but evaluation shows -18.8% GSM8K accuracy degradation vs vanilla. Bug fixed: torch.enable_grad() needed inside torch.no_grad() for TTT gradient computation in generation hook."
+}

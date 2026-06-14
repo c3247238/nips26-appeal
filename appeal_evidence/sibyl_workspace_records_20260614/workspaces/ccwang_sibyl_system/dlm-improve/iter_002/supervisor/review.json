@@ -1,0 +1,55 @@
+{
+  "score": 6.4,
+  "verdict": "revise",
+  "summary": "论文已经完成从 method-forward 叙事到 diagnostic/protocol 叙事的可信收缩，`paper.md` 中关于 GSM8K headline pair 的 `+3pp`、`7 fixed / 4 harmed / 89 no_effect` 和三种子 sign consistency 基本能被当前 workspace 资产支持；但 `exp/results/summary.md` 缺失，canonical lineage 资产在 `current` workspace 内不自洽，honest-compute 论证仍混杂异质 runtime 条件，因此还不适合通过质量门。",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "evidence",
+      "severity": "major",
+      "description": "canonical 证据包不是自包含的：`exp/results/summary.md` 缺失，而且 `current/exp/results/canonical_asset_manifest.json` 与 `runtime_fairness_matrix.json` 指向的多个主资产是 `/home/ccwang/...` 绝对路径，当前 workspace 内不可验证。",
+      "suggestion": "补写 `exp/results/summary.md`，并把 manifest/source_artifact 统一改成 workspace-relative 或明确的 iteration-relative 路径；同时确保论文正文引用的 JSON 真正随本次交付一起存在。"
+    },
+    {
+      "stage": "review",
+      "category": "methodology",
+      "severity": "major",
+      "description": "honest-compute 叙事仍然带有明显 runtime confound：`runtime_probe_iter2.json` 推荐的是 `eager|compile=True` 且 safe batch `57`，但 `iter_001/exp/results/diag_compute_curve_gsm8k.json` 与 `current/exp/results/runtime_fairness_matrix.json` 中的方法比较混用了 `compile=True/False` 和 `batch_size=115/57/32/1`。",
+      "suggestion": "把正文改写为“realized runtime-lineage audit”而不是看起来像受控算法比较；最好补一张显式 caveat 表，说明哪些排序变化来自 runtime realization，哪些不能解释为纯方法优势。"
+    },
+    {
+      "stage": "writing",
+      "category": "consistency",
+      "severity": "major",
+      "description": "同一 headline pair 在不同资产中的数值没有被正文显式对齐：`diag_compute_curve_gsm8k.json` 给出 `0.36 -> 0.39`，`benefit_bucket_audit_pilot.json` 给出 `0.34 -> 0.37`，`seed_sensitivity_spotcheck.json` 的 reference seed 是 `0.36 -> 0.37`。当前稿件没有解释这些差异来自不同 seed、slice 或 runtime contract。",
+      "suggestion": "增加一段 artifact lineage / split reconciliation，明确每个表述对应的样本集、seed、runtime contract 与用途，避免读者把这些数字当成同一实验的重复记载。"
+    },
+    {
+      "stage": "review",
+      "category": "uncertainty",
+      "severity": "major",
+      "description": "稳健性与不确定性披露仍偏弱。当前最强的新证据仍是 `n=100` bucket audit 和三种子 sign check；论文虽口头收缩了 claim，但没有给 `+3pp` 提供区间、paired test 或更明确的不确定性框架。",
+      "suggestion": "至少为 headline delta 增加 paired bootstrap 或 Wilson/Clopper-Pearson 风格区间，并在摘要/结论直接写出 `n=100`, `3 seeds`, `sign consistency only`。"
+    },
+    {
+      "stage": "writing",
+      "category": "references",
+      "severity": "major",
+      "description": "Related Work 目前没有任何 citation 或 bibliography，导致关于 DLM revision、calibration signals 和 compute accounting 的定位性陈述缺少学术支撑。",
+      "suggestion": "补齐最小但必要的参考文献集合，并把每段 related work 的 claim 落到具体引用，而不是只保留无来源的领域概述。"
+    }
+  ],
+  "risks": [
+    "质量门可能因为 canonical JSON 存在而高估了可复核性，但 reviewer 实际无法从当前 workspace 直接追到若干主张对应的主资产。",
+    "读者可能把 honest-compute 结果误读为纯算法排序变化，而忽略 compile/batch/backend 差异带来的实现层 confound。",
+    "如果不解释跨资产的 baseline 漂移，reviewer 很容易把当前叙事收缩解读为 narrative selection，而不是受证据约束的收缩。",
+    "缺少正式引用会让这篇 paper 在进入外部评审前就显得尚未完成 scholarly packaging。"
+  ],
+  "evidence_gaps": [
+    "`current/exp/results/summary.md` 缺失；本次审查只能改用 `runtime_probe_iter2.json`、`benefit_bucket_audit_pilot.json`、`seed_sensitivity_spotcheck.json`、`runtime_fairness_matrix.json`、`observer_controller_protocol.json`、`canonical_asset_manifest.json` 和 `min_controller_decoupling_probe.json` 作为代表性结果资产。",
+    "`current` workspace 中缺少 `diag_compute_curve_gsm8k.json`、`diag_signal_gap_audit.json`、`diag_math500_shortlist.json`、`diag_humaneval_guard_boundary.json`、`final_pareto_synthesis.json` 的本地副本；它们只在 `iter_001/exp/results/` 中可见。",
+    "没有直接给 headline `+3pp` 配套的不确定性区间、显著性检验或更系统的 seed 扩展。",
+    "没有一张显式的 reconciliation 表说明 compute curve、bucket audit、seed spot-check 三组数字为何不同但仍可共同支持当前叙事。",
+    "没有 bibliography / citations，导致 related work 与 positioning 无法按论文标准审计。"
+  ]
+}

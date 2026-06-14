@@ -1,0 +1,121 @@
+{
+  "score": 5.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 4,
+    "experiments": 4,
+    "reproducibility": 5
+  },
+  "summary": "The paper pursues a genuinely interesting mechanistic question — adjudicating amortization gap vs. sparsity landscape as the dominant cause of SAE feature absorption — and the OMP oracle experimental design is conceptually clean. However, all core experiments remain in PILOT mode at 10-100x smaller scale than specified in the methodology. The headline 'decisive falsification' rests on a three-letter, 30-token-per-letter experiment at 97.8% ceiling absorption rate, which has near-zero statistical power to detect any difference. The cross-architecture EncNorm replication (AUROC=0.837) uses proxy labels that are confirmed to be decoder-letter-probe alignment labels, not actual absorbed features — the TopK-32k SAE shows 0% absorption under IG measurement. The EncNorm mechanistic narrative is post-hoc and directly contradicted by the signal inverting direction at L2, L8, and L10 in A2 data. Despite these critical issues, there are genuine positive elements: the OMP oracle concept is novel as applied to SAE absorption; encoder norm is empirically correlated with gold absorption labels (AUROC=0.757 at n_pos=18, DeLong p=0.0012 vs. EDA at L6); O_jaccard provides an independent complementary signal; negative results are reported with exemplary pre-registered targets. The figures required for the paper (fig_teaser.pdf, fig_enc_norm_hist.pdf, fig_omp_design.pdf, fig_roc_curves.pdf, fig_ablation.pdf, fig_omp_results.pdf) are now present in writing/latex/figures/, resolving the prior figure-generation blocker. To reach score 7.0: re-run OMP at full scale (10,000 tokens, 26 letters) with bootstrap CIs on the null result and a power analysis. To reach 7.5: fix the TopK-32k AUROC claim to accurately describe what was measured (decoder alignment, not absorption detection); scope EncNorm claims to L6-only. To reach 8.0: add results on at least one additional model beyond GPT-2 Small; run hook-confound quantification for F1 width recovery.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The OMP oracle experiment is conducted at near-100% ceiling with insufficient statistical power to detect any effect. C2_amortization_gap_full.json confirms mode='PILOT', 3 letters x 30 tokens each, feedforward AR=0.978 and OMP AR=0.978. With baseline AR=0.978 and n=30 tokens per letter, the standard error on a proportion difference is sqrt(2*0.978*(1-0.022)/30) ≈ 0.037. The pre-committed criterion 'OMP >= 80% of FF absorption rate' is satisfied trivially at 1.000 regardless of any real effect. The paper's claim 'the result is unambiguous' and 'decisively falsifies' the amortization gap hypothesis is scientifically indefensible: a null result at near-zero statistical power cannot constitute a falsification. No confidence interval on the null result (AR_OMP - AR_FF) is reported and no power analysis is included.",
+      "suggestion": "Re-run C2 at full specification (10,000 tokens, 26 letters, K_omp matched to feedforward mean L0). Report 95% bootstrap CI on (AR_OMP - AR_FF) for each letter. Include a power analysis: to detect a 5pp reduction from 97.8% baseline at 80% power, n >= 317 tokens per letter is required. Downgrade 'decisively falsifies' to 'is consistent with falsifying' and include the bootstrap CI explicitly. Test additionally at a layer with lower baseline AR (A2 data shows L2 ratio=0.877) where headroom for detection exists."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "All core experiments are in PILOT mode at drastically smaller scale than the methodology specifies. A1, A2, A3, B2, C2, D2 all carry mode='PILOT' in their result JSON files. C2 used 90 tokens and 3 letters (methodology specified 10,000 tokens, 26 letters). B1 co-occurrence graph used 10,000 tokens (methodology specified 200,000). D2 cross-hierarchy used 100 tokens per category. The paper presents pilot-scale results as final published results without any acknowledgment that the full-scale experiments specified in the methodology have not been run. This is a systematic misrepresentation of experimental completeness.",
+      "suggestion": "Either (a) run all experiments at the specified full scale and present those as final results — required for submission — or (b) explicitly label all results as pilot-scale throughout the paper with a clear limitation section acknowledging the gap from the experimental plan. For the OMP experiment specifically, full-scale re-run is mandatory as the pilot ceiling effect makes the current result uninterpretable as a falsification."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The cross-architecture 'replication' of EncNorm at AUROC=0.837 uses labels that E1 and A3 confirm are NOT absorbed features. E1 results show absorption_rate=0.0 for letters a, e, i, o, t in the TopK-32k SAE under IG measurement. The n_pos=77 labels come from decoder-alignment (cosine >= 0.30 to letter probes); label_source in A3 JSON is explicitly 'probe_decoder_alignment (cos>=0.3)'. These are decoder directions that happen to align with letter probes — not features that undergo the absorption failure mode. The paper reports AUROC=0.837 as 'cross-architecture replication' of absorption detection in the abstract, Table 1, and Section 4.1. What was demonstrated is that EncNorm predicts decoder-letter-probe alignment in the TopK-32k SAE — a completely different and weaker claim.",
+      "suggestion": "Reframe the TopK-32k result explicitly as 'EncNorm predicts decoder-letter-probe alignment' not 'EncNorm detects absorbed features in TopK architectures.' Either investigate why IG absorption measurement returns 0% in TopK-32k (possible threshold calibration, possible genuine absence at this architecture) and generate proper absorption labels, or remove the cross-architecture AUROC comparison from the main results and move it to supplementary with appropriate caveats. AUROC=0.757 from gold IG labels is the only valid absorption detection claim."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "The mechanistic narrative for why EncNorm predicts absorption is directly contradicted by A2 layer-analysis data. The paper claims: 'when child c fires on token t in place of parent j, the encoder gradient pushes ||w_enc,j||_2 upward.' A2 shows absorbed features have LOWER encoder norms at L2 (ratio=0.877), L8 (0.891), and L10 (0.933) — the signal inverts direction at 3 of 5 measured layers. The signal is only positive at L4 (1.055) and L6 (1.267). The paper reports 'EncNorm peaks at L6' as confirmation but does not address the direction reversal at most layers. A practitioner applying EncNorm at L8 or L10 would obtain an absorption detector pointing in the wrong direction. The theoretical narrative is post-hoc speculation inconsistent with the majority of the layer data.",
+      "suggestion": "Either provide a formal gradient-level derivation showing why the mechanism specifically inflates encoder norms at mid-layers but not early/late layers, or reduce Section 3.1 to describe EncNorm as 'an empirically discovered heuristic for L6 GPT-2 Small Standard/L1 SAEs whose mechanistic basis is unclear.' The empirical finding at L6 (AUROC=0.757) is real and worth reporting; the mechanistic interpretation as stated is not supported by the full dataset. Add a prominent limitation: EncNorm direction reverses at L2, L8, L10 on GPT-2 Small."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The cross-hierarchy contribution (H3, Contribution 3 from proposal) is absent or invalid. D2 shows entity-type absorption rate = 0.000 with notes acknowledging 'Used entity-type probe on control sentences for comparison' — the negative control was measured with the wrong probe. The experiment is invalid on multiple levels: wrong probe for control, pilot scale (100 tokens/category), 0% absorption in the positive hierarchy. The paper correctly attributes this to probe quality issues, but makes no attempt to fix or honestly report it as a failed experiment. The width recovery analysis (F1) substitutes as the third contribution but carries its own hook-confound problem.",
+      "suggestion": "Remove all cross-hierarchy generalization claims from the contribution list. Explicitly state that H3 was not tested due to probe quality failure. Restate contributions as: (1) OMP oracle mechanistic experiment, (2) EncNorm + O_jaccard weight-only detection, (3) Width recovery analysis with hook-confound caveat. The width recovery result remains informative as-is — 67% geometric recovery provides a lower bound even with the hook confound noted."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "EncNorm and EDA have Spearman r=0.712 across all 24,576 latents (A2). The AUROC improvement (0.757 vs. 0.650) could be entirely explained by EncNorm having a more favorable distribution shape for the severe class imbalance (18/24,576 ≈ 0.073%), rather than capturing genuinely independent absorption-relevant information. With r=0.712, approximately 51% of EncNorm variance is shared with EDA. No partial analysis controlling for EDA was run.",
+      "suggestion": "Run partial analysis: fit logistic regression with EDA as predictor; test whether adding EncNorm as second predictor significantly improves AUROC (likelihood ratio test or DeLong test on combined vs. single-predictor scores). If EncNorm AUROC after controlling for EDA is not significantly better than EDA alone, the marginal contribution of EncNorm over EDA is not established."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The width recovery analysis (F1) compares decoder directions across two SAEs with different hook points: Standard-24k uses blocks.6.hook_resid_pre (before attention) while TopK-32k uses blocks.6.hook_resid_post (after attention). The 67% recovery figure is uninterpretable without quantifying expected cross-hook cosine similarity. Two pairs of absorbed features share the same best_matching_32k_idx (absorbed_id=2406 and 11270 both map to idx 16435; absorbed_id=24154 and 7371 both map to idx 29309), suggesting potential false matches in the hook-shifted space.",
+      "suggestion": "Compute average cosine similarity between L6 resid_pre and resid_post activations on a token sample to establish baseline for expected cross-hook geometric alignment. Present the 67% figure relative to this baseline. Investigate the duplicate best_matching indices as potential false positives. The paper's characterization of 67% as 'upper bound' is correct; strengthen by providing the empirical hook-shift baseline."
+    },
+    {
+      "stage": "review",
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "All results are from GPT-2 Small (117M, 2019 vintage). Gemma Scope is inaccessible (E1: 401 Unauthorized). The paper makes claims about 'SAE feature absorption' in general but has no results on any model released in the past 6 years. NeurIPS 2026 main track reviewers will ask why no results on models with publicly available SAEs such as GPT-2 Medium, Pythia, or LLaMA-based SAEs. The interpretability literature in 2025-2026 centers on Gemma Scope and newer architectures.",
+      "suggestion": "Accept Gemma Scope gated license at huggingface.co/google/gemma-scope and run primary experiments on Gemma-2-2B, or obtain results on at least one additional publicly accessible SAE (EleutherAI Pythia SAEs are fully open). For the main track target, single-model GPT-2 Small results are a significant weakness. At minimum, scope abstract claims explicitly to 'on GPT-2 Small Standard/L1 SAEs at layer 6.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "O_jaccard AUROC=0.721 has a structural coverage limitation understated in the paper. B2 explicitly confirms: 9 of 18 absorbed features have O_jaccard=0 by construction because they are not in the 71 letter feature set. O_jaccard cannot detect half the absorbed features regardless of signal quality. The complementarity claim between EncNorm and O_jaccard is partly explained by O_jaccard having forced-zero coverage for exactly the absorbed features where EncNorm must do all the work.",
+      "suggestion": "Report O_jaccard AUROC separately for the 9 absorbed features in the letter feature set (expected higher AUROC) and the 9 that are not (expected AUROC ~0.5 since scores are 0 for all). Clarify that O_jaccard is limited to features identifiable via the letter co-occurrence network — it is not a general-purpose detector. Also update Section 3.2 to use f_k > 3*f_j consistently with the experimental implementation (B2 notes confirm this was the actual threshold used, not the looser f_k > f_j stated in the paper body)."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "major",
+      "description": "The paper does not engage with MP-SAE (Costa et al., arXiv:2506.03093) which uses iterative matching pursuit during joint encoder+decoder training. The paper's Section 5.1 guidance 'Do not expect OMP or iterative encoders to help' applies only to post-hoc OMP with fixed decoder — not to jointly trained iterative encoders as in MP-SAE. If MP-SAE reduces absorption, the practical recommendation would be incorrect for users of training-time iterative encoders. The paper conflates falsifying the 'weak amortization gap' (inference-time OMP with fixed decoder cannot reduce absorption) with falsifying the 'strong amortization gap' (jointly trained iterative encoder+decoder cannot reduce absorption).",
+      "suggestion": "Add a paragraph in Section 5.1 explicitly distinguishing (a) inference-time OMP with fixed decoder [tested here, falsified] from (b) joint training of iterative encoder+decoder as in MP-SAE [not tested by this experiment]. Acknowledge that the conclusion applies only to post-hoc iterative encoders and that the strong amortization gap hypothesis (training-time iterative encoders) remains open."
+    },
+    {
+      "stage": "review",
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "The 6 required figures (fig_teaser.pdf, fig_enc_norm_hist.pdf, fig_omp_design.pdf, fig_roc_curves.pdf, fig_ablation.pdf, fig_omp_results.pdf) are now present in writing/latex/figures/ as of this review (timestamped 14:57, generated after prior review blocker). The prior figures from iteration 2 (fig1_eda_method.pdf through fig5_phase_stability.pdf) are also still present; these should be removed to avoid confusion in LaTeX compilation. Figure accuracy must be cross-verified against source JSON data before submission.",
+      "suggestion": "Remove fig1_eda_method.pdf, fig2_eda_distributions.pdf, fig3_eda_scaling.pdf, fig4_enc_dec_alignment.pdf, fig5_phase_stability.pdf from writing/latex/figures/ to prevent stale figure inclusion. Cross-verify fig_enc_norm_hist.pdf shows absorbed mean=3.263 and non-absorbed mean=2.576 against A3_encoder_norm_cross_arch.json. Cross-verify fig_omp_results.pdf shows all three letters at AR=0.978 under both conditions."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The EncNorm signal is layer-specific in a way that critically limits practical generalizability but is not adequately warned against. A2 shows ratio (absorbed/non-absorbed) = 0.877 at L2, 1.055 at L4, 1.267 at L6, 0.891 at L8, 0.933 at L10. At L2, L8, and L10 the signal direction is inverted. The paper reports 'EncNorm peaks at L6' without warning that practitioners applying EncNorm to non-L6 SAEs would obtain a backwards detector.",
+      "suggestion": "Add a prominent limitation note: 'EncNorm is an L6-specific heuristic on GPT-2 Small Standard/L1 SAEs. The direction of the effect reverses at L2, L8, and L10. Before applying EncNorm screening to SAEs at other layers or architectures, practitioners must verify the signal direction on a labeled sample.' The AUROC=0.757 claim should explicitly scope to 'Standard/L1 SAE at GPT-2 L6.'"
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "The Jaccard score definition in Section 3.2 uses f_k > f_j (strictly greater), but the notation.md and B2 experimental implementation use f_k > 3*f_j. This inconsistency means the paper body does not match the actual experimental implementation. The A_cooccur bound of 0.333 in B2 (noted in B2 JSON notes) is explained by the 3x threshold, not by the looser threshold in the paper text.",
+      "suggestion": "Update Section 3.2 to use f_k > 3*f_j consistently with the experimental implementation. This also correctly explains the 0.333 maximum for A_cooccur values seen in B2 data."
+    }
+  ],
+  "risks": [
+    "The ceiling-effect OMP result (97.8% baseline AR) may not replicate at layers with lower absorption rates — the 'decisive falsification' framing would be undermined by any counterexample at L4 or L2 where FF vs. OMP difference might be measurable.",
+    "EncNorm mechanism story is fragile: the theoretical narrative inverts direction at most measured layers, and the result could be explained by polysemanticity-driven norm inflation rather than absorption-specific gradient competition.",
+    "The TopK-32k AUROC=0.837 using proxy labels is currently presented as cross-architecture replication of absorption detection. If reviewers notice the 0% IG absorption rate in the TopK-32k SAE (E1), they will dismiss this as measuring decoder geometry rather than absorption.",
+    "Single-model scope: All findings may be GPT-2 Small + JB SAE specific. The absorption mechanism may differ substantially in modern architectures.",
+    "n_pos=18 labeled features: Bootstrap CIs span approximately 0.18 AUROC units. Three or four mislabeled examples could shift results from 0.757 to below 0.7."
+  ],
+  "evidence_gaps": [
+    "Full-scale OMP experiment (10,000 tokens, 26 letters) with bootstrap CIs on (AR_OMP - AR_FF) — the critical missing evidence for the headline falsification claim",
+    "Proper IG-based absorption labels for the TopK-32k SAE, or explanation of why absorption_rate=0.0 under IG measurement",
+    "Hook-confound quantification: average cosine similarity between L6 resid_pre and resid_post activations to interpret F1 width recovery result",
+    "EncNorm vs. EDA marginal contribution analysis: logistic regression controlling for EDA to test whether EncNorm adds independent predictive power",
+    "Power analysis: minimum detectable AUROC difference at n_pos=18 and required n for detecting the observed Cohen's d=0.971 at 80% power",
+    "O_jaccard AUROC decomposed into letter-feature-set members vs. non-members (9 vs. 9 of the 18 absorbed features)",
+    "Cross-model validation on at least one SAE beyond GPT-2 Small (Pythia, LLaMA, or Gemma with accepted license)"
+  ],
+  "what_would_raise_score": "To reach score 7.0: Run the OMP experiment at full scale (10,000 tokens, 26 letters); include bootstrap CI on the null result; add a power analysis section. To reach 7.5: Additionally fix the TopK-32k AUROC claim to accurately describe what was measured (decoder alignment, not absorption detection); scope EncNorm claims to L6-only with explicit direction-reversal warning. To reach 8.0: Add results on at least one additional model/SAE beyond GPT-2 Small; run hook-confound quantification to interpret F1 width recovery. The core OMP oracle concept is genuinely novel and the EncNorm empirical signal at L6 is real — the paper has the ingredients for a 7.5-8.0 paper but currently presents pilot-scale results with full-scale claims."
+}

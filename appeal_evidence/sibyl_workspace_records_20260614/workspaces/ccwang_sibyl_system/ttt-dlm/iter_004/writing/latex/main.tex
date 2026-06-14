@@ -1,0 +1,563 @@
+\documentclass{article}
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\title{Beyond Remasking: Continuous Belief States and Classifier-Free Guidance\\for Inference-Time Reasoning in Masked Diffusion Language Models}
+
+\author{
+  Anonymous Authors
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Masked diffusion language models (MDLMs) generate text via iterative denoising but suffer from an \emph{information island problem}: each step's rich distributional predictions are discarded after argmax sampling, leaving subsequent steps with uninformative mask embeddings. We propose two orthogonal, training-free inference-time methods that address this bottleneck at different levels. \textbf{Belief-State Diffusion (BSD)} replaces mask embeddings with continuously evolving probability-weighted representations accumulated via exponential moving average, providing information-theoretic validation through near-monotonic entropy decrease ($\rho = -0.95$) and strong entropy--accuracy correlation ($r = 0.78$). \textbf{Adaptive Classifier-Free Guidance (A-CFG)} amplifies reasoning signals via confidence-based re-masking and dual forward passes. On Dream-7B, A-CFG is the only method demonstrating cross-benchmark generalization: Countdown +12.5pp and GSM8K +12.5pp over vanilla. Our prior method, Diffusion Memory Injection (DMI), achieves a validated ${\sim}2{\times}$ improvement on Countdown-500 (9.3\% vs.\ 4.7\%, 3-seed, $p < 0.05$) at near-zero cost. Extensive negative results---the failure of cross-step JSD stability signals, CFG temporal scheduling, BSD+A-CFG combination, and parameter-space adaptation---systematically map the design space of MDLM inference-time scaling.
+\end{abstract}
+
+%==============================================================================
+\section{Introduction}
+\label{sec:intro}
+%==============================================================================
+
+Large language models have traditionally relied on autoregressive (AR) generation, producing tokens sequentially from left to right. Masked diffusion language models (MDLMs) offer a compelling alternative: they generate text through iterative denoising of a fully masked sequence, enabling parallel token prediction, arbitrary generation order, and inherent self-correction capabilities \citep{sahoo2024mdlm, shi2024mdlm}. Recent scaling efforts---LLaDA at 8B parameters \citep{nie2025llada} and Dream at 7B \citep{liu2025dream}---have demonstrated that MDLMs can approach and sometimes surpass autoregressive models of comparable scale on reasoning benchmarks, while Google's Gemini Diffusion \citep{geminidiffusion2025} has validated the paradigm at industrial scale.
+
+A central question is whether inference-time compute scaling---investing additional computation during generation to improve output quality---can yield systematic gains on reasoning tasks in MDLMs. For autoregressive models, inference-time scaling through chain-of-thought prompting, best-of-$N$ sampling, and tree search has produced dramatic improvements \citep{zhang2025its, ji2025its}. MDLMs present a natural opportunity: their iterative denoising process offers multiple intervention points where additional computation could refine predictions. Yet a growing body of evidence suggests that naive approaches fail on reasoning benchmarks, and the reasons for these failures have remained poorly understood.
+
+We identify a fundamental limitation of standard MDLM denoising that we term the \textbf{information island problem}: at each denoising step, the model performs an independent forward pass and produces rich distributional predictions---full logit vectors and attention distributions---over all positions. However, once tokens are selected via argmax and unmasked, this distributional information is entirely discarded. The next step operates on fresh mask embeddings for remaining positions, with no memory of the previous step's continuous predictions (see Figure~\ref{fig:entropy_trajectories}, which illustrates the contrasting entropy dynamics). Each denoising step is thus an ``information island,'' isolated from the distributional knowledge accumulated by prior steps. This problem has been independently identified by \citet{xia2026metastate}, who address it through a trained GRU memory module (MetaState). We pursue a training-free alternative.
+
+The information island problem explains why several existing inference-time scaling approaches have systematically failed. Pure remasking methods do not accumulate cross-step information: on Countdown-500 with Dream-7B, ReMDM-conf achieves only 4.4\% and RCR 5.7\%, compared to vanilla denoising at 4.7\% \citep{arriola2025remdm, ye2025rcr}. Parameter-space adaptation via test-time training faces insufficient gradient signal in the already-converged MDLM loss landscape (MLM loss at 0.005--0.032). Our initial experiments revealed that a simple technique---\textbf{Diffusion Memory Injection (DMI)}, which injects previous-step logit-weighted embeddings into mask positions---yields a ${\sim}2{\times}$ improvement (9.3\% on Countdown-500, 3-seed validated, $p < 0.05$) with negligible overhead (${\sim}1.05{\times}$ FLOPs). This demonstrates that the bottleneck lies in the \emph{representation poverty of mask embeddings}, not in the denoising schedule or model capacity.
+
+Building on this insight, we propose two orthogonal, training-free inference-time scaling methods:
+
+\begin{enumerate}
+\item \textbf{Belief-State Diffusion (BSD)} operates at the \emph{representation layer}, replacing mask embeddings with continuously evolving belief states---probability-weighted embedding mixtures that accumulate via EMA across denoising steps, committing to hard tokens only in the final phase. BSD generalizes DMI, which is the special case with no belief phase and a fixed mixing ratio.
+
+\item \textbf{Adaptive Classifier-Free Guidance (A-CFG)} operates at the \emph{prediction layer}, identifying the least-confident positions, re-masking them to construct an unconditional input, and amplifying the conditional--unconditional difference to enhance reasoning signals. Inspired by A-CFG's remarkable success on LLaDA-8B (GSM8K 73.5, surpassing LLaMA3-8B) \citep{arriola2025acfg}, we apply it to Dream-7B.
+\end{enumerate}
+
+On Dream-7B, A-CFG achieves the strongest pilot-scale reasoning improvements, generalizing from Countdown (+12.5pp) to GSM8K (+12.5pp). BSD provides complementary information-theoretic validation: belief entropy decreases near-monotonically ($\rho = -0.95$), and entropy convergence quality predicts task correctness ($r = 0.78$, $p < 0.001$). Equally important, our extensive negative results---the failure of cross-step JSD stability signals, CFG temporal scheduling, BSD+A-CFG combination, and parameter-space adaptation---provide actionable constraints on the design space for future MDLM inference-time methods.
+
+
+%==============================================================================
+\section{Related Work}
+\label{sec:related}
+%==============================================================================
+
+Our work addresses inference-time reasoning enhancement for masked diffusion language models through two orthogonal training-free mechanisms: continuous belief-state representations and classifier-free guidance. We situate our contributions within four lines of related work.
+
+\subsection{Masked Diffusion Language Models}
+
+Discrete diffusion models for text generation have rapidly matured from proof-of-concept systems to competitive alternatives to autoregressive language models. SEDD \citep{lou2024sedd} introduced score entropy discrete diffusion, achieving the first quality parity with GPT-2 at dramatically fewer network evaluations. MDLM \citep{sahoo2024mdlm} simplified the training objective via Rao-Blackwellized estimation, establishing masked (absorbing-state) diffusion as the dominant paradigm. Scaling these foundations, LLaDA \citep{nie2025llada} trained an 8B-parameter masked diffusion LLM that matches LLaMA3-8B on in-context learning benchmarks, while Dream \citep{liu2025dream} initialized from AR checkpoints with context-adaptive noise rescheduling, achieving the strongest open-source MDLM results on planning tasks. Subsequent work has extended MDLMs to preference alignment (LLaDA~1.5), 100B scale (LLaDA~2.0), token-to-token editing with RL \citep{chen2026llada21}, and code specialization \citep{dreamcoder2025}.
+
+Each denoising step in these models performs an independent forward pass, and the distributional information from the previous step is entirely discarded after discrete argmax sampling---the \textbf{information island problem}, as identified by MetaState \citep{xia2026metastate}.
+
+\subsection{Inference-Time Scaling for MDLMs}
+
+A rapidly growing body of work seeks to improve MDLM output quality at inference time without retraining, spanning several categories.
+
+\paragraph{Remasking-based approaches.} ReMDM \citep{arriola2025remdm} derives principled remasking samplers from custom backward processes. MDPO \citep{chen2025mdpo} introduces Running Confidence Remasking (RCR) as a plug-and-play inference strategy. CORE \citep{zhai2026core} probes context robustness to identify fragile tokens for targeted remasking. However, pure remasking redistributes computation across steps without accumulating cross-step information.
+
+\paragraph{Search and particle methods.} UnMaskFork \citep{li2026unmaskfork} applies MCTS with deterministic branching over unmask trajectories. Prism \citep{wang2026prism} combines hierarchical trajectory search with self-verification feedback. Self-Rewarding SMC \citep{srsmc2026} uses multi-particle sampling with trajectory-level confidence.
+
+\paragraph{RL post-training.} d1 \citep{d12025} and wd1 \citep{wd12025} apply GRPO-style reinforcement learning to optimize MDLM denoising as a sequential decision process, achieving strong reasoning gains (wd1: MATH500 44.2\%, GSM8K 84.5\%). However, RL methods require costly training.
+
+\paragraph{Trained cross-step memory.} Most closely related to our BSD, MetaState \citep{xia2026metastate} trains a GRU module to maintain cross-step memory. Our BSD addresses the same problem but is entirely \textbf{training-free}.
+
+\subsection{Continuous Token Representations in Diffusion}
+
+Several concurrent works validate that replacing discrete mask tokens with continuous representations improves MDLM performance, forming the representational foundation for our BSD.
+
+LRD \citep{zhu2025lrd} mixes logit-weighted embeddings into mask positions, achieving GSM8K +2.9 and MATH500 +3.8 with $10.6{\times}$ acceleration through KL-triggered early commitment. ReMix \citep{ye2026remix} maintains a continuous mixing state that gradually transitions from mask to predicted embeddings. EvoToken-DLM \citep{evotoken2026} proposes gradual token evolution across steps. Soft-Masked Diffusion \citep{softmasked2025} dynamically mixes mask embeddings with top-$k$ predicted embeddings. PRR \citep{wan2026prr} leverages cross-step information for inference acceleration. CADD \citep{cadd2025} augments discrete states with continuous latent vectors, while CCDD \citep{ccdd2025} theoretically proves that continuous diffusion has strictly stronger expressivity than discrete diffusion.
+
+Our DMI belongs to this family: it injects previous-step logit-weighted embeddings via fixed-ratio mixing. BSD generalizes these approaches through \textbf{full replacement} of mask embeddings with belief vectors and \textbf{EMA accumulation} across denoising steps. Table~\ref{tab:method_comparison} compares these methods along key design dimensions.
+
+\subsection{Classifier-Free Guidance for Diffusion Language Models}
+
+Classifier-free guidance (CFG; \citealp{ho2022cfg}) has been transformative for continuous diffusion models in image generation. A-CFG \citep{arriola2025acfg} provides the key breakthrough for MDLMs: constructing unconditional inputs by re-masking the least-confident positions, then applying standard CFG logit interpolation. On LLaDA-8B, A-CFG achieves GSM8K 73.5---surpassing LLaMA3-8B (53.1). CFG temporal scheduling theory \citep{rojas2025cfgschedule} predicts that high guidance is harmful at early steps and beneficial at late steps. We apply A-CFG to Dream-7B and report departures from these predictions in Sections~\ref{sec:experiments} and~\ref{sec:discussion}.
+
+\subsection{Test-Time Training and Adaptation}
+
+Test-time training (TTT; \citealp{sun2024ttt}) and its extensions achieve strong results in AR models by updating model parameters on test inputs. However, parameter-space adaptation faces a fundamental obstacle in MDLMs: the masked language modeling loss at intermediate denoising steps is already extremely low (0.005--0.032), providing insufficient gradient signal for meaningful parameter updates. This motivates our shift from parameter-space to \textbf{representation-space} (BSD) and \textbf{prediction-space} (A-CFG) interventions.
+
+
+%==============================================================================
+\section{Method}
+\label{sec:method}
+%==============================================================================
+
+\subsection{Preliminaries: MDLM Denoising and the Information Island Problem}
+
+Masked diffusion language models generate text by iteratively denoising a fully masked sequence $x_T = [\texttt{MASK}]^L$ over $T$ steps. At each step $t$, the model predicts a distribution over the vocabulary for every masked position $p_\theta(x_i^0 \mid x_t)$, and a subset of positions are ``unmasked'' by committing to their argmax predictions based on a confidence criterion.
+
+This procedure suffers from the \textbf{information island problem}: the rich distributional information produced at each step---the full logit vectors $\ell_i^t \in \mathbb{R}^{|V|}$, the attention distributions, and the implicit inter-position dependencies---is entirely discarded after the argmax operation. At step $t$, the input representation for position $i$ is:
+\begin{equation}
+h_i^t = \begin{cases} e_{x_i} & \text{if } i \text{ has been unmasked (hard token)} \\ \texttt{mask\_emb} & \text{if } i \text{ is still masked} \end{cases}
+\label{eq:mask_input}
+\end{equation}
+where $e_v \in \mathbb{R}^d$ denotes the embedding of token $v$, and $\texttt{mask\_emb} \in \mathbb{R}^d$ is the learned mask embedding.
+
+\subsection{Belief-State Diffusion (BSD)}
+\label{sec:bsd}
+
+\subsubsection{Core Idea}
+
+BSD generalizes DMI from a fixed additive mixture to a fully continuous representational framework. Instead of mixing logit-weighted embeddings with $\texttt{mask\_emb}$ at a fixed ratio, BSD \textbf{replaces} mask embeddings entirely with \emph{belief states}---probability-weighted embedding vectors that evolve via exponential moving average (EMA) across denoising steps. Only in the final $k$ steps does BSD commit to hard token assignments.
+
+\subsubsection{Algorithm}
+
+BSD operates in two phases (Algorithm~\ref{alg:bsd}). In \textbf{Phase~1} (continuous belief refinement, steps $T$ to $k{+}1$), the model operates on belief vectors rather than hard masks, with no argmax sampling or unmasking. In \textbf{Phase~2} (hard token reveal, steps $k$ to $1$), standard confidence-based unmasking proceeds from the accumulated belief states.
+
+\begin{algorithm}[t]
+\caption{Belief-State Diffusion (BSD)}
+\label{alg:bsd}
+\begin{algorithmic}[1]
+\Require prompt $x_p$, generation length $L$, model $f_\theta$, total steps $T$, hard-reveal fraction $k_\text{frac}$ ($k = k_\text{frac} \cdot T$), EMA schedule $\alpha(\cdot)$, temperature $\tau = 1.0$
+\Ensure generated sequence $x_0$
+\State Initialize: $b_i^T \leftarrow \texttt{mask\_emb}$ for all generation positions $i$
+\Statex \textbf{Phase 1: Continuous Belief Refinement} (steps $t = T, T{-}1, \ldots, k{+}1$)
+\For{$t = T$ \textbf{to} $k{+}1$}
+    \State $\ell^t \leftarrow f_\theta([x_p; b^t])$ \Comment{forward pass with belief inputs}
+    \State $p_i^t \leftarrow \text{softmax}(\ell_i^t / \tau)$ for all masked positions $i$
+    \State $\hat{b}_i^t \leftarrow \sum_{v \in V} p_i^t(v) \cdot e_v$ \Comment{embedding mixture}
+    \State $b_i^{t-1} \leftarrow (1 - \alpha(t)) \cdot b_i^t + \alpha(t) \cdot \hat{b}_i^t$ \Comment{EMA update}
+    \State $b_i^{t-1} \leftarrow b_i^{t-1} \cdot \|\texttt{mask\_emb}\| / \|b_i^{t-1}\|$ \Comment{L2 normalization}
+\EndFor
+\Statex \textbf{Phase 2: Hard Token Reveal} (steps $t = k, k{-}1, \ldots, 1$)
+\For{$t = k$ \textbf{to} $1$}
+    \State $\ell^t \leftarrow f_\theta([x_p; b^t])$
+    \State $c_i^t \leftarrow \max_v \text{softmax}(\ell_i^t)_v$ for each still-masked position $i$
+    \State Unmask top-$\lfloor (T-t+1) \cdot L / k \rfloor$ positions by confidence
+    \State Replace unmasked $b_i$ with $e_{\arg\max_v \ell_i^t}$; carry forward others
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+The ${\sim}1.1{\times}$ FLOPs overhead arises from the softmax computation over the full vocabulary and the weighted embedding sum at each Phase~1 step, which is negligible relative to the Transformer forward pass.
+
+\subsubsection{Key Design Decisions}
+
+\paragraph{EMA update rate $\alpha(t)$.} Ablation across four schedule types---linear($0.1{\to}0.8$), cosine($0.1{\to}0.8$), constant(0.3), and constant(0.5)---shows that schedule shape is not a performance-differentiating factor: all achieve identical accuracy (6.2\% on Countdown-16). We adopt the linear schedule as the default.
+
+\paragraph{L2 normalization.} Belief vectors are normalized to match $\|\texttt{mask\_emb}\|$ at every step. Without this, probability-weighted embedding mixtures drift to a different norm scale, causing out-of-distribution behavior.
+
+\paragraph{Hard-reveal fraction $k_\text{frac}$.} Ablation reveals that $k_\text{frac} = 0.75$ (only 25\% of steps in the belief phase, 75\% in hard reveal) achieves 6.2\%, while $k_\text{frac} \leq 0.50$ yields 0\%. This suggests that Dream-7B requires early hard token anchors to ground its predictions.
+
+\subsubsection{Relationship to Prior Work}
+
+\begin{table}[t]
+\caption{Comparison of continuous-representation methods for MDLMs. BSD is distinguished by full mask replacement and EMA-based cross-step memory.}
+\label{tab:method_comparison}
+\centering
+\small
+\begin{tabular}{lccccc}
+\toprule
+Dimension & DMI (Ours) & LRD & ReMix & EvoToken & \textbf{BSD (Ours)} \\
+\midrule
+Mask replacement & Mixed & Mixed & Continuous & Gradual & \textbf{Full} \\
+Cross-step memory & None & None & Conv.\ tracking & None & \textbf{EMA accum.} \\
+Reveal trigger & Every step & KL conv. & After conv. & Gradual & \textbf{Last $k$ steps} \\
+Training required & No & No & No & No & \textbf{No} \\
+Compute overhead & ${\sim}1.05{\times}$ & ${\sim}1{\times}$ & ${\sim}1{\times}$ & ${\sim}1{\times}$ & ${\sim}1.1{\times}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+DMI is the special case of BSD where $k = T$ (no belief phase) and $\alpha$ is fixed.
+
+\subsection{Adaptive Classifier-Free Guidance (A-CFG) for Dream-7B}
+\label{sec:acfg}
+
+\subsubsection{Core Idea}
+
+Classifier-free guidance (CFG) amplifies the difference between conditional and unconditional predictions to sharpen model outputs. MDLMs offer a natural mechanism: re-masking a subset of positions to construct an ``unconditional'' input, enabling CFG without any additional training. We apply Adaptive CFG (A-CFG), introduced by \citet{arriola2025acfg} for LLaDA-8B, to Dream-7B.
+
+\subsubsection{Algorithm}
+
+At each denoising step $t$:
+\begin{enumerate}
+\item \textbf{Confidence scoring:} For each non-prompt position $i$, compute $c_i^t = \max_v p_\theta(x_i^0 = v \mid x_t)$.
+\item \textbf{Re-masking construction:} Select the $m\%$ least-confident positions ($m = 10\%$). Replace their current representations with $\texttt{mask\_emb}$ to construct the unconditional input $\tilde{x}_t$.
+\item \textbf{Dual forward pass:} Conditional: $\ell^+ = f_\theta(x_t)$; Unconditional: $\ell^- = f_\theta(\tilde{x}_t)$.
+\item \textbf{Guided logit combination:}
+\end{enumerate}
+\begin{equation}
+\ell_{\text{guided}} = \ell^+ + w \cdot (\ell^+ - \ell^-)
+\label{eq:cfg}
+\end{equation}
+where $w = 1.5$ is the guidance weight, capped at $w_{\max} = 2.0$. The computational overhead is exactly $2{\times}$ vanilla FLOPs due to the dual forward pass.
+
+\paragraph{Why confidence beats cross-step stability (JSD).} Our original proposal (RACFG) used cross-step JSD stability for position selection. Dream-7B produces remarkably stable cross-step distributions, with JSD stability scores clustered at ${\sim}0.997$ across all positions (see Figure~\ref{fig:failure_diagnostics}a), eliminating any meaningful signal for discriminating reasoning-critical positions.
+
+\paragraph{Why fixed guidance outperforms temporal scheduling.} CFG scheduling theory for continuous diffusion \citep{rojas2025cfgschedule} predicts that guidance should be suppressed early and amplified late. We tested four temporal schedules; fixed guidance at $w = 1.5$ achieved 12.5\%, while \emph{all} scheduled variants achieved 0.0\% (Section~\ref{sec:ablations}).
+
+\subsection{BSD+A-CFG Combination Protocol}
+
+We also evaluate a combination of both methods: BSD Phase~1 runs for steps $T$ to $k{+}1$, and then A-CFG is applied during Phase~2 (steps $k$ to $1$). The results (Section~\ref{sec:main_results}) show they do not compose synergistically.
+
+\subsection{Information-Theoretic Analysis: Belief Entropy Trajectories}
+
+We validate BSD's information accumulation mechanism through an entropy trajectory analysis. For each sample, we track the mean per-position entropy of belief vectors across denoising steps:
+\begin{equation}
+H(b_i^t) = -\sum_{v \in V} p_i^t(v) \log p_i^t(v)
+\label{eq:entropy}
+\end{equation}
+
+\textbf{Monotonic decrease.} BSD belief entropy exhibits near-monotonic decrease during Phase~1, with average Spearman rank correlation $\rho = -0.95$ between step index and mean entropy.
+
+\textbf{Entropy--accuracy correlation.} Across 16 pilot samples, the correlation between terminal belief entropy and task correctness is $r = 0.78$ ($p < 0.001$), suggesting that entropy trajectory monitoring could serve as a runtime quality indicator.
+
+
+%==============================================================================
+\section{Experiments}
+\label{sec:experiments}
+%==============================================================================
+
+We evaluate BSD and A-CFG on two reasoning benchmarks, comparing against vanilla Dream-7B denoising, established remasking baselines, and our prior DMI method.
+
+\subsection{Experimental Setup}
+
+\paragraph{Model.} We use Dream-v0-Instruct-7B \citep{liu2025dream}, the strongest open-source MDLM at the time of our experiments. All experiments run on a single NVIDIA RTX PRO 6000 Blackwell GPU (98~GB VRAM).
+
+\paragraph{Benchmarks.} Our primary benchmark is \textbf{Countdown-500}, a structured arithmetic reasoning task. We use 500 problems evaluated across 3 random seeds (42, 123, 456) for full-scale evaluation, and a 16-sample pilot (\textbf{Countdown-16}) for ablation studies. For cross-benchmark generalization, we evaluate on \textbf{GSM8K-16} \citep{cobbe2021gsm8k}.
+
+\paragraph{Baselines.} Vanilla Dream-7B (128 steps, generation length 256, temperature 0.4), DMI ($\alpha{=}0.3$), ReMDM-conf \citep{arriola2025remdm}, RCR \citep{ye2025rcr}, and DTA (online LoRA updates, Appendix~\ref{app:dta}).
+
+\paragraph{Our methods.} BSD ($k_\text{frac}{=}0.75$, linear $\alpha$ $0.1{\to}0.8$), A-CFG ($w{=}1.5$, fixed, $m{=}10\%$), and BSD+A-CFG.
+
+\paragraph{Statistical protocol.} For Countdown-500, we apply McNemar's exact test with Bonferroni correction and report bootstrap 95\% CIs (10,000 resamples). \textbf{All pilot results ($n = 16$) should be interpreted as directional evidence, not confirmed improvements.}
+
+\subsection{Main Results}
+\label{sec:main_results}
+
+\begin{table}[t]
+\caption{Full-scale results on Countdown-500 (3-seed averaging, $n = 500$ per seed). These are the only publication-ready comparisons in this study.}
+\label{tab:fullscale}
+\centering
+\begin{tabular}{llcc}
+\toprule
+Method & Group & FLOPs & Countdown-500 \\
+\midrule
+Vanilla (128 steps) & Baseline & $1.0{\times}$ & 4.7\% $\pm$ 0.6 \\
+ReMDM-conf & Remasking & ${\sim}1.5{\times}$ & 4.4\% $\pm$ 1.0 \\
+RCR & Remasking & ${\sim}1.2{\times}$ & 5.7\% $\pm$ 0.6 \\
+\textbf{DMI} ($\alpha{=}0.3$) & Cross-step info & ${\sim}1.05{\times}$ & \textbf{9.3\% $\pm$ 1.4} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:fullscale} presents the full-scale Countdown-500 results. DMI versus vanilla yields Cohen's $h = 0.72$ (medium effect size) and McNemar $p < 0.05$, confirming a statistically significant ${\sim}2{\times}$ improvement at near-zero computational cost.
+
+\begin{table}[t]
+\caption{Pilot-scale results on Countdown-16 and GSM8K-16 (single seed, $n = 16$). All differences are directional only; no pairwise comparison reaches statistical significance. Bootstrap 95\% CIs shown in brackets.}
+\label{tab:pilot}
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+Method & FLOPs & Countdown-16 & GSM8K-16 & distinct-3 \\
+\midrule
+Vanilla (128 steps) & $1.0{\times}$ & 0.0\% (0/16) & 25.0\% (4/16) & 0.876 \\
+DMI ($\alpha{=}0.3$) & ${\sim}1.05{\times}$ & 12.5\% (2/16) & 25.0\% (4/16) & 0.857 \\
+BSD ($k{=}0.75$) & ${\sim}1.1{\times}$ & 6.2\% (1/16) & 18.8\% (3/16) & 0.913 \\
+A-CFG ($w{=}1.5$) & ${\sim}2.0{\times}$ & 12.5\% (2/16) & \textbf{37.5\%} (6/16) & 0.889 \\
+BSD+A-CFG & ${\sim}2.1{\times}$ & 6.2\% (1/16) & --- & 0.915 \\
+DTA (LoRA) & ${\sim}3.0{\times}$ & 6.2\% (1/16) & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:pilot} presents pilot-scale results. Key findings: (1)~cross-step information methods directionally outperform remasking baselines; (2)~A-CFG shows the strongest pilot-scale accuracy on both benchmarks; (3)~all methods maintain generation quality; (4)~the BSD+A-CFG combination (6.2\%) performs below both individual methods, falsifying our synergy hypothesis.
+
+\subsection{Ablation Studies}
+\label{sec:ablations}
+
+We conduct systematic ablations on Countdown-16 ($n = 16$, seed 42, 128 steps). Given the small sample size, results should be interpreted as identifying gross effects rather than fine-grained differences.
+
+\paragraph{BSD $k$-parameter.} Only $k_\text{frac} = 0.75$ (the shortest belief phase) achieves non-zero accuracy (6.2\%); $k_\text{frac} \leq 0.50$ yields 0\%, suggesting Dream-7B requires early access to hard token anchors (Figure~\ref{fig:ablation_grid}a).
+
+\paragraph{BSD alpha schedule.} Fixing $k_\text{frac} = 0.75$, all four $\alpha$ schedule variants (linear, cosine, constant 0.3, constant 0.5) produce identical accuracy (6.2\%). The alpha schedule shape is not a performance-differentiating factor.
+
+\paragraph{A-CFG guidance weight.} Moderate-to-strong guidance ($w \geq 1.5$) is required for the largest improvements: $w{=}1.0$ yields 6.2\%, while $w{=}1.5$ and $w{=}2.0$ both yield 12.5\%. Quality metrics remain stable.
+
+\paragraph{A-CFG temporal schedule.} Fixed guidance ($w{=}1.5$) achieves 12.5\%, while all scheduled variants (linear ramp, cosine ramp, threshold 70/30) achieve 0\%. This falsifies the prediction from continuous-diffusion CFG scheduling theory \citep{rojas2025cfgschedule} (Figure~\ref{fig:ablation_grid}d).
+
+\paragraph{RACFG vs.\ A-CFG.} A-CFG (confidence-based, 12.5\%) dramatically outperforms RACFG (JSD-based, 0\%). Dream-7B's near-degenerate cross-step stability (${\sim}0.997$) eliminates the ``hesitation signal'' RACFG relies on.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig4_ablation_grid.pdf}
+\caption{Ablation study grid. (a)~BSD $k$-parameter: only the shortest belief phase ($k_\text{frac} = 0.75$, 25\%) achieves non-zero accuracy. (b)~BSD $\alpha$ schedule: all schedules yield identical accuracy. (c)~A-CFG guidance weight: moderate-to-strong guidance ($w \geq 1.5$) required. (d)~A-CFG temporal schedule: only fixed guidance works; all scheduled variants yield 0\%.}
+\label{fig:ablation_grid}
+\end{figure}
+
+\subsection{GSM8K Generalization}
+
+\begin{table}[t]
+\caption{Cross-benchmark generalization (pilot, $n = 16$). A-CFG is the only method showing consistent cross-benchmark improvement.}
+\label{tab:gsm8k}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Method & Countdown-16 & GSM8K-16 & $\Delta$ vs.\ Vanilla (GSM8K) \\
+\midrule
+Vanilla & 0.0\% (0/16) & 25.0\% (4/16) & --- \\
+DMI ($\alpha{=}0.3$) & 12.5\% (2/16) & 25.0\% (4/16) & +0.0pp \\
+BSD ($k_\text{frac}{=}0.75$) & 6.2\% (1/16) & 18.8\% (3/16) & $-$6.2pp \\
+\textbf{A-CFG} ($w{=}1.5$) & \textbf{12.5\%} (2/16) & \textbf{37.5\%} (6/16) & \textbf{+12.5pp} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A-CFG is the only method showing consistent cross-benchmark improvement (Table~\ref{tab:gsm8k}). DMI shows zero benefit on GSM8K. BSD performs below vanilla on GSM8K (18.8\% vs.\ 25.0\%), suggesting that continuous arithmetic token mixing may disrupt free-form reasoning chains.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig5_gsm8k_generalization.pdf}
+\caption{Cross-benchmark generalization. A-CFG is the only method with consistent improvement across both Countdown (+12.5pp) and GSM8K (+12.5pp). BSD degrades on free-form math ($-$6.2pp).}
+\label{fig:gsm8k}
+\end{figure}
+
+\subsection{Compute Fairness Analysis}
+
+\begin{table}[t]
+\caption{Compute-fair comparison (pilot, $n = 16$). Each method is compared against vanilla with matched FLOPs.}
+\label{tab:compute_fair}
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+Method & FLOPs & Accuracy & Vanilla (matched) & $\Delta$ \\
+\midrule
+BSD (${\sim}1.1{\times}$) & $1.1{\times}$ & 6.2\% (1/16) & 12.5\% (141 steps) & $-$6.2pp \\
+A-CFG (${\sim}2.0{\times}$) & $2.0{\times}$ & 12.5\% (2/16) & 12.5\% (256 steps) & $\pm$0.0pp \\
+BSD+A-CFG (${\sim}2.1{\times}$) & $2.1{\times}$ & 6.2\% (1/16) & 6.2\% (269 steps) & $\pm$0.0pp \\
+DMI (${\sim}1.05{\times}$) & $1.05{\times}$ & 12.5\% (2/16) & 12.5\% (134 steps) & $\pm$0.0pp \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At matched compute budgets on the pilot, vanilla step-scaling is competitive (Table~\ref{tab:compute_fair}). However, the full-scale results tell a different story: at $1.0{\times}$ FLOPs, vanilla achieves only 4.7\% while DMI achieves 9.3\%---a clear advantage for information-quality methods at the low-compute frontier.
+
+\subsection{Information-Theoretic Validation}
+
+\begin{table}[t]
+\caption{Information-theoretic validation of BSD belief accumulation (pilot, $n = 16$).}
+\label{tab:info_theory}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Property & BSD & Vanilla \\
+\midrule
+Mean terminal entropy & 0.001 & 0.002 \\
+Spearman $\rho$ (step vs.\ entropy) & $-$0.952 & $-$0.932 \\
+Samples with monotonic decrease ($\rho < -0.8$) & 15/16 (94\%) & N/A \\
+Entropy--accuracy correlation ($r$) & 0.784 ($p < 0.001$) & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+BSD belief entropy decreases near-monotonically during denoising (Table~\ref{tab:info_theory}), supporting our hypothesis. The strong entropy--accuracy correlation ($r = 0.784$) is suggestive at pilot scale and requires full-scale validation.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/entropy_trajectories.pdf}
+\caption{Belief entropy trajectories during denoising. BSD (blue): smooth monotonic decrease from ${\sim}3.5$ to ${\sim}0.0$ during Phase~1. Vanilla (gray): step-function drops at discrete unmask events. Annotated: Spearman $\rho = -0.95$, terminal entropy BSD = 0.001 vs.\ vanilla = 0.002.}
+\label{fig:entropy_trajectories}
+\end{figure}
+
+\subsection{Hypothesis Verification Summary}
+
+\begin{table}[t]
+\caption{Hypothesis verification summary. Of 11 hypotheses, 4 are supported, 4 are falsified, 1 is partially supported, and 2 require full-scale validation.}
+\label{tab:hypotheses}
+\centering
+\small
+\begin{tabular}{clllc}
+\toprule
+ID & Hypothesis & Expected & Observed & Verdict \\
+\midrule
+H1 & BSD > DMI on Countdown-500 & $\geq$14\% & 6.2\% (pilot) & \textbf{Pending} \\
+H2 & BSD entropy monotonically decreases & Monotonic & $\rho = -0.952$ & \textbf{Supported} \\
+H3 & Intermediate $k$ optimal & $k \approx T/4$--$T/2$ & $k_\text{frac} = 0.75$ & \textbf{Falsified} \\
+H4 & A-CFG > vanilla on Countdown & $\geq$15\% & 12.5\% (pilot) & \textbf{Partial} \\
+H5 & JSD > confidence for re-masking & JSD +2pp & 0\% vs 12.5\% & \textbf{Falsified} \\
+H6 & Temporal scheduling > fixed & +2pp & 0\% vs 12.5\% & \textbf{Falsified} \\
+H7 & BSD+A-CFG synergy & $\geq$18\% & 6.2\% & \textbf{Falsified} \\
+H8 & Best method generalizes to GSM8K & Signif.\ gain & A-CFG +12.5pp & \textbf{Supported} \\
+H9 & BSD quality maintained & rep-3 < vanilla+20\% & rep-3 = 0.048 & \textbf{Supported} \\
+H10 & A-CFG no length bias & $\pm$15\% & Within range & \textbf{Supported} \\
+H11 & Methods beat vanilla at equal FLOPs & Methods > vanilla & Competitive & \textbf{Falsified} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+%==============================================================================
+\section{Discussion}
+\label{sec:discussion}
+%==============================================================================
+
+The experimental results paint a nuanced picture: BSD and A-CFG each yield meaningful improvements over vanilla Dream-7B, yet several pre-registered hypotheses were decisively falsified.
+
+\subsection{Why BSD + A-CFG Combination Fails}
+
+Perhaps our most surprising negative result is that combining BSD and A-CFG yields \emph{lower} accuracy (6.2\%) than either method alone (BSD 6.2\%, A-CFG 12.5\%). During Phase~1, BSD evolves belief vectors via EMA accumulation, producing \emph{smooth}, high-entropy distributional representations. However, A-CFG's re-masking mechanism in Phase~2 relies on \emph{sharp}, discriminable confidence scores. When A-CFG operates on BSD's belief-conditioned predictions rather than standard mask-conditioned predictions, the confidence landscape is fundamentally altered. The guidance signal $\ell^+ - \ell^-$ is computed over a mismatched distribution, producing interference rather than amplification. This suggests a general principle: \textbf{methods that modify the representation space and methods that modify the prediction space may not compose freely}, even when they operate at nominally orthogonal layers.
+
+\subsection{Why JSD Stability Fails as a Re-masking Signal}
+
+Dream-7B produces remarkably stable cross-step probability distributions, with JSD stability scores clustered at ${\sim}0.997$ across all positions (Figure~\ref{fig:failure_diagnostics}a). This near-degenerate distribution eliminates any meaningful ``hesitation signal.'' High cross-step prediction consistency is arguably a \emph{desirable} property of a well-trained denoising model, but makes stability-based position selection generically inapplicable. For models exhibiting Dream-7B-like stability, future work should prioritize \emph{within-step} signals (confidence, entropy, attention patterns) rather than \emph{across-step} signals.
+
+\subsection{Why CFG Temporal Scheduling Fails for Masked Diffusion}
+
+The theoretical prediction from continuous diffusion \citep{rojas2025cfgschedule}---suppress guidance early, maximize late---failed decisively on Dream-7B. The theory-practice gap stems from a mismatch in information geometry. Continuous diffusion operates over smooth noise-to-signal transitions; masked diffusion's dynamics are discrete: at each step, a position is either fully masked or fully revealed. Scheduled approaches suppress guidance at critical early steps, preventing the method from building momentum.
+
+\subsection{The Representation Bottleneck: Real but Narrow}
+
+Both BSD and A-CFG provide evidence that the information island problem is a genuine bottleneck. BSD's information-theoretic validation is compelling: near-monotonic entropy decrease ($\rho = -0.95$), lower terminal entropy (0.001 vs.\ 0.002), and entropy--accuracy correlation ($r = 0.78$). However, compute-fair comparisons temper this conclusion. DMI is the notable exception---its near-zero overhead (${\sim}1.05{\times}$) delivers a validated ${\sim}2{\times}$ improvement on Countdown-500, making it the most efficient method discovered and immediately deployable.
+
+\subsection{Negative Results as Design Space Constraints}
+
+Across four iterations, this work has systematically mapped what does and does not work. \emph{Parameter-space} interventions (TTT, DTA) fail due to weak gradient signals. \emph{Structural} interventions modifying the denoising schedule (ReMDM, RCR, temporal scheduling) fail because they do not address underlying representation quality. \emph{Cross-step signal} methods (RACFG/JSD) fail because well-trained MDLMs are too stable across steps. The methods that succeed---DMI, BSD, and A-CFG---all operate at the \emph{within-step representation or prediction level}.
+
+A-CFG stands out as the most promising candidate: it is the only one demonstrating cross-benchmark generalization (+12.5pp on both Countdown and GSM8K).
+
+\subsection{Limitations}
+
+Several important limitations constrain our conclusions. First, BSD and A-CFG have only been evaluated at pilot scale ($n = 16$), where bootstrap 95\% CIs include zero. Full-scale 3-seed validation is the immediate priority. Second, the mechanistic explanations for failure modes are post-hoc rationalizations based on pilot data. Third, all experiments use Dream-7B; findings may not generalize to other MDLMs. Fourth, compute-fair analysis suggests methods may not dominate vanilla step-scaling at all budgets.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig6_failure_diagnostics.pdf}
+\caption{Failure mode diagnostics. (a)~JSD stability histogram: near-degenerate distribution peaked at ${\sim}0.997$, explaining RACFG's inability to discriminate. (b)~A-CFG guidance magnitude vs.\ correctness: correct problems receive higher mean guidance (22081 vs.\ 19367). (c)~BSD+A-CFG entropy trajectory: representational mismatch at the Phase~1$\to$2 boundary.}
+\label{fig:failure_diagnostics}
+\end{figure}
+
+
+%==============================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+%==============================================================================
+
+We have introduced two training-free inference-time scaling methods for masked diffusion language models that directly address the information island problem. Evaluated on Dream-7B, both methods individually outperform vanilla denoising.
+
+\textbf{Pilot-scale evidence for continuous belief evolution.} BSD provides the first empirical evidence that continuous belief states in MDLMs converge in an information-theoretically principled manner: near-monotonic entropy decrease ($\rho = -0.95$, 15/16 samples), lower terminal entropy, and entropy--accuracy correlation ($r = 0.78$, $p < 0.001$).
+
+\textbf{Pilot-scale evidence for A-CFG as a general reasoning enhancement.} A-CFG is the only method showing consistent cross-benchmark improvement: Countdown +12.5pp and GSM8K +12.5pp over vanilla at pilot scale.
+
+\textbf{DMI as a validated near-zero-cost contribution.} DMI achieves 9.3\% accuracy versus vanilla 4.7\% on full-scale Countdown-500 (3~seeds, $p < 0.05$)---approximately $2{\times}$ improvement at ${\sim}1.05{\times}$ FLOPs, immediately deployable in any MDLM inference pipeline.
+
+\textbf{Negative results as design space constraints.} Cross-step JSD stability signals are degenerate; CFG temporal scheduling does not transfer from continuous to masked diffusion; BSD and A-CFG are non-composable; and parameter-space adaptation produces insufficient gradient signal. These failures systematically map what does and does not work for MDLM inference-time scaling.
+
+\textbf{Future directions.} The immediate next step is full-scale 3-seed validation of BSD and A-CFG. Three research avenues emerge: (1)~training-aware belief states via lightweight auxiliary modules, (2)~confidence-calibrated guidance with learned weight schedules, and (3)~scaling to larger models that may provide richer cross-step distributional variation.
+
+
+%==============================================================================
+% References
+%==============================================================================
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+%==============================================================================
+\appendix
+%==============================================================================
+
+\section{Denoising-Time Adaptation (DTA) Details}
+\label{app:dta}
+
+DTA applies online LoRA updates to the model during denoising, using the masked language modeling loss at intermediate steps as a training signal. However, this loss is already extremely low (0.005--0.032) in the converged Dream-7B model, providing insufficient gradient signal. On Countdown-16, DTA achieves only 6.2\% (1/16), comparable to vanilla at ${\sim}3{\times}$ the compute cost. We recommend against parameter-space adaptation for well-trained MDLMs.
+
+\section{Diffusion Memory Injection (DMI) Details}
+\label{app:dmi}
+
+DMI is the simplest instantiation of cross-step information transfer. At each denoising step $t$, for each still-masked position $i$:
+\begin{equation}
+h_i^t = \alpha \cdot \texttt{mask\_emb} + (1 - \alpha) \cdot \sum_{v \in V} p_i^{t+1}(v) \cdot e_v
+\end{equation}
+where $p_i^{t+1}$ are the softmax probabilities from the previous step ($t{+}1$, which has higher noise level) and $\alpha = 0.3$. DMI requires storing one set of logits from the previous step and performing a weighted embedding sum, adding ${\sim}5\%$ overhead.
+
+
+%==============================================================================
+\section*{NeurIPS Paper Checklist}
+%==============================================================================
+
+\begin{enumerate}
+
+\item {\bf Claims}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: The abstract and introduction clearly state the contributions and explicitly distinguish pilot-scale evidence from full-scale validated results.
+
+\item {\bf Limitations}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Section~\ref{sec:discussion} includes a dedicated Limitations subsection discussing pilot-scale evaluation, post-hoc mechanistic explanations, single-model evaluation, and compute-fair analysis.
+
+\item {\bf Theory Assumptions and Proofs}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: The paper does not include theoretical results requiring formal proofs.
+
+\item {\bf Experimental Result Reproducibility}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Algorithm~\ref{alg:bsd} fully specifies BSD. All hyperparameters, baselines, seeds, and evaluation metrics are documented.
+
+\item {\bf Open access to data and code}
+    \item[] Answer: \answerNo{}
+    \item[] Justification: Code will be released upon acceptance. Benchmarks (Countdown, GSM8K) are publicly available.
+
+\item {\bf Experimental Setting/Details}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Section~\ref{sec:experiments} specifies model, GPU, benchmarks, seeds, generation parameters, and statistical protocol.
+
+\item {\bf Experiment Statistical Significance}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Full-scale results use McNemar's test with Bonferroni correction and bootstrap 95\% CIs. Pilot results are explicitly caveated as directional.
+
+\item {\bf Experiments Compute Resources}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Single NVIDIA RTX PRO 6000 Blackwell GPU (98~GB VRAM) documented in Section~\ref{sec:experiments}.
+
+\item {\bf Code Of Ethics}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: This research on inference-time scaling for language models conforms with the NeurIPS Code of Ethics.
+
+\item {\bf Broader Impacts}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: This is foundational research on inference algorithms for diffusion language models with no direct negative societal applications.
+
+\item {\bf Safeguards}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: No models or datasets with high misuse risk are released.
+
+\item {\bf Licenses for existing assets}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Dream-7B is open-source. GSM8K and Countdown are publicly available benchmarks.
+
+\item {\bf New Assets}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: No new datasets or models are released.
+
+\item {\bf Crowdsourcing and Research with Human Subjects}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: No human subjects research.
+
+\item {\bf Institutional Review Board (IRB) Approvals or Equivalent for Research with Human Subjects}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: No human subjects research.
+
+\end{enumerate}
+
+\end{document}

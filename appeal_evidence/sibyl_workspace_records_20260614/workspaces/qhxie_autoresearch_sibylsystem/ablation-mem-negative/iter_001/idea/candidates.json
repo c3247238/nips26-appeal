@@ -1,0 +1,95 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Unsupervised Feature Absorption Detection (UAD) with Dynamic Compensation (DFDA)",
+      "status": "front_runner",
+      "summary": "First fully unsupervised absorption detection via co-occurrence clustering, paired with lightweight inference-time compensation. End-to-end detect-then-fix pipeline without supervision.",
+      "hypotheses": [
+        "H1: UAD achieves F1 >= 0.6 on GPT-2 Small without probe directions",
+        "H2: UAD generalizes to Gemma-2B and Pythia-2.8B with F1 >= 0.55",
+        "H3: DFDA recovers >10% of absorbed activation with <0.01% SAE params",
+        "H4: UAD+DFDA pipeline improves downstream sparse probing accuracy"
+      ],
+      "pilot_focus": "Cross-model UAD validation (Gemma-2B, Pythia-2.8B) and multi-seed replication",
+      "evidence_from_iter1": {
+        "uad_f1": 0.704,
+        "uad_recall": 1.0,
+        "uad_precision": 0.543,
+        "dfda_mean_improvement": 0.1114,
+        "dfda_positive_pairs": "3/4",
+        "dfda_total_params": 388
+      },
+      "key_risks": [
+        "UAD F1 may drop below 0.5 on larger models",
+        "Co-occurrence clustering may detect correlation, not absorption specifically",
+        "DFDA improvement may not scale beyond 4 pairs"
+      ],
+      "novelty_claim": "First unsupervised absorption detection; first training-free compensation; first end-to-end detect-then-fix pipeline"
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Feature Co-Occurrence as General SAE Analysis Tool",
+      "status": "backup",
+      "summary": "Generalize UAD's co-occurrence clustering beyond absorption to comprehensive unsupervised SAE analysis: hierarchy discovery, redundancy detection, community detection, anomaly detection.",
+      "hypotheses": [
+        "Co-occurrence clustering reveals semantic hierarchies without supervision",
+        "Network centrality metrics identify functionally important features",
+        "Community detection on co-occurrence graphs recovers semantic categories"
+      ],
+      "pilot_focus": "Validate co-occurrence clustering on known semantic categories (WordNet)",
+      "evidence_from_iter1": "UAD's clustering approach works on first-letter features; generalization to semantic hierarchies untested",
+      "key_risks": [
+        "Semantic hierarchies may not form clean clusters in co-occurrence space",
+        "WordNet categories may not align with neural network feature organization"
+      ],
+      "novelty_claim": "General-purpose co-occurrence analysis toolkit for SAEs; extends 'Geometry of Concepts' to practical tool",
+      "pivot_trigger": "UAD F1 < 0.45 on larger models but co-occurrence structure is still informative"
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Absorption as a Consequence of SAE Nonidentifiability",
+      "status": "backup",
+      "summary": "Challenge the field's framing by showing absorption patterns are unstable across random seeds, suggesting absorption is an artifact of nonidentifiability rather than a real feature property.",
+      "hypotheses": [
+        "Absorption patterns vary significantly across random seeds for the same concept",
+        "Feature overlap across seeds correlates negatively with absorption stability",
+        "The absorption-hedging classification is not reproducible across initializations"
+      ],
+      "pilot_focus": "Train 3-5 SAEs with different seeds, measure absorption stability for first-letter features",
+      "evidence_from_iter1": "EleutherAI found ~30% feature overlap across seeds; absorption stability untested",
+      "key_risks": [
+        "May be dismissed as 'gotcha' paper without constructive recommendations",
+        "If absorption IS stable across seeds, hypothesis is falsified"
+      ],
+      "novelty_claim": "First systematic study of absorption stability across seeds; challenges field's framing",
+      "pivot_trigger": "UAD detects different absorption patterns across seeds; high seed variance observed"
+    },
+    {
+      "candidate_id": "cand_d",
+      "title": "Absorption as SAE Quality Diagnostic",
+      "status": "backup",
+      "summary": "Treat absorption rate as a leading indicator of overall SAE quality. High absorption correlates with poor seed consistency, low auto-interpretability, and high dead feature ratios.",
+      "hypotheses": [
+        "Absorption rate negatively correlates with seed consistency (Hungarian matching overlap)",
+        "Absorption rate negatively correlates with auto-interpretability scores",
+        "Absorption rate positively correlates with dead feature ratio"
+      ],
+      "pilot_focus": "Train SAEs with varying hyperparameters, measure absorption vs quality metrics",
+      "evidence_from_iter1": "Dead feature ratios were extremely high (94-99%) in trained SAEs; relationship to absorption untested",
+      "key_risks": [
+        "Correlations may be weak or confounded by hyperparameter choices",
+        "Quality metrics themselves may be unreliable"
+      ],
+      "novelty_claim": "Reframes absorption from 'problem to fix' to 'signal to monitor'",
+      "pivot_trigger": "UAD fails but absorption rate still varies meaningfully across SAE configurations"
+    }
+  ],
+  "front_runner": "cand_a",
+  "pivot_criteria": {
+    "if_uad_f1_below_0.5": "Pivot to cand_b, cand_c, or cand_d based on observed failure mode",
+    "if_uad_f1_0.5_to_0.55": "Proceed with cand_a but add cand_b as secondary contribution",
+    "if_uad_f1_above_0.55": "Full steam ahead on cand_a"
+  },
+  "synthesis_notes": "Iteration 1 evidence decisively inverts the original contribution hierarchy. The exploratory hypotheses (UAD/DFDA) produced robust, novel results while the primary hypotheses (CAAB, causal assessment) were inconclusive due to proxy metrics and underpowered designs. The front-runner is the only candidate with both novelty and empirical support. Backups provide escape routes if cross-model validation fails."
+}

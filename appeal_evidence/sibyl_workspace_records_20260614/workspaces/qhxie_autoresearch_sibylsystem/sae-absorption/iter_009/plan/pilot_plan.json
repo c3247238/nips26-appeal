@@ -1,0 +1,142 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_sec": 900,
+    "gpu": "RTX PRO 6000 Blackwell (95GB VRAM)"
+  },
+  "pilot_tasks": [
+    {
+      "task_id": "setup_env_check",
+      "pilot_description": "Import all packages, check GPU, load Gemma 2B tokenizer (not full model).",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "All imports succeed, GPU detected with >= 24GB VRAM.",
+      "estimated_time_min": 5
+    },
+    {
+      "task_id": "phase1_probe_training",
+      "pilot_description": "Train probes for first-letter + city-continent only at L12 and L24 (4 probes instead of 16). Use 100 entities. Check if L24 gives F1 > 0.80 for both.",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "First-letter F1 > 0.90 at L24. City-continent F1 > 0.70 at L24.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase1_absorption_firstletter",
+      "pilot_description": "Measure first-letter absorption at L24-16k only (single SAE). Use first 100 test words x 50 contexts. Check rate is within 10pp of iter_008 baseline (34.5%).",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "Absorption rate computed. Rate within 10pp of 34.5% (iter_008 baseline at L24-16k). Bootstrap CI computed.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase1_absorption_crossdomain",
+      "pilot_description": "Measure city-continent absorption at L24-16k only. Use 100 entities x 50 contexts. Compare with first-letter rate.",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "Absorption rate computed for city-continent. Permutation test vs first-letter computed.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase1_hedging_crossdomain",
+      "pilot_description": "Hedging decomposition for first-letter at L24-16k: classify FNs as absorbed/hedged/persistent. Use existing absorption results.",
+      "pilot_samples": 100,
+      "pilot_timeout": 600,
+      "pilot_pass_criteria": "Decomposition computed. Absorbed vs hedged fractions reported.",
+      "estimated_time_min": 10
+    },
+    {
+      "task_id": "phase2_activation_patching_crossdomain",
+      "pilot_description": "Attempt activation patching on 5 city-continent absorption pairs (if available from pilot absorption measurement). Zero child feature, check parent probe recovery at L24. Control: random feature.",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "At least 3 pairs processed. Recovery rate computed for child-zeroed vs control. Direction of effect consistent with first-letter patching.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase2_benign_pathological",
+      "pilot_description": "Test benign/pathological diagnostic on 5 first-letter absorption instances. Ablate parent direction from child decoder, measure logit change. Use iter_008 activation patching results to identify pairs.",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "Logit changes computed for 5 instances. Distribution shows spread (not all zero or all large). Random direction control computed.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase1_architecture_comparison",
+      "pilot_description": "Load BatchTopK-16k and Matryoshka SAEs at L12. Measure first-letter absorption only. Compare with JumpReLU-16k at L12.",
+      "pilot_samples": 100,
+      "pilot_timeout": 900,
+      "pilot_pass_criteria": "All 3 architectures loaded successfully. Absorption rates computed for first-letter at L12. Rates within 10pp of iter_008 values.",
+      "estimated_time_min": 15
+    },
+    {
+      "task_id": "phase3_rate_distortion_predictors",
+      "pilot_description": "Compute cos_sim, co-occurrence, R_parent for 10 first-letter parent-child pairs from iter_008 activation patching data. Compute Spearman rho with observed absorption.",
+      "pilot_samples": 100,
+      "pilot_timeout": 600,
+      "pilot_pass_criteria": "Per-pair predictors computed for 10 pairs. Spearman rho and p-value reported.",
+      "estimated_time_min": 10
+    },
+    {
+      "task_id": "phase0_threshold_reporting",
+      "pilot_description": "Load iter_001 threshold sensitivity JSON, parse 5x4 grid, generate summary.",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "Grid parsed, CV computed, summary table generated.",
+      "estimated_time_min": 5
+    },
+    {
+      "task_id": "phase3_absorption_tax",
+      "pilot_description": "Compute T(G) for first-letter at L24. Compare with observed absorption. Single hierarchy quick check.",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "T(G) value computed. Comparison with observed rate reported.",
+      "estimated_time_min": 5
+    },
+    {
+      "task_id": "phase4_negative_results",
+      "pilot_description": "Load iter_008 GAS and CMI results. Generate clean negative result summaries.",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "All negative result summaries generated with specific metrics.",
+      "estimated_time_min": 5
+    },
+    {
+      "task_id": "phase5_consolidation",
+      "pilot_description": "Aggregate pilot results into mini-consolidation. Check hypothesis verdict directions match expectations.",
+      "pilot_samples": 100,
+      "pilot_timeout": 300,
+      "pilot_pass_criteria": "All available hypothesis verdicts summarized. Writing gate assessment provided.",
+      "estimated_time_min": 5
+    }
+  ],
+  "pilot_execution_order": [
+    ["setup_env_check", "phase0_threshold_reporting"],
+    ["phase1_probe_training"],
+    ["phase1_absorption_firstletter", "phase1_absorption_crossdomain"],
+    ["phase1_hedging_crossdomain", "phase2_activation_patching_crossdomain", "phase1_architecture_comparison", "phase3_rate_distortion_predictors"],
+    ["phase2_benign_pathological", "phase3_absorption_tax", "phase4_negative_results"],
+    ["phase5_consolidation"]
+  ],
+  "total_pilot_time_estimate_min": 60,
+  "pilot_go_nogo_criteria": {
+    "GO_conditions": [
+      "Probe training succeeds with F1 >= 0.70 for at least 2 hierarchies",
+      "First-letter absorption rate computable and within 15pp of iter_008 baseline",
+      "Cross-domain absorption rate computable for at least 1 RAVEL hierarchy",
+      "Activation patching direction consistent (recovery_child > recovery_control)"
+    ],
+    "NOGO_conditions": [
+      "All RAVEL probes below F1=0.60 (data quality insufficient)",
+      "SAE loading fails for primary SAEs (environment broken)",
+      "First-letter absorption rate dramatically different from iter_008 (>20pp, suggesting pipeline bug)",
+      "GPU OOM on basic operations (hardware insufficient)"
+    ],
+    "CONDITIONAL_GO": [
+      "Benign/pathological diagnostic too noisy (proceed with distribution reporting instead of binary)",
+      "Rate-distortion rho < 0.3 in pilot (proceed, report as negative result)",
+      "BatchTopK/Matryoshka SAEs unavailable (proceed with JumpReLU-only comparison)"
+    ]
+  }
+}

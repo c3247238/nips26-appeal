@@ -1,0 +1,121 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "H6 (graph edges predict absorption pairs) is the gatekeeper experiment and has NOT been executed, yet the paper presents predictions as established findings throughout. The abstract states 'the graph predicts known absorption pairs with enrichment over chance'---this is a prediction, not a result. Section 5.2 describes H6 as 'proposed validation experiments' but elsewhere the paper treats H6-H10 predictions as if validated (e.g., Table 2 maps prior findings to 'inhibition explanations' as if the mechanism is proven). The entire empirical contribution hinges on a ~15-minute computation that was never run.",
+    "suggestion": "Execute H6 immediately before any claims about graph predictive power. Pre-register precision@20 >= 0.10 as the sole gatekeeper threshold. If H6 fails, pivot to diagnostic-only claims or Alternative C (trade-off analysis). Until H6 is run, all empirical claims must use future tense and be clearly labeled as predictions."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "The paper claims the structural correspondence W_dec^T W_dec = G_LCA is 'exact,' but the SAE used (gpt2-small-res-jb) has UNTIED weights. The correspondence is approximate for untied SAEs, and the approximation quality is never quantified. The paper never reports the correlation between W_dec^T W_dec and W_enc^T W_enc for the actual SAE.",
+    "suggestion": "Quantify the approximation: report Pearson correlation between W_dec^T W_dec and W_enc^T W_enc for gpt2-small-res-jb. If correlation is low (<0.7), the 'exact' claim must be softened to 'approximate' with explicit caveat. Add a sentence: 'For the untied SAE used in this study, the correlation between W_dec^T W_dec and W_enc^T W_enc is r=X.XX, indicating that the structural correspondence holds approximately.'"
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "critical",
+    "description": "Significance tease persists from prior iterations. The paper foregrounds the uncorrected H1b trend (r=-0.431, p=0.028 at layer 8) with extensive discussion in Section 5.1 and the abstract, despite explicitly stating it does not survive Bonferroni correction (p=0.334) or BH-FDR (q=0.167). The uncorrected p-value comes first in the abstract; the correction appears second. Readers skimming may remember 'p=0.028' and miss the correction. This was flagged in iterations 0-2 but persists in the new LIG framing.",
+    "suggestion": "Lead with corrected results everywhere. The abstract should state 'No hypothesis survived multiple comparison correction' as the primary finding from H1-H5. Any mention of uncorrected trends must be explicitly labeled as 'not significant after correction' in the same sentence. Move uncorrected trend discussion to a footnote or supplementary material."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "H8 (graph predicts at-risk features) is circular: the same data (decoder correlations + Chanin absorption detection on first-letter features) is used for both graph construction and validation. Correlating total_inhibition (derived from decoder correlations) with absorption_rate (also derived from decoder correlations and activations) on the same 26 features is methodologically invalid.",
+    "suggestion": "Use LOOCV (leave-one-feature-out) or cross-layer prediction (graph constructed on layer 4, predictions tested on layer 8). If n=26 is too small for LOOCV, treat H8 as purely exploratory with explicit caveat: 'Due to the small feature set (n=26), H8 is treated as exploratory; confirmatory claims require an independent validation set.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "H10 rebalancing formula has sign ambiguity. The paper proposes z'_i = z_i + alpha * inh_i where inh_i = sum G_ij * z_j. If G_ij > 0 and z_j > 0, this INCREASES parent activation---but the mechanism is unclear. This is 'arbitrary activation boosting' rather than homeostatic rebalancing.",
+    "suggestion": "Test BOTH additive (z_i + alpha*inh_i) and subtractive (z_i - alpha*inh_i) rules empirically. Report which works. If neither restores parent firing without degrading reconstruction, drop H10 claims entirely. Do not present H10 as a validated contribution until both signs are tested."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Random baseline is miscalculated. The paper states expected precision@20 ~ 0.004 (20/24000) in the proposal.md, but the correct value is 20/24576 = 0.000814 for GPT-2 Small res-jb. This is a 5x error that inflates the enrichment claim. Inconsistent baseline calculations across documents undermine credibility.",
+    "suggestion": "Correct all instances to 0.000814 (or ~0.0008). Recalculate enrichment factors: precision@20 = 0.10 represents 123x enrichment, not 25x. Ensure consistency across proposal.md, methodology.md, and paper.md."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The sample size (n=26 first-letter features) is severely underpowered for correlation analyses. With 4-6 high-absorption features per layer, power to detect a Pearson correlation of |r| >= 0.3 is approximately 25%. The paper acknowledges this for H1-H5 but still makes correlation-based claims for H7 and H8 without power analysis for the new hypotheses.",
+    "suggestion": "Add power analysis for H7 and H8 with n=26. If power < 50%, treat these as exploratory. Expand feature set using WordNet hierarchies (200+ features) if computationally feasible. Acknowledge the power limitation explicitly in the paper."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Precision invariance claim is overstated. The paper reports precision at k=5 (21-25/26 features at 1.0) but suppresses k=1 results where layer 4 precision_mean=0.897 with 4 features below 1.0 (including one at 0.0). The k-dependency is itself an informative finding that is hidden. The precision invariance claim is central to the competitive suppression explanation, but it only holds at k>=5.",
+    "suggestion": "Report precision at all k values (1, 5, 10, 20) with explicit discussion of k-dependency. The precision invariance claim should be qualified: 'At k>=5, precision is near-invariant; at k=1, precision shows more variance (mean=0.897 at layer 4, with one feature at 0.0). This k-dependency suggests that probe richness affects selectivity measurement.'"
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "The novelty claim depends on the LCA-SAE connection being genuinely new. While zero prior work was found, the correspondence is a definitional identity for tied-weight SAEs, not a derived result. Its scientific value depends entirely on whether it yields novel, validated predictions (H6). If H6 fails, the novelty claim collapses to 'rebranding.'",
+    "suggestion": "Acknowledge the Skeptic's critique in the paper: 'The correspondence is exact by definition for tied-weight SAEs; its scientific value lies in the predictions it generates (H6-H10).' This is intellectually honest and strengthens the paper if H6 validates. Do not oversell the correspondence as a 'discovery'---frame it as a productive theoretical bridge."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "The paper describes H6-H10 as 'proposed validation experiments' that 'can be executed' but presents their predictions as if they are established findings. For example: 'The graph predicts known absorption pairs with enrichment over chance' (abstract), 'Competitive suppression explains all key findings' (Section 5.3), 'The graph reveals which latents compete with which' (Section 6.3). This creates confusion about what has been done vs. what is planned.",
+    "suggestion": "Clearly separate 'executed experiments' (H1-H5) from 'proposed validation experiments' (H6-H10). Use future tense for H6-H10 throughout. Add a dedicated 'Proposed Validation' section rather than embedding predictions in Results. Change abstract language from 'the graph predicts' to 'we predict the graph will' or 'if validated, the graph would predict.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Graph specificity is untested. The inhibition graph may predict ANY correlated decoder pair, not specifically absorption pairs. Without a non-absorbed correlated pair control, enrichment could reflect decoder correlation structure rather than absorption-specific structure.",
+    "suggestion": "Add non-absorbed correlated pair control to H6: for each parent latent, identify top-k most correlated neighbors that are NOT absorption pairs. Compare edge weights and enrichment of true absorption pairs vs. non-absorbed correlated pairs. If both groups show similar enrichment, the graph is not absorption-specific."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The decision tree has a confirmation bias problem. Even 'H6 not validated' leads to 'retain as theoretical speculation in Discussion' rather than a clean pivot. The partial-validation branch (0.05-0.10) is ambiguous and likely to be interpreted as 'proceed with caveats' rather than 'pivot.'",
+    "suggestion": "Sharpen the decision tree: precision@20 < 0.05 -> PIVOT to Alternative C (no 'retain as speculation'). precision@20 0.05-0.10 -> PROCEED with diagnostic-only claims (no repair, no at-risk prediction, explicit caveats). precision@20 >= 0.10 -> PROCEED with full framework. Commit to these thresholds in the paper."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Cross-model Pythia validation (r=-0.041, p=0.841) shows no signal and is buried in a single sentence in Section 5.1. This is important negative evidence about generalizability. If the layer 8 GPT-2 trend were real, it should replicate directionally on another model. The Pythia result directly supports the null-result interpretation but is not discussed.",
+    "suggestion": "Dedicate a paragraph to Pythia results with exact statistics. Discuss why the layer 8 GPT-2 trend did not replicate directionally. Connect to the broader null-result narrative: 'The Pythia null result (r=-0.041, p=0.841) supports the interpretation that the uncorrected layer 8 trend in GPT-2 may be a false positive.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "EC50 analysis has data quality issues not fully disclosed. Feature U at layer 8 has the LOWEST EC50 (9.17) despite the HIGHEST absorption (24.2%), directly contradicting H4. This strong null result is not highlighted in the LIG framing paper, though it was in prior iterations.",
+    "suggestion": "Explicitly discuss the Feature U contradiction in Results. This is a striking null result consistent with the competitive suppression framework (inhibition affects activation probability, not decoder alignment) and strengthens the 'absorption is benign' narrative."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "The abstract claims 'identifying the random baseline confound as a critical issue' which overstates the causal claim. The paper showed that raw and delta metrics differ, not that raw metrics are 'confounded' in a causal sense. This language from the old null-result paper persists in the new LIG framing.",
+    "suggestion": "Soften to 'demonstrating that raw steering metrics mask feature-specific degradation' or 'showing that baseline subtraction reveals absorption effects invisible to raw metrics.' Remove the word 'confound' unless a causal claim is justified."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "No SAELens version is pinned in the methodology. Reproducibility requires exact version specification.",
+    "suggestion": "Add SAELens version (e.g., 'SAELens==0.1.x') and TransformerLens version to the Software section."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "The paper claims 'first training-free post-hoc repair for absorption' (H10) but this experiment has not been run. The claim is presented as a contribution in the abstract and conclusion despite being entirely speculative.",
+    "suggestion": "Remove H10 from the contribution list in the abstract and conclusion until the experiment is executed. Alternatively, frame it as 'we propose' rather than 'we contribute.'"
+  }
+]

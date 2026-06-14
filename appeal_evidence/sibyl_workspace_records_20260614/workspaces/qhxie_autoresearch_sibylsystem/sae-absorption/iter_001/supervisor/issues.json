@@ -1,0 +1,93 @@
+[
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "critical",
+    "description": "EDA (1 - cosine(encoder_j, decoder_j)) is near-identical to the existing SAEBench metric 'encoder_decoder_cosine_sim', validated by Pearson r > 0.999 (paper's own Section 4.2) and delta AUROC = 0.0 in the R4 direct validation. The Introduction presents EDA as a new metric without disclosing that SAEBench already computes this quantity.",
+    "suggestion": "In Section 3 and Introduction, explicitly disclose that encoder_decoder_cosine_sim has been in SAEBench. Frame EDA's contributions as (1) formal lower bound theorem, (2) first systematic AUROC evaluation against supervised absorption labels, and (3) D-EDA as a directional extension. Do not claim EDA is a new metric."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Theorem 1 (EDA Lower Bound) is stated as a formal theorem but the proof sketch does not constitute a derivation. Delta-absorption is not formally defined before the theorem. The bound formula appears without algebraic derivation. The critical claim (perturbation proportional to delta * ||d_c|| * sin(theta_{jc})) is asserted, not derived from SDL loss stationarity conditions.",
+    "suggestion": "Either provide a genuine proof in an appendix (formal delta-absorption definition, stationarity conditions, algebraic derivation) or downgrade to a 'Heuristic Claim' or 'Proposition (informal)'."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The early-absorption dominance finding (72-75% early-type) rests on n=16 and n=65 absorbed latents from two SAE configurations. Cross-validating against phase2a_taxonomy.json: eda_ordering_holds=FALSE for both configurations at threshold=0.3. The full EDA ordering (late > partial > early) does not hold; partial-type latents have LOWER median EDA than early-type at both configurations. Table 3 describes early absorption as having 'Low EDA signal' — contradicted by the data.",
+    "suggestion": "Either expand taxonomy to all 6 Gemma Scope + GPT-2 SAEs, or explicitly qualify claims as preliminary. Correct EDA ordering claim to 'late > early holds at L12-65k; full three-way ordering does not hold.' Correct Table 3's EDA description for early absorption."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "ITAC achieves 3.14% FN reduction (target: 20%). Per phase2b_itac.json: 4/10 targets have n_parent_candidates=0, 5 of 6 evaluable targets show 0% FN reduction, only j_idx=61217 shows 18.9% improvement. Mean is dominated by zeros. ITAC is billed as a 'proof-of-concept correction method' but corrects 1 of 10 targets meaningfully.",
+    "suggestion": "Present ITAC as a negative result. Move to Section 7.3 negative results. Remove from abstract as a correction method."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "EDA fails on 4/6 Gemma Scope configurations and GPT2-L10. The go/no-go gate (AUROC >= 0.65 on 3/6 configs) produced 2/6 — a NO_GO by the paper's own criterion. This gate failure is not explicitly acknowledged.",
+    "suggestion": "Explicitly state the go/no-go gate result: '2/6 Gemma configurations meet the pre-registered AUROC >= 0.65 threshold — a NO_GO under the pre-registered criterion.' The abstract's decoder cosine comparison (+0.396 AUROC) needs the L5-16k configuration qualifier."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The intra-RAVEL coherence claim (rho=0.924) survives from R3 wrong-model probes. R4 shuffled null produces rho=1.0 on n=3 SAE configurations. The R4 coherence result (both real and shuffled rho=1.0 on n=3) suggests the coherence on small samples is consistent with noise.",
+    "suggestion": "Downgrade claim further: note that R4 shuffled null also produces rho=1.0 on n=3, making the R3 value of rho=0.924 on n=6 fragile and requiring same-model probe replication before serving as evidence."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "D-EDA/EDA equivalence tension: R4 shows delta AUROC = 0.0 (EDA = dec_cosine_negated identity). R3 Phase 5 shows D-EDA != EDA at GPT2-L10 (0.762 vs 0.336). If EDA = 1 - dec_cos is a strict identity, the R3 D-EDA must be a different calculation. The paper does not reconcile this inconsistency.",
+    "suggestion": "Clarify whether D-EDA in Table 1 and Section 3.3 is the LASSO decomposition (should have AUROC != EDA) or dec_cosine (should have AUROC = EDA). Resolve by re-implementing D-EDA as the genuine LASSO decomposition or dropping D-EDA entirely."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The scaling analysis (H6) uses estimated canonical L0 values with range 65-72, identical at the same layer regardless of width. Partial rho(width | L0) cannot separate width from L0 effects with this data.",
+    "suggestion": "Replace partial correlation claim with: 'H6 cannot be properly tested due to insufficient L0 variation (range 65-72, identical within layer-matched comparisons). Directional finding reported descriptively without L0 control.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "AUROC used as primary metric throughout, but AUROC is unreliable at extreme class imbalance (n_pos=16/65536 = 0.024%). AUPRC values present in data but not discussed in main text.",
+    "suggestion": "Add AUPRC as co-primary metric for all 65k-width configurations. Discuss AUROC instability under extreme class imbalance."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "Figures 5, 6, 7 referenced in text without confirmed PDF existence. Gemma 2 2B HF-gated. SynthSAEBench citation unverified. ITAC on synthetic activations only. DeLong citation missing at first use.",
+    "suggestion": "Generate all three figures. Verify SynthSAEBench citation. Add DeLong (1988) citation. State HF access requirement prominently."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "minor",
+    "description": "SynthSAEBench validation is tautological: absorption is injected as encoder-decoder misalignment — precisely what EDA measures. AUROC=1.000 is expected by construction.",
+    "suggestion": "Add: 'SynthSAEBench injects absorption as encoder-decoder misalignment, so AUROC=1.000 is expected by construction. The non-trivial validation is Section 4.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "KW p=0.237 at L12-16k (non-significant) is not reported in the main text, while the paper emphasizes KW p=0.0002 at L12-65k. The smaller underpowered configuration (n=16) produces a non-significant taxonomy test that should be disclosed.",
+    "suggestion": "Report KW p=0.237 at L12-16k explicitly in Section 6.2 alongside the L12-65k result."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "The ITAC null test on early-type latents does not test what it claims: ITAC is never applied to early-type latents; the 'null test' only reports pre-existing FN rates without any correction.",
+    "suggestion": "Apply ITAC to a sample of early-type latents and report 0% FN reduction as the actual selectivity test. Or rename the section 'Pre-ITAC false-negative rates by subtype.'"
+  }
+]

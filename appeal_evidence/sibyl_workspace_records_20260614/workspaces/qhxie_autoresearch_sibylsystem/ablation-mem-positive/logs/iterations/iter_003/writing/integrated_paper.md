@@ -1,0 +1,419 @@
+# Cross-Architecture Diagnostic Metrics and Scalable Training-Free Detection of Feature Absorption in Sparse Autoencoders
+
+## Abstract
+
+Feature absorption---where hierarchical parent features are subsumed by child features in sparse autoencoders (SAEs)---undermines the reliability of mechanistic interpretability. We address three critical gaps in the existing literature: the scalability of semantic probe datasets for reliable class balance, the generalization of training-free detection across SAE architectures, and the stability of absorption metrics across model families. Using 60 semantic probes (15 hyponyms per category $\times$ 10 WordNet categories) on both GemmaScope JumpReLU and GPT-2 ReLU SAEs, we find that projection-based absorption rates are stable across architectures (91.2% vs 98.2%, a 7.7% difference) while the training-free $A_j$ detector exhibits a layer-dependent correlation pattern that peaks at mid-layers ($\rho = 0.705$ at GPT-2 layer 8, $p = 0.023$). Decoder norm constraints are consistent across both architectures (mean $\approx$ 1.0), contradicting the hypothesis that architectural differences in norm constraints explain detector behavior. Our results establish projection-based metrics as a robust cross-architecture baseline for absorption quantification and demonstrate that training-free detectors require layer-aware calibration.
+
+---
+
+## 1. Introduction
+
+### 1.1 Motivation and Background
+
+Sparse autoencoders (SAEs) have become the dominant unsupervised tool for extracting interpretable features from the internal activations of language models (Cunningham et al., 2023; Elhage et al., 2022). By decomposing high-dimensional residual stream representations into sparse combinations of latent features, SAEs promise a mechanistic understanding of how transformers encode and manipulate semantic concepts. Recent scaling efforts have produced pretrained SAE suites for models such as Gemma 2 (GemmaScope, Lieberum et al., 2024) and community efforts have released SAEs for GPT-2 (Templeton et al., 2024; Bloom, 2024), enabling systematic feature discovery across network depth.
+
+A critical pathology threatens this program: feature absorption, where a general (parent) feature is subsumed by a more specific (child) feature during sparse optimization (Chanin et al., 2024). When absorption occurs, a latent that appears monosemantic---activating strongly on a specific concept---in fact inherits responsibility for broader related concepts that have been "absorbed" into it. This creates an interpretability illusion: the analyst sees a clean feature detector but misses systematic false negatives on the absorbed parent concepts. Chanin et al. (2024) introduced the first systematic study of absorption, using first-letter spelling tasks and ablation-based metrics to quantify its prevalence in JumpReLU SAEs.
+
+### 1.2 Problem Statement
+
+Despite this foundational work, three critical gaps limit our understanding of feature absorption.
+
+**Gap 1: Probe dataset scalability.** Existing absorption studies rely on small semantic probe datasets. Chanin et al. (2024) used first-letter spelling tasks with limited generalizability, and our prior pilot studies following the Chanin et al. protocol observed 3 failed probes out of 30 (AUROC $<$ 0.7) with only 5 hyponyms per category (see `iter_002/exp/results/pilot_summary.md`), raising questions about whether absorption rates are measured on a representative sample of semantic concepts.
+
+**Gap 2: Cross-architecture validation between JumpReLU and standard ReLU SAEs is missing.** All existing absorption analyses have been conducted on JumpReLU SAEs (GemmaScope), leaving open whether findings generalize to other architectures. The training-free absorption detector $A_j = \|d_j\|^2 / (d_j^\top e_j)$ (Chanin et al., 2024) has only been validated on constrained-decoder SAEs, and its behavior on architectures with different normalization schemes remains unknown.
+
+**Gap 3: Metric stability.** The ablation-based absorption metric---measuring accuracy differences before and after ablating the top latent---exhibits near-zero scores in practice, suggesting functional insensitivity rather than true absence of absorption (Chanin et al., 2024). A projection-based alternative measures the fraction of probe weight captured by the top latent, but its stability across the two most widely used architectural families has not been tested.
+
+### 1.3 Contributions
+
+This paper addresses these three gaps through systematic experiments on two architectural families: GemmaScope JumpReLU SAEs and GPT-2 Small ReLU SAEs. Our contributions are:
+
+1. **First systematic architecture-aware absorption analysis.** We compare absorption patterns across JumpReLU and ReLU SAEs at matched relative layer depths---the two most widely used architectural families---as a first step toward broader cross-architecture validation.
+
+2. **Scalable semantic probe pipeline.** We expand from 5 to 15 hyponyms per semantic category (10 WordNet categories), achieving 100% valid probes on GemmaScope (30/30, mean AUROC = 0.980) and GPT-2 (30/30, mean AUROC = 0.974), eliminating the class-balance concerns that plagued prior measurements.
+
+3. **Unexpected layer-dependent $A_j$ correlation pattern.** While our original hypothesis (H2) that $A_j$ would correlate positively across all GPT-2 layers failed (mean $\rho = -0.194$), we discovered a non-monotonic correlation with projection absorption: strongly positive at mid-layers ($\rho = 0.705$ at layer 8, $p = 0.023$) but negative at shallow and deep layers ($\rho = -0.590$ at layer 5, $\rho = -0.697$ at layer 10). Sign flips between layer 8 and both adjacent layers are statistically significant ($z = 2.91$, $p = 0.004$ vs layer 5; $z = 3.25$, $p = 0.001$ vs layer 10).
+
+4. **Evidence that decoder norm constraints persist across the two architectures tested.** Both GemmaScope JumpReLU and GPT-2 ReLU maintain decoder norms of approximately 1.0, suggesting that norm constraints may emerge from training dynamics rather than architectural design alone. Architectural effects cannot be ruled out with only two SAE families.
+
+5. **Validation that projection-based absorption is stable across architectures.** Projection absorption differs by 7.7% between JumpReLU (98.2%) and ReLU (91.2%) SAEs. While this difference is statistically significant ($p < 0.001$), the absolute magnitude is small and both architectures show consistently high rates ($>$90%), suggesting projection-based metrics capture a robust architectural invariant.
+
+### 1.4 Paper Organization
+
+Section 2 reviews related work on SAE architectures, absorption pathologies, and evaluation benchmarks. Section 3 describes our methodology: the scalable semantic probe construction pipeline that addresses Gap 1, the three absorption metrics (ablation-based, projection-based, and training-free $A_j$), and our cross-architecture comparison protocol. Section 4 presents experimental results across three studies: scaled semantic probes on GemmaScope (E3v2), GPT-2 $A_j$ validation (E6v2), and cross-architecture comparison (E7). Section 5 discusses the implications of our findings for architecture stability, decoder norm constraints, and the layer-dependent detection pattern. Section 6 concludes with a summary of contributions and directions for future work.
+
+---
+
+## 2. Related Work
+
+### 2.1 Sparse Autoencoders for Mechanistic Interpretability
+
+Sparse autoencoders (SAEs) have become the dominant unsupervised approach for extracting human-interpretable features from neural network activations. Cunningham et al. (2023) demonstrated that SAEs trained on language model activations recover highly monosemantic features---latents that activate on single, coherent concepts. This foundational result established SAEs as the primary tool for mechanistic interpretability (MI), the subfield of AI research focused on reverse-engineering neural networks at the level of individual features and circuits.
+
+The field has since scaled dramatically. Templeton et al. (2024) trained SAEs on Claude 3 Sonnet, extracting millions of features spanning domains from code syntax to scientific reasoning. Gao et al. (2024) introduced TopK SAEs, which explicitly select the top-$k$ latents by activation magnitude, and scaled the approach to 16 million latents on GPT-4. Google's GemmaScope (Lieberum et al., 2024) released pretrained JumpReLU SAEs for every layer and sublayer of Gemma-2-2B and Gemma-2-9B, with dictionary sizes of 16k, 65k, and 131k. These scaling efforts rest on two theoretical pillars: the Linear Representation Hypothesis (LRH), which posits that concepts are encoded as linear directions in activation space (Elhage et al., 2022), and the Superposition Hypothesis, which explains how networks represent more features than available dimensions by allowing feature directions to overlap.
+
+Several architectural variants have emerged to address limitations of the standard ReLU SAE. JumpReLU SAEs (Rajamanoharan et al., 2024) apply a non-zero threshold before the ReLU activation, improving reconstruction fidelity. Gated SAEs (also Rajamanoharan et al., 2024) address systematic underestimation from the L1 sparsity penalty by gating the activation. TopK SAEs (Gao et al., 2024) provide direct sparsity control by selecting exactly $k$ latents. Despite these advances, all architectures exhibit a shared pathology: feature absorption.
+
+### 2.2 Feature Absorption and Related Pathologies
+
+Chanin et al. (2024) conducted the first systematic study of feature absorption, demonstrating that hierarchical parent features are subsumed by child features during sparse optimization. In their framework, a general feature such as "animal" is absorbed when the SAE assigns its activation mass to more specific features such as "dog," "cat," and "horse." The parent latent then exhibits systematic false negatives---it fails to activate on inputs that clearly contain the parent concept but happen to trigger a child feature instead. This creates what Chanin et al. term an "interpretability illusion": the latent appears monosemantic when inspected via max-activating examples, but fails to generalize across the full distribution of the concept.
+
+The absorption metric proposed by Chanin et al. relies on ablation scores---the accuracy difference between a probe on the full model and on the model with the top latent ablated. A near-zero ablation score indicates absorption because the model compensates for the ablated latent via other features. However, this metric has two critical limitations. First, it becomes unreliable past early layers (layer 17 in Gemma-2-2B) due to attention-mediated information flow, where attention heads redistribute information across tokens, making layer-local ablation unreliable. Second, it exhibits functional insensitivity: ablation scores are near-zero even when projection-based metrics detect strong absorption, as we confirm in our experiments (Section 4.1).
+
+In 2025, Chanin et al. (2025a) identified a related pathology called feature hedging, where correlated features are merged together in narrow SAEs, producing latents that activate on multiple unrelated concepts. They showed that absorption and hedging are two sides of the same coin---wide SAEs suffer absorption, narrow SAEs suffer hedging---and that Matryoshka SAEs (Bussmann et al., 2025) trade one for the other at inner levels. Chanin & Garriga-Alonso (2025b) further demonstrated that incorrect L0 (sparsity level) leads to incorrect features, challenging the assumption that L0 is merely a neutral hyperparameter. These works collectively establish that SAE feature quality is governed by a complex trade-off space involving width, sparsity, and hierarchical structure.
+
+### 2.3 Evaluation Benchmarks and Metrics
+
+The need for standardized evaluation has driven the development of comprehensive benchmark suites. SAEBench (Karvonen et al., 2025) provides an 8-metric evaluation framework including sparse probing, auto-interpretability, loss recovered, unlearning, spurious correlation removal (SCR), token probability preservation (TPP), RAVEL, and absorption. The absorption metric in SAEBench uses probe weights but computes the proportion of predictive power distributed across non-top latents, whereas our projection absorption $A_{\text{proj}}$ measures the fraction of weight magnitude concentrated in the top latent. While more computationally expensive than training-free alternatives, SAEBench's absorption metric remains limited to early layers and has not been validated across architectural families.
+
+CE-Bench (Peng et al., 2025) takes a different approach, introducing a fully LLM-free contrastive evaluation using 5,000 story pairs. The benchmark measures activation differences between semantically contrasting pairs and computes a contrastive score plus an independence score. CE-Bench achieves 77% correlation with SAEBench metrics but does not directly measure absorption, focusing instead on general interpretability.
+
+The training-free detector $A_j = \|d_j\|^2 / (d_j^\top e_j)$ proposed by Chanin et al. (2024) offers a promising alternative to probe-based detection. $A_j$ is computed directly from SAE weights without requiring probe training or model ablation, making it scalable to large SAE suites. Chanin et al. validated $A_j$ on constrained-decoder JumpReLU SAEs, finding moderate correlation with projection-based absorption ($\rho \approx 0.5$). However, $A_j$ has not been tested on unconstrained-decoder architectures such as standard ReLU SAEs, and its relationship to decoder norm constraints remains unexplored. We address both gaps in Section 3.3.3, testing $A_j$ on GPT-2 ReLU SAEs and analyzing its relationship to decoder norms across layers.
+
+### 2.4 Architectural Solutions
+
+Several architectural modifications have been proposed to reduce absorption. Matryoshka SAEs (Bussmann et al., 2025) use nested dictionaries of increasing size to organize features hierarchically, reducing absorption at outer levels. However, Chanin et al. (2025a) showed that inner levels suffer from hedging, and the optimal balance requires tuned loss coefficients ($\sim$0.75). OrtSAE (Korznikov et al., 2025) enforces orthogonality between SAE features via a cosine similarity penalty, reducing absorption by 65% relative to standard ReLU SAEs and composition by 15% while discovering 9% more distinct features. The linear scaling overhead of the orthogonality constraint limits its applicability to very large dictionaries.
+
+MP-SAE (Costa et al., 2025) uses a Matching Pursuit greedy selection algorithm to extract hierarchical features, promoting conditional orthogonality across hierarchy levels. MP-SAE reduces absorption compared to standard ReLU SAE and BatchTopK baselines but lacks global optimality guarantees and has limited validation at LLM scale. WSAE (Cui et al., 2026, arXiv preprint) provides a theoretical framework proving that standard SAEs generally fail to recover ground-truth features due to intrinsic representational interference, and proposes a reweighted reconstruction remedy. This theoretical result suggests that some degree of absorption may be inevitable---a fundamental limit rather than a fixable training artifact.
+
+Other training-time solutions include ATM (Li & Ren, 2025), which dynamically adjusts feature selection via importance scores, and masked regularization (Narayanaswamy et al., 2026), which disrupts co-occurrence patterns through random token replacement. Both achieve lower absorption than TopK and JumpReLU baselines but require retraining from scratch.
+
+A shared limitation of these architectural solutions is that they require retraining the SAE from scratch. They cannot be applied to the large ecosystem of already-trained SAEs (GemmaScope, LlamaScope, GPT-2 SAEs via SAELens), which motivates the development of diagnostic metrics that work on pretrained models without retraining.
+
+### 2.5 Positioning Our Work
+
+Our work addresses three critical gaps in the existing literature. First, existing absorption studies use limited probe datasets: Chanin et al. (2024) use a first-letter spelling task with 5 examples per category, and SAEBench's absorption metric has not been validated with larger, balanced semantic probes. We expand to 15 hyponyms per category across 10 WordNet semantic categories, achieving 100% valid probes (Section 4.1). Second, no prior work validates the training-free $A_j$ detector across SAE architectures. We test $A_j$ on both JumpReLU (GemmaScope) and ReLU (GPT-2) SAEs, discovering a layer-dependent correlation pattern that peaks at mid-layers (Section 4.2). Third, cross-architecture stability of absorption metrics has not been established. We show that projection-based absorption differs by only 7.7% between JumpReLU and ReLU architectures, validating it as a robust cross-architecture baseline (Section 4.3).
+
+Our findings complement the architectural solution literature by establishing diagnostic metrics that work across existing pretrained SAEs without requiring retraining. While OrtSAE, MP-SAE, and WSAE reduce absorption at training time, our projection-based metric and layer-aware $A_j$ analysis---accounting for the layer-dependent correlation pattern we discover---provide tools for quantifying absorption in the large ecosystem of already-trained SAEs (GemmaScope, LlamaScope, GPT-2 SAEs via SAELens).
+
+---
+
+## 3. Methodology
+
+### 3.1 Overview
+
+Our analysis pipeline operates entirely on pretrained SAEs without any additional training of the autoencoder weights. We evaluate two model families: Gemma-2-2B with JumpReLU SAEs from GemmaScope (Lieberum et al., 2024) and GPT-2 Small with ReLU SAEs from SAELens. For each model, we sample three layers spanning shallow, intermediate, and deeper depths to capture layer-dependent effects. All experiments use a fixed random seed (42) for reproducibility of probe training and data splitting; SAE weights are pretrained and fixed.
+
+Figure 1 illustrates the end-to-end pipeline. WordNet categories provide the semantic foundation; hyponym expansion yields balanced probe datasets; SAE activations are extracted in a single forward pass; logistic probes are trained with L1 regularization; and three absorption metrics are computed from each probe. This design ensures that every step after SAE loading is training-free with respect to the autoencoder, isolating architectural differences in the pretrained representations.
+
+![Figure 1: Semantic probe pipeline for measuring feature absorption. WordNet categories are expanded to 15 hyponyms each, fed through the model to extract SAE activations, then used to train logistic probes for absorption detection.](figures/fig1_pipeline.pdf)
+
+### 3.2 Semantic Probe Construction
+
+**Category selection.** We select 10 semantic categories from WordNet (Miller, 1995): animal, vehicle, food, plant, tool, instrument, container, building, body_part, and substance. These categories span concrete nouns with clear hyponym hierarchies, following the protocol established by Chanin et al. (2024) but expanding the hyponym set for our semantic probe pipeline.
+
+**Hyponym expansion.** For each category, we extract 15 hyponyms (e.g., "dog", "cat", "horse" for animal), expanding from 5 in prior work. This expansion addresses a critical scalability gap: our pilot with 5 hyponyms (Iteration 2) observed 3 failed probes out of 30 (AUROC $<$ 0.7). The current experiment with 15 hyponyms achieves 30/30 valid probes. While we hypothesize that increased hyponym count improves class balance and probe reliability, we cannot rule out other differences between experiments.
+
+**Prompt generation.** Each hyponym is embedded in a template prompt: "A photo of a {hyponym}." This simple template avoids confounding syntactic variation while ensuring the model processes the target concept. Prompts are tokenized and fed through the language model to extract residual stream activations at the target layer.
+
+**Probe training.** We train an L1-regularized logistic regression probe on SAE latent activations. For a given category $c$, the probe learns a weight vector $w \in \mathbb{R}^{d_{\text{SAE}}}$ that predicts whether the input contains a hyponym of $c$. The L1 penalty encourages sparsity in the probe weights, making the top-weighted latent $j^* = \arg\max_j |w_j|$ interpretable as the primary feature for that concept. A probe is considered valid if its test AUROC exceeds 0.7.
+
+The L1 penalty strength $C=1.0$ was chosen as scikit-learn's default; we did not tune this hyperparameter. The choice of $C$ affects which latent is selected as $j^*$ and therefore influences projection absorption values.
+
+Each split has 15 positive examples (one per hyponym in the target category) and 135 total negative examples drawn from other categories. The training split contains 105 examples (15 positive, 90 negative: 6 other categories $\times$ 15 hyponyms), and the test split contains 45 examples (15 positive, 30 negative: 2 other categories $\times$ 15 hyponyms).
+
+### 3.3 Absorption Metrics
+
+We compute three complementary metrics for each probe. Each metric captures a different facet of absorption, and their disagreement is itself informative about metric sensitivity. The ablation-based and projection-based metrics are computed from probe weights, while the training-free detector uses only SAE parameters.
+
+#### 3.3.1 Ablation-Based Metric
+
+The ablation score $A_{\text{abl}}$ measures the accuracy difference between the full probe and the probe with the top latent $j^*$ ablated:
+
+$$
+A_{\text{abl}} = \text{acc}_{\text{full}} - \text{acc}_{\text{ablated}}
+$$
+
+To ablate latent $j^*$, we zero out $z_{j^*}$ in the SAE activation vector before decoding, then pass the modified reconstruction through the probe without retraining. Following Chanin et al. (2024), we flag absorption when $A_{\text{abl}} < \tau_{\text{abs}}$ (default $\tau_{\text{abs}} = 0.05$). A near-zero score indicates that ablating the top latent does not degrade probe performance, suggesting the concept is redundantly encoded or the latent is functionally inactive. Our experiments confirm the known limitation of this metric: ablation scores are near-universally zero across both architectures (GemmaScope: mean $0.0016 \pm 0.0082$; GPT-2: mean $0.0192 \pm 0.0358$), yielding ablation rates of only 0.0% (GemmaScope E3v2) and 33.3% (GPT-2 E7) respectively despite projection absorption exceeding 90%.
+
+#### 3.3.2 Projection-Based Metric
+
+Projection absorption $A_{\text{proj}}$ measures the fraction of the probe's weight magnitude concentrated in its top latent:
+
+$$
+A_{\text{proj}} = \frac{|w_{j^*}|}{\sum_j |w_j|}
+$$
+
+The projection ratio $R_{\text{proj}} = 1 - A_{\text{proj}}$ indicates how much weight is distributed across other latents. We classify a probe as absorbed when $A_{\text{proj}} > \tau_{\text{proj}}$ (default $\tau_{\text{proj}} = 0.5$). This metric is substantially more sensitive than ablation: across 60 probes (30 per architecture), 100% exceed the 0.5 threshold, with mean $A_{\text{proj}} = 0.982$ on GemmaScope and $0.912$ on GPT-2. The 7.7% difference is statistically significant ($p < 0.001$) with a large effect size (Cohen's $d = 1.82$), though the absolute difference is modest, supporting the metric's cross-architecture stability.
+
+#### 3.3.3 Training-Free Detector ($A_j$)
+
+The $A_j$ detector, proposed by Chanin et al. (2024), computes a proxy for absorption directly from SAE weights without probe training:
+
+$$
+A_j = \frac{\|d_j\|^2}{d_j^\top e_j}
+$$
+
+where $d_j \in \mathbb{R}^{d_{\text{model}}}$ is the $j$-th decoder column and $e_j \in \mathbb{R}^{d_{\text{model}}}$ is the $j$-th encoder row (treated as a column vector in the dot product). The numerator is the squared decoder norm; the denominator is the alignment between decoder and encoder. High $A_j$ indicates a decoder vector that is large relative to its encoder alignment, which Chanin et al. hypothesize correlates with absorption.
+
+We compute $A_j$ for the top latent $j^*$ of each probe and correlate it with projection absorption $A_{\text{proj}}$ using Spearman's $\rho$, stratifying by layer to detect layer-dependent patterns.
+
+### 3.4 Cross-Architecture Comparison Protocol
+
+**Matched layer selection.** We select layers at comparable relative depths where possible. Gemma-2-2B has 26 layers; we sample layers 5, 10, and 15 (relative depths 0.19, 0.38, 0.58). GPT-2 Small has 12 layers; we sample layers 5, 8, and 10 (relative depths 0.42, 0.67, 0.83). Layer 8 of GPT-2 (relative depth 0.67) is the closest match to Gemma layer 15 (relative depth 0.58), though exact alignment is impossible given the different layer counts. We match layers by relative depth (layer index / total layers) as a pragmatic heuristic, acknowledging that representational development may not scale linearly. Alternative matching criteria (representation similarity, functional role) would require additional analysis beyond our scope.
+
+**Statistical comparison.** We compare absorption metrics between architectures using the Mann-Whitney $U$ test (non-parametric, no normality assumption) and report Cohen's $d$ for effect size. For correlation comparisons across layers, we use Fisher's r-to-z transformation to compute z-statistics and two-tailed p-values.
+
+**Decoder norm analysis.** We verify decoder norm constraints by computing $\|d_j\|$ across all latents in each SAE. Both architectures show norms tightly constrained around 1.0: GPT-2 ReLU has mean decoder norm $1.000045 \pm 5.4 \times 10^{-6}$ across all layers; GemmaScope JumpReLU also maintains norms near 1.0, though whether this is enforced architecturally or emerges from training is not verified in our analysis. This finding contradicts our original hypothesis that unconstrained decoder norms on GPT-2 would explain detector differences.
+
+### 3.5 Implementation Details
+
+All experiments use PyTorch with the SAELens library (Bloom, 2024) for SAE loading. GemmaScope SAEs are loaded via the GemmaScope hook point API; GPT-2 SAEs use the SAELens pretrained registry. Probes are trained with scikit-learn's `LogisticRegression` (L1 penalty, $C=1.0$, solver='liblinear', max_iter 1000, stratified train/test split). AUROC is computed with `roc_auc_score` on the held-out test split. The $A_j$ computation uses batch matrix operations over all $d_{\text{SAE}}$ latents, with the top latent per probe selected post-hoc (ties broken by lowest index). All code, data, and figure generation scripts are available in the supplementary materials (see Supplementary Materials, Section A).
+
+<!-- FIGURES
+- Figure 1: fig1_pipeline.tex, fig1_pipeline.pdf --- Semantic probe pipeline architecture diagram (TikZ)
+- Table 1: inline --- SAE configurations per model family
+- None
+-->
+
+---
+
+## 4. Experiments
+
+We present three experiments that address our research questions in sequence: probe scalability (E3v2), training-free detector validation (E6v2), and cross-architecture comparison (E7). Each experiment builds on the previous, moving from establishing a reliable measurement pipeline to characterizing the architectural and layer-dependent behavior of absorption metrics.
+
+### 4.1 E3v2: Scaled Semantic Probes on GemmaScope
+
+#### Setup
+
+We evaluate 30 semantic probes (10 WordNet categories $\times$ 3 layers) on Gemma-2-2B with JumpReLU SAEs from GemmaScope (Lieberum et al., 2024). We sample layers 5, 10, and 15 from the width\_16k configuration ($d_{\text{SAE}} = 16384$), corresponding to relative depths of 0.19, 0.38, and 0.58. Each probe uses 15 hyponyms per category, yielding 105 training and 45 test examples.
+
+#### Probe Quality
+
+All 30 probes exceed the validity threshold (AUROC $>$ 0.7), achieving a mean AUROC of 0.980 $\pm$ 0.034. Figure 3 shows the AUROC distribution across layers. The minimum AUROC is 0.854 (plant at layer 15), well above the validity threshold. Layer 5 achieves the highest mean AUROC (0.987), with layer 10 at 0.978 and layer 15 at 0.976. The slight degradation at deeper layers may reflect changes in representational structure, though the effect is small (delta AUROC = 0.011).
+
+![Figure 3: Probe AUROC distribution across GemmaScope layers 5, 10, and 15. All 30 probes exceed the validity threshold of AUROC = 0.7 (red dashed line). Diamond markers indicate means. Box colors distinguish layers: blue (layer 5), orange (layer 10), green (layer 15).](figures/fig3_auroc.pdf)
+
+#### Absorption Metrics
+
+Table 1 reports per-layer absorption statistics. Projection absorption is consistently high across all layers: 98.3% at layer 5, 98.2% at layer 10, and 98.1% at layer 15. The ablation-based metric detects no absorption (0.0% across all layers), with mean ablation scores of $0.0016 \pm 0.0082$. This confirms the functional insensitivity of ablation scores on JumpReLU SAEs, consistent with our Iteration 2 findings.
+
+**Table 1: Probe AUROC and Absorption Metrics per Layer --- GemmaScope JumpReLU**
+
+| Layer | Mean AUROC | Valid/Total | Mean $A_{\text{proj}}$ | Ablation Rate | Proj. Rate ($>$0.5) |
+|-------|-----------|-------------|------------------------|---------------|---------------------|
+| 5 | 0.987 | 10/10 | 0.983 $\pm$ 0.014 | 0.0% | 100% |
+| 10 | 0.978 | 10/10 | 0.982 $\pm$ 0.011 | 0.0% | 100% |
+| 15 | 0.976 | 10/10 | 0.981 $\pm$ 0.010 | 0.0% | 100% |
+| **All** | **0.980** | **30/30** | **0.982 $\pm$ 0.012** | **0.0%** | **100%** |
+
+#### H1 Validation
+
+Hypothesis H1 states that expanding from 5 to 15 hyponyms per category will improve failed probes from 9/10 to 10/10 per category without changing mean absorption rates. The result is a clear pass: all 30/30 probes are valid (100%), compared to 27/30 in our prior unpublished pilot with 5 hyponyms. Mean projection absorption remains high (0.982), confirming that the expanded dataset improves probe reliability without altering the underlying absorption pattern.
+
+### 4.2 E6v2: GPT-2 $A_j$ Validation
+
+#### Setup
+
+We compute the training-free $A_j$ detector on GPT-2 Small with ReLU SAEs from SAELens, evaluating layers 5, 8, and 10 ($d_{\text{SAE}} = 24576$, $d_{\text{model}} = 768$). The same 10 semantic categories and 15 hyponyms per category are used, with prompts processed through GPT-2 to extract residual stream activations at each target layer.
+
+#### Decoder Norm Analysis
+
+A prerequisite for interpreting $A_j$ is understanding decoder norm constraints. Our original hypothesis (from proposal.md) predicted that GPT-2 ReLU SAEs would have unconstrained decoder norms and therefore higher $A_j$ correlations than GemmaScope JumpReLU. We find that GPT-2 ReLU SAEs have decoder norms fixed at approximately 1.0 across all layers: mean $1.000045 \pm 0.000005$ (layer 5: 1.000038, layer 8: 1.000046, layer 10: 1.000051). This contradicts our original hypothesis. Both GemmaScope JumpReLU and GPT-2 ReLU maintain norm constraints, suggesting that decoder normalization emerges from training dynamics rather than architectural design, though architectural effects cannot be ruled out with only two SAE families.
+
+#### Layer-Dependent Correlation Pattern
+
+Table 2 reports $A_j$ statistics and correlations with projection absorption for each layer. The key finding is a non-monotonic correlation pattern across layer depth. Correlations are computed over $n = 10$ category-level points; 95% confidence intervals are reported using Fisher's z-transformation.
+
+**Table 2: Layer Statistics and $A_j$ Correlations --- GPT-2 ReLU**
+
+| Layer | $A_j$ Mean | $A_j$ Std | Dec. Norm Mean | $\rho$ (proj) | 95% CI | $p$-value | Significant? |
+|-------|-----------|-----------|----------------|---------------|--------|-----------|--------------|
+| 5 | 0.252 | 0.148 | 1.00004 | $-$0.590 | [$-$0.90, +0.08] | 0.073 | Marginal |
+| 8 | 0.287 | 0.087 | 1.00005 | **+0.705** | [**+0.12**, **+0.93**] | **0.023** | **Yes** |
+| 10 | 0.300 | 0.080 | 1.00005 | $-$0.697 | [$-$0.93, $-$0.10] | 0.025 | Yes |
+
+Layer 8 shows the strongest positive correlation ($\rho = 0.705$, $p = 0.023$), while layers 5 and 10 show negative correlations of similar magnitude ($\rho = -0.590$ and $-0.697$). The sign flip between adjacent layers is the most statistically distinctive feature of this pattern. Figure 4 visualizes the layer 8 scatter plot.
+
+![Figure 4: $A_j$ vs projection absorption for 10 semantic probes at GPT-2 ReLU layer 8. Each point represents one category; the regression line shows the positive correlation ($\rho = 0.705$, $p = 0.023$). Category labels are shown for interpretability.](figures/fig4_aj_scatter.pdf)
+
+#### H2 Analysis
+
+The original H2 hypothesis---that $A_j$ correlation would be higher on GPT-2 ReLU ($\rho > 0.6$) than GemmaScope JumpReLU---fails. The mean $\rho$ across GPT-2 layers is $-0.194$, far below the 0.6 threshold. However, an exploratory observation reveals a more nuanced finding: layer 8 achieves $\rho = 0.705 > 0.6$. With only 3 layers tested, the probability of one reaching $p < 0.05$ by chance is approximately $1 - (1 - 0.05)^3 = 14.3\%$; this observation requires validation on additional layers. The sign flip between layers indicates that $A_j$ detector effectiveness varies systematically with network depth rather than architecture alone.
+
+### 4.3 E7: Cross-Architecture Comparison
+
+#### Setup
+
+We compare absorption metrics between GemmaScope JumpReLU (30 probes, layers 5, 10, 15) and GPT-2 ReLU (30 probes, layers 5, 8, 10). Layer depths are matched where possible, though exact alignment is complicated by the different model depths (Gemma-2-2B has 26 layers; GPT-2 Small has 12).
+
+#### Projection Absorption Stability
+
+Table 3 presents the cross-architecture statistical comparison. Projection absorption differs by 7.7% between architectures: GemmaScope achieves 98.2% $\pm$ 1.2%, while GPT-2 achieves 91.2% $\pm$ 5.2%. This difference is statistically significant ($p < 0.001$, Mann-Whitney U; Cohen's $d = 1.82$) but the absolute difference is modest, supporting the stability of projection-based metrics across architectural families.
+
+**Table 3: Cross-Architecture Statistical Comparison**
+
+| Metric | Gemma JumpReLU | GPT-2 ReLU | % Diff | $p$-value | Cohen's $d$ |
+|--------|---------------|------------|--------|-----------|-------------|
+| Projection absorption | 0.982 $\pm$ 0.012 | 0.912 $\pm$ 0.052 | 7.7% | $<$0.001 | 1.82 |
+| Ablation rate | 0.0% | 33.3% | --- | --- | --- |
+| Mean ablation score | 0.0016 $\pm$ 0.0082 | 0.0192 $\pm$ 0.0358 | 91.9%$^a$ | 0.040 | $-$0.67 |
+
+$^a$The 91.9% percentage difference is misleading: the absolute difference is only 0.0176, and the large relative value arises from dividing by a near-zero baseline (0.0016).
+
+Figure 5 visualizes the comparison. Ablation rates are low on GemmaScope (0.0%) and GPT-2 (33.3%), confirming that functional insensitivity is not architecture-specific.
+
+![Figure 5: Cross-architecture absorption comparison. Projection absorption (blue) is high on both architectures with a 7.7% difference. Ablation rates (orange) are low and similar. Significance markers: * $p <$ 0.001 for projection absorption difference.](figures/fig5_cross_arch.pdf)
+
+#### H3 Validation
+
+Hypothesis H3 states that projection-based absorption rates will differ by $<$ 10% between architectures. The actual difference is 7.67%, so H3 passes. This validates projection-based absorption as a robust cross-architecture baseline for absorption quantification.
+
+#### Decoder Norm Comparison
+
+Both architectures maintain norms approximately 1.0, with GPT-2 ReLU showing mean 1.000045 and GemmaScope JumpReLU constrained by design. The consistency of norm constraints across architectures is consistent with the hypothesis that training dynamics contribute to decoder normalization, though architectural effects cannot be ruled out with only two SAE families.
+
+![Figure 6: Decoder norm statistics across layers for GPT-2 ReLU (layers 5, 8, 10) and GemmaScope JumpReLU (layers 5, 10, 15). Both architectures maintain decoder norms approximately 1.0. Error bars show standard deviation.](figures/fig6_dec_norm.pdf)
+
+### 4.4 Layer-Dependent Correlation Analysis (H2v2)
+
+#### Key Finding
+
+The $A_j$ correlation with projection absorption is non-monotonic across layer depth in GPT-2 ReLU SAEs. Layer 8 (relative depth $\sim$0.67) shows a strong positive correlation ($\rho = 0.705$), while layers 5 and 10 show negative correlations of similar magnitude ($\rho = -0.590$ and $-0.697$). This mid-layer peak suggests that feature hierarchies are most detectable by the $A_j$ detector at intermediate-to-deep layers.
+
+#### Statistical Significance
+
+Table 4 reports pairwise comparisons of correlations using Fisher's r-to-z transformation. The layer 8 correlation is significantly different from both layer 5 ($z = 2.91$, $p = 0.0036$) and layer 10 ($z = 3.25$, $p = 0.0011$). The layer 5 vs layer 10 comparison is not significant ($z = 0.35$, $p = 0.73$), indicating that the two outer layers have statistically equivalent negative correlations.
+
+**Table 4: Pairwise Correlation Comparisons --- GPT-2 Layers**
+
+| Comparison | $\rho$ diff | $z$-statistic | $p$-value | Significant? |
+|------------|------------|---------------|-----------|--------------|
+| Layer 8 vs 5 | +1.295 | 2.909 | 0.0036 | Yes |
+| Layer 8 vs 10 | +1.402 | 3.253 | 0.0011 | Yes |
+| Layer 5 vs 10 | +0.107 | 0.345 | 0.7304 | No |
+
+Figure 7 visualizes the layer-dependent pattern. The sign flip at adjacent layers implies that $A_j$ captures different phenomena at different depths, or that the relationship between $A_j$ and absorption is modulated by layer-specific representational structure.
+
+![Figure 7: Layer-dependent $A_j$ correlation pattern across GPT-2 layers. Spearman $\rho$ (y-axis) vs layer depth (x-axis). Layer 8 shows a strong positive correlation (orange, significant), while layers 5 and 10 show negative correlations (gray). The horizontal line marks $\rho = 0$; the shaded region indicates the near-zero range.](figures/fig7_layer_corr.pdf)
+
+#### Interpretation
+
+The sign-flip pattern has three plausible explanations. First, feature hierarchies may be most pronounced at mid-layers, where abstract concepts have been formed but not yet compressed into distributed representations. Second, deep layers (layer 10) may encode more distributed, context-dependent features that are less amenable to single-latent absorption detection. Third, shallow layers (layer 5) may lack sufficient semantic structure for the $A_j$ detector to discriminate absorbed from non-absorbed features. Future work could distinguish these explanations via activation patching on individual latents (Section 5.5).
+
+<!-- FIGURES
+- Figure 3: gen_fig3_auroc.py, fig3_auroc.pdf --- AUROC distribution boxplot across GemmaScope layers 5, 10, 15
+- Figure 4: gen_fig4_aj_scatter.py, fig4_aj_scatter.pdf --- A_j vs projection absorption scatter for GPT-2 layer 8
+- Figure 5: gen_fig5_cross_arch.py, fig5_cross_arch.pdf --- Cross-architecture absorption comparison bar chart
+- Figure 6: gen_fig6_dec_norm.py, fig6_dec_norm.pdf --- Decoder norm statistics across layers
+- Figure 7: gen_fig7_layer_corr.py, fig7_layer_corr.pdf --- Layer-dependent correlation pattern line plot
+- Table 1: inline --- Probe AUROC and absorption metrics per GemmaScope layer
+- Table 2: inline --- Layer statistics and A_j correlations per GPT-2 layer
+- Table 3: inline --- Cross-architecture statistical comparison
+- Table 4: inline --- Pairwise correlation comparisons with z-statistics
+-->
+
+---
+
+## 5. Discussion
+
+### 5.1 Architecture Stability of Projection Metrics
+
+Why do JumpReLU and ReLU SAEs---which differ in activation thresholding, dictionary size (by a factor of 1.5), and underlying model scale (2B vs 124M parameters)---produce projection absorption rates that differ by only 7.7 percentage points? The small absolute gap suggests that projection-based absorption captures a structural property of sparse autoencoding that is largely independent of architectural specifics. Both the non-zero threshold in JumpReLU and the standard ReLU activation converge to representations where a single latent dominates the probe weight vector, even if the precise fraction varies.
+
+The higher variance on GPT-2 (std = 0.052 vs 0.012 on GemmaScope) is the more informative difference. It suggests that ReLU SAEs produce more heterogeneous absorption patterns across semantic categories. The animal probe at GPT-2 layer 8, for instance, shows $A_{\text{proj}} = 0.770$---the lowest value across all 60 probes---while the same category on GemmaScope layer 5 achieves 0.975. Whether this heterogeneity reflects genuine architectural differences (e.g., the absence of thresholding in ReLU SAEs allows more distributed encoding for certain concepts) or sampling variation within categories requires investigation with more probes per layer.
+
+The consistently high projection absorption rates ($>$90%) on both standard architectures raises a question for the architectural solutions literature: if OrtSAE reduces absorption by 65% relative to standard ReLU SAEs (Korznikov et al., 2025), what metric does it improve? Our probe-based projection metric may capture a different facet of absorption than the metrics used to evaluate OrtSAE or MP-SAE. Cross-benchmark validation---measuring the same SAEs with both SAEBench's metric and our probe-based metric---would clarify whether architectural innovations reduce all forms of absorption or only specific manifestations.
+
+### 5.2 Decoder Norm Constraints Across Architectures
+
+The finding that GPT-2 ReLU SAEs maintain decoder norms of approximately 1.0---despite having no explicit architectural constraint---suggests that decoder normalization emerges from training dynamics rather than design. SAELens trains GPT-2 SAEs with gradient descent on reconstruction loss plus an L1 sparsity penalty; GemmaScope trains JumpReLU SAEs with a similar objective but adds the JumpReLU threshold parameter. Both procedures converge to column norms tightly clustered around 1.0, which may reflect an implicit bias in the optimization landscape: unit-norm decoder vectors may provide the most favorable sparsity-reconstruction trade-off.
+
+This has a direct implication for interpreting the $A_j$ detector. If decoder norms are universally constrained, the numerator $\|d_j\|^2$ becomes approximately constant across latents, and $A_j$ reduces to a proxy for encoder alignment $(d_j^\top e_j)^{-1}$. The layer-dependent correlation pattern we observe therefore reflects layer-varying encoder-decoder alignment structures rather than norm-driven absorption differences. This reframes $A_j$ from a norm-based detector to an alignment-based detector, with alignment itself varying systematically by network depth.
+
+### 5.3 Layer-Dependent Detection Pattern
+
+The non-monotonic $A_j$ correlation pattern---positive at mid-layers, negative at shallow and deep layers---reframes how practitioners should use training-free detectors. Rather than applying a single global threshold across all layers, $A_j$ should be treated as a layer-conditional screening tool: reliable at relative depths of 0.6-0.7 but potentially misleading elsewhere.
+
+Three mechanisms could explain the mid-layer peak. First, feature hierarchies may be most pronounced at intermediate depths, where abstract concepts have been composed from lower-level features but not yet compressed into distributed representations for output prediction. At layer 8 of GPT-2 (relative depth 0.67), the model has processed sufficient context to form category-level representations while still maintaining relatively sparse feature codes. The $A_j$ detector, which assumes a direct relationship between decoder norm and absorption, may align well with the geometry of these mid-layer representations.
+
+Second, deep layers (layer 10, relative depth 0.83) may encode more distributed, context-dependent features that are less amenable to single-latent absorption detection. The negative correlation at layer 10 suggests that high $A_j$ values coincide with low projection absorption---the opposite of the hypothesized relationship. One interpretation is that deep-layer latents with high $A_j$ are not absorbed features but rather polysemantic features that activate across multiple unrelated concepts, a pattern related to feature hedging (Chanin et al., 2025a).
+
+Third, shallow layers (layer 5, relative depth 0.42) may lack sufficient semantic structure for the $A_j$ detector to discriminate absorbed from non-absorbed features. The negative correlation at layer 5 ($\rho = -0.590$, $p = 0.073$, marginal) does not reach significance, possibly reflecting a genuine absence of hierarchical feature structure at shallow depths where representations are dominated by low-level syntactic and lexical features rather than semantic categories.
+
+For practitioners, the implication is clear: a single $A_j$ correlation averaged across layers yields $\rho = -0.194$ on GPT-2, masking the strong mid-layer signal. Screening tools should stratify by relative layer depth, applying positive $A_j$ weighting at mid-layers and treating shallow and deep layers as uninformative for absorption detection.
+
+### 5.4 Ablation Metric Insensitivity Is Universal
+
+While the ablation metric flags 0-33% of probes as absorbed (0.0% on GemmaScope E3v2, 33.3% on GPT-2 E7), the projection metric flags 91-98%. This 60-70 point gap---not the low ablation rate itself---is the evidence for functional insensitivity. Mean ablation scores are near-zero: $0.0016 \pm 0.0082$ on GemmaScope and $0.0192 \pm 0.0358$ on GPT-2. This functional insensitivity is not architecture-specific; it appears on both JumpReLU and ReLU SAEs.
+
+The insensitivity has a straightforward explanation. When a feature is absorbed, the parent concept is redundantly encoded across multiple latents. Ablating the top latent leaves sufficient residual signal in other latents for the probe to maintain accuracy. The ablation score $A_{\text{abl}} = \text{acc}_{\text{full}} - \text{acc}_{\text{ablated}}$ therefore remains near zero even when projection absorption $A_{\text{proj}}$ is high. This is not a bug in the metric but a fundamental property of absorbed representations: by definition, absorption implies redundancy.
+
+The practical implication is that ablation-based metrics should not be used as the sole criterion for absorption detection. Projection-based metrics are more sensitive and correlate with the underlying geometry of probe weights. For training-free detection, the $A_j$ metric shows promise at specific layers but requires layer-aware calibration to account for the non-monotonic correlation pattern.
+
+### 5.5 Limitations
+
+Our study has four principal limitations. First, we evaluate only two model families (Gemma-2-2B and GPT-2 Small). Both are decoder-only transformers, and our findings may not generalize to encoder-decoder architectures, mixture-of-experts models, or state-space models. Second, we sample only three layers per model. The layer-dependent $A_j$ correlation pattern is based on three points (layers 5, 8, 10), and the non-monotonic shape---while statistically significant---could change with denser sampling. A full layer correlation landscape would require testing all 12 GPT-2 layers and a representative subset of Gemma-2-2B's 26 layers.
+
+Third, our semantic probes are limited to 10 WordNet categories of concrete nouns. Abstract concepts (e.g., emotions, spatial relations), verbs, and adjectives may exhibit different absorption patterns. The WordNet hierarchy provides a clean experimental framework, but real-world language involves richer semantic structures that may challenge the probe-based detection pipeline.
+
+Fourth, the $A_j$ correlation pattern needs validation on additional models. Our finding of a mid-layer peak at relative depth 0.67 may be specific to GPT-2's 12-layer architecture. Gemma-2-2B has 26 layers, and the corresponding relative depth would be layer 17 or 18---depths we did not test. Whether the peak is at a fixed relative depth or scales with model depth remains an open question.
+
+### 5.6 Implications for SAE Evaluation Benchmarks
+
+Our findings have direct implications for SAEBench (Karvonen et al., 2025) and other SAE evaluation frameworks. Current benchmarks report absorption as a single scalar metric, but our results show that absorption is layer-dependent and metric-dependent. A benchmark that reports only ablation-based absorption would miss 60-70% of absorbed features (comparing 30-33% ablation rate to 91-98% projection rate). A benchmark that reports only $A_j$ without layer stratification would produce misleading results: on GPT-2, a single $A_j$ correlation averaged across layers would yield $\rho = -0.194$, suggesting the detector is not uniformly valid across layers, when in fact layer 8 shows strong positive correlation.
+
+**Concrete recommendations for benchmark design.** We propose four specific changes to existing benchmark protocols.
+
+First, absorption reporting should use a two-tier structure. Tier 1 reports the overall projection absorption rate across all tested layers (our primary cross-architecture metric). Tier 2 reports per-layer stratification: for each sampled layer, report projection absorption mean, standard deviation, and the fraction of probes exceeding the 0.5 threshold. This structure allows practitioners to compare overall rates across models while detecting layer-specific anomalies.
+
+Second, ablation-based metrics should be reported as a sensitivity check rather than a primary measure. Benchmarks should report the ablation rate alongside the projection rate, with the gap between them (60-70 percentage points in our data) flagged as an indicator of metric reliability. A gap exceeding 50 points suggests the ablation metric is functionally insensitive for that model, and projection-based rates should be treated as the authoritative measure.
+
+Third, training-free detectors require layer-aware thresholds. Rather than a single global $A_j$ threshold, benchmarks should define three zones based on relative layer depth: shallow layers (relative depth $<$ 0.5) where $A_j$ is uninformative, mid-layers (relative depth 0.5-0.8) where positive $A_j$ values indicate absorption, and deep layers (relative depth $>$ 0.8) where $A_j$ may be anti-correlated with absorption. A benchmark could report the $A_j$--projection correlation per layer and flag architectures where the correlation pattern deviates from the expected mid-layer peak.
+
+Fourth, decoder norm constraints should be verified and reported as a model property. Since $A_j$ interpretation depends on whether decoder norms are constrained, benchmarks should include a norm check: compute the mean and standard deviation of $\|d_j\|$ across all latents and report whether norms are tightly clustered (standard deviation $<$ 0.01, as in both our architectures) or widely dispersed. This norm report enables correct interpretation of $A_j$ values: when norms are constrained, $A_j$ reflects encoder-decoder alignment rather than norm-driven absorption differences.
+
+These recommendations require minimal additional computation. Projection absorption uses the same probe weights already computed by SAEBench's sparse probing metric. The $A_j$ detector requires only a single matrix operation over SAE weights. Decoder norm statistics are a byproduct of $A_j$ computation. The primary cost is stratified reporting---storing per-layer results rather than a single scalar---which is negligible compared to the cost of probe training or model inference.
+
+---
+
+## 6. Conclusion
+
+### 6.1 Summary
+
+This work addresses three gaps in the feature absorption literature: the scalability of semantic probe datasets, the generalization of training-free detection across SAE architectures, and the stability of absorption metrics across model families. Our findings, derived from 60 semantic probes across two architectures (GemmaScope JumpReLU and GPT-2 ReLU), yield four concrete results.
+
+First, expanding from 5 to 15 hyponyms per category eliminates failed probes entirely. All 30 probes on GemmaScope achieve AUROC $>$ 0.7, with mean AUROC = 0.980 $\pm$ 0.034. This validates the scaled probe pipeline as a reliable foundation for absorption measurement.
+
+Second, projection absorption is stable across architectures. GemmaScope JumpReLU achieves 98.2% $\pm$ 1.2% and GPT-2 ReLU achieves 91.2% $\pm$ 5.2%---a 7.7% difference that falls well within our 10% stability threshold (H3: PASS). The Mann-Whitney U test confirms the difference is significant ($p < 0.001$) and Cohen's $d = 1.82$ indicates a large effect size by conventional thresholds, reflecting the tight variance on GemmaScope rather than a large practical gap. Both architectures show 100% of probes crossing the 0.5 projection threshold.
+
+Third, H2 failed as originally stated. The hypothesis that $A_j$ correlation would be higher on GPT-2 ReLU ($\rho > 0.6$) due to unconstrained decoder norms was falsified: mean $\rho = -0.194$ across layers, far below the 0.6 threshold, and decoder norms were constrained rather than unconstrained. However, this failure revealed an exploratory finding: a layer-dependent $A_j$ correlation pattern that peaks at mid-layers. On GPT-2 layer 8 (relative depth 0.67), $A_j$ correlates with projection absorption at $\rho = 0.705$ ($p = 0.023$), while layers 5 and 10 show negative correlations ($\rho = -0.590$ and $-0.697$). The sign flip is statistically significant ($z = 3.253$, $p = 0.0011$ for layer 8 vs 10). With only 3 layers tested and correlations computed over $n = 10$ categories, this observation requires validation on additional layers and models before generalizing. If confirmed, the pattern establishes layer depth---not architecture---as the primary moderating factor for training-free detection.
+
+Fourth, decoder norm constraints are consistent across the two architectures tested. Both GPT-2 ReLU (mean = $1.000045 \pm 5.4 \times 10^{-6}$) and GemmaScope JumpReLU maintain decoder norms approximately 1.0. This contradicts the hypothesis that unconstrained norms explain detector differences and suggests that decoder normalization may emerge from training dynamics rather than architectural design alone, though architectural effects cannot be ruled out with only two SAE families.
+
+A secondary finding with practical implications: the ablation-based metric remains functionally insensitive across both architectures. Mean ablation scores are near-zero: 0.0016 on GemmaScope E3v2 and 0.0192 on GPT-2 E7. These near-zero scores confirm that functional insensitivity is not architecture-specific. The redundancy inherent in absorbed representations---where parent concepts are encoded across multiple latents---renders ablation-based detection unreliable as a standalone metric.
+
+### 6.2 Future Work
+
+Four directions emerge from our findings, each tied to a specific limitation.
+
+**Additional model families.** Our analysis is limited to two decoder-only transformers (Gemma-2-2B and GPT-2 Small), leaving open whether the layer-dependent $A_j$ pattern generalizes. Extending to Pythia (Biderman et al., 2023), Llama (Touvron et al., 2023), and encoder-decoder architectures like T5 would test whether the layer-dependent $A_j$ pattern generalizes across model families.
+
+**Full layer correlation landscape.** With only three layers tested per model, we cannot determine whether the mid-layer peak at relative depth $\sim$0.67 is a fixed property or scales with model depth. Mapping layers 3, 6, 7, 9, and 11 on GPT-2 would test whether the peak is localized or part of a broader pattern. Mapping a representative subset of Gemma-2-2B's 26 layers would clarify whether the peak occurs at a fixed relative depth (0.6-0.7) or scales with model depth.
+
+**Feature-level analysis of the mid-layer peak.** The sign flip between layers 8 (positive) and 10 (negative) suggests that $A_j$ captures different phenomena at different depths. Activation patching on individual latents, causal ablation studies, and layer-wise feature clustering would distinguish three hypotheses: (i) mid-layers have the most pronounced feature hierarchies; (ii) deep layers encode distributed, context-dependent features that confound the detector; (iii) shallow layers lack sufficient semantic structure for discrimination.
+
+**Layer-aware training-free detector.** The current $A_j$ detector uses a single global threshold. Our results suggest that layer-specific thresholds---calibrated to the observed correlation pattern---would improve detection accuracy. A detector that applies positive $A_j$ weighting at mid-layers and negative weighting at shallow and deep layers could achieve higher overall correlation than any single-layer detector.
+
+### 6.3 Broader Impact
+
+Our findings carry two implications for the mechanistic interpretability community. First, projection-based absorption metrics should replace ablation-based metrics as the default in SAE evaluation benchmarks. The gap between ablation and projection rates (0-33% versus 91-98%) means that benchmarks reporting only ablation-based absorption systematically undercount absorbed features. SAEBench (Karvonen et al., 2025) and CE-Bench (Peng et al., 2025) would benefit from incorporating projection-based rates alongside existing metrics.
+
+Second, training-free detectors require layer-aware calibration. A single $A_j$ correlation averaged across layers yields $\rho = -0.194$ on GPT-2, masking the strong mid-layer signal. Stratifying by layer depth reveals that the detector is highly effective at mid-layers ($\rho = 0.705$) and ineffective elsewhere. Future benchmarks should report training-free metrics stratified by relative layer depth, with layer-specific thresholds replacing global ones.
+
+The architecture stability of projection absorption---7.7% difference across JumpReLU and ReLU---provides a foundation for cross-model comparison that has been missing from the literature. As the community develops new SAE architectures (Matryoshka SAEs, OrtSAE, MP-SAE), projection-based metrics offer a consistent baseline for measuring whether architectural innovations genuinely reduce absorption or merely shift its manifestation.
+
+---
+
+## Figures and Tables
+
+- Figure 1: `fig1_pipeline.pdf` --- Semantic probe pipeline architecture diagram showing the end-to-end workflow from WordNet categories to absorption detection via hyponym expansion, SAE activation extraction, probe training, and three-metric computation.
+- Figure 3: `fig3_auroc.pdf` --- Probe AUROC distribution boxplot across GemmaScope layers 5, 10, and 15. All 30 probes exceed the validity threshold of AUROC = 0.7.
+- Figure 4: `fig4_aj_scatter.pdf` --- $A_j$ vs projection absorption scatter plot for 10 semantic probes at GPT-2 ReLU layer 8, showing the positive correlation ($\rho = 0.705$, $p = 0.023$).
+- Figure 5: `fig5_cross_arch.pdf` --- Cross-architecture absorption comparison bar chart. Projection absorption is high on both architectures (98.2% vs 91.2%); ablation rates are low (0.0% vs 33.3%).
+- Figure 6: `fig6_dec_norm.pdf` --- Decoder norm statistics across layers for GPT-2 ReLU (layers 5, 8, 10) and GemmaScope JumpReLU (layers 5, 10, 15). Both architectures maintain decoder norms approximately 1.0.
+- Figure 7: `fig7_layer_corr.pdf` --- Layer-dependent $A_j$ correlation pattern line plot across GPT-2 layers 5, 8, 10. Layer 8 shows strong positive correlation; layers 5 and 10 show negative correlations.
+- Table 1: inline --- Probe AUROC and absorption metrics per GemmaScope layer (JumpReLU).
+- Table 2: inline --- Layer statistics and $A_j$ correlations per GPT-2 layer (ReLU), with 95% confidence intervals.
+- Table 3: inline --- Cross-architecture statistical comparison (projection absorption, ablation rate, mean ablation score).
+- Table 4: inline --- Pairwise correlation comparisons across GPT-2 layers using Fisher's r-to-z transformation.

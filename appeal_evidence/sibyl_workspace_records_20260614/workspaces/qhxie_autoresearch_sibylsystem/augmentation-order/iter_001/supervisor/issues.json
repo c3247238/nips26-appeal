@@ -1,0 +1,72 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "All Tier 1 experiments use 10 epochs, 100-sample subsets, and a single random seed. Two of four blocks (ResNet-18 CIFAR-10: 10.01-10.97% accuracy, ViT-S/4 CIFAR-100: 2.64-2.89%) are at or within 1 pp of the random-chance floor (10% and ~1% respectively). Accuracy comparisons in these degenerate blocks cannot be attributed to augmentation ordering effects and must not be counted toward H1 confirmation. After excluding these blocks, only 2 of the remaining 2 interpretable blocks show spread > 0.5%, not '3/4' as claimed.",
+    "suggestion": "Run full Tier 1: 6 orderings x 2 architectures x 2 datasets x 5 seeds x 200 epochs. Only then can paired t-tests, Bonferroni correction, Cohen's d, and two-way ANOVA be applied as pre-registered. This is the single blocking action before any hypothesis verdict can be stated."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The paper presents ordering results (10 epochs, 100 samples) and baseline results (30 epochs, full dataset) in the same table (Table 1), making ordering-vs-baseline comparison invalid. The ordering experiments show 10-46% accuracy while the baselines show 57-92%, but this difference is entirely due to training conditions, not the methods. A reviewer will immediately flag this as methodologically unsound.",
+    "suggestion": "Remove baselines from Table 1 entirely, or run baselines at the same pilot conditions as the orderings. The asymmetric comparison actively misleads readers regardless of the caveat text."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "The proof sketch of the Ordering-Dependent Generalization Bound (Theorem 1) is missing the core mathematical step. The statement 'By the Lipschitz property, W_2(mu_sigma, mu_sigma') <= sum NC_2(t_i, t_j; mu)' requires a bubble-sort decomposition argument: decomposing sigma -> sigma' into a sequence of adjacent transpositions and applying the triangle inequality at each step. Without this derivation, the bound is unverified. A NeurIPS reviewer with optimal transport background will immediately request this.",
+    "suggestion": "Add the bubble-sort decomposition argument explicitly, either inline (4-5 equations) or in a formal appendix labeled 'Proof of Theorem 1'. Show the intermediate permutations and bound each step's W_2 distance by the corresponding NC_2 term."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "The DPI Reversibility Principle has a logical gap: the contraction coefficient eta_i is defined as a worst-case quantity (supremum over all distributions p, q), making it a property of the channel alone, independent of position in the pipeline. The claim that ordering affects information loss requires that contraction be input-distribution-dependent. The worst-case definition defeats the ordering-dependence argument.",
+    "suggestion": "Redefine eta_i as a distribution-dependent quantity: eta_i(nu) = sup_{p,q: p,q << nu} D_KL(t_i#p || t_i#q) / D_KL(p || q), where nu is the distribution of the input to channel t_i. Then the argument that placing a lossy transform early changes nu for subsequent channels becomes rigorous."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The NC_2 proxy was computed on 100 samples with 100 random projections, while the pre-registered plan specifies 10k samples and 1000 projections. The SWD estimate with n=100 has high variance for 32x32x3 = 3072-dimensional images. The current NC_2 values (Crop-CJ: 0.0515, Crop-Flip: 0.0448, Flip-CJ: 0.0348) may not be reliable estimates, and H3's falsification verdict should be marked 'preliminary pending full-scale recomputation'.",
+    "suggestion": "Recompute Tier 4a NC_2 with the pre-registered 10k samples / 1000 projections. If rho_s remains near -0.20 at full scale, the falsification is robust. Additionally, test feature-space NC_2 (computing SWD in penultimate-layer feature space of a pretrained ResNet-18) as this was identified in the result debate as the most promising theoretical extension."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The Tier 2 category-ordering result (9.01 pp spread, interleaved P->G vs all-geometric-first) is based on a single seed, 5k samples, 10 epochs, and a single architecture-dataset combination (ResNet-18/CIFAR-10). This is the paper's most striking empirical number but has the least statistical support. The paper calls this 'the largest signal in our study' without adequately flagging that it is also the most likely to be an early-training artifact.",
+    "suggestion": "Before committing to full Tier 2 (18 GPU-h), run a Tier 2 confirmation pilot: full CIFAR-10, 50 epochs, 2 seeds, ResNet-18. If the spread shrinks below 2 pp, the 9.01 number is an artifact. If it holds above 2 pp, proceed to full Tier 2 with 5 seeds."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The Tier 3 magnitude sweep uses only 3 data points (M=5, M=9, M=14) with a single seed each. The M=14 result shows exactly identical accuracy (0.245) for both orderings to 3 decimal places, which is suspicious and needs verification before H5 is labeled 'falsified'.",
+    "suggestion": "Verify independence of M=14 runs and report per-epoch training curves. Add at least 2 intermediate magnitude levels (M=7, M=11) to characterize the inverted-U shape."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "The paper's theoretical framing positions the NC bound and DPI reversibility principle as positive contributions, but both are empirically falsified. If the full-scale experiments confirm the falsifications, the theoretical section must be reframed as showing why these natural measures fail.",
+    "suggestion": "Restructure to lead with empirical discovery. Present NC and DPI frameworks as natural theoretical candidates that are tested and found insufficient, with the gap between pixel-space distributional measures and optimization-mediated outcomes as the novel theoretical contribution."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "H2 is defined inconsistently: the original formulation (architecture-differential ordering sensitivity) was silently replaced by the reversibility-sorted ordering prediction (DPI-derived). The verdict table labels H2 as 'Reversibility-sorted wins' while the section header says 'Architecture-Dependent Ordering Sensitivity'.",
+    "suggestion": "Use distinct labels H2a (architecture-differential, tested via two-way ANOVA) and H2b (reversibility-sorted ordering prediction). The original H2a is the more scientifically interesting test."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "The InfoNCE MI estimation uses 100 samples and 10-epoch encoders. The per-dataset rho values (CIFAR-10: +0.54, CIFAR-100: -0.66) are non-significant (n=6 orderings) but have opposite signs -- the most informative feature. Reporting combined rho=-0.057 obscures this.",
+    "suggestion": "Display per-dataset rho values prominently rather than collapsing to combined rho. Note that the sign reversal is either genuine task-difficulty modulation or estimator noise, requiring full-scale MI estimation to distinguish."
+  }
+]

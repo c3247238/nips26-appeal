@@ -1,0 +1,185 @@
+{
+  "task_id": "implement_bsr_v1",
+  "candidate_id": "cand_bsr",
+  "arm_name": "bsr_v1",
+  "dataset": "gsm8k",
+  "status": "success",
+  "seed": 42,
+  "sample_count": 50,
+  "overall": {
+    "count": 50,
+    "accuracy": 0.34,
+    "correct_count": 17,
+    "avg_nfe": 69.0,
+    "avg_tokens_changed": 2.52,
+    "dataset": "gsm8k",
+    "latency_sec": 112.01,
+    "batch_size": 50,
+    "gen_length": 256,
+    "sample_count": 50,
+    "draft_steps": 64,
+    "max_revision_steps": 3
+  },
+  "by_dataset": {
+    "gsm8k": {
+      "count": 50,
+      "accuracy": 0.34,
+      "correct_count": 17,
+      "avg_nfe": 69.0,
+      "avg_tokens_changed": 2.52,
+      "dataset": "gsm8k",
+      "latency_sec": 112.01,
+      "batch_size": 50,
+      "gen_length": 256,
+      "sample_count": 50,
+      "draft_steps": 64,
+      "max_revision_steps": 3
+    }
+  },
+  "runtime": {
+    "attention_backend": "eager",
+    "compile_enabled": false,
+    "visible_devices": "5",
+    "batch_size": 50,
+    "probed_safe_batch_size": 182,
+    "inherited_safe_batch_size": 8
+  },
+  "frozen_contract": {
+    "variant": "cand_bsr_v1",
+    "island_score": {
+      "definition": "0.75 * normalized entropy + 0.25 * normalized boundary tension",
+      "entropy_weight": 0.75,
+      "boundary_weight": 0.25,
+      "target_fraction": 0.1
+    },
+    "span_merge_rule": {
+      "definition": "Merge contiguous high-score tokens when the gap between islands is <= 1 token",
+      "gap_tolerance": 1
+    },
+    "boundary_lock_width": {
+      "definition": "Lock a 1-token halo on both sides of each island; revise only the interior positions",
+      "width": 1
+    },
+    "max_revision_steps": {
+      "definition": "Run at most 3 local revision steps after the draft",
+      "steps": 3
+    },
+    "accept_reject_rule": {
+      "definition": "Accept an island iff interior mean entropy improves by at least 0.02; otherwise revert to the draft tokens",
+      "min_entropy_drop": 0.02
+    },
+    "forbidden_auxiliary_compute": [
+      "extra draft branch",
+      "external verifier",
+      "side search",
+      "uplift estimator"
+    ]
+  },
+  "comparisons": {
+    "bsr_v1_vs_card84": {
+      "fixed": 4,
+      "harmed": 3,
+      "unchanged_correct": 13,
+      "unchanged_wrong": 30,
+      "missing_baseline": 0,
+      "net_repaired": 1
+    },
+    "bsr_v1_vs_rand84": {
+      "fixed": 4,
+      "harmed": 2,
+      "unchanged_correct": 13,
+      "unchanged_wrong": 31,
+      "missing_baseline": 0,
+      "net_repaired": 2
+    }
+  },
+  "qualitative_examples": [
+    {
+      "sample_id": "gsm8k_test_0616",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "10",
+      "reference_answer": "It was 3 inches tall after the first week.\nAfter the second week, it was 2 * 3 inches = <<2*3=6>>6 inches tall.\nAfter the third week, it was 6 inches + 4 inches = <<6+4=10>>10 inches tall.\n#### 10",
+      "tokens_changed": 0,
+      "mean_span_length": 2.8,
+      "accepted_islands": 0,
+      "rejected_islands": 10,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0015",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "125",
+      "reference_answer": "If he purchases jewelry, he will make a profit of 2.5% which is $5000*(2.5/100) = $<<5000*(2.5/100)=125>>125\nIf he purchases electronic gadgets, he will make a profit of 1.2% which is $8000*(1.2/100) = $<<8000*(1.2/100)=96>>96\nIf he wants to maximize profit, since $125 > $96, he will choose to purchase jewelry, thereby making a profit of $<<125=125>>125\n#### 125",
+      "tokens_changed": 17,
+      "mean_span_length": 5.2,
+      "accepted_islands": 1,
+      "rejected_islands": 4,
+      "card84_correct": false,
+      "rand84_correct": false
+    },
+    {
+      "sample_id": "gsm8k_test_0811",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "60",
+      "reference_answer": "He climbed 420 branches in total because 105 / .25 = <<105/.25=420>>420\nHe climbed on average 60 branches a day because 420 / 7 = <<420/7=60>>60\n#### 60",
+      "tokens_changed": 0,
+      "mean_span_length": 2.7,
+      "accepted_islands": 3,
+      "rejected_islands": 6,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0280",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "7",
+      "reference_answer": "The popsicles cost 0.25*20=<<0.25*20=5>>5 dollars.\nThe ice cream bars cost 0.5*4=<<0.5*4=2>>2 dollars.\nHe paid 5+2=<<5+2=7>>7 dollars.\n#### 7",
+      "tokens_changed": 1,
+      "mean_span_length": 2.3636363636363638,
+      "accepted_islands": 1,
+      "rejected_islands": 10,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0364",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "49",
+      "reference_answer": "Of the 96 fourth graders, 43 are girls, so 96 students - 43 girls = <<96-43=53>>53 boys.\nOn Friday there were 53 boys - 4 absent = <<53-4=49>>49 boys.\n#### 49",
+      "tokens_changed": 0,
+      "mean_span_length": 2.3636363636363638,
+      "accepted_islands": 0,
+      "rejected_islands": 11,
+      "card84_correct": true,
+      "rand84_correct": true
+    },
+    {
+      "sample_id": "gsm8k_test_0463",
+      "difficulty_bucket": "high_entropy",
+      "correct": true,
+      "predicted_answer": "18",
+      "reference_answer": "The tip that Ashley wants to give amounts to $15 x 1/5 = $<<15*1/5=3>>3.\nHence, she will give a total of $15 + $3 = $<<15+3=18>>18 to the delivery man.\n#### 18",
+      "tokens_changed": 0,
+      "mean_span_length": 2.6,
+      "accepted_islands": 0,
+      "rejected_islands": 9,
+      "card84_correct": false,
+      "rand84_correct": false
+    }
+  ],
+  "evidence_files": {
+    "manifest": "/home/ccwang/sibyl_system/projects/dlm-improve/current/exp/pilot_evidence_closure_v1/setup/sample_manifest.json",
+    "runtime_contract": "/home/ccwang/sibyl_system/projects/dlm-improve/current/exp/pilot_evidence_closure_v1/setup/runtime_contract.json",
+    "batch_probe": "/home/ccwang/sibyl_system/projects/dlm-improve/current/exp/pilot_evidence_closure_v1/setup/batch_probe.json",
+    "frozen_contract": "/home/ccwang/sibyl_system/projects/dlm-improve/current/exp/pilot_evidence_closure_v1/arms/bsr_v1/seed42/frozen_contract.json"
+  },
+  "gpu_profile_path": "/home/ccwang/sibyl_system/projects/dlm-improve/exp/results/implement_bsr_v1_gpu_profile.json",
+  "elapsed_min": 2.96,
+  "timestamp": "2026-03-13T10:08:05.979660Z"
+}

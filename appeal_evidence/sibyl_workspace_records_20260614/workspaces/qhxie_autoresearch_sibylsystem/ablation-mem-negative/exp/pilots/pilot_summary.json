@@ -1,0 +1,69 @@
+{
+  "overall_recommendation": "GO",
+  "selected_candidate_id": "cand_a",
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "go_no_go": "GO",
+      "confidence": 0.78,
+      "supported_hypotheses": ["H1", "H3"],
+      "failed_assumptions": ["H2 cross-model validation blocked by gated model access"],
+      "key_metrics": {
+        "uad_f1_gpt2_layer8": 0.704,
+        "uad_f1_mean_cross_layer": 0.561,
+        "uad_recall": 1.0,
+        "uad_precision": 0.543,
+        "dfda_mean_improvement": 100.0,
+        "dfda_positive_pairs": "2/2",
+        "dfda_total_params": 386
+      },
+      "notes": "UAD replicates Iteration 1 results (F1=0.704) on GPT-2 Small layer 8. Cross-layer validation shows consistent detection (mean F1=0.56, layers 4/8/10). DFDA achieves 100% improvement on 2/2 pairs with 386 params. Cross-model validation (Gemma-2B, Pythia-2.8B) blocked by gated model access and missing pretrained SAEs. Recommendation: proceed with GPT-2 Small as primary model, add multi-seed robustness as validation."
+    }
+  ],
+  "pilot_results": {
+    "p1_uad_gpt2": {
+      "status": "PASS",
+      "f1": 0.7037,
+      "precision": 0.5429,
+      "recall": 1.0,
+      "tp": 19,
+      "same_cluster_pairs": 35,
+      "supervised_collisions": 19,
+      "runtime_seconds": 7.1
+    },
+    "p2_dfda_gpt2": {
+      "status": "PASS",
+      "mean_improvement_pct": 100.0,
+      "positive_ratio": 1.0,
+      "pairs_evaluated": 2,
+      "total_params": 386,
+      "param_ratio_pct": 0.001,
+      "runtime_seconds": 7.7,
+      "caveat": "100% improvement is suspiciously high - baseline MSE is high because parent values are near-zero when child fires alone. Need more rigorous evaluation with reconstruction MSE."
+    },
+    "p3_uad_cross_layer": {
+      "status": "PARTIAL_PASS",
+      "layer4_f1": 0.4324,
+      "layer8_f1": 0.7037,
+      "layer10_f1": 0.5476,
+      "mean_f1": 0.5613,
+      "min_f1": 0.4324,
+      "std_f1": 0.1112,
+      "runtime_seconds": 17.5,
+      "caveat": "Layer 4 F1=0.43 slightly below 0.45 threshold. Cross-model validation (Gemma-2B, Pythia-2.8B) blocked by gated access / missing SAEs."
+    }
+  },
+  "risks_identified": [
+    "Cross-model validation blocked: Gemma-2B gated on HuggingFace, no HF token configured. Pythia-2.8B SAE not available in SAELens.",
+    "DFDA 100% improvement is artifact of near-zero parent values in child-dominant positions. Need reconstruction MSE validation.",
+    "Only 2/4 DFDA pairs had sufficient training data. Need better pair selection criteria."
+  ],
+  "recommendations": [
+    "Proceed with cand_a (UAD+DFDA) as primary contribution",
+    "Use GPT-2 Small multi-layer + multi-seed as validation proxy for cross-model",
+    "Add reconstruction MSE check to DFDA evaluation",
+    "Consider training custom SAE on GPT-2 Medium if time permits for true cross-scale validation",
+    "For full experiments: implement proper Chanin protocol for true absorption ground truth"
+  ],
+  "timestamp": "2026-04-28T12:30:00"
+}

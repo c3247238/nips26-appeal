@@ -1,0 +1,72 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The paper reports Random SAE semantic-hierarchy=0.352 and non-hierarchy=0.416 in Table 1, identical to Standard SAE. But the raw data (statistical_analysis_summary.json) shows Random semantic-hierarchy=0.175 and non-hierarchy=0.233. The paper's central claim---that Random=Standard on semantic hierarchies---is contradicted by the actual data. This appears to be a data error where Standard SAE scores were copied to the Random row.",
+    "suggestion": "Verify Random SAE scores from actual experiment output (semantic_hierarchy_pythia_results.json shows Random mean=0.175; nonhierarchy_control_pythia_results.json shows Random mean=0.233). Update Table 1 and all text references. Reframe the finding honestly: Random SAE scores 0.175 on semantic hierarchies, below Standard's 0.352 but within the trained architecture range. The first-letter task still distinguishes trained from random (0.030 vs 0.026), but the semantic adaptation shows reduced sensitivity to learned structure."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The paper reports Cohen's d=-1.68 in the abstract and throughout, but the source data (e3_ttest_results.json) shows Cohen's d=-1.794. This is a data integrity inconsistency.",
+    "suggestion": "Recompute Cohen's d from raw per-architecture scores and use a single consistent value throughout. The correct value from e3_ttest_results.json is d=-1.794. Update abstract, results, discussion, and conclusion."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The construct-validity test (H1) is the paper's primary research question, but with n=7 trained SAEs, the bootstrap 95% CI [-0.389, 0.981] spans nearly the entire correlation range. The abstract prominently features the point estimate (r=0.463) without sufficient emphasis on the uncertainty.",
+    "suggestion": "Lead with inconclusiveness in the abstract: 'The Pearson correlation is r=0.463, but the 95% confidence interval [-0.389, 0.981] is too wide for confident inference.' De-emphasize the point estimate. Add a power analysis: 'Detecting r=0.6 with 80% power at alpha=0.05 requires n~19 architectures.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The GPT-2 replication shows near-zero absolute scores (Standard: 0.000 hierarchy, 0.025 non-hierarchy; TopK: 0.003 hierarchy, 0.098 non-hierarchy) compared to Pythia-160M. The paper interprets this as 'model-specific behavior,' but an alternative is that the metric adaptation simply doesn't work on GPT-2. The GPT-2 SAEs achieve perfect k-sparse accuracy on most hierarchies, suggesting they are not being stressed.",
+    "suggestion": "Add discussion of alternative explanations: (1) GPT-2 SAEs may be better quality, (2) hook location differs (resid_pre vs resid_post), (3) GPT-2 representations may handle hierarchies differently. Acknowledge the GPT-2 replication is exploratory and near-zero scores could indicate metric adaptation failure, not just model differences."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "All 10 semantic hierarchies achieve perfect probe AUROC=1.0 on residual activations (80/80 scores). This ceiling effect means the absorption formula's numerator is bounded by (1.0 - acc_sae), minimizing absolute absorption scores. The paper mentions this as a limitation but does not address whether the ceiling effect invalidates the metric adaptation.",
+    "suggestion": "Add sensitivity analysis: compute absorption scores with residual AUROC=0.9 or 0.8 instead of 1.0. Show whether relative architecture ranking changes. Acknowledge that the perfect probe ceiling effect may inflate apparent absorption differences."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The non-hierarchy control pairs include 'tree-wood' and 'river-water,' which involve meronymy (part-whole) or strong thematic relationships---arguably types of hierarchical structure. This blurs the hierarchy-specificity test.",
+    "suggestion": "Discuss this limitation explicitly: 'Some non-hierarchy pairs involve meronymy or strong thematic relationships that may share structural properties with hierarchies. Future work should use more clearly non-hierarchical pairs (e.g., randomly paired words from different semantic domains).'"
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The paper does not apply multiple comparison correction across the three hypotheses (H1-H3) and various tests within each. At alpha=0.05 with ~8 reported tests, ~0.4 false positives expected. The hierarchy specificity result (p=0.0032) would survive Bonferroni correction (0.0032 * 8 = 0.026 < 0.05), but this is not reported.",
+    "suggestion": "Apply Bonferroni or Benjamini-Hochberg correction across all reported tests and report corrected p-values. Explicitly state that the hierarchy specificity result survives correction---this would strengthen the claim."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "The paper mentions 'open-source replication materials' (Contribution 4) but does not provide a code repository URL or data release location.",
+    "suggestion": "Include a link to the code repository in the abstract or introduction, or state 'Code and data will be released upon publication.'"
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Figure references use .pdf extension (fig2_scatter.pdf, fig3_specificity.pdf, fig4_robustness.pdf) but actual files are .png. This will cause LaTeX compilation errors.",
+    "suggestion": "Update all figure references to match actual file extensions (.png)."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "The paper uses k=10 for k-sparse probing, chosen to match median active latents at tau_fs=0.03. But it does not test whether k=10 is appropriate for all architectures or hierarchies.",
+    "suggestion": "Add brief sensitivity analysis testing k in {5, 10, 20, 50} on a subset of architectures, or acknowledge as limitation: 'The fixed k=10 threshold may not be optimal for all architectures; architecture-specific k selection could refine the analysis.'"
+  }
+]

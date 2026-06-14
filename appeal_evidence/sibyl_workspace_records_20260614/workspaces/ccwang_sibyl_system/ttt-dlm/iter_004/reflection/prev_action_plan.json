@@ -1,0 +1,204 @@
+{
+  "issues_classified": [
+    {
+      "description": "DTA 标题地位与实证证据矛盾残留：标题已改但 Contribution 1 仍是 DTA，Section 3.4 仍声称 '正交互补' 并推荐 'production use'，Abstract 仍含 MBPP pilot 声明。论文内部 framing-evidence 矛盾是拒稿首因。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Contribution 1 改为 Information Augmentation Spectrum + DMI 为核心实证贡献。DTA 降级为 'comprehensive empirical analysis including instructive null result'。删除 Section 3.4 'recommended for production use'，添加 DTA+ReMDM degradation 讨论。从 Abstract 移除 MBPP pilot 数字。工作量：1 天。",
+      "status": "recurring"
+    },
+    {
+      "description": "VDTA 理论框架为 null result 方法提供 'ELBO 单调性证明'——理论声明与实践完全脱节。Proposition 1 基于不成立的强凸性假设。Abstract 和 Contribution 2 仍突出 'theoretical guarantee'。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Proposition 1 降级为 'Conceptual Framework' 或 'Motivating Analysis'。Abstract: 'proving ELBO monotonicity' → 'providing a conceptual framework'。添加 ELBO 改善 ≠ 准确率改善的讨论。工作量：4 小时。",
+      "status": "recurring"
+    },
+    {
+      "description": "缺少与 MetaState 和 CORE 的比较——两者是最直接的竞争方法。MetaState 解决相同的 Information Island 问题；CORE 在 MBPP/LLaDA-8B 上 +9.2pp。论文引用但未比较。任何审稿人都会问此问题。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "在 Discussion 中添加 MetaState/CORE 定性比较（training-free vs trained 的 tradeoff）。如果 CORE 代码开源可用，理想情况下运行实验。至少讨论为什么 training-free 约束排除直接比较。工作量：4 小时（讨论）或 2 天（实验）。",
+      "status": "new"
+    },
+    {
+      "description": "统计检验承诺未兑现。Section 4.1 承诺 McNemar+Bootstrap+Bonferroni，但 Table 1 和所有结果段落仅报告 mean ± std。Abstract 声称 DMI p < 0.05 但未在 Results 中展示。统计严谨性评分从 7.5 骤降到 5.0。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "在完成的 Countdown-500 数据上执行：DMI vs vanilla、SCP vs vanilla、DTA vs vanilla、DMI vs SCP、DTA+ReMDM vs vanilla 的 McNemar test + Bootstrap 95% CI + Bonferroni 校正。报告所有 p 值。数据已有，纯计算+写作。工作量：4 小时。",
+      "status": "recurring"
+    },
+    {
+      "description": "4 个 TODO 图表 + 1 个 TODO 表格。Figure 1 (DTA overview), Figure 2 (Spectrum), Figure 3 (Token diagnostics), Figure 4 (LoRA norms) 未生成。Table 5 (ablation) 未创建。实验驱动论文仅 1 个已生成 Figure。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "优先生成 Figure 1 (TikZ), Figure 2 (TikZ), Figure 3 (matplotlib bar chart)。Figure 4 可延后。Table 5 从现有 pilot 数据编译。工作量：2 天。",
+      "status": "recurring"
+    },
+    {
+      "description": "论文篇幅超限 2.5x：~15,000 词正文 vs NeurIPS 6,000 词限制。可能直接 desk reject。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Section 4.4 (Cross-Model), 4.5 (Scaling), Design Decisions 详情移至附录。Section 6.4 (18 iterations) 压缩为 1 段。每个论点集中在一个主位置。删除重复内容。目标：6,000 词正文 + 附录。工作量：2 天。",
+      "status": "recurring"
+    },
+    {
+      "description": "DTA+ReMDM degradation (3.6%) 根因未分析。低于 DTA (4.8%)、ReMDM (4.4%) 和 vanilla (4.7%)。Section 3.4 '正交互补' 声明被直接证伪。seed 间方差最大 (2.4%, 3.6%, 4.8%)。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "分析可能根因：DTA 校准退化使 ReMDM 置信度决策失准？DTA 参数漂移在 remasking 不稳定性下放大？添加 DTA 校准分析（ECE + reliability diagram）。在 Discussion 添加 1-2 段分析。工作量：1 天。",
+      "status": "new"
+    },
+    {
+      "description": "DMI 是论文核心贡献但缺乏系统消融。alpha 仅 0.3、tau 仅 0.5。无负对照（随机 embedding 注入）、无 hard-prediction 基线、无 multi-step lookback。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "执行 DMI 消融：alpha={0.1,0.2,0.3,0.5,0.7}，tau={0.1,0.3,0.5,1.0,2.0}，随机 embedding 负对照，hard top-1 基线。至少 N=200 on Countdown。工作量：2-3 天 GPU。",
+      "status": "new"
+    },
+    {
+      "description": "GSM8K 部分全规模数据未报告。full_scale_summary.json 包含：vanilla 29.6% (1300 done), DTA 29.0% (900 done), DTA+ReMDM 24.5% (400 done), ReMDM-conf 21.3% (1300 done)。DTA 在 GSM8K 也是 null result，进一步证实 pilot 不可靠。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "在 Section 4.3 补充 GSM8K partial 全规模数据。讨论 pilot vs full-scale 差异（DTA pilot 12.5% → full ~29.0% ≈ vanilla）。标注为 partial 数据。工作量：4 小时。",
+      "status": "new"
+    },
+    {
+      "description": "Abstract Contribution 列表包含 MBPP pilot result (+12.5pp, N=16)。在 DTA 于两个有全规模数据的 benchmark 上均为 null result 的情况下，突出未验证 pilot 结果是不当的。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "从 Abstract Contribution 列表移除 MBPP pilot 数字，或添加 'preliminary pilot-scale, subject to documented inflation' 标记。工作量：30 分钟。",
+      "status": "new"
+    },
+    {
+      "description": "计算开销数字跨章节不一致：DTA '~4x'(method) / '~2-3x'(3.1) / 6.2x(actual)；SCP '~7x'(method) / '~2x'(outline) / 12.4x(actual)。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "统一为实际测量值。DTA: 6.2x (23.0s/3.7s)，SCP: 12.4x (45.9s/3.7s)。区分 FLOP overhead 和 wall-clock overhead。工作量：2 小时。",
+      "status": "new"
+    },
+    {
+      "description": "Countdown baseline (4.7%) 与 Dream 论文报告 (16.0%) 差距 >3x，未讨论。审稿人会质疑评估 pipeline 正确性。",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "在 Section 4.1 或脚注讨论可能原因（prompt 格式、样本集、步数差异）。强调所有方法同一 pipeline，相对比较有效。工作量：1 小时。",
+      "status": "new"
+    },
+    {
+      "description": "DTA 置信度增加 (0.969→0.995) 但准确率不增，暗示校准退化。缺少校准分析（ECE, reliability diagram）。校准退化可解释 DTA+ReMDM 失败。",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "计算 DTA vs vanilla 的 ECE 和 reliability diagram。如果 DTA 确实退化校准，这成为解释 DTA+ReMDM 失败的关键证据。工作量：1 天。",
+      "status": "new"
+    },
+    {
+      "description": "缺少计算匹配基线。DTA 4-6x 开销。'vanilla with T=512' 或 'Best-of-4 vanilla' 是公平对照。",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "测试 vanilla T=512 和 Best-of-4 vanilla。如果优于 DTA，强化 DMI 效率论点。工作量：1 天 GPU。",
+      "status": "new"
+    },
+    {
+      "description": "参考文献占位符：多处 arXiv:2505.xxxxx 未替换。",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "逐一替换为真实 arXiv ID。工作量：1 小时。",
+      "status": "recurring"
+    },
+    {
+      "description": "'Training-free' 术语用于执行梯度更新的方法。DTA 标记为 'Training-free ✓' 可能误导读者。",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "定义 'training-free' = '不需要额外预训练或微调数据/步骤'，区别于 'optimization-free'。在 Section 2.2 或脚注明确。工作量：30 分钟。",
+      "status": "new"
+    },
+    {
+      "description": "Pilot 声明主导跨基准叙事。Section 6.2 基于 N=16 pilot 构建整个子章节 'Why DTA excels on code generation'。论文自身 Lesson 2 警告 pilot 24pp 膨胀。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Section 6.2 重写为 speculative hypothesis 或删除。所有 pilot 声明标记为 'hypothesis-generating only'。工作量：4 小时。",
+      "status": "new"
+    },
+    {
+      "description": "规划阶段缺乏早期证伪检查点。N=100 中间验证本可在 Phase 2.5 判断 DTA 无效，节省 ~40 GPU-hours。",
+      "category": "planning",
+      "severity": "high",
+      "suggestion": "未来项目在方法论中引入 N>=100 的中间统计检验作为决策门（GO/NO-GO），不再使用 N=16 pilot 做方向性决策。",
+      "status": "new"
+    },
+    {
+      "description": "构思阶段系统性低估异见（contrarian 仅 5% 权重，但其核心论点——自监督信号质量不足——是正确的）。DMI 被低估为消融基线。",
+      "category": "ideation",
+      "severity": "medium",
+      "suggestion": "未来项目提高异见权重至 15-20%。所有消融基线都应有独立评估计划，以防消融方法成为主要贡献。",
+      "status": "new"
+    },
+    {
+      "description": "代码开源计划未提及。实验驱动论文无代码开源承诺降低可复现性评分。",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "补充代码开源承诺。工作量：10 分钟。",
+      "status": "recurring"
+    },
+    {
+      "description": "Table 4 (Scaling) 完全基于 N=16 数据，非单调模式纯粹是采样噪声。整个 Section 4.5 展示无信息数据。",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "大幅压缩或移至附录。工作量：含在篇幅压缩中。",
+      "status": "new"
+    }
+  ],
+  "issues_fixed": [
+    "PPL 自矛盾问题已通过研究方向完全转换（从 PPL 评估 → 准确率评估框架）自然消解",
+    "anneal_fix / 温度退火相关问题已不再适用（新研究方向）",
+    "标题已从 'Denoising-Time Adaptation' 改为 'Beyond Token Space: An Information Augmentation Spectrum'",
+    "两轮 critique → revision 循环已执行，修复了多项写作问题",
+    "DTA 全规模数据已完成，消除了 '核心方法零数据' 的不确定性",
+    "SCP 全规模数据已完成（9.1%），强化了谱系框架完整性",
+    "实验覆盖从 4/7 方法全规模提升到 7/7 方法全规模（Countdown-500）",
+    "参考文献从 ~17 条增加到 ~30 条",
+    "Section 6.4 '18 Iterations' 的诚实负面结果报告获得多方正面评价"
+  ],
+  "success_patterns": [
+    "诚实报告负面结果：DTA null result (4.8% vs 4.7%)、DTA+ReMDM degradation (3.6%)、pilot 膨胀 (~24pp) 均被明确报告——科学诚实的典范",
+    "叙事重构的果断性：DTA 数据出来后立即重构标题和框架，没有试图掩饰失败",
+    "DMI 作为实用贡献的定位：~2x 改善、~1.2x 开销、<10 行代码——社区可实际采用",
+    "Token-level 诊断框架：Correction Precision/Recall 提供了新的 DLM 诊断词汇",
+    "完整的 Countdown-500 全规模评估：7 方法 × 3 seeds × 500 samples，DLM 研究中罕见的严谨度",
+    "Pilot-to-full-scale 膨胀文档化（~24pp）：对整个 DLM 社区有方法论警示价值",
+    "两轮 critique → revision 循环：系统性内部审查的可复用质量保证模式"
+  ],
+  "systemic_patterns": [
+    "'承诺→交付' 脱节：方法部分声明严格统计框架（McNemar+Bonferroni+Bootstrap），结果部分零执行。迭代 2 是 anneal_fix 检验已做但未写入，迭代 3 是 McNemar 承诺但未做——模式从 '写作遗漏' 升级为 '承诺膨胀'",
+    "呈现层面技术债加速累积：图表从 0→1（五轮），篇幅从 12,000→15,000 词（反向进展），参考文献占位符持续存在",
+    "叙事滞后于证据：每次新数据出来论文重构都不彻底——DTA null result 后标题改了但 Contribution 1 仍是 DTA",
+    "理论雄心与实证谦逊失衡：为 null result 方法提供 'ELBO 单调性证明' 是 oversell",
+    "补充实验 '80% 完成' 模式延续：GSM8K 部分、MBPP pilot-only、统计检验零执行"
+  ],
+  "quality_trajectory": "divergent",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 65,
+    "total_gpu_idle_minutes": 0,
+    "bottleneck_stages": ["experiment_cycle (SCP 高计算低收益)", "writing (重构+篇幅压缩)", "statistical_testing (零执行)"],
+    "suggestions": [
+      "引入 N=100 中间检查点作为决策门，避免 SCP/DTA 全规模空跑",
+      "并行启动跨基准全规模（Countdown + GSM8K + MBPP 同时运行）",
+      "将统计检验集成到实验完成后自动执行的 pipeline 中",
+      "SCP 等高开销方法设计早期终止条件（N=100 后与 DMI 做 pairwise 比较）"
+    ]
+  },
+  "recommended_focus": [
+    "【最高优先级】完成 DTA→DMI 的 framing 重构：Contribution 重排序 + Section 3.4 重写 + VDTA 降级（1 天）",
+    "【最高优先级】执行并报告 McNemar+Bonferroni 统计检验——兑现方法部分承诺（4 小时）",
+    "【最高优先级】压缩篇幅到 6,000 词——否则可能 desk reject（2 天）",
+    "【高优先级】生成 Figure 1, 2, 3——实验驱动论文零图表不可接受（2 天）",
+    "【高优先级】DMI 系统消融（alpha/tau sweep + 负对照 + hard baseline）（2-3 天 GPU）",
+    "【高优先级】报告 GSM8K partial 全规模数据 + DTA+ReMDM degradation 根因分析（4 小时 + 1 天）",
+    "【中优先级】添加 MetaState/CORE 定性讨论（4 小时）",
+    "【中优先级】替换参考文献占位符 + 添加代码开源承诺（1.5 小时）",
+    "【中优先级】Countdown baseline 差距讨论 + 计算开销数字统一（2 小时）",
+    "【低优先级】计算匹配基线 + DTA 校准分析（2 天 GPU）"
+  ],
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 5
+}

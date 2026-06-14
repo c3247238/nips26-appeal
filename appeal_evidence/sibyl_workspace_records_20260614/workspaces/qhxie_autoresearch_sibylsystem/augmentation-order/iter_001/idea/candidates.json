@@ -1,0 +1,97 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Order Matters: Empirical and Theory-Grounded Study of Augmentation Operation Sequencing in CNNs and ViTs",
+      "status": "front_runner",
+      "summary": "A unified study combining (1) pilot-confirmed empirical evidence that ordering significantly affects accuracy (2.32% spread for ViT/CIFAR-10; 9.01% spread for 6-operation category-level ordering); (2) a revised theoretical framework where the Wasserstein NC_2 measure is tested in feature space (pixel-space NC_2 falsified); (3) a corrected DPI reversibility ranking showing Flip-first (not CJ-first) is the predicted optimal, consistent with the empirical winner Flip→Crop→CJ; and (4) a new H6 (inverted-U magnitude interaction) replacing the falsified H5. Full-scale experiments (200 epochs, 5 seeds) are required before any hypotheses can be formally confirmed or falsified.",
+      "hypotheses": [
+        "H1: Ordering produces >0.3% accuracy spread in ≥2/4 arch-dataset blocks (5-seed paired test, p<0.05)",
+        "H2: ViTs show larger absolute ordering sensitivity than CNNs (interaction ANOVA, p<0.05)",
+        "H3: Feature-space NC_2 (512-D embeddings, 10k samples) predicts accuracy ranking (Spearman rho>0.5)",
+        "H4: Flip-first ordering (corrected DPI prediction) outperforms conventional Crop-first in ≥2/4 blocks",
+        "H5b: Interleaved P→G category ordering outperforms all-geometric-first in ≥3/4 blocks",
+        "H6: Inverted-U magnitude interaction: M9 spread > M5 and M14 spread (quadratic term significant)"
+      ],
+      "pilot_focus": "Tier 0 DONE (2.68% spread, 6 orderings ResNet-18/CIFAR-10 5k). Full Tier 1 pilot DONE (3/4 blocks >0.5% threshold, 1 seed, 10 epochs). NEXT: Full Tier 1 (5 seeds, 200 epochs, 120 runs) + Tier 2 confirmation pilot (30 epochs, 2 seeds, 2 blocks).",
+      "theoretical_basis": "Wasserstein Non-Commutativity bound (bubble-sort decomposition, proof to appear in appendix) + DPI reversibility principle (corrected: Flip-first, not CJ-first, is predicted optimal, consistent with empirical winner)",
+      "key_risk": "Effect may shrink at full scale (200ep) due to optimization absorbing ordering differences. Mitigated by paired seed design and pilot evidence showing effects at 10ep/100-sample scale.",
+      "timeline": "Tier 0: DONE; Tier 1 full: 10h wall-clock; Tier 2 pilot: 45min; Tier 2 full: 9h; Tier 3 revised: 6h; Tier 4 feature-NC: 1.5h; Total remaining: ~27h wall-clock (4 GPUs)",
+      "pilot_verdicts": {
+        "H1": "preliminary_confirmed (3/4 blocks; 1 seed only)",
+        "H2": "preliminary_supported (ViT 2.32% > CNN 0.96% on CIFAR-10)",
+        "H3": "pixel_space_falsified (rho=-0.20); feature_space_pending",
+        "H4": "partially_supported (Flip-first wins 2/4 blocks with corrected prediction)",
+        "H5b": "preliminary_supported (9.01% spread; 1 seed only; needs confirmation pilot)",
+        "H6": "preliminary_supported (M9>M5>M14 inverted-U shape; 1 seed only)"
+      },
+      "critical_warnings": [
+        "All pilot verdicts require n>=5 seeds and 200 epochs for formal statistical confirmation",
+        "H3 was falsified in pixel space with underpowered computation (100 samples in 3072-D); feature-space test with 10k samples in 512-D is qualitatively different",
+        "H5b (9.01% spread) from single pilot seed — requires Tier 2 confirmation pilot before full Tier 2 investment",
+        "Theorem 1 proof requires bubble-sort decomposition step (deferred to appendix)",
+        "DPI contraction coefficient must be shown to depend on input distribution nu (not just channel properties) — theoretical gap acknowledged"
+      ],
+      "sources_of_strength": [
+        "Pilot shows largest effect in high-spread ViT/CIFAR-10 block (2.32%) — strong signal for full-scale confirmation",
+        "Category-level ordering shows 9.01% spread — potentially the most impactful practical finding",
+        "Negative results (pixel-space NC_2 falsified, magnitude non-monotonic) are themselves publishable findings",
+        "Architecture-differential finding (ViT > CNN sensitivity) is novel and mechanistically grounded",
+        "Design is publishable regardless of direction",
+        "Zero implementation risk — ordering is just reordering a Python list"
+      ]
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Variance Decomposition of Augmentation Pipeline Design Choices",
+      "status": "backup",
+      "summary": "Instead of asking whether ordering matters, ask how much it matters relative to operation selection, magnitude, and random seed. Full factorial design with 4 independent variables on ResNet-18/CIFAR-10. ANOVA-based variance decomposition. Activation condition: pilot shows spread < 0.2% after full training — very unlikely given current pilot evidence.",
+      "hypotheses": [
+        "Magnitude contributes the largest fraction of accuracy variance (eta-sq > 0.3)",
+        "Category-level ordering (geometric vs. photometric) contributes second-largest fraction",
+        "Within-category permutation contributes < 5% of total explained variance",
+        "Random seed variance is comparable to within-category ordering variance"
+      ],
+      "pilot_focus": "Zero additional training — reuses Tier 1 and Tier 3 runs. Variance decomposition analysis only.",
+      "key_risk": "Pilot strongly suggests ordering matters; this backup is unlikely to be activated.",
+      "activation_condition": "Full Tier 1 shows ALL blocks with spread < 0.2% in 5-seed experiment",
+      "current_probability": "Low (<20%)"
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Class-Level Effects of Augmentation Ordering",
+      "status": "integrate_as_secondary_analysis",
+      "summary": "Study per-class accuracy effects of ordering, which may be hidden by aggregate accuracy averaging. Zero additional training cost — uses per-class accuracy from Tier 1 CIFAR-100 runs. Should be integrated as a standard secondary analysis section in cand_a paper, not as a standalone candidate.",
+      "hypotheses": [
+        "Per-class ordering sensitivity is significantly larger than aggregate ordering sensitivity",
+        "Semantic class groups show consistent directional ordering preferences",
+        "Class-level effects are more visible on fine-grained benchmarks (CIFAR-100) than coarse-grained (CIFAR-10)"
+      ],
+      "pilot_focus": "Zero additional training — uses per-class accuracy from Tier 1 runs on CIFAR-100.",
+      "key_risk": "CIFAR-100 classes are too coarse to reveal meaningful semantic ordering patterns. Mitigation: group by visual taxonomy.",
+      "activation_condition": "Always run as zero-cost secondary analysis on Tier 1 CIFAR-100 data",
+      "differentiation_from_kirichenko": "Kirichenko et al. (NeurIPS 2023) vary augmentation strength, not ordering. The independent variable is fundamentally different; must be explicitly stated in related work."
+    }
+  ],
+  "synthesis_notes": {
+    "front_runner_rationale": "Cand_a is the clear front-runner with strong pilot support. The 2.32% ViT ordering effect and 9.01% category-level ordering effect are the largest signals, and the theoretical framework (NC + DPI) provides publication-quality context even with the falsification of pixel-space NC_2 (which is itself a novel finding). The inverted-U magnitude interaction (H6) adds a counterintuitive, memorable result. Cand_b is relegated to a Section in cand_a's paper rather than a standalone candidate. Cand_c is always-run as zero-cost secondary analysis.",
+    "perspectives_weighted_this_round": {
+      "empiricist": "Highest — the pilot results dramatically reshape all hypothesis weights. The empiricist's insistence on proper statistical standards (n>=5, paired design, pre-registered thresholds) is the most important correction from iteration 0.",
+      "contrarian": "High — the falsification of H3 and H5 validates the contrarian's warnings about small effects and statistical noise. The reflection report's identification of the n=1 problem is a direct vindication of the contrarian's challenge.",
+      "theoretical": "High — the DPI reversibility correction (Flip is strictly bijective, not 'medium reversibility') resolves a theoretical inconsistency that was undermining the framework. Feature-space NC_2 replaces pixel-space NC_2 as the theoretical prediction.",
+      "pragmatist": "Medium — the 4-GPU parallelization strategy (Tier 1 in 10h wall-clock instead of 40h) is the pragmatist's key contribution this round.",
+      "innovator": "Medium — H6 (inverted-U magnitude interaction) is a new, counterintuitive prediction emerging from the pilot data. The feature-space NC_2 hypothesis is a pivot that the innovator would endorse.",
+      "interdisciplinary": "Low — the core DPI framework was established in iteration 0; this iteration focuses on empirical refinement."
+    },
+    "key_corrections_from_iteration_0": [
+      "H2 definition: restored to 'architecture differential sensitivity' (not 'reversibility sorting wins')",
+      "DPI reversibility: Flip is strictly bijective (eta=1); corrected prediction is Flip-first, consistent with empirical winner",
+      "H3: pixel-space NC_2 falsified due to underpowering; replaced by feature-space NC_2 prediction",
+      "H5: falsified (not monotonic); replaced by H6 (inverted-U) and H5b (category-level interleaving)",
+      "All hypotheses now explicitly labeled 'preliminary' pending full-scale (5 seeds, 200 epochs) confirmation",
+      "Theorem 1 proof gap acknowledged (bubble-sort decomposition deferred to appendix)"
+    ]
+  },
+  "last_updated": "2026-04-03",
+  "updated_by": "sibyl-synthesizer (iteration 1)"
+}

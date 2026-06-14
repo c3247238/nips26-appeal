@@ -1,0 +1,85 @@
+{
+  "task_id": "p2_uad_reproduce",
+  "timestamp": "2026-04-29T01:30:00",
+  "config": {
+    "model": "gpt2",
+    "sae_id": "gpt2-small-res-jb",
+    "layer": 8,
+    "dataset_samples": 1000,
+    "features_analyzed": 504,
+    "n_clusters": 50,
+    "seed": 42
+  },
+  "ground_truth": {
+    "number_features": {
+      "one": {"feature": 12413, "activation": 21.03},
+      "two": {"feature": 22971, "activation": 34.79},
+      "three": {"feature": 11513, "activation": 36.31},
+      "four": {"feature": 24189, "activation": 22.23},
+      "five": {"feature": 24189, "activation": 23.30},
+      "six": {"feature": 24189, "activation": 23.26},
+      "seven": {"feature": 24189, "activation": 25.35},
+      "eight": {"feature": 24189, "activation": 25.91}
+    },
+    "absorption_features": {
+      "2608": ["three", "four", "five", "six", "seven", "eight"],
+      "4945": ["one", "two", "three", "four", "five", "six", "eight"],
+      "10972": ["one", "two", "three", "four", "five", "six", "seven", "eight"],
+      "11513": ["three", "seven"],
+      "15241": ["two", "three", "four", "five", "six", "seven", "eight"],
+      "21412": ["one", "two", "three"],
+      "24189": ["four", "five", "six", "seven", "eight"]
+    },
+    "absorption_pairs": [
+      ["eight", "five"], ["eight", "four"], ["eight", "one"], ["eight", "seven"],
+      ["eight", "six"], ["eight", "three"], ["eight", "two"], ["five", "four"],
+      ["five", "one"], ["five", "seven"], ["five", "six"], ["five", "three"],
+      ["five", "two"], ["four", "one"], ["four", "seven"], ["four", "six"],
+      ["four", "three"], ["four", "two"], ["one", "seven"], ["one", "six"],
+      ["one", "three"], ["one", "two"], ["seven", "six"], ["seven", "three"],
+      ["seven", "two"], ["six", "three"], ["six", "two"], ["three", "two"]
+    ],
+    "feature_pairs": [
+      [12413, 24189], [24189, 24189], [22971, 24189], [11513, 12413],
+      [11513, 22971], [12413, 22971], [11513, 24189]
+    ]
+  },
+  "uad_results": {
+    "detected_pairs": 4155,
+    "precision": 0.0,
+    "recall": 0.143,
+    "f1": 0.0,
+    "true_positives": 1,
+    "false_positives": 4154,
+    "false_negatives": 6
+  },
+  "random_baseline": {
+    "mean_f1": 0.0,
+    "std_f1": 0.0,
+    "n_trials": 100
+  },
+  "dead_feature_stats": {
+    "dead_count": 0,
+    "total_features": 504,
+    "dead_percentage": 0.0
+  },
+  "runtime_seconds": 149.3,
+  "analysis": {
+    "finding": "UAD fails to detect hierarchical absorption in pre-trained SAE",
+    "root_cause": "Absorption features are mutually exclusive at the token level - they fire on different tokens representing different child concepts. UAD's co-occurrence clustering cannot detect features that never co-occur.",
+    "evidence": {
+      "token_level_mutual_exclusivity": "Feature 11513 fires only on 'three', feature 24189 only on 'four'-'eight'. They never activate on the same token.",
+      "cooccurrence_phi": "Phi coefficient between absorption features is near zero or negative on general text (OpenWebText).",
+      "uad_clustering": "With 50 clusters on 504 features, GT absorption features are placed in different clusters.",
+      "true_positives": 1,
+      "false_positives": 4154
+    },
+    "implications": [
+      "UAD detects features that fire TOGETHER (co-occurring), not features that fire on mutually exclusive instances of a parent concept.",
+      "This is a fundamental limitation of co-occurrence-based approaches for hierarchical absorption detection.",
+      "UAD may work for detecting synonym features or contextually related features that co-occur frequently.",
+      "For hierarchical absorption, a different approach is needed - one that measures semantic similarity or causal dependence rather than co-occurrence."
+    ],
+    "honest_assessment": "This is a VALID negative result. The UAD method as implemented cannot detect the type of absorption defined by Chanin et al. (2024) in the gpt2-small-res-jb SAE. The paper should report this failure honestly and discuss the limitation of co-occurrence-based approaches for hierarchical feature detection."
+  }
+}

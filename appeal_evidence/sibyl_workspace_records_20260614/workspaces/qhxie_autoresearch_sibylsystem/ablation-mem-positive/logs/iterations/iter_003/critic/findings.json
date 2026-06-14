@@ -1,0 +1,61 @@
+{
+  "summary": "The paper makes a legitimate primary finding (CV predicts steering heterogeneity within absorbed features) but overstates generalizability, has an incomplete cross-architecture validation, and contains an internal inconsistency in the non-absorbed baseline comparison. The 1.47x effect ratio is real but modest, and the mechanism interpretation (bypass vs context-sensitive routing) remains hypothetical without direct evidence.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Cross-architecture validation (Gemma-2-2B) is incomplete. Section 4.6 explicitly states 'detailed integration of cross-architecture results remains future work.' The paper claims CV-based actionability decomposition but provides zero Gemma-2-2B quantitative results in the main paper body.",
+      "suggestion": "Either remove cross-architecture claim entirely, or provide the actual Gemma-2-2B results with statistics. If results are pending, clearly state this is preliminary/todo and remove from abstract/contributions."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Non-absorbed baseline comparison is misleading. Paper Section 4.5 claims absorbed high-CV features are 'approximately equal' to non-absorbed (0.097 vs 0.102). However, this comparison used different experimental conditions: non-absorbed used only 3 prompts while main experiment used 5 prompts. More critically, at strength +5 in the main experiment, high-CV features show 0.5222 effect - 5x larger than the non-absorbed baseline of 0.102.",
+      "suggestion": "Clarify the comparison conditions. Either run non-absorbed with identical 5 prompts and +3/+5/+7 strengths, or qualify the claim as 'comparable under pilot conditions' and provide the full comparison."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The 'Variance Paradox' framing (H4) is circular. The proposal states absorbed features have CV ~7.33 vs non-absorbed ~0.01 (733x ratio). But the high/low CV classification is derived from these same features - the paper itself classified features as 'high-CV' (CV > 1.0) and 'low-CV' (CV <= 1.0). Finding that absorbed features have high CV is a tautology given the classification scheme.",
+      "suggestion": "Reframe H4 as 'absorbed features have higher CV than non-absorbed features' without calling it a 'paradox.' The genuine discovery is that CV predicts steering, not that absorbed features have high CV."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The dose-response relationship (t-stats: 9.96, 9.73, 9.49 at +3, +5, +7) shows remarkably stable t-statistics despite increasing effect sizes. This suggests the variance is scaling proportionally with the mean, which is expected for ratio-based metrics. The p-values reported as 0.0 are likely lower bound artifacts.",
+      "suggestion": "Report confidence intervals alongside p-values. The effect ratio (1.47x) being constant across strengths is the more informative finding."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "The abstract claims 'absorption per se does not destroy steering potential' but the non-absorbed comparison is incomplete (see experiment finding above). The claim overreaches the evidence.",
+      "suggestion": "Qualify as 'preliminary' or 'pilot' comparison. The primary contribution is CV as a predictor, not that absorption is harmless."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The paper attributes the actionability paradox to domain specificity (clinical vs non-clinical). However, no CV distribution data from Basu et al.'s clinical features is provided to support this claim. It remains a post-hoc explanation.",
+      "suggestion": "Either obtain Basu et al. feature CVs for comparison, or soften the claim to 'may reflect domain-specific sampling without direct evidence.'"
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "H6 (decoder orthogonality) was falsified but the paper does not discuss why orthogonality was hypothesized as a mechanism in the first place, or what the falsification implies for the broader theoretical framework.",
+      "suggestion": "Add brief discussion of why orthogonality was proposed and what the null result suggests about the routing mechanism."
+    }
+  ],
+  "metric_gaming_risks": [
+    "The effect ratio (1.47x) is reported as the headline number, but absolute effects (0.52 at +5) are small relative to typical language model outputs. Downstream behavioral impact is unmeasured.",
+    "The t-statistics are extraordinarily high (9-10) with p-values reported as 0.0, suggesting either very large N (which it is: 150 per group) or numerical artifacts. With N=150 per group, even small differences produce large t-statistics.",
+    "The CV threshold of 1.0 was selected post-hoc based on pilot data. Prospective validation on held-out features is acknowledged as 'future work' but this should be stated explicitly in limitations."
+  ],
+  "novelty_risks": [
+    "The CV-steering correlation is a straightforward empirical observation without deep theoretical justification. The bypass vs context-sensitive routing mechanism is hypothetical.",
+    "If Basu et al. or concurrent work has measured CV in clinical domain and found low CV, this explanation becomes more credible but is still not directly validated."
+  ],
+  "reproducibility_gaps": [
+    "CV computation depends on the specific input distribution (1000 text samples). Different input distributions may yield different CV values and thus different high/low-CV classifications.",
+    "The CV threshold of 1.0 is model-specific and potentially layer-specific. Generalization requires systematic threshold characterization across layers and models.",
+    "Feature classification into absorbed/non-absorbed uses absorption_score > 0.5 threshold, which is arbitrary and may not generalize across SAE architectures (JumpReLU vs TopK vs ReLU)."
+  ]
+}

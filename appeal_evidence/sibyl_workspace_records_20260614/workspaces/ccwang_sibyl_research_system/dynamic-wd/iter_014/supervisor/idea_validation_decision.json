@@ -1,0 +1,100 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_udwdc",
+  "confidence": 0.78,
+  "candidate_scores": {
+    "cand_udwdc": {
+      "weighted_score": 3.95,
+      "verdict": "ADVANCE",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 4, "evidence": "UDWDC-v2 fixes stability (CSI=0.987 on ImageNet); v1 #1 BEM on CIFAR-10; v2 rescues ImageNet (16% vs 6%); comprehensive pilot coverage across all 14 tasks"},
+        "hypothesis_survival": {"weight": 0.25, "score": 3, "evidence": "H1 partial (3/5 fit, narrowed claim ok), H5 partially rescued (ResNet-101 Spearman=-0.785), H6 NOT supported, H7 PASS, H3 partial"},
+        "path_to_full_result": {"weight": 0.20, "score": 5, "evidence": "Complete codebase with 14 tasks all piloted; UDWDC-v2 implemented and verified (9/9 tests); ImageNet pipeline validated with DDP; pure execution path remaining"},
+        "novelty": {"weight": 0.15, "score": 4, "evidence": "Novelty 7/10; PID unification genuinely novel; 0 exact collisions; BEM/CSI/AIS metrics novel; dense but navigable related work landscape"},
+        "resource_efficiency": {"weight": 0.10, "score": 4, "evidence": "~124 GPU-hours on 8x RTX PRO 6000; all infrastructure built; incremental cost is execution only"}
+      }
+    },
+    "cand_spectral_homeostatic": {
+      "weighted_score": 2.10,
+      "verdict": "BELOW_THRESHOLD",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1, "evidence": "No pilot data; not tested"},
+        "hypothesis_survival": {"weight": 0.25, "score": 3, "evidence": "Untested; hypotheses intact but unvalidated"},
+        "path_to_full_result": {"weight": 0.20, "score": 1, "evidence": "No codebase, no infrastructure; SVD overhead at ImageNet scale; 2+ weeks to rebuild"},
+        "novelty": {"weight": 0.15, "score": 5, "evidence": "Novelty 8/10; fewer close prior works; RG flow derivation genuinely novel"},
+        "resource_efficiency": {"weight": 0.10, "score": 1, "evidence": "Starting from scratch; SVD per step prohibitively expensive at ImageNet scale"}
+      }
+    },
+    "cand_falsification": {
+      "weighted_score": 2.90,
+      "verdict": "BELOW_THRESHOLD",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 3, "evidence": "H7 passes; H6 NOT supported (alpha_bar worse than delta_max in LOO-CV); AIS uninformative (Spearman p=0.44)"},
+        "hypothesis_survival": {"weight": 0.25, "score": 2, "evidence": "H6 falsified in pilot; core question anticipated by GWA (NeurIPS 2025); standalone paper substantially weakened"},
+        "path_to_full_result": {"weight": 0.20, "score": 4, "evidence": "Shares infrastructure with cand_udwdc; minimal incremental cost"},
+        "novelty": {"weight": 0.15, "score": 2, "evidence": "Novelty 6/10; GWA anticipates core question"},
+        "resource_efficiency": {"weight": 0.10, "score": 4, "evidence": "Low incremental cost beyond cand_udwdc experiments"}
+      }
+    }
+  },
+  "hypothesis_status": {
+    "H1_unification": {"status": "partial", "detail": "3/5 methods fit (CPR 14.9%, Defazio 0.2%, NoWD 0.0%); CWD 25.6% and SWD 40.7% fail. Narrowed to 3-tier taxonomy claim."},
+    "H2_prescriptive_target": {"status": "promising", "detail": "UDWDC competitive on CIFAR-10; UDWDC-v2 rescues ImageNet stability (16% vs 6% v1); 90-epoch results needed for conclusive test"},
+    "H3_batchsize_alignment": {"status": "partial", "detail": "CWD wins at bs=64 (+3.67% vs +2.51%), UDWDC-v2 wins at bs=512 (+0.28% vs -0.44%); crossover not clean but directionally consistent"},
+    "H4_budget_efficiency": {"status": "uncertain", "detail": "UDWDC #1 BEM on CIFAR-10 (55.87); but FixedWD at lambda=5e-4 beats all dynamic methods on 2-epoch ImageNet. Full 90-epoch needed."},
+    "H5_layer_fixedpoints": {"status": "partially_rescued", "detail": "ResNet-50 UDWDC passes (rho=-0.613), v2 fails (rho=-0.161). ResNet-101 v2 STRONG pass (rho=-0.785). ViT marginal pass (rho=-0.318). CV(r*) prediction wrong (2.36-3.49 vs predicted <0.15)."},
+    "H6_alpha_bar_prediction": {"status": "NOT_supported", "detail": "LOO-CV R^2: alpha_bar=-0.235 vs delta_max=-0.215. alpha_bar is slightly WORSE. lr alone (R^2=-0.099) is the best predictor. 54-run full experiment may change this."},
+    "H7_temporal_gate": {"status": "PASS", "detail": "12.1% above R^2=0.85 (threshold: 70%). Confirmed: alignment carries genuine geometric information beyond time proxy."}
+  },
+  "refinement_actions_status": {
+    "narrow_h1_claim": {"status": "addressed", "detail": "3-tier taxonomy framing ready; task plan uses this framing"},
+    "fix_udwdc_stability": {"status": "COMPLETED", "detail": "UDWDC-v2 implemented, 9/9 tests pass, CSI=0.987 on ImageNet, zero-budget bug eliminated"},
+    "drop_or_refine_h5": {"status": "partially_resolved", "detail": "ResNet-101 reversal rescues H5; scope to architecture-dependent claim"},
+    "simplify_algorithm": {"status": "deferred_to_full", "detail": "Both v1 and v2 included in full experiments; ablation will clarify K_p vs K_d dominance"},
+    "reexamine_batch_sweep": {"status": "deferred_to_full", "detail": "5-epoch pilot insufficient; full 200-epoch sweep needed"}
+  },
+  "reasons": [
+    "UDWDC-v2 stability fix is completed and verified (9/9 tests, CSI=0.987) -- this was the #1 blocking concern",
+    "H5 partially rescued: ResNet-101 now shows strong anti-correlation (Spearman=-0.785), reversing prior falsification",
+    "Infrastructure is fully mature: 14 tasks piloted, UDWDC-v2 integrated, ImageNet DDP pipeline validated",
+    "Research focus is FOCUSED mode: front-runner has been refined once and earned advancement",
+    "Remaining uncertainties (H4 budget confound, H6 prediction, ablation K_p vs K_d) can ONLY be resolved by full training -- further piloting adds no information",
+    "Core novel contributions intact: PID unification (3-tier), BEM/CSI/AIS metrics, UDWDC-v2 algorithm, comprehensive fair comparison",
+    "Weighted score 3.95 > ADVANCE threshold 3.50"
+  ],
+  "next_actions": [
+    "Execute 14-task experiment plan starting with diagnostic_cifar10 (Phase 1)",
+    "Include both UDWDC (v1) and UDWDC-v2 in ALL experiments for comparison",
+    "Frame H1 as 3-tier taxonomy (clean/approximate/independent)",
+    "Frame H5 as architecture-dependent with ResNet as exemplar",
+    "Present H6 honestly regardless of outcome in 54-run full experiment",
+    "Monitor imagenet_main as make-or-break experiment: UDWDC-v2 must be competitive with CWD/FixedWD at 90 epochs",
+    "Use imagenet_budget_matched to isolate budget confound (critical for H4)"
+  ],
+  "dropped_candidates": [],
+  "key_metrics": {
+    "udwdc_v2_stability_tests": "9/9 pass",
+    "udwdc_v2_csi_imagenet": 0.987,
+    "udwdc_v2_imagenet_2epoch_acc": 0.16,
+    "udwdc_v1_imagenet_2epoch_acc": 0.06,
+    "cifar10_resnet20_udwdc_v1_bem": 55.87,
+    "cifar10_resnet20_udwdc_v2_bem": 11.10,
+    "cifar10_resnet20_fixedwd_acc": 82.06,
+    "h1_methods_below_15pct_error": "3/5",
+    "h5_resnet50_udwdc_spearman": -0.613,
+    "h5_resnet101_udwdc_v2_spearman": -0.785,
+    "h5_vit_udwdc_v2_spearman": -0.318,
+    "h6_alpha_bar_r2": -0.235,
+    "h6_delta_max_r2": -0.215,
+    "h7_pct_above_085": 12.1,
+    "ablation_best_variant": "Kd_only (29.50%)"
+  },
+  "prior_decision": {
+    "decision": "REFINE",
+    "confidence": 0.55,
+    "weighted_score": 3.45,
+    "date": "2026-03-25",
+    "key_concerns": ["CSI instability (-2.41)", "H5 falsified", "H1 partial (3/5)", "K_p dominance over full PID"]
+  },
+  "timestamp": "2026-03-25"
+}

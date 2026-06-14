@@ -1,0 +1,133 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [
+      42
+    ],
+    "timeout_sec": 900,
+    "model": "LLaDA-8B-Instruct",
+    "reasoning_benchmarks": [
+      "GSM8K",
+      "MATH500"
+    ],
+    "boundary_benchmark": "HumanEval",
+    "batch_policy": "auto-detect max safe batch size",
+    "backend_policy": [
+      "flash_attention_2",
+      "eager"
+    ],
+    "compile_policy": "enable torch.compile when numerically stable"
+  },
+  "pilots": [
+    {
+      "pilot_id": "pilot_diag_compute_curve",
+      "task_id": "diag_compute_curve_gsm8k",
+      "name": "GSM8K matched-compute compute curve",
+      "hypotheses_tested": [
+        "H1"
+      ],
+      "description": "在 GSM8K 100 样本上对 Standard / DNB / Prophet / CORE / Entropy / TIGER 做 matched actual compute 比较，检查 nominal-vs-actual 口径是否改变关键排序。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 40,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "info_gain_pass": "At least one comparison changes qualitatively after actual-compute normalization, or nominal-vs-actual mismatch exceeds 10% for a key method.",
+        "low_value_fail": "All rankings are unchanged and actual-compute mismatch is negligible (<5%) across the board."
+      },
+      "outputs": {
+        "results": "exp/results/diag_compute_curve_gsm8k.json"
+      },
+      "priority": 1
+    },
+    {
+      "pilot_id": "pilot_diag_signal_gap",
+      "task_id": "diag_signal_gap_audit",
+      "name": "GSM8K signal-control gap 审计",
+      "hypotheses_tested": [
+        "H3"
+      ],
+      "description": "审计 entropy / instability / calibration 的 error correlation、revision-benefit correlation 与最终 control effectiveness 是否错位。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 35,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "gap_pass": "At least one signal shows strong diagnostic quality (|corr| >= 0.4 or clear ranking separation) while revision gain remains <= 1% over entropy or standard.",
+        "gap_fail": "Signal quality and control quality are effectively identical, offering no diagnostic-control gap."
+      },
+      "outputs": {
+        "results": "exp/results/diag_signal_gap_audit.json"
+      },
+      "priority": 1
+    },
+    {
+      "pilot_id": "pilot_diag_math500",
+      "task_id": "diag_math500_shortlist",
+      "name": "MATH500 shortlist transfer",
+      "hypotheses_tested": [
+        "H2"
+      ],
+      "description": "在 MATH500 100 样本上复测 Standard / CORE / Entropy / TIGER 的排序，判断 GSM8K 叙事是否迁移到第二 reasoning benchmark。",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 45,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "transfer_pass": "Either the ranking differs from GSM8K in an informative way, or the same diagnostic story replicates strongly enough to support task-dependent claims.",
+        "transfer_fail": "All methods cluster within 1% with no interpretable ranking pattern."
+      },
+      "outputs": {
+        "results": "exp/results/diag_math500_shortlist.json"
+      },
+      "priority": 2
+    },
+    {
+      "pilot_id": "pilot_diag_code_boundary",
+      "task_id": "diag_humaneval_guard_boundary",
+      "name": "HumanEval guard boundary appendix",
+      "hypotheses_tested": [
+        "H4"
+      ],
+      "description": "复测 Standard / Entropy / TIGER / Gated TIGER 的 code boundary 行为，确认 guard 是否只是减少 syntax failure 而无法恢复整体性能。",
+      "samples": 50,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 40,
+      "gpu_count": 1,
+      "pass_criteria": {
+        "boundary_pass": "Gating improves syntax failure by >=10pp but still does not beat Standard pass@1, supporting appendix-only positioning.",
+        "reopen_method_alert": "Gated revision beats Standard by >=2pp pass@1 or broadly improves syntax and runtime, which would reopen the method story."
+      },
+      "outputs": {
+        "results": "exp/results/diag_humaneval_guard_boundary.json"
+      },
+      "priority": 2
+    }
+  ],
+  "execution_order": [
+    {
+      "phase": 1,
+      "parallel_group": [
+        "pilot_diag_compute_curve",
+        "pilot_diag_signal_gap"
+      ],
+      "description": "先并行确认 honest compute accounting 与 diagnostic-control gap 两条主 claim 是否成立。",
+      "total_gpus": 2,
+      "estimated_minutes": 40
+    },
+    {
+      "phase": 2,
+      "parallel_group": [
+        "pilot_diag_math500",
+        "pilot_diag_code_boundary"
+      ],
+      "description": "再并行补第二 reasoning benchmark 与 code boundary 附录证据。",
+      "total_gpus": 2,
+      "estimated_minutes": 45
+    }
+  ]
+}

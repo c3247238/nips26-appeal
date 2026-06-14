@@ -1,0 +1,106 @@
+{
+  "score": 6.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 6,
+    "experiments": 6,
+    "reproducibility": 7
+  },
+  "summary": "EqWD presents a clean, well-motivated algorithm (ratio-deviation-based WD modulation) with a genuine connection to Defazio's equilibrium theory. The ImageNet results (72.27% vs 71.89% FixedWD, 45 epochs, 3 seeds) show a directionally positive signal with large effect size (d=1.72 vs FixedWD), but the work has several critical gaps that prevent it from reaching acceptance threshold: (1) the 45-epoch ImageNet regime is non-standard and method rankings may change at 90 epochs; (2) the effective WD inflation confound is uncontrolled -- EqWD systematically applies higher average WD than FixedWD, and no experiment with FixedWD at matched effective lambda is provided; (3) the key comparison vs SWD is statistically non-significant (CI includes zero); (4) CIFAR-100 results are mediocre with default beta; (5) Proposition 2 ('ratio sufficiency') is stated as a theorem but is really a tautological conditional -- 'if alignment is a function of norms, then the ratio is sufficient' -- the empirical AIS test is the real contribution but it only covers CIFAR-100, not ImageNet. The paper has strong self-awareness of limitations (Section 5.6 is unusually thorough), which is commendable, but awareness does not substitute for resolving the gaps.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Effective WD inflation confound is uncontrolled. EqWD's modulation factor phi >= 1 always, meaning the effective average WD over training is systematically higher than FixedWD with the same lambda_base. The paper acknowledges this in Section 5.6 item 2 but does not run the obvious control: FixedWD with lambda = 6e-4 or 7e-4 to match EqWD's effective average. Without this control, a reviewer cannot distinguish 'better-timed modulation' from 'more regularization is better.' The CAWD control partially addresses this but is confounded by CAWD's potentially detrimental alignment signal, as the paper itself notes.",
+      "suggestion": "Run FixedWD with lambda in {5e-4, 6e-4, 7e-4, 8e-4, 1e-3} on ImageNet (3 seeds each). If FixedWD at matched effective lambda matches EqWD, the timing hypothesis is refuted and EqWD reduces to 'use higher WD.' If EqWD still wins, the timing mechanism is validated. This is the single most important missing experiment."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "45-epoch ImageNet regime is non-standard. The paper dedicates a full subsection (5.5) to acknowledging this, but the concern remains: EqWD's claimed advantage is during 'transitional phases' (warmup and cosine decay transitions). In a 45-epoch schedule with step decay at epoch 30, these transitions are proportionally larger (compared to 90-epoch cosine). At 90 epochs with gradual cosine annealing, the transitions are smoother and the ratio deviation signal may be attenuated. The paper correctly notes method rankings can change, but this is not just a caveat -- it undermines the primary empirical claim.",
+      "suggestion": "Run 90-epoch ImageNet experiments for at least EqWD, FixedWD, and SWD (the top-3 methods) with 3 seeds each. If resource-constrained, even single-seed 90-epoch runs would significantly strengthen the paper."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "Proposition 2 ('Ratio Sufficiency') is not a meaningful theorem -- it is a tautological conditional statement. It says: 'IF alignment deviation is a function of gradient and weight norms, THEN the ratio is sufficient.' The antecedent is an empirical condition, not something the proposition proves. The real contribution is the AIS empirical test showing MI(alignment; accuracy | norms) ~ 0, but this test was only conducted on CIFAR-100 (ResNet-20 and VGG-16-BN), not on ImageNet where EqWD's advantage is claimed. The paper presents this as a 'proof' but it is really just a definition followed by an empirical observation.",
+      "suggestion": "Downgrade Proposition 2 from a formal proposition to an 'empirical finding' or 'observation.' Conduct the AIS diagnostic on ImageNet ResNet-50 to verify that ratio sufficiency holds at the scale where it matters. If AIS is near zero on ImageNet, the claim is substantially strengthened."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "BEM (Budget Equivalence Metric) test result is negative but not reported in the paper. The experiment_analysis.json mentions 'BEM test: EqWD (68.30%) not superior to FixedWD (68.21%) under equal tuning budget' and the decision document flags this as a P0 item to address, but the paper makes no mention of budget equivalence testing. A NeurIPS reviewer familiar with the WD literature will ask about this. Omitting a negative result that was conducted is more damaging than disclosing it.",
+      "suggestion": "Add a subsection on budget equivalence testing. Show the BEM results honestly. Frame the near-equivalence as: 'EqWD achieves comparable performance to tuned FixedWD without any tuning, demonstrating robustness of default hyperparameters.' The tuning efficiency angle is legitimate."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Statistical significance is insufficient for the key comparisons. EqWD vs SWD on ImageNet: bootstrap 95% CI includes zero. EqWD vs FixedWD: p ~ 0.11-0.20. With n=3 seeds, the power to detect a 0.3% difference is very low. The paper acknowledges this but still makes ranking claims ('achieves the numerically highest') that a reader will interpret as meaningful superiority.",
+      "suggestion": "Increase to n=5 seeds (add seeds 789 and 1024). If this is not feasible for ImageNet at 45 epochs, at minimum reframe all ranking claims as 'numerically highest in our evaluation' with explicit p-values. Consider using a Bayesian analysis (posterior probability that EqWD > SWD) instead of frequentist CI, which may be more informative at small n."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Learning rate schedule is step decay (lr drops from 0.1 to 0.01 at epoch 30), not cosine annealing as stated in the paper. The paper says 'cosine annealing' in Section 4.1 but the raw data (EqWD_seed42_results.json) shows lr=0.1 for epochs 1-29 and lr=0.01 for epochs 30-45. This is a step schedule with a single drop, which creates a sharp transition at epoch 30 that is atypical for modern ImageNet training. This discrepancy must be corrected.",
+      "suggestion": "Correct the paper to accurately describe the learning rate schedule used. If step decay was intentional, discuss why. If cosine annealing was intended but not implemented, re-run with actual cosine schedule. The choice of schedule directly affects EqWD's mechanism (it claims to help during 'cosine decay transitions' but no cosine schedule was used)."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "CIFAR-100 results do not support the contribution. With default beta=1.0, EqWD ranks 3rd behind FixedWD and CPR. The paper argues that beta=5.0 (single seed, 66.07%) shows headroom, but a single-seed result on CIFAR-100 is not publishable evidence. The cross-dataset story ('EqWD works best on complex tasks') is an after-the-fact rationalization for weak CIFAR results.",
+      "suggestion": "Either: (a) run beta=5.0 with 3 seeds on CIFAR-100 to confirm the result, or (b) re-frame the contribution as exclusively about ImageNet-scale training, dropping the claim of a general-purpose method. Option (a) is strongly preferred as it takes minimal compute."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "VGG-16-BN CIFAR-100 results show very high variance (std 1.19-2.02%) across all methods, suggesting training instability that is not adequately discussed. EqWD scores 62.81 +/- 1.31 vs CWD 62.86 +/- 1.36 -- these are indistinguishable. The VGG results add noise rather than signal.",
+      "suggestion": "Consider moving VGG-16-BN results to an appendix or clearly flagging that VGG's training instability makes it uninformative for method comparison. Focus the main paper on ResNet architectures where training is stable."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "minor",
+      "description": "The paper does not discuss the relationship between EqWD's EMA-tracked r* and the theoretical r* = lambda/gamma. Since lr drops from 0.1 to 0.01 at epoch 30, the theoretical r* shifts by 10x. Does the EMA-tracked r* follow this shift? How quickly? This is directly relevant to EqWD's mechanism but is never analyzed.",
+      "suggestion": "Add a diagnostic plot showing EMA r* vs theoretical r* = lambda/gamma over training epochs, especially around the lr drop at epoch 30. This would directly validate the EMA tracking mechanism."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Weight decay lambda=0.0001 is used for ImageNet instead of the standard 1e-4 to 5e-4 range. The raw results show wd_lambda=0.0001 for all ImageNet experiments. This is unusually low (standard ResNet-50 training uses 1e-4 with AdamW or 5e-4 with SGDW). The paper states lambda = 5e-4 in Section 4.1 but the data shows 1e-4.",
+      "suggestion": "Verify and correct the reported base weight decay coefficient. If 1e-4 was used (as the data shows), this is a non-standard choice that may advantage methods that amplify WD (like EqWD). Report the actual value used."
+    },
+    {
+      "stage": "review",
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The framing has evolved significantly across iterations. The original proposal targeted a unified framework with 4 WD streams, Cumulative Alignment Contraction Theory, and standardized metrics (BEM, CSI, AIS). The paper as written is a much more focused algorithmic contribution (EqWD) with the unified framework and formal theory largely dropped. This is a reasonable pivot but the proposal's ambitious claims are no longer supported.",
+      "suggestion": "This is acceptable -- the paper is better for being focused. Ensure the paper does not retain vestigial language from the unified framework proposal that overpromises."
+    }
+  ],
+  "risks": [
+    "90-epoch ImageNet results may show EqWD losing its ranking advantage as the optimizer has more time to recover from transitional phases without adaptive help",
+    "The effective WD inflation confound, if confirmed by higher-lambda FixedWD control, would reduce the contribution from 'intelligent modulation' to 'use more regularization' -- a trivially known insight",
+    "The lr schedule discrepancy (step vs cosine) undermines the 'cosine decay transition' narrative that is central to the paper's mechanistic explanation",
+    "With only CNN architectures and SGDW optimizer tested, the contribution may be seen as too narrow for a top venue -- Transformers + AdamW are the dominant paradigm"
+  ],
+  "evidence_gaps": [
+    "FixedWD with higher lambda (matched effective WD) on ImageNet -- the most critical missing control",
+    "AIS diagnostic on ImageNet (only conducted on CIFAR-100)",
+    "90-epoch ImageNet results for at least top-3 methods",
+    "Multi-seed validation of beta=5.0 on CIFAR-100",
+    "EMA r* tracking diagnostic (how well does EMA track the true quasi-static equilibrium?)",
+    "Actual lr schedule verification (step vs cosine discrepancy)",
+    "BEM test results (conducted but not reported in paper)"
+  ],
+  "what_would_raise_score": "Three actions would each raise the score by approximately 0.5 points: (1) Run the FixedWD higher-lambda control on ImageNet showing EqWD still wins -- this alone would move the score to 7.0 by resolving the most critical confound. (2) Add 90-epoch ImageNet results confirming EqWD's advantage -- this would bring the score to 7.5 by establishing the result under standard conditions. (3) Fix the lr schedule discrepancy and add n=5 seeds -- this would bring the score to 7.5-8.0 by establishing statistical credibility and methodological correctness. All three together would likely reach 7.5-8.0."
+}

@@ -1,0 +1,130 @@
+{
+  "summary": "Iteration 10 delivers three defensible contributions (probe degradation ablation R^2=0.777, first-letter causal evidence d=1.33, quadruple correlational failure) but suffers from five critical and eight major issues. The most damaging: (1) Table 3 contains mathematically impossible confidence intervals (CI lower bound exceeds point estimate in 5/7 rows), (2) the probe degradation curve extrapolates synthetic Gaussian noise on binary probes to real multi-class RAVEL probes without validation, (3) cross-domain patching data provenance remains unverified after a sign reversal from d=-0.91 to d=+1.50, (4) three different first-letter L24 absorption rates across the workspace (34.5%, 27.1%, 21.6%) make absolute claims unreliable, and (5) the proposal still reports city-continent absorption as 42.9% while the paper says 31.4%. The paper is ~75% submission-ready; the remaining 25% consists of data integrity failures and overclaiming patterns that a careful reviewer would flag within 30 minutes.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Table 3 confidence intervals are mathematically impossible. In 5 of 7 rows, the 95% CI lower bound exceeds the point estimate. Example: F1=0.70, absorption=36.1%, CI=[37.9%, 42.1%]. A confidence interval that does not contain its point estimate is a fundamental error. Source JSON (consolidation_summary.json) confirms the mismatch: absorption_rate=0.3614 but ci_lower=0.3789. The CIs and point estimates appear to use different aggregation methods (per-token point estimate vs. per-word bootstrap CI), but this is never documented or reconciled.",
+      "suggestion": "Recompute all CIs using the SAME aggregation method as the point estimates (per-token). If per-word CIs are intentional, document this explicitly and present matching per-word point estimates alongside per-token values. Do NOT publish confidence intervals that exclude their own point estimates."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Cross-domain activation patching data provenance is unverified. The sign reversal from d=-0.91 (iter_009 pilot, classified as FAILED) to d=+1.50 (iter_009 corrected FULL) is the paper's single biggest vulnerability. The source file (iter_009/exp/results/full/activation_patching_crossdomain_full.json) is cited but the data integrity check (phase0_data_integrity) was explicitly 'skipped for speed'. No independent verification (e.g., a 20-entity spot-check) has been performed. A reviewer who discovers the sign reversal in the iteration history will question whether the corrected data is reliable.",
+      "suggestion": "Run a 20-entity spot-check: re-execute city-continent activation patching on 20 randomly selected entities and verify the recovery rate is consistent with the 61.9% claim. Document the spot-check results and the bug fix. Budget: 0.5 GPU-hours. This is the single highest-ROI verification task."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Probe degradation curve extrapolation is methodologically questionable. The curve is constructed by injecting Gaussian noise into first-letter BINARY probe weights, then used to predict absorption rates for RAVEL MULTI-CLASS probes with fundamentally different failure modes. Binary probe degradation (26 one-vs-rest classifiers, Gaussian noise) does not replicate the failure modes of multi-class probes on 6-77 classes with imbalanced distributions, compound labels, and genuine class confusion. The paper claims city-continent 'matches the curve within 0.6 pp' without testing whether a curve constructed from city-continent probe degradation would produce the same slope.",
+      "suggestion": "Run city-continent probe degradation (degrade city-continent probes to 3-4 F1 levels via same noise injection, measure absorption). If the slope matches first-letter curve (within 2x), the extrapolation is justified. If it differs substantially, the Section 4.6 claims must be weakened to 'the direction of the confound is established but the magnitude is domain-specific.' Budget: 1 GPU-hour. Alternatively, reframe the curve as a 'methodological warning about probe quality confounding' rather than a 'quantitative decomposition of cross-domain variation.'"
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "Three different first-letter L24 16k absorption rates exist across the workspace: iter_009 reports 27.1% (per-word aggregation), iter_010 FULL probe degradation F1=1.0 control reports 21.6% (per-token aggregation), and iter_009 probes section reports rates that yield 34.5% (per-unique-word). The paper uses 27.1% as the canonical rate but the probe degradation section uses 21.6%. The 21.6% control value falls BELOW the iter_009 CI [26.3%, 34.7%]. The consolidation_summary acknowledges this ('This reflects FULL-mode using per-token aggregation vs iter_009 per-word aggregation') but never reconciles them into a single authoritative number.",
+      "suggestion": "Choose ONE aggregation method as canonical (per-token is the most defensible because each token is an independent observation). Recompute ALL absorption rates across ALL hierarchies and iterations using this single method. Report the aggregation choice prominently in Section 3.2. Present any sensitivity analysis (per-word, per-letter) in the appendix."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "Proposal-paper data discrepancy for city-continent absorption. The proposal.md consistently reports city-continent absorption as 42.9% (line 11, 41, 139, 141). The paper consistently reports 31.4%. An 11.5 pp discrepancy between the proposal and paper for the same experiment on the same hierarchy at the same layer/SAE indicates a data integrity failure. One or both numbers must be wrong. The proposal was not updated after data corrections.",
+      "suggestion": "Trace the city-continent 42.9% vs 31.4% discrepancy to source data. If 31.4% is correct (as the paper claims), update proposal.md. If both are valid (different aggregation methods), document which method produces each number. The mismatch between planning documents and paper is a systemic data integrity problem that validate_integration.py (never implemented, 10 iterations of recommendations) would have caught."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The paper's contribution framing has shifted between the proposal and the final paper but the abstract still leads with 'first cross-domain absorption characterization.' H10 results show that 2 of 3 RAVEL hierarchies' absorption rates are explained by probe quality confounds (city-continent within 0.6pp of curve, city-country within 8.5pp). Only city-language is a genuine outlier. The paper's PRIMARY claimed contribution -- cross-domain characterization -- is substantially undermined by its own probe degradation result. The real primary contribution is the probe degradation methodology itself, but this is framed as secondary.",
+      "suggestion": "Restructure contributions: lead with probe degradation as contribution #1 (the methodological advance), causal mechanism as #2 (the empirical advance), and cross-domain characterization as #3 (the application context). The current framing where cross-domain is #1 invites a reviewer to say 'your own ablation shows most of your cross-domain variation is a confound, so your primary contribution is undermined.'"
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The '4.1x descriptive range' headline includes city-country (F1=0.73), which falls below BOTH quality gates and whose absorption rate is partially explained by the probe degradation curve. Excluding city-country, the quality-gated range is 2.7x (11.6% to 31.4%). The 4.1x figure appears in the abstract, introduction, Section 4.1, Section 7, and Section 8 -- 5 prominent locations. The result debate verdict (score 6.5) explicitly recommended scoping to the 2.7x quality-gated range, but this recommendation was not implemented.",
+      "suggestion": "Replace '4.1x' with '2.7x (quality-gated)' as the headline figure throughout the paper. Present the 4.1x range as supplementary context with the caveat that it includes city-country (F1=0.73, below quality gate). The city-country 45.1% rate should be in a separate table row or marked with an explicit warning in every location it appears."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Layer multiplier inconsistency. Section 4.2 says first-letter shows '26x increase from L6 (1.0%) to L24 (27.1%).' The proposal says '15x variation (0.7% to 42.9%).' The discussion (Section 7.4) says '15x higher than at earlier layers.' The outline says '15x.' The consolidation_summary reports L6 rates of '2-2.4%.' If L6 is 1.0%, the multiplier is 27x. If L6 is 2.4%, it is 11x. The '15x' figure does not correspond to any single hierarchy's L6-to-L24 ratio. Three different multipliers in one paper is unacceptable.",
+      "suggestion": "Determine the correct L6 first-letter absorption rate from source data. Compute the multiplier as L24_rate / L6_rate for each hierarchy individually. Report the range (e.g., '11x to 27x across hierarchies') or the first-letter specific ratio with the L6 rate cited. Eliminate all other multiplier claims."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "City-country excluded from activation patching without explanation. The paper presents patching results for first-letter, city-continent, and city-language, but not city-country. The methodology describes the patching protocol generically. The paper never explains why the highest-absorption hierarchy (45.1%) was excluded from the causal mechanism test. A reviewer will ask: does competitive exclusion also hold for city-country, or does its low probe quality (F1=0.73) break the patching pipeline?",
+      "suggestion": "Either (a) run city-country patching (0.5 GPU-hours) and report the result, or (b) add an explicit paragraph explaining the exclusion: 'City-country was excluded from activation patching because its probe quality (F1=0.73) falls below the relaxed gate, and false negatives in the probe itself would confound the patching recovery measurement.' Document this in Section 5.2 and in the limitations."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Section 7.2 is near-verbatim repetition of Sections 5.1-5.2. Recovery rates (32.5%, 61.9%, 34.2%), effect sizes (d=1.33, 1.50, 0.75), p-values, and interpretation text are repeated word-for-word. The Discussion should synthesize and draw implications, not re-present results. A reviewer will flag this as padding.",
+      "suggestion": "Rewrite Section 7.2 to discuss IMPLICATIONS of the universal mechanism finding (e.g., what it means for SAE deployment, how it constrains theories of absorption, what experiments it motivates) without restating the numerical results beyond a summary reference ('the activation patching results in Section 5 establish...'). The full numbers belong in Section 5 only."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "The activation patching results appear with full numerical detail in FOUR locations: Section 5.1, Section 5.2, Section 7.2, and Section 8 (Conclusion). Each location repeats all three recovery rates, all three effect sizes, and all three p-values. This is excessive repetition that inflates the paper's length without adding information.",
+      "suggestion": "Section 5: full detail. Section 7: summary reference only ('d=0.75-1.50, all p<10^-3; see Section 5'). Section 8: one-sentence summary ('Activation patching confirms competitive exclusion across all tested hierarchies with large effect sizes'). No numbers in the conclusion beyond the range."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Figure 4 has an unexplained layer mismatch across panels. Panel 1 (first-letter) shows 'L12, 25 words' while Panels 2-3 (city-continent, city-language) show 'L24, 128/201 entities.' A three-panel comparison figure should compare results obtained under comparable conditions. Using different layers across panels undermines the visual claim that 'all three hierarchies show the same mechanism.'",
+      "suggestion": "Either (a) re-run first-letter patching at L24 for the figure (preferred), or (b) add a prominent caption note explaining: 'First-letter patching was conducted at L12 following the sae-spelling convention; RAVEL patching at L24 following RAVEL convention. The mechanism (positive child-zeroed recovery vs. near-zero control) is qualitatively identical at both layers.' Option (a) is strongly preferred because the layer difference is a confound."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Figure 5 promises an overlay of first-letter (N=158) and city-continent (N=1,464) decoder entanglement distributions in the caption, but the review notes suggest only one distribution (red histogram) is visible. The N=1471 in the figure legend disagrees with N=1,464 in the text. This is both a visual communication failure and a data provenance inconsistency.",
+      "suggestion": "Re-render Figure 5 with both distributions clearly visible (different colors, separate panels, or inset). Reconcile N=1471 vs N=1464 by tracing to source data. If 1471 is the pre-cleaning count and 1464 is post-cleaning, note this. If they are different experiments, explain."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "validate_integration.py has been recommended for 10 consecutive iterations and has never been implemented. The open_issues section (OI1) acknowledges this was 'skipped for speed.' This tool would have caught: the Table 3 CI inversion, the 42.9% vs 31.4% city-continent discrepancy, the 1.0% vs 2.4% L6 discrepancy, the 1471 vs 1464 count discrepancy, and the aggregation-dependent absorption rates. These are exactly the data integrity failures that a review would flag.",
+      "suggestion": "Implement validate_integration.py as a simple script that: (1) reads all numerical claims from the paper (regex on digits + % + 'p=' + 'rho=' etc.), (2) checks each against a manifest JSON mapping claims to source data files, and (3) reports mismatches. This is ~2 hours of CPU work and would prevent the class of errors that constitute 4 of the 5 critical findings in this review."
+    },
+    {
+      "category": "analysis",
+      "severity": "minor",
+      "description": "Figure 6 shows 'Hier: p=0.063' at L24 while the paper text (Section 6) says 'hierarchy F=3.76, p=0.041.' The figure annotation and text disagree on the p-value for the hierarchy effect.",
+      "suggestion": "Check whether the figure uses a different statistical test or model specification than the text. Reconcile. If the figure uses a Kruskal-Wallis and the text uses ANOVA, note both in the caption."
+    },
+    {
+      "category": "analysis",
+      "severity": "minor",
+      "description": "The abstract states the descriptive range as '4.1x' but the rates listed are 11.6%, 27.1%, 31.4%, 45.1%, which gives 45.1/11.6 = 3.89x. The 4.1x figure in the prior proposal used city-continent at 42.9%, not 31.4%. The current data gives 3.9x, not 4.1x.",
+      "suggestion": "Recalculate 45.1/11.6 = 3.89x. Round to 3.9x or use the quality-gated range (31.4/11.6 = 2.7x). The 4.1x figure is stale."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "SAEBench (Karvonen et al., 2025) already contains BOTH absorption (first-letter) and RAVEL (city-country/continent/language) as independent metrics in the same benchmark. The conceptual leap from 'two metrics in the same benchmark' to 'measure absorption on RAVEL hierarchies' is relatively small. An SAEBench follow-up paper could pre-empt this contribution at any time.",
+      "suggestion": "Acknowledge SAEBench's dual inclusion explicitly in Related Work ('SAEBench independently evaluates absorption and RAVEL disentanglement but does not connect them') and execute the verification/submission plan quickly to maintain first-mover advantage."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "Section 2.1 says 'established SAEs as the dominant tool for mechanistic interpretability' -- an unsupported superlative. Section 7.4 uses 'amplify' as a hype transition ('Three aspects of our findings amplify this concern'). These are minor style violations but would be noted by careful reviewers.",
+      "suggestion": "Replace 'dominant' with 'widely adopted' or cite an adoption survey. Replace 'amplify' with 'are relevant to' or lead directly with the three aspects."
+    }
+  ],
+  "metric_gaming_risks": [
+    "Probe degradation curve R^2=0.777 is computed on 7 data points with 2 free parameters (slope, intercept). The quadratic fit R^2=0.942 has 3 parameters on 7 points (4 degrees of freedom). Overfitting risk is high; the quadratic should be presented as exploratory at best.",
+    "Absorption rate is confounded by probe quality (the paper's own finding), yet headline claims still use rates from hierarchies with F1=0.73. The metric (absorption rate) is not measuring what the paper claims (hierarchy-dependent feature failure) for at least 1 of 4 hierarchies.",
+    "Per-class absorption rates (Europe 90.2% vs Africa 3.9%) are dramatic but may reflect class frequency effects rather than absorption per se. High-frequency entities (USA: 0% absorption) likely have dedicated features in the SAE, while rare entities share features. This confound is acknowledged qualitatively but not controlled for."
+  ],
+  "novelty_risks": [
+    "SAEBench contains both ingredients (absorption metric + RAVEL hierarchy data) in a single benchmark. A straightforward extension by the SAEBench authors would pre-empt the primary contribution.",
+    "The probe degradation methodology is genuinely novel but could be independently discovered by any group comparing absorption across tasks with different probe quality levels.",
+    "The quadruple correlational failure is a valuable negative result but novelty depends on whether correlational approaches were plausible ex ante. If the field already expected interventional methods to be necessary, the negative results confirm rather than advance understanding."
+  ],
+  "reproducibility_gaps": [
+    "validate_integration.py (automated claim-data cross-check) never implemented despite 10 iterations of recommendation. The paper cites specific data files but provides no automated verification that paper claims match source data.",
+    "The probe degradation protocol specifies 'calibrating epsilon to degrade test-set F1 to seven target levels' but does not describe the calibration procedure. How is epsilon selected? Grid search? Bisection? What happens when the target F1 is not achievable exactly?",
+    "The sae-spelling library version, RAVEL dataset version, SAELens version, and TransformerLens version are specified in methodology notes (MN5) but not in the paper's main text or appendix.",
+    "Aggregation method differences between iterations (per-token vs per-word) produce different absolute rates. A reader attempting reproduction would need to know which method to use, but this is buried in consolidation notes rather than stated in the paper.",
+    "Code availability is not mentioned. The paper uses a custom pipeline across 4 libraries; without a reproduction package, independent verification would require substantial reverse-engineering."
+  ]
+}

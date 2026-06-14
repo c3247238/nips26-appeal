@@ -1,0 +1,355 @@
+{
+  "tasks": [
+    {
+      "id": "e2_pilot",
+      "name": "E2 Pilot: Official absorption metric pipeline on 5 checkpoints",
+      "description": "Validate the official absorption metric pipeline (sae-spelling or SAEBench) on 5 checkpoints from GPT-2 Small and Pythia-160M. Use >=50k tokens for stable dead-neuron estimation. Confirm metric variance is reasonable before scaling.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/e2_pilot/metrics.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small-res-jb",
+          "path": "SAELens release"
+        },
+        {
+          "type": "checkpoint",
+          "name": "pythia-160m-saebench",
+          "path": "SAEBench release"
+        },
+        {
+          "type": "dataset",
+          "name": "c4-validation",
+          "path": "allenai/c4"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 5 checkpoints load successfully; official absorption metric returns finite values; dead-neuron rate is stable (computed on >=50k tokens)."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Pilot metric summary per checkpoint",
+          "columns": [
+            "Checkpoint",
+            "Architecture",
+            "Absorption_Official",
+            "L0",
+            "CE_Recovered",
+            "Dead_Neurons"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e2_full_gpt2",
+      "name": "E2 Full: First-letter benchmark on GPT-2 Small (10-15 checkpoints)",
+      "description": "Run official absorption metric on 10-15 GPT-2 Small checkpoints across Standard, TopK, TopK_MLP, and TopK_Attn families. Compute dead-neuron rate on >=50k tokens and test for near-zero variance families.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "e2_pilot"
+      ],
+      "expected_output": "exp/e2_full_gpt2/absorption_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small-saelens-releases",
+          "path": "SAELens release"
+        },
+        {
+          "type": "dataset",
+          "name": "c4-validation",
+          "path": "allenai/c4"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Absorption rate distribution per GPT-2 family",
+          "x": "architecture_family",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e2_full_pythia",
+      "name": "E2 Full: First-letter benchmark on Pythia-160M (15-20 checkpoints)",
+      "description": "Extract or compute official absorption metric on 15-20 Pythia-160M SAEBench checkpoints across 7 architecture families. Compute dead-neuron rate on >=50k tokens and analyze family-level variance.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "e2_pilot"
+      ],
+      "expected_output": "exp/e2_full_pythia/absorption_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "pythia-160m-saebench",
+          "path": "SAEBench release"
+        },
+        {
+          "type": "dataset",
+          "name": "c4-validation",
+          "path": "allenai/c4"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Absorption rate distribution per Pythia family",
+          "x": "architecture_family",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Absorption vs dead-neuron rate",
+          "x": "dead_neuron_rate",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e1_pilot",
+      "name": "E1 Pilot: SAEBench data validation",
+      "description": "Validate SAEBench metric extraction pipeline on a sample of 20 Pythia-160M SAEs. Confirm that absorption, sparse probing F1, RAVEL Cause/Isolation, L0, and CE loss recovered are all present and well-formed before running the full meta-analysis.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/e1_pilot/data_validation.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "SAEBench Pythia-160M metrics",
+          "path": "SAEBench release"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All required metrics are present for >=18 of 20 sampled SAEs; no missing-value rate >10%."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Data completeness summary",
+          "columns": [
+            "Metric",
+            "Coverage_Rate",
+            "Mean",
+            "Std"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e1_full",
+      "name": "E1 Full: Downstream causal cost meta-analysis",
+      "description": "Extract metrics for 200+ Pythia-160M SAEBench SAEs. Compute partial correlations and run OLS regression with cluster-robust SEs to test whether absorption has a unique negative effect on sparse probing F1 and RAVEL Cause/Isolation, controlling for L0 and reconstruction.",
+      "type": "analysis",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "e1_pilot"
+      ],
+      "expected_output": "exp/e1_full/regression_results.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "SAEBench Pythia-160M metrics",
+          "path": "SAEBench release"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption vs sparse probing F1 with partial-regression fit",
+          "x": "absorption",
+          "y": "sparse_probing_f1",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Absorption vs RAVEL Cause with partial-regression fit",
+          "x": "absorption",
+          "y": "ravel_cause",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Regression table",
+          "columns": [
+            "Variable",
+            "Coefficient",
+            "Robust_SE",
+            "t_stat",
+            "p_value"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e3_pilot",
+      "name": "E3 Pilot: Task-agnostic absorption metric (geography domain)",
+      "description": "Pilot a task-agnostic absorption metric on 1 SAE (Pythia-160M or GPT-2 Small, layer 8) using 10 geography parent-child pairs. Train logistic regression probes on residual-stream activations and classify absorption cases. Given prior refutation of H3, this is scoped as a pilot-only negative-result demonstration.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "e2_pilot"
+      ],
+      "expected_output": "exp/e3_pilot/task_agnostic_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "pythia-160m-saebench or gpt2-small-res-jb",
+          "path": "SAEBench / SAELens release"
+        },
+        {
+          "type": "dataset",
+          "name": "c4-validation",
+          "path": "allenai/c4"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 5 valid parent-child pairs are processed; probe training converges (accuracy > 0.7); absorption detection pipeline returns a finite domain score."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Domain-specific absorption rate vs first-letter benchmark",
+          "columns": [
+            "SAE",
+            "First_Letter_Absorption",
+            "Geography_Absorption"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e4_pilot",
+      "name": "E4 Pilot: Pareto tradeoff validation (2 families, 1 stratum)",
+      "description": "Validate the Pareto analysis pipeline on a small matched stratum of Pythia-160M SAEBench SAEs (2 families, same hook point and width). Compute absorption, reconstruction, dead-neuron rate, and sparse probing F1.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "e2_pilot"
+      ],
+      "expected_output": "exp/e4_pilot/pareto_pilot.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "pythia-160m-saebench",
+          "path": "SAEBench release"
+        },
+        {
+          "type": "dataset",
+          "name": "c4-validation",
+          "path": "allenai/c4"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All checkpoints in the stratum load and compute successfully; Pareto front script runs without error; at least one non-dominated point per family."
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Pareto front scatter (absorption vs reconstruction)",
+          "x": "absorption",
+          "y": "reconstruction_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e4_full",
+      "name": "E4 Full: Multi-objective Pareto on Pythia-160M (7 families)",
+      "description": "Compute multi-objective Pareto fronts for 7 Pythia-160M architecture families, stratified by hook point and dictionary width. Normalize metrics within strata and test stochastic dominance. This is a supporting experiment, not the lead contribution.",
+      "type": "experiment",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "e4_pilot",
+        "e2_full_pythia"
+      ],
+      "expected_output": "exp/e4_full/pareto_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "pythia-160m-saebench",
+          "path": "SAEBench release"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Pareto front scatter (absorption vs CE loss recovered)",
+          "x": "absorption",
+          "y": "ce_loss_recovered",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Pairwise stochastic dominance test results",
+          "columns": [
+            "Family_A",
+            "Family_B",
+            "Metric",
+            "Mann_Whitney_U",
+            "p_value",
+            "Dominance"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

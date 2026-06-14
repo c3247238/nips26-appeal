@@ -1,0 +1,493 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup & Code Scaffolding",
+      "description": "Verify conda env sibyl_ttt-dlm on cs8000d. Install/update dependencies. Create BSD and RACFG code modules with shared evaluation harness (accuracy, rep-2/3, distinct-1/2/3, length stats, qualitative samples). Verify Dream-7B model loads correctly.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/bsd_racfg/setup_verified.log",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [
+        {"type": "checkpoint", "name": "Dream-7B", "path": "shared/checkpoints/Dream-v0-Instruct-7B"}
+      ],
+      "pilot": {
+        "samples": 1,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Model loads and generates 1 sample without error"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_acfg_repro",
+      "name": "A-CFG Reproduction on Dream-7B",
+      "description": "Reproduce A-CFG (arXiv 2505.20199) on Dream-7B with Countdown-100. Implement confidence-based re-masking for unconditional input construction, fixed guidance weight w=1.0. This validates that CFG works on Dream-7B before investing in RACFG. Decision Gate 1: if accuracy < vanilla, switch all CFG experiments to LLaDA-8B.",
+      "type": "baseline",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/pilots/acfg_repro_countdown100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Accuracy > vanilla AND no degeneration (rep-3 < vanilla + 20%)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "A-CFG vs vanilla on Countdown-100",
+          "columns": ["Method", "Accuracy", "rep-2", "rep-3", "distinct-3", "Time"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_bsd",
+      "name": "BSD Pilot — Belief Vector Feasibility",
+      "description": "Implement BSD core: replace mask embeddings with EMA-evolved belief vectors during denoising Phase 1 (steps T to k+1, k=T/2). L2 normalize belief vectors to mask_emb norm. Test on Countdown-16 to verify: (1) no OOD collapse, (2) belief entropy decreases, (3) outputs are well-formed. If OOD collapse detected, activate fallback_beta mixing.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/pilots/bsd_pilot_countdown16.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Outputs are well-formed (rep-3 < 2x vanilla) AND belief entropy shows decreasing trend"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Belief entropy trajectory across denoising steps",
+          "x": "denoising_step",
+          "y": "mean_entropy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_racfg",
+      "name": "RACFG Pilot — Stability-Guided Re-masking",
+      "description": "Implement RACFG: cross-step JSD stability scoring, stability-guided re-masking (m=10%), temporal scheduling (w=0 at mask_rate>70%, linear ramp to w_max=1.5 at mask_rate<30%). Test on Countdown-16 to verify stability signals are meaningful and guidance improves accuracy.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/pilots/racfg_pilot_countdown16.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Accuracy >= vanilla AND stability scores show meaningful variance across positions"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Position-wise stability scores across denoising steps",
+          "x": "position",
+          "y": "denoising_step",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_dmi_repro",
+      "name": "DMI Baseline Reproduction",
+      "description": "Reproduce DMI (our iteration 3 method) on Countdown-100 with seed 42 to confirm 9.3% baseline. Use existing code from task_3a_dmi_pilot.py as reference. This establishes the baseline that BSD must beat.",
+      "type": "baseline",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/pilots/dmi_repro_countdown100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Accuracy within 2pp of 9.3% (i.e., 7.3%-11.3%)"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "ablation_bsd_k",
+      "name": "BSD k-Parameter Ablation (Hard-Reveal Steps)",
+      "description": "Test BSD with k ∈ {T/4, T/2, 3T/4} on Countdown-100. k=T/4 means 75% belief refinement + 25% hard reveal; k=3T/4 means 25% belief + 75% hard reveal. Fixed alpha_schedule=linear(0.1→0.8), tau=linear(1.0→0.3). Hypothesis H3: intermediate k is optimal.",
+      "type": "ablation",
+      "depends_on": ["pilot_bsd"],
+      "expected_output": "exp/results/full/bsd_k_ablation_countdown100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "All 3 configs produce well-formed outputs AND at least one > vanilla"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Accuracy vs k parameter (T/4, T/2, 3T/4)",
+          "x": "k_value",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_bsd_alpha",
+      "name": "BSD Alpha Schedule Ablation",
+      "description": "Test BSD alpha schedules on Countdown-100 with best k from ablation_bsd_k. Schedules: (1) linear ramp 0.1→0.8, (2) cosine ramp, (3) constant 0.3, (4) constant 0.5. Fixed tau=linear(1.0→0.3).",
+      "type": "ablation",
+      "depends_on": ["ablation_bsd_k"],
+      "expected_output": "exp/results/full/bsd_alpha_ablation_countdown100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "At least one schedule > vanilla AND no degeneration"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Accuracy vs alpha schedule type",
+          "x": "alpha_schedule",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_racfg_remask_pct",
+      "name": "RACFG Re-mask Percentage Ablation",
+      "description": "Test RACFG with re-mask m% ∈ {5%, 10%, 20%} on Countdown-100. Fixed w_base=1.0, linear temporal schedule, JSD stability signals. Hypothesis: 10% is near-optimal (enough signal without over-masking).",
+      "type": "ablation",
+      "depends_on": ["pilot_racfg", "pilot_acfg_repro"],
+      "expected_output": "exp/results/full/racfg_remask_pct_ablation_countdown100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "At least one m% > A-CFG baseline"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Accuracy vs re-mask percentage",
+          "x": "remask_pct",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_racfg_schedule",
+      "name": "RACFG Temporal Schedule Ablation",
+      "description": "Test RACFG temporal schedules on Countdown-100 with best m% from ablation_racfg_remask_pct. Schedules: (1) fixed w=1.0, (2) linear ramp (0→w_max), (3) cosine ramp, (4) threshold_70_30 (from theory). Hypothesis H6: scheduled > fixed by ≥2pp.",
+      "type": "ablation",
+      "depends_on": ["ablation_racfg_remask_pct"],
+      "expected_output": "exp/results/full/racfg_schedule_ablation_countdown100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "At least one scheduled variant > fixed w by ≥1pp"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Accuracy vs temporal schedule type",
+          "x": "schedule_type",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_racfg_vs_acfg",
+      "name": "RACFG vs A-CFG Direct Comparison (Stability vs Confidence)",
+      "description": "Direct comparison: RACFG (JSD stability re-masking) vs A-CFG (single-step confidence re-masking) on Countdown-100 at equal compute (both 2x FLOPs). Use best RACFG config from prior ablations. Hypothesis H5: JSD-based > confidence-based by ≥2pp.",
+      "type": "experiment",
+      "depends_on": ["ablation_racfg_schedule"],
+      "expected_output": "exp/results/full/racfg_vs_acfg_countdown100.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "RACFG accuracy > A-CFG accuracy"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "RACFG vs A-CFG head-to-head comparison",
+          "columns": ["Method", "Re-mask Signal", "Accuracy", "rep-3", "distinct-3"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "fullscale_bsd",
+      "name": "BSD Full-Scale Evaluation (Countdown-500, 3 seeds)",
+      "description": "Evaluate best BSD config on Countdown-500 with seeds {42, 123, 456}. Compare vs vanilla, DMI. McNemar test for significance. Hypothesis H1: BSD ≥ 14% (vs DMI 9.3%, vanilla 4.7%). Record belief entropy trajectories for analysis.",
+      "type": "experiment",
+      "depends_on": ["ablation_bsd_alpha"],
+      "expected_output": "exp/results/full/bsd_fullscale_countdown500.json",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "BSD accuracy > DMI (9.3%) with p < 0.1"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "BSD vs DMI vs vanilla on Countdown-500 (3 seeds)",
+          "columns": ["Method", "Seed 42", "Seed 123", "Seed 456", "Mean", "Std", "p-value"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Belief entropy trajectory comparison (BSD vs vanilla proxy)",
+          "x": "denoising_step",
+          "y": "mean_entropy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "fullscale_racfg",
+      "name": "RACFG Full-Scale Evaluation (Countdown-500, 3 seeds)",
+      "description": "Evaluate best RACFG config on Countdown-500 with seeds {42, 123, 456}. Compare vs vanilla, A-CFG. McNemar test. Hypothesis H4: RACFG ≥ 15%. Include compute-fair comparison (RACFG at 2x vs vanilla at 2x steps).",
+      "type": "experiment",
+      "depends_on": ["ablation_racfg_vs_acfg"],
+      "expected_output": "exp/results/full/racfg_fullscale_countdown500.json",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "RACFG accuracy > vanilla + 3pp"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "RACFG vs A-CFG vs vanilla on Countdown-500 (3 seeds)",
+          "columns": ["Method", "Seed 42", "Seed 123", "Seed 456", "Mean", "Std", "p-value"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "combination_bsd_racfg",
+      "name": "BSD + RACFG Combination (Countdown-500, 3 seeds)",
+      "description": "Combine best BSD + best RACFG: BSD belief refinement in early steps, RACFG guidance in late steps. Evaluate on Countdown-500, seeds {42, 123, 456}. Hypothesis H7: combination ≥ 18%, > max(BSD, RACFG). Include compute-fair comparison (2.1x FLOPs vs vanilla 2.1x steps).",
+      "type": "experiment",
+      "depends_on": ["fullscale_bsd", "fullscale_racfg"],
+      "expected_output": "exp/results/full/bsd_racfg_combo_countdown500.json",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Combination accuracy > max(BSD_alone, RACFG_alone)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main results: all methods on Countdown-500",
+          "columns": ["Method", "Accuracy (%)", "95% CI", "FLOPs", "rep-3", "distinct-3", "p vs vanilla"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Component contribution breakdown (vanilla → +BSD → +RACFG → +both)",
+          "x": "method",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "compute_fair",
+      "name": "Compute-Fair Comparison",
+      "description": "Fair comparison at equal compute budgets: (1) BSD (~1.1x) vs vanilla with 1.1x more steps, (2) RACFG (~2x) vs vanilla with 2x steps, (3) BSD+RACFG (~2.1x) vs vanilla 2.1x steps, (4) vs ReMDM (~1.5x) with 1.5x steps. Countdown-500, 3 seeds. Hypothesis H11.",
+      "type": "analysis",
+      "depends_on": ["combination_bsd_racfg"],
+      "expected_output": "exp/results/full/compute_fair_countdown500.json",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Methods outperform vanilla at equal FLOPs"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Compute-fair comparison table",
+          "columns": ["Method", "FLOPs Budget", "Accuracy (%)", "vs Vanilla+ExtraSteps"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Accuracy vs compute budget (Pareto curve)",
+          "x": "flops_ratio",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "gsm8k_extension",
+      "name": "GSM8K Generalization Test",
+      "description": "Evaluate best method (BSD/RACFG/combination) on GSM8K-1319 with seed 42. Hypothesis H8: significant improvement over vanilla Dream-7B. If Countdown results are strong, test all 3 methods; otherwise test only the best. Report accuracy with Bootstrap 95% CI.",
+      "type": "experiment",
+      "depends_on": ["combination_bsd_racfg"],
+      "expected_output": "exp/results/full/gsm8k_best_method.json",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 90,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Accuracy > vanilla Dream-7B on GSM8K subset"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "GSM8K generalization results",
+          "columns": ["Method", "GSM8K Accuracy (%)", "95% CI", "FLOPs"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "entropy_analysis",
+      "name": "Belief Entropy Trajectory Analysis",
+      "description": "Detailed information-theoretic analysis of BSD belief evolution on Countdown-500: (1) per-position entropy at each denoising step, (2) Spearman rank correlation (step vs entropy), (3) terminal entropy comparison vs vanilla, (4) entropy vs accuracy correlation. Hypothesis H2: monotonically decreasing entropy, lower terminal entropy than vanilla.",
+      "type": "analysis",
+      "depends_on": ["fullscale_bsd"],
+      "expected_output": "exp/results/full/entropy_analysis_countdown500.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Entropy trajectory shows clear decreasing trend (Spearman rho < -0.8)"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Belief entropy trajectory (BSD vs vanilla effective entropy)",
+          "x": "denoising_step",
+          "y": "mean_entropy",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Terminal entropy vs per-sample accuracy",
+          "x": "terminal_entropy",
+          "y": "correct",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "token_diagnostics",
+      "name": "Token-Level CFG Impact Analysis",
+      "description": "Qualitative and quantitative analysis of RACFG guidance effects: (1) which token positions are most affected by CFG, (2) stability score distribution analysis, (3) guidance magnitude heatmaps, (4) comparison of JSD-selected vs confidence-selected positions. Save 50 sample-level diagnostic outputs.",
+      "type": "analysis",
+      "depends_on": ["fullscale_racfg"],
+      "expected_output": "exp/results/full/token_diagnostics_racfg.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Diagnostics data saved successfully with meaningful patterns"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Guidance magnitude per position across denoising steps",
+          "x": "position",
+          "y": "denoising_step",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "histogram",
+          "description": "Distribution of stability scores at different mask rates",
+          "x": "stability_score",
+          "y": "count",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "statistical_tests",
+      "name": "Statistical Analysis & Significance Tests",
+      "description": "Comprehensive statistical analysis on all full-scale results: (1) McNemar tests for all method pairs, (2) Bonferroni correction, (3) Bootstrap 95% CI for accuracy differences (10,000 resamples), (4) difficulty-stratified subgroup analysis (easy/medium/hard Countdown problems). Generate publication-ready statistical tables.",
+      "type": "analysis",
+      "depends_on": ["combination_bsd_racfg", "compute_fair"],
+      "expected_output": "exp/results/full/statistical_analysis.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All statistical tests computed without error"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Statistical significance matrix (McNemar p-values)",
+          "columns": ["Method A", "Method B", "p-value", "Significant?", "Effect Size"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Difficulty-stratified accuracy breakdown",
+          "x": "difficulty",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

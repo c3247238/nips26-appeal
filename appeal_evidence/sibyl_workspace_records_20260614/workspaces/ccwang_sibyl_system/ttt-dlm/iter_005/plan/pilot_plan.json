@@ -1,0 +1,227 @@
+{
+  "pilot_config": {
+    "default_samples": 100,
+    "default_seed": 42,
+    "default_timeout_sec": 900,
+    "max_pilot_gpu_hours": 16,
+    "pivot_threshold": "IGGD n=300 < +1pp → COBA-only paper. D0c r < 0.1 → KILL DaL. All methods < vanilla at n=300 → Diagnostic study."
+  },
+  "completed_pilots": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "status": "PASS",
+      "key_result": "Dream-7B + LLaDA-8B verified, 7 datasets downloaded, conda env ready"
+    },
+    {
+      "id": "impl_ttt_layer",
+      "name": "TTT Layer Implementation",
+      "status": "PASS",
+      "key_result": "Linear/MLP/Momentum variants pass 12/12 tests, loss decreases 33%"
+    },
+    {
+      "id": "pilot_feasibility",
+      "name": "P1: Basic Feasibility",
+      "status": "PASS",
+      "key_result": "SSL loss -33% to -72%, max gradient norm 3.45, no instability"
+    },
+    {
+      "id": "pilot_signal_quality",
+      "name": "P2: Signal Quality",
+      "status": "PASS",
+      "key_result": "SNR peaks at mask ratio 0.6, critical zone [0.4-0.6], degrades at r>0.7"
+    },
+    {
+      "id": "pilot_quick_eval",
+      "name": "P3: Quick Evaluation (DaL)",
+      "status": "NO-GO",
+      "key_result": "Accuracy -1.0pp (79/200 vs 81/200), gate stuck at 0.007, SSL loss -52% but no task improvement"
+    },
+    {
+      "id": "alt_a_pilot",
+      "name": "Alternative A: Info-Gain Soft Unmasking",
+      "status": "GO",
+      "key_result": "+5pp on GSM8K-100 (39% vs 34%), p=0.182, 0.90x overhead, Distinct-2=0.892"
+    },
+    {
+      "id": "baseline_remdm",
+      "name": "ReMDM Baseline",
+      "status": "PASS (but method fails)",
+      "key_result": "ReMDM -9pp on GSM8K-100 (25% vs 34%), 1.8x overhead"
+    },
+    {
+      "id": "pilot_entropy",
+      "name": "P4: Entropy Sparsity Analysis",
+      "status": "PASS",
+      "key_result": "<13% positions contribute >80% entropy (Gini=0.85), concentrated as predicted"
+    }
+  ],
+  "new_pilots": [
+    {
+      "id": "iggd_n300_verify",
+      "name": "IGGD n=300 Verification (HIGHEST PRIORITY)",
+      "priority": 1,
+      "hypothesis_tested": "H_IGGD: Info-Gain Soft achieves >=3% absolute improvement over vanilla on GSM8K-300 (p<0.05)",
+      "setup": {
+        "backbone": "Dream-7B-Instruct",
+        "method": "Info-Gain Soft (tau=1.0, same as alt_a_pilot)",
+        "evaluation": {
+          "benchmark": "GSM8K",
+          "n_samples": 300,
+          "denoising_steps": 128,
+          "seed": 42
+        }
+      },
+      "measurements": [
+        "accuracy_vanilla_300",
+        "accuracy_iggd_300",
+        "accuracy_delta",
+        "bootstrap_p_value",
+        "cohens_d",
+        "distinct_1_2_3",
+        "time_per_sample",
+        "per_sample_predictions"
+      ],
+      "pass_criteria": {
+        "accuracy": "IGGD >= vanilla + 3% absolute",
+        "significance": "Paired bootstrap p < 0.05",
+        "no_degeneration": "Distinct-N within 10% of vanilla"
+      },
+      "decision_rule": {
+        "pass": "IGGD is confirmed front-runner. Proceed to tau sweep + composition + full benchmarks.",
+        "marginal_1_3pct": "Proceed cautiously. Tau sweep may find better configuration. Full benchmark needed.",
+        "fail_lt_1pct": "IGGD is not robust. Pivot to COBA-primary paper. Diagnostic study as backup."
+      },
+      "estimated_minutes": 50,
+      "gpu_count": 1
+    },
+    {
+      "id": "vanilla_baselines",
+      "name": "Vanilla Baselines (3 Primary Benchmarks)",
+      "priority": 1,
+      "hypothesis_tested": "Establish reference numbers for all subsequent comparisons",
+      "setup": {
+        "backbone": "Dream-7B-Instruct",
+        "method": "Standard denoising (128 steps)",
+        "evaluation": {
+          "benchmarks": ["GSM8K-300", "ARC-C-300", "HumanEval-164"],
+          "seed": 42
+        }
+      },
+      "measurements": [
+        "accuracy_per_benchmark",
+        "time_per_sample",
+        "flops_per_sample",
+        "distinct_1_2_3",
+        "peak_memory_gb",
+        "per_sample_predictions"
+      ],
+      "pass_criteria": {
+        "validity": "All 3 benchmarks produce valid accuracy; GSM8K-300 ~ 34% (+/- 5%, consistent with prior)"
+      },
+      "estimated_minutes": 55,
+      "gpu_count": 1
+    },
+    {
+      "id": "diag_d0c_d0d",
+      "name": "D0c + D0d: DaL Diagnostic (DaL Fate Determination)",
+      "priority": 1,
+      "hypothesis_tested": "H_align (r>0.3) AND H_deltaI (>0.1 bits/token)",
+      "setup": {
+        "backbone": "Dream-7B-Instruct (frozen)",
+        "d0c_configurations": [
+          {"gate_init": "sigmoid(-5)", "meta_lr": 1e-4, "steps": 1000, "label": "P3_original"},
+          {"gate_init": "sigmoid(-2)", "meta_lr": 5e-5, "steps": 1000, "label": "low_lr"},
+          {"gate_init": "sigmoid(-2)", "meta_lr": 1e-4, "steps": 1000, "label": "med_lr_1k"},
+          {"gate_init": "sigmoid(-2)", "meta_lr": 5e-4, "steps": 1000, "label": "high_lr"},
+          {"gate_init": "sigmoid(-2)", "meta_lr": 1e-4, "steps": 2000, "label": "med_lr_2k"},
+          {"gate_init": "sigmoid(-2)", "meta_lr": 1e-4, "steps": 5000, "label": "med_lr_5k"},
+          {"gate_init": "sigmoid(0)", "meta_lr": 1e-4, "steps": 1000, "label": "high_gate_1k"},
+          {"gate_init": "sigmoid(0)", "meta_lr": 1e-4, "steps": 2000, "label": "high_gate_2k"},
+          {"gate_init": "sigmoid(-2)", "meta_lr": 1e-4, "steps": 1000, "label": "warmup_gate", "gate_warmup": true},
+          {"gate_init": "sigmoid(-2)", "meta_lr": 1e-4, "steps": 1000, "label": "no_phase_sched", "phase_scheduling": false},
+          {"gate_init": "sigmoid(-2)", "meta_lr": 1e-4, "steps": 1000, "label": "linear_variant", "ttt_variant": "TTT-Linear"}
+        ],
+        "d0d_protocol": {
+          "probe_type": "linear",
+          "mask_ratios": [0.1, 0.3, 0.5, 0.7, 0.9],
+          "n_samples": 100,
+          "seed": 42
+        }
+      },
+      "pass_criteria": {
+        "d0c": "Pearson r > 0.3 between SSL_loss_improvement and accuracy_delta across >= 10 configs",
+        "d0d": "Delta_I > 0.1 bits/token at mask ratios [0.3, 0.7]"
+      },
+      "decision_rule": {
+        "both_pass": "PROCEED — DaL has theoretical support. Begin gate repair + 5K training.",
+        "d0c_marginal": "r [0.1, 0.3] — Try 2 alternative SSL objectives (1 day budget). If still marginal, KILL.",
+        "d0c_fail": "r < 0.1 — KILL DaL immediately. SSL objective structurally misaligned.",
+        "d0d_fail": "Delta_I < 0.1 — KILL all M-axis methods. Information ceiling too low.",
+        "both_fail": "DaL killed. Full commitment to IGGD + COBA. Diagnostic measurements are publishable."
+      },
+      "estimated_minutes": 60,
+      "gpu_count": 1
+    },
+    {
+      "id": "coba_d_axis",
+      "name": "COBA D-Axis Grid Search",
+      "priority": 1,
+      "hypothesis_tested": "D-scaling curve for Dream-7B on GSM8K; saturation point identification",
+      "setup": {
+        "backbone": "Dream-7B-Instruct",
+        "D_values": [32, 64, 128, 256, 512],
+        "W": 1,
+        "evaluation": {
+          "benchmark": "GSM8K",
+          "n_samples": 300,
+          "seed": 42
+        }
+      },
+      "measurements": [
+        "accuracy_per_D",
+        "flops_per_D",
+        "time_per_sample_per_D",
+        "log_linear_fit_r_squared"
+      ],
+      "pass_criteria": {
+        "validity": "All 5 D values produce valid accuracy; non-trivial scaling structure observed"
+      },
+      "estimated_minutes": 55,
+      "gpu_count": 1
+    }
+  ],
+  "pilot_execution_order": [
+    {
+      "parallel_group_phase0": ["iggd_n300_verify", "vanilla_baselines", "diag_d0c_d0d", "coba_d_axis"],
+      "note": "Phase 0: All 4 tasks run in parallel on 4 GPUs. GPU 0: IGGD n=300, GPU 1: Baselines, GPU 2: D0c+D0d, GPU 3: COBA D-axis. Day 1."
+    },
+    {
+      "decision_gate_phase0": {
+        "iggd_confirmed": "IGGD >= +3pp, p<0.05 → Front-runner confirmed. Proceed to tau sweep + composition.",
+        "iggd_marginal": "IGGD +1-3pp or p>=0.05 → Cautious. Tau sweep to optimize. COBA becomes safety net.",
+        "iggd_fail": "IGGD < +1pp → COBA primary paper. Diagnostic study backup.",
+        "d0c_d0d_pass": "r>0.3 AND Delta_I>0.1 → DaL proceeds to Phase 1B (gate repair).",
+        "d0c_d0d_fail": "r<0.1 OR Delta_I<0.1 → DaL killed. All GPUs to Track A + C."
+      }
+    },
+    {
+      "parallel_group_phase1": ["iggd_tau_sweep", "iggd_acfg_compose", "coba_w_axis", "dal_gate_repair"],
+      "note": "Phase 1: GPU 0-1: IGGD refinement (sequential: tau then compose). GPU 2: COBA W-axis. GPU 3: DaL gate repair (conditional). Days 2-3."
+    },
+    {
+      "decision_gate_phase1": {
+        "iggd_composition_works": "Best IGGD+A-CFG > individual → Paper framed around composition study.",
+        "dal_phase1_pass": "DaL >= vanilla + 2% on GSM8K-200 → Proceed to Phase 2B (update rules).",
+        "dal_phase1_fail": "DaL < vanilla + 2% → DaL killed permanently. All GPUs to Track A + C."
+      }
+    }
+  ],
+  "pivot_decision_matrix": {
+    "iggd_pass_dal_fail": "IGGD + COBA primary paper. D0c/D0d diagnostics as secondary contribution. ~40% scenario.",
+    "iggd_pass_dal_pass": "Dual-track paper. IGGD + DaL + COBA. NeurIPS/ICML target. ~10% scenario.",
+    "iggd_fail_coba_strong": "COBA framework paper with diagnostic analysis. ICML target. ~30% scenario.",
+    "all_fail": "Diagnostic study: 'Why Inference-Time Scaling Remains Elusive for DLMs.' EMNLP target. ~15% scenario.",
+    "iggd_pass_composition_strong": "Composition study paper: 'Information-Gain Guided Decoding for DLMs.' NeurIPS target. ~40% scenario."
+  }
+}

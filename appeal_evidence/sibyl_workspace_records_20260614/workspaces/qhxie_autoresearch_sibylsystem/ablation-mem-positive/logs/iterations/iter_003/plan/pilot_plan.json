@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "planning_detail": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_seconds": 900
+  },
+  "pilot_tasks": [
+    {
+      "id": "pilot_cv_feature_classification",
+      "name": "CV Feature Classification (Pilot)",
+      "description": "Classify absorbed features into high-CV (CV > 1.0) and low-CV (CV <= 1.0) groups on GPT-2 layer 6 SAE. Target 30+ features in each group.",
+      "candidate_id": "cand_cv_actionability",
+      "expected_output": "exp/results/pilots/pilot_cv_classification.json",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "pass_criteria": "At least 30 features in each CV group (high/low)"
+    },
+    {
+      "id": "pilot_steering_comparison",
+      "name": "Steering Comparison by CV (Pilot)",
+      "description": "Test steering on 30 high-CV vs 30 low-CV absorbed features at +5 strength. Measure logit change at semantically appropriate tokens.",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": ["pilot_cv_feature_classification"],
+      "expected_output": "exp/results/pilots/pilot_steering_comparison.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "pass_criteria": "High-CV steering effect > Low-CV with p < 0.05"
+    }
+  ],
+  "pilot_summary": {
+    "total_runtime_minutes": 25,
+    "total_gpu_hours": 0.42,
+    "gate_criteria": "Both pilots must pass to proceed to full experiments"
+  },
+  "validation_evidence": {
+    "activation_patching": {
+      "source": "exp/results/pilots/pilot_activation_patching.json",
+      "status": "PASSED",
+      "mean_recovery_pct": 67.3,
+      "n_pass_10pct": 9
+    },
+    "steering_cv": {
+      "source": "exp/results/pilots/pilot_steering_cv.json",
+      "status": "PASSED",
+      "high_cv_effect": 0.153,
+      "low_cv_effect": 0.075,
+      "ratio": 2.03
+    }
+  }
+}

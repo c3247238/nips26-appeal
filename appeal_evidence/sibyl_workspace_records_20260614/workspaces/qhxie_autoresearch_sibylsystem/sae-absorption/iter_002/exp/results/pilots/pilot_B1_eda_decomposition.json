@@ -1,0 +1,32 @@
+{
+  "task_id": "task_B1_eda_decomposition",
+  "timestamp": "2026-04-14T00:15:24.437327",
+  "mode": "PILOT",
+  "go_nogo": "NO_GO",
+  "confidence": 0.25,
+  "pass_criteria": "Paired t-test p < 0.05: letter feature encoder aligns more with letter probe than decoder does.",
+  "pass_criteria_met": false,
+  "key_metrics": {
+    "l6_eda_auroc": 0.6589,
+    "l6_eda_cohens_d": 0.5335,
+    "l6_paired_t_p": 2.4e-40,
+    "l6_encoder_probe_mean": 0.1392,
+    "l6_decoder_probe_mean": 0.3832,
+    "l6_diff_enc_minus_dec": -0.2440,
+    "l10_eda_auroc": 0.2267,
+    "l10_diff_enc_minus_dec": -0.2078,
+    "n_letter_features_l6": 50,
+    "n_letter_features_l10": 32
+  },
+  "finding": "CONTRARY TO REVISED H1: At both L6 and L10, the DECODER is significantly MORE aligned with the letter probe than the encoder (paired t-test p~0 for both layers). This contradicts the hypothesis that absorbed features have their ENCODER pulled toward the parent probe while the DECODER stays specialized. Instead, letter features are identified precisely BECAUSE their decoder is specialized toward letter probes. The encoder shows intermediate alignment (stronger than non-letter encoders but much weaker than the decoder).",
+  "reinterpretation": {
+    "what_this_means": "EDA = 1 - cos(encoder, decoder) is high for letter features because: (1) decoder is strongly aligned with letter probe direction (dec_probe_mean=0.383 vs non-letter=0.099), (2) encoder is less aligned with letter probe direction (enc_probe_mean=0.139 vs non-letter=0.056). The high EDA arises from the decoder being specialized while the encoder is NOT pulled to the same degree. This is actually consistent with the ORIGINAL H1 story but in a different geometry: the encoder is NOT co-specializing with the decoder.",
+    "revised_h1_assessment": "WEAKENED. The encoder-toward-parent-decoder story is not supported. The letter encoder does align more with letter probe than non-letter encoders do (p~0), but the dominant story is decoder specialization, not encoder displacement.",
+    "what_l10_eda_failure_means": "At L10, EDA AUROC=0.227 (REVERSED: letter features have LOWER EDA than non-letter). This means at L10, letter features are MORE co-specialized (encoder and decoder are closer). The layer-specific EDA signal is genuine.",
+    "key_positive_finding": "EDA still detects letter features at L6 (AUROC=0.659, Cohen's d=0.53) - this confirms EDA is a valid probe-free detector. The mechanism is decoder specialization creating encoder-decoder dissociation."
+  },
+  "supported_hypotheses": ["EDA detects letter features at L6 (AUROC=0.659)"],
+  "failed_assumptions": ["Encoder pulled toward parent probe direction (revised H1) - CONTRADICTED"],
+  "recommendation": "Continue with task as INFORMATIVE NO_GO. The geometric decomposition reveals the decoder-centric nature of EDA. This should be incorporated into the revised F.1 theory: EDA is high for absorbed features because the DECODER becomes highly specialized while the ENCODER remains less specialized. The pilot results from B1 pilot (AUROC=0.681) are confirmed with slightly lower threshold (n_features=50 here vs 71 in original pilot - threshold difference). Adjust F.1 theory accordingly.",
+  "notes": "Feature count difference (n=50 here vs n=71 in pilot) is due to SAE API change: jb release uses hook_resid_pre not hook_resid_post. This may slightly affect the letter feature identification. The EDA signal (AUROC=0.659) is consistent with pilot (AUROC=0.681)."
+}

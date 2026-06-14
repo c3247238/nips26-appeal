@@ -1,0 +1,89 @@
+{
+  "decision": "PIVOT",
+  "selected_candidate_id": null,
+  "confidence": 0.72,
+  "candidate_scores": {
+    "cand_sensitivity_floor": {
+      "weighted_score": 2.0,
+      "verdict": "PIVOT",
+      "pilot_signal": 1,
+      "hypothesis_survival": 1,
+      "path_to_result": 2,
+      "novelty": 5,
+      "resource_efficiency": 3,
+      "evidence": "H-SF1 FALSIFIED: Q2+Q4 = 100% at layer 4 (predicted < 10%). 96% of features are Q2 (high abs + high sens), opposite of prediction. U-shape confirmed (a=0.82) but structural emptiness claim refuted."
+    },
+    "cand_sensitivity_first": {
+      "weighted_score": 3.35,
+      "verdict": "REFINE",
+      "pilot_signal": 3,
+      "hypothesis_survival": 3,
+      "path_to_result": 3,
+      "novelty": 4,
+      "resource_efficiency": 4,
+      "evidence": "No direct pilot data. Layer 8 showed Q3 dominance (65%), consistent with sensitivity-first. Layer 4 showed Q2 dominance (96%), inconsistent. Steering protocol broken (all zeros). Needs steering debug pilot."
+    },
+    "cand_geometric_density": {
+      "weighted_score": 2.85,
+      "verdict": "REFINE",
+      "pilot_signal": 2,
+      "hypothesis_survival": 3,
+      "path_to_result": 3,
+      "novelty": 4,
+      "resource_efficiency": 3,
+      "evidence": "No pilot data yet. Common cause hypothesis remains viable -- could explain r=0.59 and layer differences if density varies by layer."
+    },
+    "cand_layer_uas_saturation": {
+      "weighted_score": 3.05,
+      "verdict": "REFINE",
+      "pilot_signal": 2,
+      "hypothesis_survival": 3,
+      "path_to_result": 4,
+      "novelty": 3,
+      "resource_efficiency": 4,
+      "evidence": "No pilot data yet. Layer-specificity is now the critical question given contradictory layer 4 vs layer 8 results. Clear measurement path."
+    },
+    "cand_steering_diffusion": {
+      "weighted_score": 1.95,
+      "verdict": "PIVOT",
+      "pilot_signal": 1,
+      "hypothesis_survival": 2,
+      "path_to_result": 2,
+      "novelty": 3,
+      "resource_efficiency": 2,
+      "evidence": "Steering protocol broken -- all steering effects = 0.0 at beta in {5, 10, 20}. H-STEER pass criterion not met. Cannot evaluate until protocol is debugged."
+    }
+  },
+  "reasons": [
+    "H-SF1 FALSIFIED: Q2+Q4 = 100% at layer 4 vs predicted < 10% (definitive falsification)",
+    "Contradictory layer patterns: Q2 dominates at layer 4 (96%), Q3 dominates at layer 8 (65%)",
+    "Sensitivity Floor cannot explain layer 4 Q2 abundance (absorbed + high sensitivity)",
+    "No candidate scores >= 3.5 (ADVANCE threshold)",
+    "Highest candidate (cand_sensitivity_first at 3.35) not directly tested in this pilot",
+    "Steering protocol broken -- cannot evaluate sensitivity-first or steering-diffusion",
+    "Layer-specificity is the most urgent unanswered question"
+  ],
+  "next_actions": [
+    "Recalibrate absorption metric using proper Chanin first-letter protocol (not simplified proxy)",
+    "Run cand_layer_uas_saturation pilot to map UAS across layers 4, 6, 8, 10 -- layer-specificity is now the central question",
+    "Debug steering protocol (cand_sensitivity_first): iter_010 found all steering effects = 0.0 -- must fix before evaluating sensitivity-first",
+    "Consider geometric density as unifying explanation: if dense regions vary by layer, could explain Q2 vs Q3 dominance across layers"
+  ],
+  "dropped_candidates": ["cand_sensitivity_floor"],
+  "pivot_trigger": "H-SF1 definitively falsified: Q2+Q4 = 100% at layer 4 (predicted < 10%); contradictory layer patterns suggest Sensitivity Floor is layer-specific or metric-dependent",
+  "negative_results_to_report": [
+    {
+      "candidate": "cand_sensitivity_floor",
+      "finding": "Sensitivity Floor H-SF1 falsified at layer 4",
+      "detail": "Q2+Q4 = 100% (50/50) vs predicted < 10%. 96% of layer 4 features are Q2 (absorbed + high sensitivity), opposite of Sensitivity Floor prediction",
+      "implication": "Structural emptiness claim does not hold at layer 4. Layer-specificity is the dominant factor."
+    },
+    {
+      "candidate": "cand_steering_diffusion",
+      "finding": "Steering protocol returns all zeros",
+      "detail": "All steering effects = 0.0 at beta in {5, 10, 20}. H-STEER pass criterion (at least 1 non-zero effect) not met.",
+      "implication": "Cannot evaluate sensitivity-first or steering-diffusion until protocol is debugged."
+    }
+  ],
+  "key_finding": "Layer 4 features show opposite absorption-sensitivity pattern to layer 8: Q2 dominates (96%) at layer 4 vs Q3 dominates (65%) at layer 8. Any viable theory must explain this layer-specificity."
+}

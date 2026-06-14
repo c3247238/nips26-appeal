@@ -1,0 +1,102 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_p1",
+  "confidence": 0.80,
+  "candidate_scores": {
+    "cand_p1": {
+      "weighted_score": 4.00,
+      "verdict": "ADVANCE",
+      "pilot_results": {
+        "h_mech_pilot": {"pass": true, "encoder_driven": true, "b_vs_d_delta": 0.0589, "c_vs_a_delta": -0.0038},
+        "h_comp_pilot": {"pass": true, "monotonic": true, "absorption_range": [0.585, 0.673, 0.802]},
+        "h_pareto_pilot": {"pass": true, "delta_detected": true}
+      }
+    },
+    "cand_safe": {
+      "weighted_score": 1.85,
+      "verdict": "PIVOT",
+      "reason": "NO_GO pilot (p=1.0). Synthetic feature selection (arbitrary indices, not Neuronpedia). H_Safe not falsified, deferred pending real annotations and Gemma diagnostic."
+    },
+    "cand_encreg": {
+      "weighted_score": 2.35,
+      "verdict": "PIVOT",
+      "reason": "Not tested. Depends on H_Mech full validation across 5 seeds before encoder regularization intervention."
+    },
+    "cand_geom": {
+      "weighted_score": 1.35,
+      "verdict": "PIVOT",
+      "reason": "Deferred. H_Mech shows decoder geometry irrelevant; would need retool for encoder directions."
+    },
+    "cand_ens": {
+      "weighted_score": 1.55,
+      "verdict": "PIVOT",
+      "reason": "Not tested. 2-hour cost with partial overlap to Gadgil et al."
+    },
+    "cand_eco": {
+      "weighted_score": 1.80,
+      "verdict": "PIVOT",
+      "reason": "Theoretical reframing only. Novelty 2/10. Use as framing within cand_p1."
+    }
+  },
+  "reasons": [
+    "H_Mech pilot passes: encoder-driven mechanism confirmed (B≈D, C≈A)",
+    "H_Comp pilot passes: monotonic absorption increase confirmed (0.585→0.673→0.802)",
+    "H_Pareto pilot passes: detectable difference across L0 levels (>0.1 threshold met)",
+    "cand_p1 weighted score 4.00 exceeds ADVANCE threshold of 3.5",
+    "All H_Mech falsification criteria met: encoder sufficient, decoder irrelevant",
+    "Clear experimental path: 5 seeds H_Mech (45min), 6×3 H_Comp (35min), 4×3 H_Pareto (40min)",
+    "Resource efficiency: ~2 hours total GPU, all tasks <1 hour budget"
+  ],
+  "next_actions": [
+    "Run h_mech_full: 2x2 factorial across 5 seeds (42, 123, 456, 789, 1024) with stochastic hierarchy",
+    "Run h_comp_full: 6 cosine levels (0.5-0.95) × 3 seeds, expect R² > 0.8",
+    "Run h_pareto_full: 4 L0 levels (16, 32, 64, 128) × 3 seeds, fit Pareto frontier shape",
+    "Investigate Gemma Scope zero absorption diagnostic before H_Safe revival",
+    "Obtain Neuronpedia annotations for real safety-relevant features",
+    "Conditional: Revive cand_safe after diagnostic resolves and real annotations available",
+    "Conditional: Pilot cand_encreg after H_Mech full validates encoder-driven mechanism across 5 seeds"
+  ],
+  "dropped_candidates": [],
+  "deferred_notes": {
+    "cand_safe": "Not dropped -- deferred. Novelty 9/10 remains genuinely high. H_Safe not falsified. Requires: (1) Gemma diagnostic, (2) real Neuronpedia annotations.",
+    "cand_encreg": "Depends on H_Mech full validation. If encoder-driven confirmed across 5 seeds, encoder regularization is natural intervention target.",
+    "cand_eco": "Use as theoretical framing within cand_p1 paper, not standalone empirical contribution."
+  },
+  "pilot_evidence_summary": {
+    "h_mech_pilot": {
+      "model": "GPT-2 Small SAE",
+      "encoder_driven": true,
+      "b_vs_d_delta": 0.0589,
+      "c_vs_a_delta": -0.0038,
+      "pilot_pass": true
+    },
+    "h_comp_pilot": {
+      "model": "GPT-2 Small SAE",
+      "cos_0.6": 0.585,
+      "cos_0.8": 0.673,
+      "cos_0.95": 0.802,
+      "monotonic": true,
+      "pilot_pass": true
+    },
+    "h_pareto_pilot": {
+      "delta_detected": true,
+      "pilot_pass": true
+    },
+    "h_safe_gemma_pilot": {
+      "sae": "gemma-2b-layer-12",
+      "p_value": 1.0,
+      "pilot_pass": false,
+      "issue": "Synthetic feature selection (arbitrary indices), not real Neuronpedia annotations"
+    }
+  },
+  "decision_matrix": {
+    "cand_p1": {"signal": 4, "hypothesis_survival": 4, "path": 4, "novelty": 4, "efficiency": 4},
+    "cand_safe": {"signal": 1, "hypothesis_survival": 2, "path": 2, "novelty": 5, "efficiency": 2},
+    "cand_encreg": {"signal": 1, "hypothesis_survival": 3, "path": 2, "novelty": 4, "efficiency": 3},
+    "cand_geom": {"signal": 1, "hypothesis_survival": 1, "path": 1, "novelty": 2, "efficiency": 2},
+    "cand_ens": {"signal": 1, "hypothesis_survival": 2, "path": 2, "novelty": 2, "efficiency": 1},
+    "cand_eco": {"signal": 1, "hypothesis_survival": 3, "path": 1, "novelty": 1, "efficiency": 5}
+  },
+  "confidence_calculation": "score=4.00, threshold=3.5, confidence=(4.00-2.5)/2.5=0.60, elevated to 0.80 due to 3/3 pilots passing with strong signals",
+  "sanity_checks_passed": true
+}

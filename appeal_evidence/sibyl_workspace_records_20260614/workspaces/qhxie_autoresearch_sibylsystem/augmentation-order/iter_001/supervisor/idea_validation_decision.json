@@ -1,0 +1,244 @@
+{
+  "version": "2.0",
+  "correction_note": "Supersedes 2026-04-02 version which incorrectly declared all experiments complete. This version aligns with revised hypotheses and task plan (both updated 2026-04-03). All pilot-scale data is preliminary only.",
+  "decision": "ADVANCE",
+  "decision_meaning": "Advance to full-scale experimentation as specified in task_plan.json. Do NOT advance to paper writing — full-scale runs have not been executed.",
+  "selected_candidate_id": "cand_a",
+  "confidence": 0.76,
+  "timestamp": "2026-04-07",
+  "evaluator": "sibyl-idea-validation-decision",
+  "candidate_scores": {
+    "cand_a": {
+      "weighted_score": 3.90,
+      "verdict": "ADVANCE",
+      "criterion_scores": {
+        "pilot_signal_strength": {
+          "weight": 0.30,
+          "score": 4,
+          "weighted": 1.20,
+          "rationale": "2/4 interpretable blocks show meaningful spread (0.88-2.32%); 2 blocks near chance floor (10% and ~1% accuracy); Tier 2 category pilot 9.01% (single seed, unconfirmed)"
+        },
+        "hypothesis_survival": {
+          "weight": 0.25,
+          "score": 4,
+          "weighted": 1.00,
+          "rationale": "H1 preliminary supported; H2 supported; H4 corrected and supported; H5b and H6 new/revised with pilot backing; H3 revised (feature-space pending, not falsified); no core hypothesis critically destroyed"
+        },
+        "path_to_full_result": {
+          "weight": 0.20,
+          "score": 4,
+          "weighted": 0.80,
+          "rationale": "~54 GPU-hours well-specified in task_plan.json; clear dependency chain; Tier 2 confirmation pilot provides go/no-go gate; feature-space NC needs Tier 1 checkpoints"
+        },
+        "novelty": {
+          "weight": 0.15,
+          "score": 4,
+          "weighted": 0.60,
+          "rationale": "novelty_score=8/10; no prior work isolates ordering as sole IV; feature-space NC_2, corrected DPI, category interleaving, inverted-U magnitude all novel; Wrona et al. 2025 is closest partial overlap (medical, 2-step, no theory)"
+        },
+        "resource_efficiency": {
+          "weight": 0.10,
+          "score": 3,
+          "weighted": 0.30,
+          "rationale": "~54 GPU-hours remaining; feasible on 4 GPUs in ~27h wall-clock; Tier 2 confirmation gate can save 18 GPU-hours if 9.01% effect doesn't survive"
+        }
+      }
+    },
+    "cand_b": {
+      "weighted_score": 1.75,
+      "verdict": "SKIP",
+      "note": "Activation condition NOT met. cand_b activates only if full-scale Tier 1 shows all blocks with spread < 0.2%. Current evidence (0.88-2.32% in interpretable blocks) makes this extremely unlikely (<20%). Available as pivot backup."
+    },
+    "cand_c": {
+      "weighted_score": null,
+      "verdict": "INTEGRATE_AS_SECONDARY",
+      "note": "Zero-cost secondary analysis within cand_a paper using Tier 1 CIFAR-100 full runs per-class accuracy. Depends on Tier 1 full completion. Always run."
+    }
+  },
+  "hypothesis_verdicts": {
+    "H1": {
+      "name": "Ordering spread > 0.3% in at least 2/4 blocks (paired t-test, p<0.05, Bonferroni corrected)",
+      "verdict": "preliminary_supported",
+      "confidence": "low",
+      "evidence": "2/4 interpretable blocks above 0.5% threshold (RN18×CIFAR-100: 0.88%, ViT×CIFAR-10: 2.32%); 2 blocks near chance floor cannot be interpreted",
+      "full_scale_required": true,
+      "blocker": "tier1_resnet18_cifar10_full + tier1_resnet18_cifar100_full + tier1_vit_cifar10_full + tier1_vit_cifar100_full"
+    },
+    "H2": {
+      "name": "ViT larger absolute ordering sensitivity than CNN (interaction ANOVA p<0.05, eta-sq>0.05)",
+      "verdict": "preliminary_supported",
+      "confidence": "low",
+      "evidence": "ViT/CIFAR-10 = 2.32% vs. CNN/CIFAR-10 = 0.96%; ViT/CIFAR-100 = 0.25% vs. CNN/CIFAR-100 = 0.88% (reversed in low-signal block); interaction ANOVA requires 5 seeds",
+      "full_scale_required": true,
+      "blocker": "tier1_analysis_full"
+    },
+    "H3": {
+      "name": "Feature-space NC_2 (512-D, 10k samples, 1000 projections) Spearman rho > 0.5 with accuracy ranking",
+      "verdict": "pending",
+      "confidence": "none",
+      "evidence": "Pixel-space H3 falsified (rho=-0.20, p=0.68); this was underpowered (100 samples, 3072-D). Feature-space NC_2 not yet computed. Requires 200-epoch ResNet-18 checkpoint from Tier 1 full.",
+      "full_scale_required": true,
+      "blocker": "tier1_resnet18_cifar10_full + tier4a_feature_nc"
+    },
+    "H4": {
+      "name": "Flip-first ordering outperforms conventional Crop-first in at least 2/4 blocks (corrected DPI prediction)",
+      "verdict": "preliminary_partially_supported",
+      "confidence": "low",
+      "evidence": "Flip→Crop→CJ wins in 2/4 blocks including highest-spread ViT/CIFAR-10. Corrected DPI prediction (Flip-first, not CJ-first from prior proposal) is consistent with pilot winner.",
+      "full_scale_required": true,
+      "blocker": "tier1_analysis_full"
+    },
+    "H5b": {
+      "name": "Interleaved P->G category ordering outperforms all-geometric-first in at least 3/4 blocks (paired t-test across 5 seeds)",
+      "verdict": "preliminary_strongly_supported",
+      "confidence": "low",
+      "evidence": "9.01% spread (interleaved_PG vs all_geo_first) in 1 seed, 5k subset, 10 epochs. Flagged as early-training artifact risk. Tier 2 confirmation pilot required before full Tier 2 investment.",
+      "full_scale_required": true,
+      "gate": "tier2_confirmation_pilot (pass criterion: spread > 1% in at least 1 seed)",
+      "blocker": "tier2_confirmation_pilot + tier2_category_ordering_full"
+    },
+    "H6": {
+      "name": "Inverted-U: M9 spread > M5 AND M9 spread > M14 (quadratic regression, negative quadratic term significant)",
+      "verdict": "preliminary_supported",
+      "confidence": "low",
+      "evidence": "M5=0.35%, M9=0.88%, M14=0.00% (1 seed, 10 epochs). M14 zero-spread is suspicious (identical to 3 decimal places). Needs 5-seed verification.",
+      "full_scale_required": true,
+      "blocker": "tier3_magnitude_full"
+    }
+  },
+  "experiment_status": {
+    "completed_pilot_scale": [
+      "setup",
+      "pilot_tier0",
+      "tier1_pilot_all_blocks",
+      "tier4a_nc_measurement_pilot",
+      "tier4b_infonce_mi_pilot",
+      "tier2_category_ordering_pilot",
+      "tier3_magnitude_pilot",
+      "baselines_pilot"
+    ],
+    "pending_full_scale": [
+      "tier1_resnet18_cifar10_full",
+      "tier1_resnet18_cifar100_full",
+      "tier1_vit_cifar10_full",
+      "tier1_vit_cifar100_full",
+      "baselines_full",
+      "tier2_confirmation_pilot",
+      "tier2_category_ordering_full",
+      "tier3_magnitude_full",
+      "tier1_analysis_full",
+      "tier4a_feature_nc",
+      "tier4b_infonce_mi_full",
+      "tier4_correlation_analysis_full",
+      "per_class_analysis",
+      "final_summary_full"
+    ],
+    "paper_stage_ready": false,
+    "all_experiments_complete": false,
+    "estimated_remaining_gpu_hours": 54,
+    "estimated_wall_clock_hours_4gpus": 27
+  },
+  "next_actions_priority": [
+    {
+      "priority": 1,
+      "action": "Run Tier 2 confirmation pilot (immediate gate decision)",
+      "task_id": "tier2_confirmation_pilot",
+      "estimated_minutes": 45,
+      "pass_criterion": "interleaved_PG spread > 1% on ResNet-18/CIFAR-10 in at least 1 of 2 seeds at 30 epochs",
+      "consequence_if_fail": "Redirect Tier 2 budget to additional Tier 1 analysis; 9.01% finding becomes 'early-training artifact' negative result"
+    },
+    {
+      "priority": 2,
+      "action": "Launch full Tier 1 experiments in parallel (blocking for all downstream)",
+      "task_ids": ["tier1_resnet18_cifar10_full", "tier1_resnet18_cifar100_full", "tier1_vit_cifar10_full", "tier1_vit_cifar100_full", "baselines_full"],
+      "estimated_wall_clock_hours": 10,
+      "gpu_count": 4,
+      "critical": true
+    },
+    {
+      "priority": 3,
+      "action": "Run Tier 1 full statistical analysis after all 4 blocks complete",
+      "task_id": "tier1_analysis_full",
+      "depends_on": ["tier1_resnet18_cifar10_full", "tier1_resnet18_cifar100_full", "tier1_vit_cifar10_full", "tier1_vit_cifar100_full"],
+      "outputs_h1_h2_verdicts": true
+    },
+    {
+      "priority": 4,
+      "action": "Run Tier 3 magnitude full (5 seeds, test H6 inverted-U, verify M14)",
+      "task_id": "tier3_magnitude_full",
+      "depends_on": ["tier1_analysis_full"],
+      "note": "Use best/worst orderings from tier1_analysis_full, not pilot"
+    },
+    {
+      "priority": 4,
+      "action": "Run Tier 4a feature-space NC computation (revised H3)",
+      "task_id": "tier4a_feature_nc",
+      "depends_on": ["tier1_resnet18_cifar10_full"],
+      "note": "10k samples, 1000 projections, 512-D embeddings; requires 200-epoch ResNet-18 checkpoint"
+    },
+    {
+      "priority": 5,
+      "action": "Run full Tier 2 if confirmation pilot passes",
+      "task_id": "tier2_category_ordering_full",
+      "depends_on": ["tier2_confirmation_pilot", "tier1_analysis_full"],
+      "conditional": true,
+      "condition": "tier2_confirmation_pilot spread > 1%"
+    },
+    {
+      "priority": 6,
+      "action": "Run final aggregation and generate paper-ready tables",
+      "task_id": "final_summary_full",
+      "depends_on": ["tier1_analysis_full", "tier2_category_ordering_full", "tier3_magnitude_full", "tier4_correlation_analysis_full", "baselines_full", "per_class_analysis"],
+      "output": "exp/results/full/final_summary_full.json — this is the paper writing entry point"
+    }
+  ],
+  "reasons": [
+    "H1 preliminary confirmed in 2/4 interpretable blocks (RN18×CIFAR-100: 0.88%, ViT×CIFAR-10: 2.32%) — ordering effects are real",
+    "Revised hypotheses (H4 DPI corrected to Flip-first; H5b category interleaving; H6 inverted-U) are well-specified and testable",
+    "Feature-space NC_2 (revised H3) provides a principled path to recovering theoretical predictive power",
+    "Tier 2 9.01% signal is the most striking finding but requires confirmation pilot before full investment",
+    "cand_b activation condition not met (spread > 0.2% in interpretable blocks)",
+    "cand_c always-run as zero-cost secondary analysis at no additional GPU cost"
+  ],
+  "risks": [
+    {
+      "risk": "Ordering effects disappear at 200 epochs (optimization absorbs early-training sensitivity)",
+      "severity": "high",
+      "mitigation": "Monitor per-epoch spread curves; if spread < 0.2% by epoch 50 in all blocks, reassess"
+    },
+    {
+      "risk": "Tier 2 9.01% effect is early-training artifact",
+      "severity": "high",
+      "mitigation": "Tier 2 confirmation pilot (30 epochs, 2 seeds) is the gate before full Tier 2 investment"
+    },
+    {
+      "risk": "Feature-space NC_2 also fails to predict accuracy ranking",
+      "severity": "medium",
+      "mitigation": "Report both pixel-space (falsified) and feature-space rho; reframe theoretical contribution as 'negative result: ordering effects operate below static representation space level'"
+    },
+    {
+      "risk": "M14 zero-spread result is a numerical artifact",
+      "severity": "medium",
+      "mitigation": "Verify with per-epoch training curves and additional seeds in Tier 3 full"
+    },
+    {
+      "risk": "ResNet-18×CIFAR-10 block remains near chance performance — degenerate at 200 epochs",
+      "severity": "medium",
+      "mitigation": "Unlikely with full dataset (50k) at 200 epochs (should reach ~92%); if still degenerate, exclude and narrow claims to 3 interpretable blocks"
+    },
+    {
+      "risk": "Theorem 1 bubble-sort decomposition proof gap",
+      "severity": "medium",
+      "mitigation": "Proof required before submission; acknowledged as deferred in proposal; not blocking experiments"
+    },
+    {
+      "risk": "DPI contraction coefficient theoretical gap (distribution-dependence)",
+      "severity": "medium",
+      "mitigation": "Weakened directional claim adopted as mitigation; formal revision needed for camera-ready"
+    }
+  ],
+  "dropped_candidates": ["cand_b"],
+  "secondary_analyses": ["cand_c"],
+  "paper_stage_ready": false,
+  "all_experiments_complete": false
+}

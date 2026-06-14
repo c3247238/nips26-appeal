@@ -1,0 +1,103 @@
+{
+  "pilot_overview": {
+    "purpose": "Validate the full experimental pipeline on a reduced scale before committing GPU time to the complete study. Pilots use SynthSAEBench-1k (1,024 features, 32 root trees) with 1 replicate per variant.",
+    "dataset": "SynthSAEBench-1k: 1024 features, 256 hidden dim, 32 root trees, branching factor 4, depth 3",
+    "training_samples": 2000000,
+    "batch_size": 1024,
+    "eval_samples": 100000,
+    "seeds": [42]
+  },
+  "pilot_tasks": [
+    {
+      "id": "pilot_baseline",
+      "name": "Pilot: Baseline ReLU SAE",
+      "variant": "Baseline",
+      "architecture": "standard",
+      "description": "Train Standard ReLU + L1 SAE on SynthSAEBench-1k. Validates baseline absorption rate and pipeline correctness.",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "pass_criteria": "Absorption rate between 0.15-0.30 (consistent with prior pilot 0.203); MSE < 0.02; L0 > 500",
+      "expected_output": "exp/results/pilots/pilot_baseline_results.json"
+    },
+    {
+      "id": "pilot_topk",
+      "name": "Pilot: TopK SAE k=50",
+      "variant": "TopK",
+      "architecture": "topk",
+      "description": "Train TopK SAE with k=50 on SynthSAEBench-1k. Validates TopK dominance hypothesis (H1).",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "pass_criteria": "Absorption rate < 0.10 (prior pilot: 0.033); L0 ~ 50; large reduction vs baseline",
+      "expected_output": "exp/results/pilots/pilot_topk_results.json"
+    },
+    {
+      "id": "pilot_multiscale",
+      "name": "Pilot: MultiScale SAE",
+      "variant": "MultiScale",
+      "architecture": "matryoshka_batchtopk",
+      "description": "Train Matryoshka BatchTopK SAE on SynthSAEBench-1k. Validates multi-scale decomposition effect.",
+      "gpu_count": 1,
+      "estimated_minutes": 8,
+      "pass_criteria": "Absorption rate < 0.15 (prior pilot: 0.050); L0 ~ 50",
+      "expected_output": "exp/results/pilots/pilot_multiscale_results.json"
+    },
+    {
+      "id": "pilot_orthogonality",
+      "name": "Pilot: Orthogonality SAE",
+      "variant": "Orthogonality",
+      "architecture": "orthogonality",
+      "description": "Train SAE with decoder orthogonality penalty on SynthSAEBench-1k. Validates orthogonality null hypothesis (H3).",
+      "gpu_count": 1,
+      "estimated_minutes": 8,
+      "pass_criteria": "Absorption rate comparable to baseline (Cohen's d < 0.5); prior pilot showed 2.7% reduction (d=0.14)",
+      "expected_output": "exp/results/pilots/pilot_orthogonality_results.json"
+    },
+    {
+      "id": "pilot_gating",
+      "name": "Pilot: Gated SAE",
+      "variant": "Gated",
+      "architecture": "gated",
+      "description": "Train Gated SAE on SynthSAEBench-1k. Exploratory pilot for gating mechanism effect.",
+      "gpu_count": 1,
+      "estimated_minutes": 6,
+      "pass_criteria": "Pipeline runs successfully; absorption rate and L0 measured",
+      "expected_output": "exp/results/pilots/pilot_gating_results.json"
+    },
+    {
+      "id": "pilot_random",
+      "name": "Pilot: Random Control",
+      "variant": "Random",
+      "architecture": "random",
+      "description": "Evaluate untrained SAE with random decoder. Validates metric discrimination.",
+      "gpu_count": 1,
+      "estimated_minutes": 2,
+      "pass_criteria": "Absorption rate > 0.5 (prior pilot: 0.56); confirms metric discriminates structure from randomness",
+      "expected_output": "exp/results/pilots/pilot_random_control_results.json"
+    }
+  ],
+  "go_no_go_criteria": {
+    "go_conditions": [
+      "TopK shows absorption reduction > 50% vs baseline (H1 supported)",
+      "Random control has absorption > 0.4 (metric discriminates)",
+      "All pipelines complete without errors"
+    ],
+    "no_go_conditions": [
+      "TopK absorption is comparable to baseline (d < 1.0)",
+      "Random control absorption < 0.3 (metric is degenerate)",
+      "Pipeline errors prevent reliable measurement"
+    ],
+    "revision_conditions": [
+      "Baseline absorption at floor (< 0.15) or ceiling (> 0.50) -- adjust L1 coefficient",
+      "Orthogonality shows large effect (d > 1.0) -- contradicts prior pilot, investigate",
+      "MultiScale effect much larger than TopK -- revise hypothesis ranking"
+    ]
+  },
+  "pilot_to_full_scaling": {
+    "features": "1,024 (pilot) -> 16,384 (full)",
+    "root_trees": "32 (pilot) -> 128 (full)",
+    "replicates": "1 (pilot) -> 5 (full)",
+    "seeds": "[42] (pilot) -> [42, 123, 456, 789, 1011] (full)",
+    "training_samples": "2,000,000 (same)",
+    "estimated_time_scaling": "Pilot ~30 min total -> Full ~2.5 hours total"
+  }
+}

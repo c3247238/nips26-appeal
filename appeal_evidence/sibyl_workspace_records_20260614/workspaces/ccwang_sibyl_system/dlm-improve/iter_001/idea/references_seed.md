@@ -1,0 +1,9 @@
+- MDLM (Masked Diffusion Language Models)
+- SEDD (Score Entropy Discrete Diffusion)
+- Dream (Diffusion Reasoning with Enhanced Abilities for Machines)
+- LLaDA (Large Language Diffusion with Attention)
+- MMaDA (Multi-Modal Diffusion with Attention)
+- Block Diffusion
+- FAST-DLLM V2: Efficient Block-Diffusion LLM
+- Continuously Augmented Discrete Diffusion model for Categorical Generative Modeling
+- 其他由文献调研阶段补充

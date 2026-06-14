@@ -1,0 +1,134 @@
+{
+  "tasks": [
+    {
+      "id": "pilot_layer4_sf1_quadrants",
+      "name": "Pilot H-SF1-L4: Layer 4 Sensitivity Floor Quadrant Test",
+      "description": "Test Sensitivity Floor hypothesis at layer 4 (non-saturated). Apply Chanin absorption protocol + Tian sensitivity protocol on 50 features. Compute quadrant classification and U-shape fit. Layer 4 showed UAS std=0.48 in iter_010 vs layer 8 std=0.0.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/layer4_sf1_quadrants.json",
+      "candidate_id": "cand_sensitivity_floor",
+      "hypothesis": "H-SF1-L4, H-SF2-L4",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 50,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Q2+Q4 < 10% AND quadratic coefficient a > 0"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Layer 4 absorption vs sensitivity scatter with quadrant coloring",
+          "x": "absorption_score",
+          "y": "sensitivity_score",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "U-shape fit: mean sensitivity per absorption bin",
+          "x": "absorption_bin",
+          "y": "mean_sensitivity",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_q4_paradox_investigation",
+      "name": "Pilot H-Q4-PARADOX: Q4 Paradox Mechanism Investigation",
+      "description": "Investigate WHY Q4 features (10236, 6768) are absorbed but high-sensitivity. Compute specificity metrics: decoder cosine similarity to neighbors, specificity scores. Compare to Q1 features (absorbed + low-sensitivity). Test if Q4 uses a different absorption mechanism.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/q4_paradox_investigation.json",
+      "candidate_id": "cand_sensitivity_floor",
+      "hypothesis": "H-Q4-PARADOX",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 2,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Q4 specificity differs from Q1 specificity (p < 0.05)"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Specificity scores: Q4 vs Q1 vs Q3 features",
+          "columns": ["Feature Group", "Specificity Score", "SE"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_steering_debug",
+      "name": "Pilot H-STEER: Steering Protocol Debug",
+      "description": "Debug steering protocol to get non-zero effects. iter_010 found all steering effects = 0.0. Test beta in {5, 10, 20}, verify baseline accuracy changes. Use layer 4 features with varying sensitivity scores.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/steering_debug.json",
+      "candidate_id": "cand_sensitivity_first",
+      "hypothesis": "H-STEER",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 10,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 1 feature shows steering effect != 0 at any beta"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Steering effect vs beta for different sensitivity features",
+          "x": "beta",
+          "y": "steering_effect",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ],
+  "shared_resources": [
+    {
+      "type": "model",
+      "name": "gpt2-small",
+      "path": "gpt2-small (TransformerLens)",
+      "notes": "Loaded via HookedTransformer.from_pretrained"
+    },
+    {
+      "type": "sae",
+      "name": "gpt2-small-res-jb",
+      "path": "SAELens pretrained release",
+      "notes": "Layer 4 primary, layer 8 for Q4 comparison"
+    },
+    {
+      "type": "dataset",
+      "name": "wikitext-103",
+      "path": "wikitext-103-v1 (HuggingFace)",
+      "notes": "~5K tokens for activation collection"
+    },
+    {
+      "type": "features",
+      "name": "iter_010_q4_features",
+      "path": "exp/results/pilots/pilot_sf1_large_n200.json",
+      "notes": "Features 10236, 6768 are Q4 features from iter_010"
+    }
+  ],
+  "pilot_plan": {
+    "total_pilot_minutes": 50,
+    "phase1_pilots": ["pilot_layer4_sf1_quadrants", "pilot_q4_paradox_investigation", "pilot_steering_debug"],
+    "pilot_uses_existing_sae": true,
+    "chanin_tokens_per_feature": 200,
+    "sensitivity_paraphrase_pairs": 50,
+    "seed": 42,
+    "timeout_seconds": 1200,
+    "session_breakdown": {
+      "session1_minutes": 50,
+      "total_minutes": 50
+    },
+    "note": "CRITICAL: Layer 4 is the only non-saturated layer (UAS std=0.48 vs layer 8 std=0.0). pilot_layer4_sf1_quadrants is the PRIMARY experiment - tests SF at layer 4. pilot_q4_paradox_investigation addresses the critical paradox from iter_010. pilot_steering_debug fixes a broken protocol."
+  }
+}

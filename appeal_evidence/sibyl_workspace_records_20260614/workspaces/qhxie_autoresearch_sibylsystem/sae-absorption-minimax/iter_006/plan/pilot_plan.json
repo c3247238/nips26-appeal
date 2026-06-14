@@ -1,0 +1,82 @@
+{
+  "pilot_tasks": [
+    {
+      "id": "pilot_layer4_sf1_quadrants",
+      "name": "Pilot H-SF1-L4: Layer 4 Sensitivity Floor Quadrant Test",
+      "samples": 50,
+      "seed": 42,
+      "timeout_seconds": 1200,
+      "pass_criteria": "Q2+Q4 < 10% AND quadratic coefficient a > 0",
+      "key_metrics": [
+        "Q2+Q4 fraction at layer 4",
+        "UAS mean and std at layer 4",
+        "Quadratic coefficient a (U-shape)",
+        "Spearman r(absorption, sensitivity)"
+      ],
+      "pilot_output": "exp/results/pilots/layer4_sf1_quadrants.json",
+      "gpu_estimate_minutes": 20,
+      "candidate_id": "cand_sensitivity_floor",
+      "hypothesis": "H-SF1-L4, H-SF2-L4",
+      "risks": [
+        "Layer 4 features may not generalize to other layers",
+        "50 features may be insufficient for quadratic fit"
+      ]
+    },
+    {
+      "id": "pilot_q4_paradox_investigation",
+      "name": "Pilot H-Q4-PARADOX: Q4 Paradox Mechanism Investigation",
+      "samples": 2,
+      "seed": 42,
+      "timeout_seconds": 900,
+      "pass_criteria": "Q4 specificity differs from Q1 specificity (p < 0.05)",
+      "key_metrics": [
+        "Decoder cosine similarity to neighbors: Q4 vs Q1",
+        "Specificity scores: Q4 vs Q1 vs Q3",
+        "Absorption mechanism comparison"
+      ],
+      "pilot_output": "exp/results/pilots/q4_paradox_investigation.json",
+      "gpu_estimate_minutes": 15,
+      "candidate_id": "cand_sensitivity_floor",
+      "hypothesis": "H-Q4-PARADOX",
+      "risks": [
+        "Only 2 Q4 features - limited generalization",
+        "Specificity metric may not capture the right concept"
+      ]
+    },
+    {
+      "id": "pilot_steering_debug",
+      "name": "Pilot H-STEER: Steering Protocol Debug",
+      "samples": 10,
+      "seed": 42,
+      "timeout_seconds": 900,
+      "pass_criteria": "At least 1 feature shows steering effect != 0 at any beta",
+      "key_metrics": [
+        "Steering effect per feature at beta 5, 10, 20",
+        "Baseline accuracy vs steered accuracy",
+        "Correlation with sensitivity score"
+      ],
+      "pilot_output": "exp/results/pilots/steering_debug.json",
+      "gpu_estimate_minutes": 15,
+      "candidate_id": "cand_sensitivity_first",
+      "hypothesis": "H-STEER",
+      "risks": [
+        "Protocol may still be broken",
+        "Steering effects may be too small to detect"
+      ]
+    }
+  ],
+  "total_pilot_minutes": 50,
+  "phase1_pilots": ["pilot_layer4_sf1_quadrants", "pilot_q4_paradox_investigation", "pilot_steering_debug"],
+  "pilot_go_criteria": {
+    "pilot_layer4_sf1_quadrants": "Q2+Q4 < 10% AND a > 0 - confirms Sensitivity Floor at layer 4",
+    "pilot_q4_paradox_investigation": "Q4 specificity differs from Q1 - explains why absorbed features can be sensitive",
+    "pilot_steering_debug": "At least 1 steering effect != 0 - fixes broken protocol"
+  },
+  "phase2_trigger": {
+    "description": "Phase 2 full experiments depend on pilot results",
+    "if_layer4_sf1_passes": "Run full Sensitivity Floor experiments at layer 4",
+    "if_q4_paradox_resolved": "Revise Sensitivity Floor theory to explain Q4 mechanism",
+    "if_steering_fixed": "Test sensitivity-steering correlation with fixed protocol"
+  },
+  "note": "CRITICAL: Layer 4 is the only non-saturated layer (UAS std=0.48 vs layer 8 std=0.0 from iter_010). pilot_layer4_sf1_quadrants is PRIMARY - tests SF at layer 4 with 50 features. pilot_q4_paradox_investigation addresses the critical paradox: Q4 features (10236, 6768) are absorbed but high-sensitivity (0.91, 0.80), contradicting SF mechanism. pilot_steering_debug fixes a broken protocol (all effects=0 in iter_010)."
+}

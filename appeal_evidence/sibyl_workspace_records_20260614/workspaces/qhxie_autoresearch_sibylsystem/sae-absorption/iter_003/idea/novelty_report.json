@@ -1,0 +1,170 @@
+{
+  "generated_date": "2026-04-13",
+  "agent": "sibyl-novelty-checker",
+  "candidates": [
+    {
+      "candidate_id": "cand_ars_amortization_crosshierarchy",
+      "title": "Unsupervised Absorption Fingerprinting and the Amortization Gap: A Unified Framework for Diagnosing and Separating the Root Causes of SAE Feature Absorption",
+      "status": "front_runner",
+      "sub_contributions": [
+        {
+          "contribution_id": "C1",
+          "name": "Absorption Risk Score (ARS) — Unsupervised Detector",
+          "novelty_score": 8,
+          "collisions": [
+            {
+              "paper": "Li et al., 2024/2025. The Geometry of Concepts: Sparse Autoencoder Feature Structure. Entropy 2025. arXiv:2410.19750",
+              "overlap": "Uses co-occurrence-based affinity scores (Jaccard, Dice, overlap coefficient) to cluster SAE features; observes modular co-occurrence structure. Does NOT use co-occurrence for absorption detection; no directed asymmetry component; no validation against Chanin absorption labels.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "Karzaurov et al., 2025. Interpretable Embeddings with Sparse Autoencoders: A Data Analysis Toolkit. arXiv:2512.10092",
+              "overlap": "Uses NPMI for co-occurrence and conditional probabilities P(j|i) as directed statistics to discover novel correlations between latent pairs. Does NOT use co-occurrence for absorption detection; goal is correlation discovery not absorption identification; no Chanin validation; requires LLM filtering overhead not in ARS.",
+              "severity": "partial_overlap"
+            },
+            {
+              "paper": "Korznikov et al., 2025. OrtSAE: Orthogonal Sparse Autoencoders Uncover Atomic Features. arXiv:2509.22033",
+              "overlap": "Uses decoder cosine similarity as training-time regularization penalty to enforce orthogonality, reducing absorption by 65%. The cos^2(d_i, d_j) component in ARS overlaps conceptually.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "Chanin et al., 2024. A is for Absorption: Studying Feature Splitting and Absorption in Sparse Autoencoders. NeurIPS 2024. arXiv:2409.14507",
+              "overlap": "Notes asymmetric encoder-decoder pattern from absorption and suggests it could detect absorption, but does not develop an unsupervised detector. Provides ground-truth labels ARS will be validated against.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "Anonymous, 2025. Time-Aware Feature Selection: Adaptive Temporal Masking for Stable Sparse Autoencoder Training (ATM SAE). arXiv:2510.08855. ICLR 2025 XAI4Science workshop.",
+              "overlap": "Uses token masking to disrupt co-occurrence during TRAINING to reduce absorption (score 0.0068). ARS uses co-occurrence measurement post-hoc for detection. Different stage (training vs. inference-time detection).",
+              "severity": "related_work"
+            }
+          ],
+          "recommendation": "proceed",
+          "differentiation_notes": "ARS is the first method to (a) use directed co-occurrence topology specifically for absorption detection, (b) combine Jaccard overlap + activation asymmetry + decoder cosine similarity in a product form motivated by ecological competitive exclusion, (c) target the 75% early-absorption majority where EDA fails, (d) validate against Chanin et al. canonical absorption labels. The closest competitor (arXiv:2512.10092) uses directed co-occurrence for correlation discovery, not absorption detection, and does not use the three-factor product form. Ecological competitive exclusion motivation is entirely absent from the literature."
+        },
+        {
+          "contribution_id": "C2",
+          "name": "Amortization Gap Controlled Dictionary Experiment",
+          "novelty_score": 9,
+          "collisions": [
+            {
+              "paper": "O'Neill et al., 2024/2025. Compute Optimal Inference and Provable Amortisation Gap in Sparse Autoencoders. ICML 2025. arXiv:2411.13117",
+              "overlap": "Proves amortization gap exists theoretically; decouples encoder and decoder; compares encoding strategies (standard encoder, MLP encoder, SAE+ITO) and shows more expressive encoders improve MCC and interpretability on GPT-2. Does NOT measure Chanin absorption rate as outcome; does NOT test OMP specifically for absorption; does NOT use pre-trained decoder fixed from Gemma Scope; does NOT adjudicate the Tang et al. sparsity-landscape hypothesis.",
+              "severity": "partial_overlap"
+            },
+            {
+              "paper": "Costa et al., 2025. From Flat to Hierarchical: Extracting Sparse Representations with Matching Pursuit. NeurIPS 2025. arXiv:2506.03093",
+              "overlap": "MP-SAE uses matching pursuit to reduce absorption. However, MP-SAE jointly retrains the decoder dictionary alongside the iterative encoder — cannot distinguish encoder effects from dictionary effects. Proposal's experiment fixes the pre-trained decoder, isolating the encoder contribution.",
+              "severity": "partial_overlap"
+            },
+            {
+              "paper": "Tang et al., 2025. A Unified Theory of Sparse Dictionary Learning in Mechanistic Interpretability: Piecewise Biconvexity and Spurious Minima. arXiv:2512.05534",
+              "overlap": "Argues absorption is a stable spurious minimum of the piecewise biconvex loss; encoder changes alone cannot fix absorption; dictionary geometry is the root cause. Provides the competing theoretical prediction that C2 will empirically test.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "Costa et al., 2025. Evaluating Sparse Autoencoders: From Shallow Design to Matching Pursuit. arXiv:2506.05239",
+              "overlap": "Companion evaluation of MP-SAE on MNIST. Does not use Gemma Scope, does not fix pre-trained decoder, does not measure Chanin absorption rates.",
+              "severity": "related_work"
+            }
+          ],
+          "recommendation": "proceed",
+          "differentiation_notes": "The specific controlled experiment — fixing the pre-trained Gemma Scope decoder dictionary and varying only the encoding method (feedforward vs. OMP vs. 2-pass) to measure Chanin absorption rate — has not been executed by any prior paper. This experiment is the first to directly adjudicate the Tang et al. (sparsity landscape) vs. O'Neill et al. (amortization gap) debate using absorption rate as the outcome variable. Both possible outcomes are publishable and redirect the field's mitigation strategy."
+        },
+        {
+          "contribution_id": "C3",
+          "name": "Cross-Hierarchy Absorption Characterization with Negative Controls",
+          "novelty_score": 9,
+          "collisions": [
+            {
+              "paper": "Chanin et al., 2024 / SAEBench 2025. A is for Absorption / SAEBench. arXiv:2409.14507, 2503.09532",
+              "overlap": "All existing absorption measurements use first-letter spelling tasks. SAEBench uses only first-letter metric. Proposal extends to entity-type and syntactic hierarchies.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "Anonymous, 2025. Resurrecting the Salmon: Rethinking Mechanistic Interpretability with Domain-Specific Sparse Autoencoders. arXiv:2508.09363",
+              "overlap": "Explicitly states: 'SAEBench evaluates feature absorption by using features for word starts with x, which is not useful for evaluating domain-specific feature absorption.' Motivates the need for C3 but does NOT implement alternative hierarchy measurement.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "RAVEL / Matryoshka SAE papers, 2025",
+              "overlap": "RAVEL tests cross-hierarchy disentanglement (entity attributes like country vs. continent) via intervention effects. Different metric framework from Chanin absorption rate; no matched negative controls for frequency ratio.",
+              "severity": "partial_overlap"
+            },
+            {
+              "paper": "Muchane et al., 2025. Incorporating Hierarchical Semantics in Sparse Autoencoder Architectures (H-SAE). arXiv:2506.01197",
+              "overlap": "Architectural approach encoding semantic hierarchies. Does not measure absorption rates across hierarchy types; no negative controls.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "Anonymous, 2025. Analyzing (In)Abilities of SAEs via Formal Languages. arXiv:2410.11767. NAACL 2025",
+              "overlap": "Tests SAEs on formal language hierarchies. Different from natural-language entity-type hierarchies; no negative controls.",
+              "severity": "related_work"
+            }
+          ],
+          "recommendation": "proceed",
+          "differentiation_notes": "The combination of (a) entity-type hierarchies (ANIMAL > specific animals), (b) syntactic hierarchies (PAST-TENSE > IRREGULAR-PAST-TENSE), (c) matched-frequency-ratio non-hierarchical negative controls, and (d) frequency ratio rho as a cross-hierarchy predictor of absorption severity is entirely absent from the literature. The 'Resurrecting the Salmon' paper provides direct textual evidence for this gap. RAVEL is a partial precedent but uses a different measurement framework."
+        }
+      ],
+      "overall_novelty_score": 9,
+      "recommendation": "proceed",
+      "overall_differentiation_notes": "All three primary contributions achieve novelty scores of 8-9. No prior work performs the specific controlled dictionary experiment (C2), uses entity-type/syntactic hierarchies with frequency-matched negative controls (C3), or builds an unsupervised absorption detector from co-occurrence topology with absorption detection as the explicit goal and an ecological competitive exclusion theoretical motivation (C1). The front-runner should proceed to pilot experiments immediately."
+    },
+    {
+      "candidate_id": "cand_lca_sae",
+      "title": "LCA-SAE: Locally Competitive Encoder Dynamics for Absorption Reduction",
+      "novelty_score": 6,
+      "collisions": [
+        {
+          "paper": "Costa et al., 2025. From Flat to Hierarchical: Extracting Sparse Representations with Matching Pursuit. NeurIPS 2025. arXiv:2506.03093",
+          "overlap": "MP-SAE is a sequential greedy matching pursuit encoder that reduces absorption. LCA proposes parallel lateral competition as differentiation. The distinction (parallel vs. sequential) is real but not highly differentiated in terms of the absorption reduction mechanism.",
+          "severity": "partial_overlap"
+        }
+      ],
+      "recommendation": "proceed only as backup if amortization gap experiment confirms encoder effects are significant",
+      "differentiation_notes": "The parallel LCA lateral competition encoder applied to SAE absorption is novel, and the claim that LCA allows parent+child to coexist at graded levels (while sequential MP may block parent) is a real differentiator. However, the NeurIPS 2025 MP-SAE paper makes the iterative-encoder-for-absorption-reduction space more crowded, reducing this candidate's standalone novelty. Should only be activated if C1 ARS fails and amortization gap experiment shows encoder effects are large."
+    },
+    {
+      "candidate_id": "cand_successive_refinement",
+      "title": "Successive Refinement Test: Does Wider SAE Width Recover Previously Absorbed Features?",
+      "novelty_score": 7,
+      "collisions": [
+        {
+          "paper": "Chanin et al. / SAEBench. Various width comparisons (4k, 16k, 65k) on absorption metrics.",
+          "overlap": "Width comparisons on absorption exist in SAEBench. However, no paper asks whether features absorbed in narrower SAEs are specifically recovered in wider ones, in the Equitz-Cover successive refinement sense.",
+          "severity": "related_work"
+        }
+      ],
+      "recommendation": "proceed as supplementary",
+      "differentiation_notes": "The Equitz-Cover (1991) successive refinement theoretical framing applied to SAE absorption is novel. The specific question 'are absorbed features in 16k SAEs recovered as unabsorbed features in 65k SAEs?' has not been asked. Low cost (< 1 GPU-hour, weight analysis only). Run as supplementary."
+    },
+    {
+      "candidate_id": "cand_recoverability",
+      "title": "Recoverability Analysis: Is Late Absorption Lossless or Lossy Compression?",
+      "novelty_score": 8,
+      "collisions": [],
+      "recommendation": "proceed if triggered (late absorption > 15% after amortization gap experiment)",
+      "differentiation_notes": "The lossless vs. lossy absorption distinction and the information recovery ratio metric I(parent; child_activations) / I(parent; parent_activations) are novel. No prior paper distinguishes whether late-absorbed latents can be recovered from child activations via linear readout or whether absorption represents genuine information loss. This distinction has direct implications for mitigation strategy selection."
+    }
+  ],
+  "overall_novelty": "high",
+  "search_coverage": {
+    "arxiv_queries_run": 12,
+    "web_search_queries_run": 14,
+    "key_papers_read": [
+      "arXiv:2409.14507 (Chanin et al., A is for Absorption)",
+      "arXiv:2411.13117 (O'Neill et al., Amortization Gap)",
+      "arXiv:2506.03093 (Costa et al., MP-SAE)",
+      "arXiv:2506.05239 (Costa et al., MP-SAE Evaluation)",
+      "arXiv:2512.05534 (Tang et al., Piecewise Biconvexity)",
+      "arXiv:2410.19750 (Li et al., Geometry of Concepts)",
+      "arXiv:2512.10092 (Data-centric interpretability with SAEs)",
+      "arXiv:2509.22033 (Korznikov et al., OrtSAE)",
+      "arXiv:2510.08855 (ATM SAE)",
+      "arXiv:2503.09532 (SAEBench)",
+      "arXiv:2508.09363 (Resurrecting the Salmon)",
+      "arXiv:2506.01197 (Muchane et al., H-SAE)",
+      "arXiv:2410.11767 (SAEs via Formal Languages)"
+    ],
+    "search_date": "2026-04-13"
+  }
+}

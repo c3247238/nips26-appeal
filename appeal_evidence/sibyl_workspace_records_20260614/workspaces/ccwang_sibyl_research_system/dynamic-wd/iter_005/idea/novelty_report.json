@@ -1,0 +1,191 @@
+{
+  "iteration": 7,
+  "date": "2026-03-18",
+  "checker": "sibyl-novelty-checker (claude-sonnet-4-6)",
+  "scope": "New contributions in Iteration 7 not covered by Iter 6 novelty check. Three new contributions assessed: (1) SPWD rank velocity feedback WD, (2) Theorem 3 RG beta function dual derivation, (3) Proposition 1 alignment noise design constraint. Iter 6 scores (Theorem 1: 9/10, Theorem 2: 8/10, Theorem 3/PMP-WD: 8/10) maintained unchanged.",
+  "candidates": [
+    {
+      "candidate_id": "cand_spwd",
+      "title": "SPWD: Spectral-Phase-Transition Weight Decay (Rank Velocity Feedback)",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "He et al., 2025. 'AlphaDecay: Module-wise Weight Decay for Heavy-Tailed Balancing in LLMs.' arXiv:2506.14562. NeurIPS 2025.",
+          "overlap": "Both use per-layer spectral signals to modulate WD strength during training. Both are layer-wise adaptive WD methods.",
+          "severity": "partial_overlap",
+          "notes": "AlphaDecay uses STATIC spectral density (PL_Alpha_Hill from ESD snapshot). SPWD uses DYNAMIC rank velocity (temporal derivative of stable rank, d[||W||_F^2/||W||_2^2]/dt). These are orthogonal dimensions: AlphaDecay measures spectral shape; SPWD measures rate of structural change. A layer can have high PL_Alpha_Hill (heavy-tailed spectrum) but zero rank velocity (rank converged), or vice versa. Must differentiate explicitly in Related Work."
+        },
+        {
+          "paper": "Yunis et al., 2024. 'Approaching Deep Learning through the Spectral Dynamics of Weights.' arXiv:2408.11804.",
+          "overlap": "Both track rank dynamics and spectral evolution during training. Both link WD to rank minimization behavior. Uses 'phase transition' language consistent with SPWD.",
+          "severity": "related_work",
+          "notes": "Observational/descriptive paper only. No algorithmic proposal for rank velocity as WD feedback signal. Key citation for SPWD theoretical background."
+        },
+        {
+          "paper": "Shin et al., 2025. 'Dynamic Rank Adjustment for Accurate and Efficient Neural Network Training.' arXiv:2508.08625. Oct 2025.",
+          "overlap": "Both involve dynamic rank tracking as a training signal.",
+          "severity": "related_work",
+          "notes": "Adjusts model architecture (LoRA rank), not weight decay coefficient. Different control variable entirely. No WD modulation."
+        },
+        {
+          "paper": "arXiv:2502.17340. 'Low-rank Bias, Weight Decay, and Model Merging in Neural Networks.' Feb 2025.",
+          "overlap": "Uses same stable rank definition (||W||_F/||W||_2). Confirms WD promotes stable rank reduction.",
+          "severity": "related_work",
+          "notes": "Observational analysis of stable rank dynamics under WD. No algorithmic proposal for rank velocity feedback."
+        },
+        {
+          "paper": "arXiv:2507.12709. 'From SGD to Spectra: A Theory of Neural Network Weight Dynamics.' ICML 2025.",
+          "overlap": "SDE framework connecting SGD to singular-value spectral dynamics. Provides theoretical foundation for why spectral dynamics evolve.",
+          "severity": "related_work",
+          "notes": "Theoretical analysis only. Actually supports SPWD: singular value velocity appears naturally in the Dyson Brownian motion framework. Can cite as theoretical grounding."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "SPWD is the first WD method using temporal derivative of stable rank (rank velocity) as continuous feedback signal. Must contrast explicitly with AlphaDecay: 'AlphaDecay assigns per-module WD based on static PL_Alpha_Hill snapshot; SPWD uses dynamic rank velocity v_t = d(stable_rank)/dt for continuous feedback.' Rank velocity detects when a layer is actively undergoing phase transition (rank collapse), enabling responsive WD modulation at critical moments. Computational advantage: requires only ||W||_F and ||W||_2 per layer (two scalars), cheaper than cosine similarity (O(d) inner product)."
+    },
+    {
+      "candidate_id": "cand_theorem3_rg_derivation",
+      "title": "Theorem 3 RG Beta Function Dual Derivation (QA-WD as Remark 3.1 / Appendix)",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Atanasov, Zavatone-Veth, Pehlevan. 'Scaling and Renormalization in High-Dimensional Regression.' arXiv:2405.00592. 2024.",
+          "overlap": "Applies RG techniques in ML context. Establishes RG-ML correspondence for high-dimensional regression scaling laws.",
+          "severity": "related_work",
+          "notes": "Applied to regression generalization scaling, not WD scheduling. Does not derive any lambda*_t formula. Cite as background for RG-ML correspondence."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "No prior work derives a WD feedback law from RG beta function theory. The convergence result (stochastic PMP via Riccati + RG beta function fixed point -> same proportional-feedback-on-gradient-weight-geometry formula) is novel. Must be presented modestly as Remark 3.1 / Appendix, not as a separate primary theorem. Acknowledge that the equivalence holds only in the moderate-alignment regime (delta_hat in [0.3, 0.7]). Present as 'two independent mathematical frameworks validate the same functional form for optimal WD feedback.'"
+    },
+    {
+      "candidate_id": "cand_proposition1_alignment_noise",
+      "title": "Proposition 1: Alignment Noise Design Constraint (EMA Aggregation Requirement for WD Adaptation)",
+      "novelty_score": 7,
+      "collisions": [
+        {
+          "paper": "Qin et al., 2021. 'SimiGrad: Fine-Grained Adaptive Batching for Large Scale Training using Gradient Similarity Measurement.' NeurIPS 2021.",
+          "overlap": "Shows that gradient cosine similarity is nearly 0 (pure noise) at batch size 4, and that similarity stabilizes at very large batch sizes (65k+). Establishes empirical basis for gradient alignment noise at small batches.",
+          "severity": "related_work",
+          "notes": "SimiGrad uses gradient similarity for adaptive batching (changing batch size). Proposition 1 uses the same empirical observation to derive a design constraint for WD adaptation at a fixed small batch size (b=128). SimiGrad never addresses weight decay scheduling or minimum aggregation horizon for alignment-based WD. Cite as empirical foundation for Proposition 1."
+        },
+        {
+          "paper": "McCandlish et al. 'An Empirical Model of Large-Batch Training.' arXiv:1812.06162. OpenAI.",
+          "overlap": "Gradient noise scale (GNS) characterizes gradient noise as a function of batch size.",
+          "severity": "related_work",
+          "notes": "Does not address alignment-aware WD or EMA aggregation horizon. Background citation only."
+        },
+        {
+          "paper": "Compagnoni et al. 'Adaptive Methods through the Lens of SDEs.' arXiv:2411.15958. 2024.",
+          "overlap": "Noise analysis in adaptive gradient methods via SDE lens.",
+          "severity": "related_work",
+          "notes": "Not focused on gradient cosine similarity or WD adaptation. Background citation only."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "No prior paper characterizes a minimum aggregation horizon (k >= 10 EMA steps) for reliable alignment-aware WD adaptation at small batch sizes. SimiGrad establishes the empirical observation (similarity noise at small batch) but makes no connection to WD adaptation. The novelty is the specific application: CV(delta_hat_t) > 3 at b=128 -> EMA with k>=10 reduces CV < 1 -> single-step alignment-based WD is unreliable -> design constraint for all alignment-aware WD algorithms. Positive framing: alignment IS informative when aggregated."
+    },
+    {
+      "candidate_id": "cand_stability_control_theorem1",
+      "title": "Theorem 1: Binary Masking Suboptimality (maintained from Iter 6)",
+      "novelty_score": 9,
+      "collisions": [],
+      "recommendation": "proceed",
+      "differentiation_notes": "Score maintained from Iter 6 (9/10). No new competing papers found. 7/7 empirical confirmations from iter_003 data. See Iter 6 novelty_report.json for full assessment."
+    },
+    {
+      "candidate_id": "cand_stability_control_theorem2",
+      "title": "Theorem 2: Layer-wise CSI Bound (maintained from Iter 6)",
+      "novelty_score": 8,
+      "collisions": [],
+      "recommendation": "proceed",
+      "differentiation_notes": "Score maintained from Iter 6 (8/10). No new competing papers found. See Iter 6 novelty_report.json for full assessment."
+    },
+    {
+      "candidate_id": "cand_stability_control_theorem3_pmpwd",
+      "title": "Theorem 3 / PMP-WD: Pontryagin Optimal WD (maintained from Iter 6, strengthened by dual derivation)",
+      "novelty_score": 8,
+      "collisions": [],
+      "recommendation": "proceed",
+      "differentiation_notes": "Score maintained from Iter 6 (8/10). Strengthened by RG beta function dual derivation (Remark 3.1). No new competing papers found that threaten the state-feedback vs. feedforward distinction. See Iter 6 novelty_report.json for full prior art."
+    }
+  ],
+  "overall_novelty": "high",
+  "new_must_cite_papers": [
+    {
+      "paper": "He et al., 2025. 'AlphaDecay: Module-wise Weight Decay for Heavy-Tailed Balancing in LLMs.' arXiv:2506.14562. NeurIPS 2025.",
+      "url": "https://arxiv.org/abs/2506.14562",
+      "citation_location": "Related Work: per-layer spectral WD methods; SPWD comparison",
+      "priority": "critical"
+    },
+    {
+      "paper": "Qin et al., 2021. 'SimiGrad: Fine-Grained Adaptive Batching for Large Scale Training using Gradient Similarity Measurement.' NeurIPS 2021.",
+      "url": "https://proceedings.neurips.cc/paper/2021/hash/abea47ba24142ed16b7d8fbf2c740e0d-Abstract.html",
+      "citation_location": "Proposition 1: alignment noise empirical foundation",
+      "priority": "critical"
+    },
+    {
+      "paper": "Yunis et al., 2024. 'Approaching Deep Learning through the Spectral Dynamics of Weights.' arXiv:2408.11804.",
+      "url": "https://arxiv.org/abs/2408.11804",
+      "citation_location": "Related Work: spectral dynamics background for SPWD",
+      "priority": "high"
+    },
+    {
+      "paper": "Shin et al., 2025. 'Dynamic Rank Adjustment for Accurate and Efficient Neural Network Training.' arXiv:2508.08625.",
+      "url": "https://arxiv.org/abs/2508.08625",
+      "citation_location": "Related Work: dynamic rank adjustment (architecture, distinguish from SPWD)",
+      "priority": "medium"
+    },
+    {
+      "paper": "arXiv:2502.17340. 'Low-rank Bias, Weight Decay, and Model Merging in Neural Networks.' Feb 2025.",
+      "url": "https://arxiv.org/abs/2502.17340",
+      "citation_location": "Related Work: stable rank definition and WD-rank coupling",
+      "priority": "medium"
+    },
+    {
+      "paper": "arXiv:2507.12709. 'From SGD to Spectra: A Theory of Neural Network Weight Dynamics.' ICML 2025.",
+      "url": "https://arxiv.org/abs/2507.12709",
+      "citation_location": "Appendix / SPWD theoretical grounding: SDE theory of spectral dynamics",
+      "priority": "medium"
+    },
+    {
+      "paper": "Atanasov, Zavatone-Veth, Pehlevan. 'Scaling and Renormalization in High-Dimensional Regression.' arXiv:2405.00592. 2024.",
+      "url": "https://arxiv.org/abs/2405.00592",
+      "citation_location": "Appendix: RG-ML background for Remark 3.1 dual derivation",
+      "priority": "medium"
+    }
+  ],
+  "competitive_threat_update": [
+    {
+      "paper": "AlphaDecay (He et al., NeurIPS 2025, arXiv:2506.14562)",
+      "threat_level": "high_for_spwd",
+      "reason": "Uses per-layer spectral signal for WD modulation — same category as SPWD. Reviewers familiar with AlphaDecay will immediately ask 'what is the difference?' Must have a clear, concise answer in the Related Work section: static spectral density (AlphaDecay) vs. dynamic rank velocity (SPWD).",
+      "mitigation": "One-paragraph explicit comparison in Related Work. The temporal derivative / dynamic nature of SPWD is the key differentiator."
+    },
+    {
+      "paper": "arXiv:2507.12709 (From SGD to Spectra, ICML 2025)",
+      "threat_level": "low_favorable",
+      "reason": "Provides SDE-based theory of spectral dynamics that actually supports SPWD's theoretical basis. Singular value velocity appears naturally in Dyson Brownian motion dynamics.",
+      "mitigation": "Cite as theoretical support, not as competition."
+    },
+    {
+      "paper": "Sun et al., CVPR 2025",
+      "threat_level": "high_for_theorems1_2",
+      "reason": "Unchanged from Iter 6. Provides the stability framework extended by Theorems 1-2.",
+      "mitigation": "Position as extension. 7/7 empirical confirmations are decisive."
+    },
+    {
+      "paper": "Defazio 2025 (AdamC), arXiv:2506.02285",
+      "threat_level": "medium_high_for_theorem3",
+      "reason": "Unchanged from Iter 6. Establishes rho-dynamics foundation.",
+      "mitigation": "State-feedback (PMP-WD) vs. feedforward (AdamC) distinction. Run AdamC as baseline."
+    }
+  ],
+  "recommendations_summary": [
+    "1. SPWD (8/10): Proceed as backup candidate. Must explicitly contrast with AlphaDecay (NeurIPS 2025) in Related Work: static PL_Alpha_Hill (AlphaDecay) vs. dynamic rank velocity d(stable_rank)/dt (SPWD). This is the single most important differentiation task for the backup candidate.",
+    "2. Theorem 3 RG derivation (8/10): Proceed as Remark 3.1 / Appendix. Present as 'independent validation from a different mathematical tradition.' The convergence of PMP and RG derivations to the same functional form is a genuine novelty point that strengthens the paper's theoretical depth.",
+    "3. Proposition 1 alignment noise (7/10): Proceed. Frame as a design constraint derived from SimiGrad's empirical observations, applied specifically to WD adaptation at b=128. Quantify CV threshold. This converts the Contrarian's challenge into a positive contribution.",
+    "4. No new threats to Theorems 1-2 (Iter 6 scores maintained). Competitive landscape for core contributions is stable.",
+    "5. Overall paper novelty assessment: HIGH. Seven distinct contributions with scores 7-9/10. The combination of formal theory (3 theorems + 1 proposition), dual derivation, and two novel algorithms (PMP-WD, SPWD) provides strong differentiation."
+  ]
+}

@@ -1,0 +1,328 @@
+{
+  "tasks": [
+    {
+      "id": "setup_code",
+      "name": "Extend training code for new methods and architectures",
+      "description": "Add PMP-WD, Hill-function variants to optimizers.py. Add VGG-16-BN and ResNet-50 to models.py. Add ImageNet data loading to data.py. Add non-BN ResNet-20 variant. Add per-layer detailed logging mode for steady-state validation.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 0,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "code", "name": "iter_003 training code", "path": "iter_003/exp/code/"}
+      ]
+    },
+    {
+      "id": "pilot_vgg_cifar10",
+      "name": "Pilot: VGG-16-BN on CIFAR-10 (constant + CWD)",
+      "description": "Quick validation that VGG-16-BN trains correctly with our code. Run constant and cwd_hard on CIFAR-10 for 20 epochs, seed 42. Check that training converges and metrics are logged correctly.",
+      "type": "baseline",
+      "depends_on": ["setup_code"],
+      "expected_output": "exp/results/pilots/vgg_cifar10/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "VGG-16-BN trains without error, loss decreases monotonically over 20 epochs, CSI and AIS are logged"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_pmp_wd",
+      "name": "Pilot: PMP-WD on ResNet-20/CIFAR-10",
+      "description": "Test the new PMP-WD method (lambda_t ∝ gamma*(1-delta)/||w||) for 20 epochs on CIFAR-10. Verify the schedule produces reasonable lambda_t values (no divergence/collapse) and training converges.",
+      "type": "experiment",
+      "depends_on": ["setup_code"],
+      "expected_output": "exp/results/pilots/pmp_wd_cifar10/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "PMP-WD lambda_t stays in [1e-6, 1e-2], loss decreases, no NaN/Inf"
+      }
+    },
+    {
+      "id": "pilot_hill",
+      "name": "Pilot: Hill function (n=2, n=4) on ResNet-20/CIFAR-10",
+      "description": "Test Hill-function WD variants for 20 epochs. Verify sigmoidal modulation produces reasonable lambda_t trajectories.",
+      "type": "experiment",
+      "depends_on": ["setup_code"],
+      "expected_output": "exp/results/pilots/hill_cifar10/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Hill n=2 and n=4 train without error, lambda_t modulation is non-trivial (std > 0.01*mean)"
+      }
+    },
+    {
+      "id": "pilot_nobn",
+      "name": "Pilot: ResNet-20 without BN on CIFAR-10",
+      "description": "Verify non-BN ResNet-20 trains stably with lr=0.01. Run constant WD for 20 epochs, check convergence.",
+      "type": "experiment",
+      "depends_on": ["setup_code"],
+      "expected_output": "exp/results/pilots/nobn_cifar10/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Non-BN ResNet-20 achieves > 70% train acc in 20 epochs with lr=0.01, no training instability"
+      }
+    },
+    {
+      "id": "pilot_imagenet",
+      "name": "Pilot: ResNet-50/ImageNet (constant WD, 5 epochs)",
+      "description": "Verify ImageNet data loading and ResNet-50 training. Run 5 epochs with constant WD. Check GPU memory, throughput, and basic convergence.",
+      "type": "baseline",
+      "depends_on": ["setup_code"],
+      "expected_output": "exp/results/pilots/imagenet_resnet50/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "ResNet-50 trains on ImageNet without OOM (batch_size=256 on 98GB VRAM), top-1 acc > 10% after 5 epochs, throughput > 500 img/s"
+      },
+      "shared_resources": [
+        {"type": "dataset", "name": "ImageNet", "path": "shared/datasets/imagenet/"}
+      ]
+    },
+    {
+      "id": "vgg_cifar10_full",
+      "name": "VGG-16-BN CIFAR-10: 7 methods × 3 seeds",
+      "description": "Full VGG-16-BN runs on CIFAR-10 with all 7 methods (constant, cwd_hard, swd, cosine_schedule, half_lambda, no_wd, random_mask), 3 seeds each. SGD, lr=0.1, wd=5e-4, 200 epochs.",
+      "type": "experiment",
+      "depends_on": ["pilot_vgg_cifar10"],
+      "expected_output": "exp/results/sgd_baseline/cifar10/vgg16bn/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "VGG-16-BN CIFAR-10 results (method × acc/CSI/AIS)",
+          "columns": ["Method", "Best Acc", "Final Acc", "CSI", "AIS", "BEM"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "vgg_cifar100_full",
+      "name": "VGG-16-BN CIFAR-100: 7 methods × 3 seeds",
+      "description": "Full VGG-16-BN runs on CIFAR-100 with all 7 methods, 3 seeds each. SGD, lr=0.1, wd=5e-4, 200 epochs.",
+      "type": "experiment",
+      "depends_on": ["pilot_vgg_cifar10"],
+      "expected_output": "exp/results/sgd_baseline/cifar100/vgg16bn/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "VGG-16-BN CIFAR-100 results",
+          "columns": ["Method", "Best Acc", "Final Acc", "CSI", "AIS", "BEM"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pmp_hill_cifar10",
+      "name": "PMP-WD + Hill variants on CIFAR-10: 3 methods × 3 seeds",
+      "description": "Run pmp_wd, hill_n2, hill_n4 on ResNet-20/CIFAR-10 with 3 seeds. SGD, lr=0.1, wd=5e-4, 200 epochs.",
+      "type": "experiment",
+      "depends_on": ["pilot_pmp_wd", "pilot_hill"],
+      "expected_output": "exp/results/sgd_baseline/cifar10/resnet20/{pmp_wd,hill_n2,hill_n4}/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Hill function response: accuracy vs cooperativity n",
+          "x": "hill_n",
+          "y": "best_test_acc",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pmp_hill_cifar100",
+      "name": "PMP-WD + Hill variants on CIFAR-100: 3 methods × 3 seeds",
+      "description": "Run pmp_wd, hill_n2, hill_n4 on ResNet-20/CIFAR-100 with 3 seeds. SGD, lr=0.1, wd=5e-4, 200 epochs.",
+      "type": "experiment",
+      "depends_on": ["pilot_pmp_wd", "pilot_hill"],
+      "expected_output": "exp/results/sgd_baseline/cifar100/resnet20/{pmp_wd,hill_n2,hill_n4}/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single"
+    },
+    {
+      "id": "nobn_ablation",
+      "name": "Non-BN ResNet-20 ablation: constant + cwd_hard + pmp_wd × 3 seeds",
+      "description": "ResNet-20 without BN on CIFAR-10. Tests H5 (AIS architecture dependence). SGD, lr=0.01, wd=5e-4, 200 epochs, 3 seeds. Key prediction: AIS > 0.5 without BN.",
+      "type": "ablation",
+      "depends_on": ["pilot_nobn"],
+      "expected_output": "exp/results/sgd_baseline/cifar10/resnet20_nobn/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "AIS trajectories: BN vs non-BN",
+          "x": "epoch",
+          "y": "ais",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "BN vs non-BN comparison",
+          "columns": ["Architecture", "Method", "Best Acc", "AIS", "CSI"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "steady_state_validation",
+      "name": "Steady-state formula validation (H1)",
+      "description": "Run constant, cwd_hard, cosine_schedule on ResNet-20/CIFAR-10 with detailed per-layer per-epoch logging of ||g||, ||w||, cos(theta). Single seed (42). Compute predicted r* vs observed ||w|| for each layer.",
+      "type": "analysis",
+      "depends_on": ["setup_code"],
+      "expected_output": "exp/results/steady_state_validation/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Predicted vs observed steady-state weight norm",
+          "x": "predicted_r_star",
+          "y": "observed_weight_norm",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "imagenet_constant",
+      "name": "ImageNet ResNet-50: constant WD (3 seeds)",
+      "description": "Baseline for ImageNet. ResNet-50, SGD, lr=0.1, wd=1e-4, batch_size=256, 90 epochs, cosine LR with 5-epoch warmup. Note: ~5 hours per run. Project constraints explicitly allow longer runs for ImageNet.",
+      "type": "baseline",
+      "depends_on": ["pilot_imagenet"],
+      "expected_output": "exp/results/sgd_baseline/imagenet/resnet50/constant/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 300,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ImageNet ResNet-50 results",
+          "columns": ["Method", "Top-1 Acc", "Top-5 Acc", "CSI", "AIS"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "imagenet_dynamic",
+      "name": "ImageNet ResNet-50: dynamic WD methods (cwd, swd, cosine, pmp × 3 seeds)",
+      "description": "Run 4 dynamic WD methods on ImageNet/ResNet-50 with 3 seeds each (12 runs total). Same setup as imagenet_constant. Critical test of whether dynamic WD helps at ImageNet scale (potentially higher AIS).",
+      "type": "experiment",
+      "depends_on": ["pilot_imagenet", "imagenet_constant"],
+      "expected_output": "exp/results/sgd_baseline/imagenet/resnet50/{cwd_hard,swd,cosine_schedule,pmp_wd}/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 1,
+      "estimated_minutes": 300,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "ImageNet method comparison",
+          "x": "method",
+          "y": "top1_acc",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_statistical",
+      "name": "Statistical analysis: paired t-tests, TOST equivalence, Bonferroni",
+      "description": "For all method pairs across all architectures/datasets: (1) paired t-tests with Bonferroni correction, (2) TOST equivalence tests at ±0.5%, (3) effect sizes (Cohen's d). Generate summary tables.",
+      "type": "analysis",
+      "depends_on": ["vgg_cifar10_full", "vgg_cifar100_full", "pmp_hill_cifar10", "pmp_hill_cifar100", "nobn_ablation"],
+      "expected_output": "exp/results/analysis/statistical_tests.json",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 0,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Statistical significance table",
+          "columns": ["Comparison", "Delta Acc", "p-value", "Cohen's d", "TOST equiv"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_csi_correlation",
+      "name": "CSI vs accuracy correlation analysis",
+      "description": "Compute Spearman rank correlation between CSI and accuracy across all methods and architectures. Test whether CSI is a reliable predictor of WD method quality.",
+      "type": "analysis",
+      "depends_on": ["vgg_cifar10_full", "vgg_cifar100_full", "pmp_hill_cifar10"],
+      "expected_output": "exp/results/analysis/csi_correlation.json",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 0,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "CSI vs accuracy scatter (all methods, all archs)",
+          "x": "csi",
+          "y": "best_test_acc",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_visualizations",
+      "name": "Generate all paper figures",
+      "description": "Create publication-quality figures: (1) method comparison tables, (2) AIS trajectories, (3) CSI scatter, (4) steady-state validation, (5) weight norm curves, (6) Hill response, (7) ImageNet bar chart, (8) BEM equivalence.",
+      "type": "analysis",
+      "depends_on": ["analysis_statistical", "analysis_csi_correlation", "steady_state_validation", "imagenet_dynamic"],
+      "expected_output": "writing/figures/",
+      "candidate_id": "cand_lyapunov_control",
+      "gpu_count": 0,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single"
+    }
+  ]
+}

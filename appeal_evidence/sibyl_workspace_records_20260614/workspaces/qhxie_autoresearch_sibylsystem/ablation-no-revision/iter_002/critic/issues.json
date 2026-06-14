@@ -1,0 +1,44 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "H4 conclusion is unsupported: Paper concludes 'dictionary completeness — not absorption level — drives patching fidelity' based on comparing 10% latent subsets at layer 8 (SAE-all=0.289, low-abs=0.000, high-abs=0.000). The correct experiment — compare FULL SAE at layer 4 (49.3% absorption) vs layer 8 (0.19% absorption), holding dict size constant — was never conducted. Verified in h4_pilot.json raw data.",
+    "suggestion": "Remove or reframe the H4 conclusion as a hypothesis pending validation. Run the correctly designed experiment (layer 4 vs layer 8 full SAE comparison on the France/Paris circuit) or explicitly acknowledge this as future work. Current data supports 'subset patching destroys signal' but does not isolate absorption as the causal variable."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "8 perfect-score latents likely represent positional artifacts not investigated: Each of the 8 latents with Af=1.0 fires on exactly 100 tokens — exactly the number of sequences. Verified in h5_pilot_output.log: 'Top 5 most absorbed latents (dict=24576): 1. Subsampled idx 6955: score=1.0000, activations=100' — all top-5 show activations=100. Paper acknowledges 'suspicious uniformity' but does not investigate further. Always-on features (>90% of tokens) are excluded; these 8 latents may warrant the same treatment.",
+    "suggestion": "Compute token position consistency across sequences for each perfect-score latent. If confirmed as positional artifacts (e.g., all firing at token position X across sequences), exclude from primary analysis and report in Appendix."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "H2 remains untested despite adequate power at layer 4: Paper claims insufficient absorption variance at layer 8 (only 46/24,576 latents with Af>0.5), but layer 4 has 49.3% absorption (~12,000 latents) — 260x more data. The early termination rationale is self-defeating: layer 4 was never tested for H2 despite having more than adequate statistical power. Verified in pilot_summary.json.",
+    "suggestion": "Run H2 analysis on layer 4 where absorption prevalence is highest. Alternatively, use a continuous absorption measure (mean RVE across all activating tokens) rather than binary threshold to increase sensitivity."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Only pilot experiments (n=100) are reported, not full-scale (n=1024): Methodology specifies 1,024-sequence full experiments but all results use only 100 sequences. The 10x scale gap is material for rare phenomenon characterization. Cross-validated from pilot_summary.json and paper Section 4.2.",
+    "suggestion": "Either run full-scale experiments (n=1024) or explicitly scope the paper as a pilot study with commitment to full-scale replication."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "minor",
+    "description": "H5 '10-fold reduction' framing overstates practical significance: 2K=2.25% vs 24K=0.19% is directionally correct but practically negligible (97.75% vs 99.81% non-absorbed). The paper acknowledges this but the relative framing persists in Section 5.4 and Abstract.",
+    "suggestion": "Lead with absolute numbers: '97.75% non-absorbed at 2K vs 99.81% at 24K.'"
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Terminology deviations: 'layer-wise' (Section 5.2), 'Layer-Level' header (Section 5.7), 'activations' as singular noun (Section 3.1), 'significant' without 'statistical' qualifier (Section 5.2). These are minor style issues that do not affect scientific validity.",
+    "suggestion": "Use 'per-layer' instead of 'layer-wise', 'activation' (singular) instead of 'activations', and add 'statistical' qualifier when referencing significance."
+  }
+]

@@ -1,0 +1,182 @@
+[
+  {
+    "priority": 1,
+    "severity": "critical",
+    "category": "experiment",
+    "action": "Rewrite Section 4.3 and Section 4.5 Rule 1 based on RESOLVED tau=0.0 experiment",
+    "evidence": "full_tau0_comparison.json: M1+naive-T16 achieves 7.40x at GSM8K AccRet=57.2%, outperforming M1+CD-SSD(tau=0.9)'s combined 5.13x/32.2% AccRet. Deployment recommendation must change: M1+naive-T16 is the practical recommendation; M1+CD-SSD(tau=0.9) is the mechanism demonstration.",
+    "effort": "medium",
+    "files_to_change": ["writing/paper.md Section 4.3, Section 4.5 Rule 1, Abstract, Conclusion Section 6.1"]
+  },
+  {
+    "priority": 2,
+    "severity": "critical",
+    "category": "experiment",
+    "action": "Remove fabricated Wilcoxon p<0.05 claim for H4",
+    "evidence": "task_dependence_full.json contains no statistical test. n=3 pairs insufficient for p<0.05 Wilcoxon.",
+    "effort": "low",
+    "files_to_change": ["writing/paper.md Section 3.5", "writing/paper.md Section 6.1"]
+  },
+  {
+    "priority": 3,
+    "severity": "critical",
+    "category": "experiment",
+    "action": "Standardize QAS formula: remove hidden 0.5x penalty, use Speedup × AccRet for all methods",
+    "evidence": "CD-SSD penalized QAS=1.194 vs unpenalized=2.39; M1 and M3 unpenalized. Table 2 cross-method comparison invalid.",
+    "effort": "medium",
+    "files_to_change": ["writing/paper.md Section 2.1 (QAS definition), Table 2", "exp/code/merge_igsd_pareto.py"]
+  },
+  {
+    "priority": 4,
+    "severity": "critical",
+    "category": "experiment",
+    "action": "Fix failure mode atlas numbers to match raw experiment data",
+    "evidence": "failure_mode_atlas_full.json claims M2 J=2: speedup=2.1x, acc_ret=0.82 but m2_pareto_full.json shows 3.10x, 0.544 GSM8K acc_ret. Numbers were analytically fabricated.",
+    "effort": "low",
+    "files_to_change": ["exp/results/failure_mode_atlas/failure_mode_atlas_full.json", "writing/paper.md Table 4"]
+  },
+  {
+    "priority": 5,
+    "severity": "critical",
+    "category": "experiment",
+    "action": "Clarify CHR_refine=94% is analytically derived, not directly measured from a raw data file",
+    "evidence": "No per-step CHR measurement file found. The 0.940 figure is derivable from alpha=0.52 + entropy zero property (rigorous), but labeled as 'measured: 0.940' in Section 4.2.",
+    "effort": "low",
+    "files_to_change": ["writing/paper.md Section 4.2", "writing/paper.md Figure 8 caption"]
+  },
+  {
+    "priority": 6,
+    "severity": "critical",
+    "category": "experiment",
+    "action": "Investigate M2 J=6 vs J=8 identical results and document floor condition",
+    "evidence": "m2_pareto_full.json: J=6 speedup=12.363, J=8 speedup=12.364 (identical to 3 decimal places). Possible step_jump floor or code deduplication artifact.",
+    "effort": "medium",
+    "files_to_change": ["exp/code/full_m2_pareto.py", "exp/results/full_m2/m2_pareto_full.json"]
+  },
+  {
+    "priority": 7,
+    "severity": "major",
+    "category": "experiment",
+    "action": "Run SSD (arXiv:2510.04147) + M1 composability experiment",
+    "evidence": "This is the most important missing experiment. Determines whether CD-SSD frozen-token mechanism is uniquely enabling or a general self-speculative+KV property. If SSD+M1 Ortho >= 1.385, the finding generalizes; if lower, CD-SSD is differentiated.",
+    "effort": "high (4-6 GPU hours)",
+    "files_to_change": ["exp/code/ (new script)", "writing/paper.md Section 4.1, 4.2, 5.3, 6.3"]
+  },
+  {
+    "priority": 8,
+    "severity": "major",
+    "category": "experiment",
+    "action": "Run REFINE-phase ablation: M1+CD-SSD with M1 disabled during REFINE phase only",
+    "evidence": "Required to confirm synergy is specifically tied to frozen-token entropy collapse in the REFINE phase, not just combined step reduction. If speedup drops from 5.13x to <4.0x when M1 disabled during REFINE, the mechanism is validated.",
+    "effort": "medium (2 GPU hours)",
+    "files_to_change": ["exp/code/ (new script)", "writing/paper.md Section 4.2 mechanistic claim"]
+  },
+  {
+    "priority": 9,
+    "severity": "major",
+    "category": "experiment",
+    "action": "Exclude MBPP and HumanEval from all primary QAS/AccRet calculations",
+    "evidence": "MBPP 0.0% baseline makes AccRet=1.0 by convention (0/0), adding +0.25 padding to every method's combined AccRet. HumanEval 2.4% baseline gives AccRet=0.0 for all methods, providing no differentiation.",
+    "effort": "medium",
+    "files_to_change": ["writing/paper.md all tables and combined QAS text", "exp/results/summary.md"]
+  },
+  {
+    "priority": 10,
+    "severity": "major",
+    "category": "writing",
+    "action": "Standardize IGSD/CD-SSD AccRet figures: use 63.7% (GSM8K-specific) consistently",
+    "evidence": "Three inconsistent figures: 35.1% (not an AccRet, arithmetic artifact), 63.7% (GSM8K-specific, correct), 70.3% (combined, includes degenerate coding benchmarks). 35.1% must be removed entirely.",
+    "effort": "low",
+    "files_to_change": ["writing/paper.md Table 2", "exp/results/summary.md", "exp/results/task_dependence_analysis/task_dependence_full.json"]
+  },
+  {
+    "priority": 11,
+    "severity": "major",
+    "category": "writing",
+    "action": "Fix M3 speedup in Table 2: use combined speedup (1.33x) not GSM8K-specific (1.68x)",
+    "evidence": "Inconsistent reporting convention inflates M3 apparent speedup by 26% relative to M1 and CD-SSD which use combined speedup.",
+    "effort": "low",
+    "files_to_change": ["writing/paper.md Table 2"]
+  },
+  {
+    "priority": 12,
+    "severity": "major",
+    "category": "experiment",
+    "action": "Complete full 3-seed, full-benchmark pairwise experiments for Ortho=1.385 headline claim",
+    "evidence": "Ortho=1.385 is 2-seed, 200/1319 GSM8K samples (15% scale). Per-seed range [1.292, 1.478]. Full validation required for NeurIPS-level claim.",
+    "effort": "high (4-6 GPU hours)",
+    "files_to_change": ["exp/results/full_pairwise/", "writing/paper.md Table 3 and all Ortho citations"]
+  },
+  {
+    "priority": 13,
+    "severity": "major",
+    "category": "writing",
+    "action": "Soften 'binary composability' language to reflect actual evidence scope",
+    "evidence": "3 method pairs on 1 model. Should be: 'exhibits a binary pattern among the three feasible pairs evaluated' not universal 'composability is binary'.",
+    "effort": "low",
+    "files_to_change": ["writing/paper.md abstract, Section 4.1 title, Conclusion Section 6"]
+  },
+  {
+    "priority": 14,
+    "severity": "major",
+    "category": "writing",
+    "action": "Fill all 4 placeholder appendices before submission",
+    "evidence": "Appendix D (qualitative examples) is highest priority to rule out degenerate CD-SSD outputs (frozen tokens that are systematically wrong but high-confidence).",
+    "effort": "medium",
+    "files_to_change": ["writing/paper.md Appendices A-D"]
+  },
+  {
+    "priority": 15,
+    "severity": "major",
+    "category": "writing",
+    "action": "Replace all [CITE:xxx] placeholders with actual bibliography entries",
+    "evidence": "Dozens of placeholder citations remain in paper.md. Required for submission.",
+    "effort": "medium",
+    "files_to_change": ["writing/paper.md", "writing/references.bib (create)"]
+  },
+  {
+    "priority": 16,
+    "severity": "major",
+    "category": "writing",
+    "action": "Generate all 8 figures referenced in the paper",
+    "evidence": "figures/fig1_teaser.pdf through figures/fig8_kv_hitrate.pdf do not exist. Paper cannot be submitted without them.",
+    "effort": "high",
+    "files_to_change": ["writing/figures/ (all 8 figure files)"]
+  },
+  {
+    "priority": 17,
+    "severity": "major",
+    "category": "writing",
+    "action": "Either reproduce FastdLLM under ComposeAccel protocol or remove from Table 1",
+    "evidence": "fastdllm_comparison.json uses published paper numbers from different hardware/protocol. Comparing against 27.6x published claim while reporting 5.13x reproduced claim is misleading.",
+    "effort": "medium",
+    "files_to_change": ["writing/paper.md Table 1"]
+  },
+  {
+    "priority": 18,
+    "severity": "minor",
+    "category": "writing",
+    "action": "Qualify M2 NO_GO verdict to simplified Saber specifically, not all adaptive step scheduling",
+    "evidence": "Saber's backtracking mechanism was not implemented. NO_GO verdict may not generalize to actual published Saber algorithm.",
+    "effort": "low",
+    "files_to_change": ["writing/paper.md Section 3.3 F1, Section 5.2"]
+  },
+  {
+    "priority": 19,
+    "severity": "minor",
+    "category": "experiment",
+    "action": "Run batch_size sensitivity experiment at batch_size=4 or 8 for M1+CD-SSD synergy validation",
+    "evidence": "All experiments at batch_size=1. Production serving uses batch_size 8-32. Mixed confidence profiles at batch_size>1 may reduce alpha and lower Ortho below 1.0.",
+    "effort": "medium",
+    "files_to_change": ["writing/paper.md Section 4.5 Rule 1 deployment caveats"]
+  },
+  {
+    "priority": 20,
+    "severity": "minor",
+    "category": "analysis",
+    "action": "Add direct per-step entropy distribution comparison with and without M3 guidance",
+    "evidence": "Trajectory-modification classification for M3 is post-hoc reasoning from outcome (interference) to mechanism (non-stationary entropy). No direct evidence exists for the entropy distribution shift.",
+    "effort": "medium",
+    "files_to_change": ["writing/paper.md Section 4.1 mechanistic explanation", "writing/figures/ (new figure)"]
+  }
+]

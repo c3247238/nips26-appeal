@@ -1,0 +1,90 @@
+{
+  "overall_recommendation": "PROCEED_TO_FULL",
+  "selected_candidate_id": "cand_card",
+  "candidates": [
+    {
+      "candidate_id": "cand_card",
+      "go_no_go": "GO",
+      "confidence": 0.75,
+      "supported_hypotheses": ["H1", "H2", "H3"],
+      "failed_assumptions": ["H4_calibration_no_added_value"],
+      "key_metrics": {
+        "sc_overall_ece": 0.220,
+        "oracle_overall_ece": 0.026,
+        "early_sc_ece": 0.199,
+        "late_sc_pearson_r": 0.442,
+        "late_oracle_pearson_r": 0.493,
+        "revision_improvement": 0.0533,
+        "calibration_improvement": 0.0,
+        "best_revision_type": "raw_entropy",
+        "standard_none_acc": 0.38,
+        "standard_raw_entropy_acc": 0.41,
+        "standard_calibrated_entropy_acc": 0.41,
+        "aggressive_none_acc": 0.24,
+        "aggressive_raw_entropy_acc": 0.33
+      },
+      "notes": "H3 (revision helps) PASS: +5.3% average improvement with revision, +2.7% for standard draft, +8.0% for aggressive draft. H4 (calibration correction > raw entropy) technically PASS but calibration adds ZERO improvement over raw entropy (both 41% for standard, both 33% for aggressive). This suggests the isotonic calibration doesn't change the entropy-based ranking meaningfully. The calibration study itself (H1, H2) remains valid — DLMs ARE miscalibrated — but the correction doesn't improve revision target selection in practice. Aggressive draft is strongly harmful (-14% vs standard with no revision). Random revision helps (+2% standard, +6% aggressive) but entropy-based is better (+3% standard, +9% aggressive). Key tokens_changed insight: entropy targets 4.8 tokens/sample vs random 0.3 — entropy finds the truly fragile tokens."
+    },
+    {
+      "candidate_id": "shared",
+      "task_id": "baseline_standard",
+      "go_no_go": "CONDITIONAL_GO",
+      "confidence": 0.65,
+      "supported_hypotheses": [],
+      "failed_assumptions": [],
+      "key_metrics": {
+        "acc_32": 0.29,
+        "acc_64": 0.38,
+        "acc_128": 0.33,
+        "dnb_84_estimated": 0.38,
+        "monotonic": false,
+        "monotonic_relaxed": true,
+        "sanity_64_above_30pct": true
+      },
+      "notes": "Standard baselines established. 64-step accuracy (38%) is the best, beating both 32 (29%) and 128 (33%). Non-monotonic: 128-step is WORSE than 64-step, suggesting over-denoising. DNB-84 baseline should be approximately 38%. CARD with raw-entropy revision achieves 41% at 68 NFE, which already beats the DNB-84 estimate. The non-monotonicity at 128 steps further supports revision-based approaches over simply adding more steps."
+    },
+    {
+      "candidate_id": "cand_card",
+      "task_id": "annealing_ablation",
+      "go_no_go": "NO_GO",
+      "confidence": 0.95,
+      "supported_hypotheses": [],
+      "failed_assumptions": ["H6_annealing_helps"],
+      "key_metrics": {
+        "isothermal_acc": 0.41,
+        "linear_acc": 0.36,
+        "quadratic_acc": 0.35,
+        "cosine_anneal_acc": 0.34,
+        "best_annealing_improvement": -0.05,
+        "avg_annealing_acc": 0.35,
+        "net_sample_flips": -5
+      },
+      "notes": "H6 FALSIFIED: Temperature annealing uniformly degrades performance. All 3 schedules (linear 36%, quadratic 35%, cosine 34%) are worse than isothermal (41%). The -5% degradation is substantial and consistent. High temperature early disrupts confidence-based unmasking quality; committed errors propagate. The cosine unmasking schedule already provides implicit explore-exploit tradeoff. CARD should use isothermal T=1.0. This simplifies the method (fewer hyperparameters) and is a useful negative result for the paper."
+    },
+    {
+      "candidate_id": "cand_card",
+      "task_id": "card_vs_dnb",
+      "go_no_go": "GO",
+      "confidence": 0.90,
+      "supported_hypotheses": ["H5"],
+      "failed_assumptions": [],
+      "key_metrics": {
+        "card84_acc": 0.43,
+        "card68_acc": 0.41,
+        "dnb84_acc": 0.32,
+        "dnb96_acc": 0.30,
+        "std64_acc": 0.38,
+        "card84_vs_dnb84": 0.11,
+        "card84_vs_std64": 0.05,
+        "card68_vs_std64": 0.03,
+        "card84_nfe": 71.0,
+        "dnb84_nfe": 83.0,
+        "pareto_frontier": ["Standard-64", "CARD-68", "CARD-84"],
+        "card_wins_count": 17,
+        "dnb_wins_count": 6,
+        "avg_tokens_changed_card84": 5.9
+      },
+      "notes": "H5 STRONG PASS: CARD-84 (43%) beats DNB-84 (32%) by +11%, far exceeding the 1% threshold. Critical finding: standard denoising is strongly non-monotonic — more steps HURTS (84 steps=32%, 96 steps=30%, vs 64 steps=38%). This means the DNB baseline is actually weaker than expected, but CARD still beats Standard-64 by +5%. CARD-84 achieves 43% at only 71 actual NFE (not 84 as budgeted, because revision steps are cheaper than full forward passes on the complete sequence). Both CARD variants are on the Pareto frontier. Per-sample: CARD flips 17 samples correct that DNB misses, while losing only 6. The revision mechanism targets ~6 tokens/sample and changes ~5.9 of them, confirming meaningful corrections. PROCEED TO FULL experiments with high confidence."
+    }
+  ]
+}

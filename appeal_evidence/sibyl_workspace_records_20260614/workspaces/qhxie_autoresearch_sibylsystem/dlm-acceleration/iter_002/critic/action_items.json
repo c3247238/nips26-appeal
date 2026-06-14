@@ -1,0 +1,192 @@
+[
+  {
+    "id": "AI-001",
+    "priority": 1,
+    "category": "experiment",
+    "severity": "critical",
+    "title": "Rerun pairwise compositions at full scale with 3 seeds",
+    "description": "All three pairwise compositions (M1+IGSD, M1+M3, M3+IGSD) are pilot-scale (100 GSM8K, 1 seed). The methodology specified 1319 GSM8K, 3 seeds. This is the paper's central evidence -- without full-scale replication, the Ortho taxonomy is unreliable. The M1+M3 pilot/full discrepancy in iter_001 (Ortho 1.34 vs 0.30) demonstrates pilot estimates can be 4x off.",
+    "estimated_gpu_hours": 8,
+    "files_affected": [
+      "exp/results/pairwise/m1_igsd_full.json",
+      "exp/results/pairwise/m1_m3_full.json",
+      "exp/results/pairwise/m3_igsd_full.json"
+    ],
+    "blocks": ["AI-006", "AI-008"]
+  },
+  {
+    "id": "AI-002",
+    "priority": 1,
+    "category": "writing",
+    "severity": "critical",
+    "title": "Reframe IGSD contribution to reflect null ablation result",
+    "description": "Abstract and Contribution 3 describe IGSD as a 'confidence-partitioned step scheduler using inter-step KL divergence.' Section 4.4 shows the confidence gate is inert (tau=0.0 = tau=0.9 at T_draft=32). These directly contradict. Rewrite Contribution 3 as: 'IGSD is a simple draft-then-truncate scheme. The confidence-partitioning mechanism provides zero measurable benefit at the primary operating point -- a finding that simplifies practical deployment.'",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/paper.md (abstract, Section 1.2, Section 3.3, Section 4.4)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-003",
+    "priority": 2,
+    "category": "experiment",
+    "severity": "major",
+    "title": "Clarify M3 speedup measurement: separate per-token speed from output-length effect",
+    "description": "M3 raw TPS (~50-52) is LOWER than baseline (~58.5), yet the paper claims 1.68x speedup. This likely conflates per-token speed with output-length efficiency. Measure: (a) average output token count for M3 vs baseline, (b) per-sample wall-clock latency, (c) per-token latency. Determine whether M3 is genuinely faster or just more output-efficient.",
+    "estimated_gpu_hours": 1,
+    "files_affected": [
+      "exp/results/full_m3/m3_pareto_full.json",
+      "writing/paper.md (Section 3.4, Section 4.1)"
+    ],
+    "blocks": ["AI-001"]
+  },
+  {
+    "id": "AI-004",
+    "priority": 2,
+    "category": "writing",
+    "severity": "major",
+    "title": "Add explicit M1 caveat to all M1-involving Ortho claims",
+    "description": "M1 achieves 1.16x measured speedup (effectively a no-op). All M1+IGSD Ortho claims measure 'IGSD + overhead wrapper' not 'two acceleration methods composing.' Add caveats to Table 4, abstract, and Section 4.2: 'M1+IGSD Ortho=0.96 reflects minimal interference from M1 overhead, not composition of two high-speedup methods.'",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/paper.md (abstract, Table 4, Section 4.2, Section 6.1)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-005",
+    "priority": 2,
+    "category": "writing",
+    "severity": "major",
+    "title": "Generate missing Figure 2 (architecture) and Figure 7 (KL profile)",
+    "description": "Figure 2 is the key method comprehension visual; Figure 7 visualizes the H6 falsification. Both have existing data/specs (fig2_architecture_desc.md, igsd_kl_profiles_raw.json). The [TODO] placeholders must be replaced.",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/figures/fig2_architecture.pdf",
+      "writing/figures/fig7_kl_profile.pdf",
+      "writing/paper.md (lines 231, 324)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-006",
+    "priority": 2,
+    "category": "writing",
+    "severity": "major",
+    "title": "Add Statistical Limitations subsection with confidence intervals",
+    "description": "Add a subsection to Section 6.4 explicitly reporting: (a) sample sizes for each experiment, (b) bootstrap CIs for Ortho values where available, (c) the M1+M3 pilot/full discrepancy as a cautionary example, (d) MATH500 baseline weakness (11.1% -> high AccRet variance).",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/paper.md (Section 6.4)"
+    ],
+    "blocks": ["AI-001"]
+  },
+  {
+    "id": "AI-007",
+    "priority": 2,
+    "category": "analysis",
+    "severity": "major",
+    "title": "Add degenerate output analysis",
+    "description": "Sample outputs show repetition loops ('ske ske ske...'), truncated reasoning, and whitespace flooding. Quantify: (a) fraction with repetition (>3 identical consecutive tokens), (b) fraction with premature truncation (<50 tokens), (c) correlation of accept_rate with output quality. This strengthens the negative-result framing.",
+    "estimated_gpu_hours": 0.5,
+    "files_affected": [
+      "writing/paper.md (new subsection in Section 4 or 6)",
+      "exp/results/ (analysis script)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-008",
+    "priority": 2,
+    "category": "writing",
+    "severity": "major",
+    "title": "Reframe Dream-7B results honestly",
+    "description": "AccRet=125% on Dream-7B is an artifact of the 36% baseline, not evidence of 'transferable composition patterns.' Reframe: 'Step truncation improves accuracy on Dream-7B (suggesting late-step refinement is counterproductive), while it degrades accuracy on LLaDA (confirming refinement is productive). The composition MECHANISMS transfer but magnitudes are not comparable.'",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/paper.md (Section 5.1)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-009",
+    "priority": 3,
+    "category": "experiment",
+    "severity": "major",
+    "title": "Measure batch-specific baselines for batch sensitivity analysis",
+    "description": "Section 5.3 reports TPS at batch=4 (56) and batch=8 (34) without batch-specific baseline TPS. Without baselines, the 'speedup' is uninterpretable. Run LLaDA baseline at batch=1,4,8 on 100 GSM8K, seed 42.",
+    "estimated_gpu_hours": 0.5,
+    "files_affected": [
+      "exp/results/batch_sensitivity/batch_sensitivity.json",
+      "writing/paper.md (Section 5.3)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-010",
+    "priority": 3,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Soften 'first controlled factorial study' claim",
+    "description": "The pilot-scale execution does not warrant 'controlled factorial study.' Change to 'first systematic pilot study' or 'first controlled comparison under a shared evaluation protocol.'",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/paper.md (abstract, Section 1.2)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-011",
+    "priority": 3,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Remove all editorial artifacts",
+    "description": "Remove: line 47 parenthetical, HTML comment blocks, Figures and Tables index section, [TODO] tags (after AI-005).",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/paper.md"
+    ],
+    "blocks": ["AI-005"]
+  },
+  {
+    "id": "AI-012",
+    "priority": 3,
+    "category": "writing",
+    "severity": "minor",
+    "title": "Define N_gen, reconcile r_accept vs alpha, count methods precisely",
+    "description": "Three minor notation issues: (a) N_gen undefined, (b) r_accept vs alpha relationship unclear, (c) 'over 20 methods' should be counted precisely.",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/paper.md (Sections 3.1-3.3, 1.1)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-013",
+    "priority": 3,
+    "category": "experiment",
+    "severity": "minor",
+    "title": "Standardize baseline TPS across all experiments",
+    "description": "Baseline TPS varies: 58.5 (d2cache pilot), 33.8 (paper text), 31.0 (iter_001). Identify the correct protocol-consistent baseline and reconcile all speedup calculations. The paper should state a single reference TPS with measurement conditions.",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "writing/paper.md (Section 3.5)",
+      "exp/results/ (recalculate speedup if needed)"
+    ],
+    "blocks": []
+  },
+  {
+    "id": "AI-014",
+    "priority": 3,
+    "category": "reproducibility",
+    "severity": "minor",
+    "title": "Plan code release package",
+    "description": "Create a minimal reproducibility package: inference_wrapper.py, eval_harness.py, config files for all reported configurations, README with hardware requirements.",
+    "estimated_gpu_hours": 0,
+    "files_affected": [
+      "exp/code/ (new release directory)"
+    ],
+    "blocks": []
+  }
+]

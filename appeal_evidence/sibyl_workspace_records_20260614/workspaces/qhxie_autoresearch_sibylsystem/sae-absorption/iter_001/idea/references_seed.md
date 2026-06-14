@@ -1,0 +1,2 @@
+- SAELens 库及其预训练 SAE（GemmaScope, GPT2-small SAE 等）
+- Feature absorption 相关文献（待 Sibyl 文献调研补全）

@@ -1,0 +1,41 @@
+{
+  "task_id": "r4b_ravel_probes_proper",
+  "mode": "PILOT",
+  "timestamp": "2026-04-13T12:02:29.756973",
+  "overall_recommendation": "NO_GO_PROBE_QUALITY",
+  "selected_candidate_id": "cand_eda_crossdomain",
+  "go_no_go": "NO_GO",
+  "candidates": [
+    {
+      "candidate_id": "cand_eda_crossdomain",
+      "go_no_go": "NO_GO",
+      "confidence": 0.15,
+      "supported_hypotheses": [],
+      "failed_assumptions": [
+        "RAVEL probes on target model can be trained with available models",
+        "GPT-2 Medium can substitute for Gemma 2B for geographic probe training"
+      ],
+      "key_metrics": {
+        "city_continent_probe_acc_best": 0.6624,
+        "city_country_probe_acc_best": 0.5533,
+        "city_language_probe_acc_best": 0.6002,
+        "pilot_gate_required": 0.8,
+        "n_hierarchies_above_80pct": 0,
+        "n_sae_configs_completed": 9,
+        "intra_ravel_rho_country_language": 1.0
+      },
+      "notes": "Probe quality gate FAILS: best probe (city-continent, GPT-2 Medium layer 20) achieves 66.2% (7 classes) vs gate of 85%. Root cause: Gemma 2B and Llama-3.1-8B are both HF-gated; no available bridge model encodes geographic knowledge at sufficient quality. Shuffled control = real absorption rate (gap=0.0 for all configs): random projection from d=1024 to d=2304 destroys directional signal. Paper framing: R4-B should be reported as 'proper probes require target model access; RAVEL cross-domain evidence remains conditional pending Gemma 2B authentication.'"
+    }
+  ],
+  "blocking_issues": [
+    "Gemma 2B HF-gated: cannot train probes on target model",
+    "Llama-3.1-8B HF-gated: cannot use as fallback for probe training",
+    "Best available bridge (GPT-2 Medium layer 20): 66.2% city-continent (gate: 85%)",
+    "Random projection d=1024->d=2304 destroys directional signal (shuffled=real)"
+  ],
+  "paper_implications": {
+    "H3_status": "UNRESOLVED - proper probes require HF-gated model access",
+    "ravel_cross_domain_framing": "RAVEL cross-domain absorption rates from R3 are unreliable (wrong probe model). R4-B confirms: probe quality gate cannot be met without target model. Paper should report R3 RAVEL results with prominent caveat and position as 'preliminary cross-domain evidence pending proper probe training.'",
+    "intra_ravel_coherence": "R3 rho=0.924 is also suspect (Qwen probe projection artifact). R4-B cannot compute meaningful intra-RAVEL rho without proper probes."
+  }
+}

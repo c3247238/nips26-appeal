@@ -1,0 +1,67 @@
+{
+  "summary": "The workspace has a disciplined diagnostic pivot, but the current paper still overclaims relative to the evidence. The strongest supported contribution is a narrow GSM8K bucket audit plus honest-compute reporting; the weaker parts are the observer-controller thesis, the mixed runtime lineage bundle, and the portability/reproducibility story.",
+  "findings": [
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "The manuscript treats the observer-controller split as a central scientific thesis, but the current evidence does not actually test that claim. `writing/paper.md` repeatedly states that a stronger observer does not automatically imply a stronger controller (`paper.md:25`, `paper.md:39`, `paper.md:103`), while the optional decoupling probe was explicitly skipped (`exp/results/min_controller_decoupling_probe.json`) and the protocol file only defines the split rather than validating it (`exp/results/observer_controller_protocol.json:4-37`). The bucket audit also does not rescue this thesis: computing from `benefit_bucket_audit_pilot.json` shows mean entropy signal is higher for `no_effect` cases (0.2515) than for `fixed` (0.1312) or `harmed` (0.1285), which weakens any implied recoverability story.",
+      "suggestion": "Either add a matched empirical test for observer-versus-controller separation, or downscope the thesis to a narrower claim: aggregate gain needs bucket decomposition plus runtime auditability. Do not keep the observer-controller language as a quasi-general result without direct evidence."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The headline gain is presented too optimistically for the actual evidence footprint. The bucket audit covers `num_samples = 100` (`exp/results/benefit_bucket_audit_pilot.json:6`), while the runtime probe shows GSM8K has 1319 examples on disk (`exp/results/runtime_probe_iter2.json:58-66`), so the audited slice is only about 7.6% of the benchmark. Yet the abstract and results emphasize `full coverage` and a `+3pp` gain (`writing/paper.md:5`, `writing/paper.md:75`) without foregrounding the slice size. The seed check further shrinks the effect: deltas are `[0.03, 0.01, 0.01]` (`exp/results/seed_sensitivity_spotcheck.json:16-77`), i.e. a mean improvement of only 0.0167.",
+      "suggestion": "State `n=100 audited slice` everywhere the paper says `full coverage`, and report the multi-seed mean/range alongside the best-seed headline. If the paper keeps the current dataset footprint, it should sell interpretability of a slice audit, not benchmark-level effectiveness."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The runtime-fairness bundle mixes two incompatible execution regimes under one audit story. The paper says the current host's recommended path is `eager|compile=True` with batch size 57 (`writing/paper.md:67`, `exp/results/runtime_probe_iter2.json:68-96`), and the bucket/seed assets use that contract (`benefit_bucket_audit_pilot.json:54-60`, `seed_sensitivity_spotcheck.json:8-15`). But `runtime_fairness_matrix.json` still imports headline rows from an older compute-curve artifact with different batch sizes and compile settings, including `Entropy-Revise-64+3` at batch 32 with `compile_enabled=false` and `Standard-64` at batch 115 (`exp/results/runtime_fairness_matrix.json:7-85`). That is not one auditable execution envelope.",
+      "suggestion": "Split the artifact into `historical frontier context` versus `current audited runtime contract`, or regenerate the headline comparison under one matched runtime path. Right now the bundle documents fairness concerns, but it does not itself satisfy fairness for the headline pair."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "The protocol lineage is not portable. `canonical_asset_manifest.json`, `runtime_fairness_matrix.json`, `observer_controller_protocol.json`, `benefit_bucket_audit_pilot.json`, and `seed_sensitivity_spotcheck.json` all hard-code `/home/ccwang/...` artifact paths, and those paths do not exist in the current workspace. That breaks the manuscript's own claim that the assets are reviewer-auditable and machine-traceable.",
+      "suggestion": "Rewrite all lineage fields to workspace-relative paths, or vendor the referenced assets into the current workspace and update the manifest. A protocol paper cannot ship with broken artifact pointers."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "The workspace did not fully deliver what the proposal locked in. The proposal requires `exp/results/benefit_bucket_audit.json` and `exp/results/benefit_bucket_examples.json` (`idea/proposal.md:137-148`), but only `_pilot` variants exist. It also promised bucket-level averages for `tokens_changed` and `signal value` plus representative examples (`idea/proposal.md:158-166`), yet the manuscript never reports those analyses. The paper therefore inherits planning language that is sharper than the delivered evidence.",
+      "suggestion": "Either rename/promote the emitted `_pilot` artifacts into the canonical deliverable names and report the missing bucket statistics, or rewrite the proposal/manuscript to acknowledge that the work stopped at a pilot-slice audit."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "The writing is disciplined but still under-developed for a serious submission. `writing/paper.md` has a generic Related Work section with no citation anchors (`paper.md:21-29`), repeated self-positioning language about not being a hero-method paper (`paper.md:11-19`, `paper.md:89-103`), and too little direct confrontation with the most damaging caveats: small slice size, seed shrinkage, and runtime-matrix mismatch.",
+      "suggestion": "Replace some self-defensive framing with concrete prior-art positioning, explicit caveat sentences, and one sharper statement of novelty. The paper needs less repetition and more external grounding."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "The novelty story is fragile. Without a direct observer-controller experiment, the work risks reading as a well-packaged evaluation hygiene note: bucket counts plus better runtime bookkeeping. That is useful, but it is not obviously a top-tier contribution unless the paper can show a new scientific insight that existing DLM revision papers would have missed.",
+      "suggestion": "Make the novelty claim narrower and more falsifiable. The safest version is that bucket-level audits and realized-runtime lineage materially change how one specific training-free revision gain should be interpreted. Anything broader needs stronger comparative evidence."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The examples suggest a shallow-repair story that the manuscript leaves unanalyzed. Several `fixed` examples are short completion or answer-extraction repairs (for example indices 24, 31, and 33 in `benefit_bucket_examples_pilot.json`), while several `harmed` examples are truncation/corruption failures (indices 48, 55, and 62). That matters because the current bucket counts may reflect output-finalization behavior more than deeper reasoning recovery.",
+      "suggestion": "Add a compact subtype analysis that distinguishes shallow completion fixes, answer-format repairs, and true reasoning repairs. If the gain is mostly shallow repair, the paper should say so explicitly."
+    }
+  ],
+  "metric_gaming_risks": [
+    "The reported gain may largely reflect shallow completion repair rather than deeper reasoning recovery; several fixed examples convert empty or truncated answers into short final answers.",
+    "Entropy targeting does not obviously isolate recoverable cases: in the bucket audit, average entropy signal is higher for `no_effect` than for `fixed` or `harmed`, so compute can be spent on samples that do not move correctness.",
+    "The phrase `full coverage` can make a 100-example audited slice look like full-benchmark validation, which is a reporting failure mode even if the underlying numbers are correct."
+  ],
+  "novelty_risks": [
+    "The paper's strongest current claim is a reporting/diagnostic contract, which can be dismissed as hygiene unless it is tied to a genuinely non-obvious empirical conclusion.",
+    "The observer-controller split reads as reframed prior intuition rather than a new result because the current workspace does not include a matched empirical test of that split."
+  ],
+  "reproducibility_gaps": [
+    "The requested canonical result summary file `exp/results/summary.md` is missing; readers must reconstruct the story from multiple JSON artifacts.",
+    "Artifact lineage in the protocol bundle points to missing absolute `/home/ccwang/...` paths rather than portable workspace-relative paths.",
+    "The proposal's locked deliverable names do not match the emitted `_pilot` files, which weakens both automation and human traceability."
+  ]
+}

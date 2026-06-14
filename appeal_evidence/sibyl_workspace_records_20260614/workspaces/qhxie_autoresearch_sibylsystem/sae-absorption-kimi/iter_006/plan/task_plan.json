@@ -1,0 +1,338 @@
+{
+  "tasks": [
+    {
+      "id": "e1_baseline",
+      "name": "E1: Baseline ReLU SAE (5 replicates)",
+      "description": "Train Standard ReLU + L1 SAE on SynthSAEBench-16k with 5 replicates. Measures baseline absorption rate.",
+      "type": "baseline",
+      "depends_on": [],
+      "candidate_id": "shared",
+      "expected_output": "exp/results/full/full_baseline_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main results comparison table",
+          "columns": ["Variant", "Absorption Rate", "MSE", "L0", "Dead Latents"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate between 0.15-0.30 (consistent with pilot 0.203); MSE < 0.02; L0 > 500"
+      }
+    },
+    {
+      "id": "e1_topk",
+      "name": "E1: TopK SAE k=50 (5 replicates)",
+      "description": "Train TopK SAE with k=50 on SynthSAEBench-16k with 5 replicates. Tests H1 (TopK dominance hypothesis).",
+      "type": "experiment",
+      "depends_on": ["e1_baseline"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/full_topk_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate per variant with Cohen's d",
+          "x": "variant", "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate < 0.10 (pilot: 0.033); Cohen's d > 2.0 vs baseline; L0 ~ 50"
+      }
+    },
+    {
+      "id": "e1_multiscale",
+      "name": "E1: MultiScale SAE (5 replicates)",
+      "description": "Train Matryoshka BatchTopK SAE with nested dictionaries on SynthSAEBench-16k with 5 replicates. Tests multi-scale decomposition effect.",
+      "type": "experiment",
+      "depends_on": ["e1_baseline"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/full_multiscale_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Absorption rate < 0.15 (pilot: 0.050); Cohen's d > 1.0 vs baseline"
+      }
+    },
+    {
+      "id": "e1_orthogonality",
+      "name": "E1: Orthogonality SAE (5 replicates)",
+      "description": "Train SAE with decoder orthogonality penalty on SynthSAEBench-16k with 5 replicates. Tests H3 (orthogonality null hypothesis).",
+      "type": "experiment",
+      "depends_on": ["e1_baseline"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/full_orthogonality_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Cohen's d < 0.5 vs baseline (pilot: d=0.14); absorption reduction < 10%"
+      }
+    },
+    {
+      "id": "e1_gating",
+      "name": "E1: Gated SAE (5 replicates)",
+      "description": "Train Gated SAE with decoupled detection/magnitude paths on SynthSAEBench-16k with 5 replicates.",
+      "type": "experiment",
+      "depends_on": ["e1_baseline"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/full_gating_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 18,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Absorption rate and L0 measured; no specific expectation (exploratory)"
+      }
+    },
+    {
+      "id": "e1_matryoshka",
+      "name": "E1: Full Matryoshka SAE (5 replicates)",
+      "description": "Train Full Matryoshka SAE (TopK + MultiScale + hierarchical loss) on SynthSAEBench-16k with 5 replicates. Tests combined effect and component interaction (H8).",
+      "type": "experiment",
+      "depends_on": ["e1_topk", "e1_multiscale"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/full_matryoshka_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Component interaction analysis",
+          "x": "variant", "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Absorption rate comparable to TopK or MultiScale alone (tests for synergy)"
+      }
+    },
+    {
+      "id": "e1_random",
+      "name": "E1: Random Control (5 replicates)",
+      "description": "Evaluate untrained SAE with random decoder on SynthSAEBench-16k with 5 replicates. Validates metric discrimination.",
+      "type": "baseline",
+      "depends_on": [],
+      "candidate_id": "shared",
+      "expected_output": "exp/results/full/full_random_control_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 0,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Absorption rate > 0.5 (pilot: 0.56); validates metric discriminates structure from randomness"
+      }
+    },
+    {
+      "id": "e2_l0_matched",
+      "name": "E2: L0-Matched Baseline Ablation",
+      "description": "Train Baseline L1 SAEs with tuned lambda to achieve L0=50 (matching TopK) and L0=550 (matching Orthogonality). Critical control for H2 (sparsity mediation). Each L0 target gets 3 replicates.",
+      "type": "ablation",
+      "depends_on": ["e1_baseline", "e1_topk", "e1_orthogonality"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/l0_matched_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "L0 vs absorption rate across all variants",
+          "x": "l0_sparsity", "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 1800,
+        "pass_criteria": "L0-matched baseline achieves absorption comparable to TopK (d < 0.5) at L0=50; H2 supported if true"
+      }
+    },
+    {
+      "id": "e3_ksweep",
+      "name": "E3: TopK Dose-Response (k sweep)",
+      "description": "Train TopK SAEs with k in {10, 25, 50, 100, 200, 500} on SynthSAEBench-16k. Tests H5 (dose-response hypothesis). One replicate per k.",
+      "type": "experiment",
+      "depends_on": ["e1_topk"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/ksweep_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate vs k (dose-response curve)",
+          "x": "k", "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Dead latent rate vs k",
+          "x": "k", "y": "dead_latents",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 1800,
+        "pass_criteria": "Absorption increases monotonically with k; k=10 lowest, k=500 highest"
+      }
+    },
+    {
+      "id": "e4_dead_latent",
+      "name": "E4: Dead Latent Analysis",
+      "description": "Compute dead latent rates for all variants. Recompute absorption using only active latents. Tests H6 (dead latent crisis hypothesis).",
+      "type": "analysis",
+      "depends_on": ["e1_baseline", "e1_topk", "e1_multiscale", "e1_orthogonality", "e1_gating", "e1_matryoshka"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/dead_latent_analysis.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Dead latent rate per variant",
+          "x": "variant", "y": "dead_latents",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 0,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "TopK dead latent rate > 30%; active-latent-only absorption higher than full-dictionary"
+      }
+    },
+    {
+      "id": "e5_training_dynamics",
+      "name": "E5: Training Dynamics (Checkpointing)",
+      "description": "Train Standard ReLU SAE with checkpointing every 10% of training. Measure absorption rate at each checkpoint. Tests H9 (training-dynamic emergence).",
+      "type": "experiment",
+      "depends_on": ["e1_baseline"],
+      "candidate_id": "cand_f_v2",
+      "expected_output": "exp/results/full/training_dynamics_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "dataset", "name": "synthsaebench_16k", "path": "synthetic"}
+      ],
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate over training checkpoints",
+          "x": "training_progress", "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 2000000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Absorption reaches >80% of final value by 20% of training"
+      }
+    },
+    {
+      "id": "analysis_stats",
+      "name": "Statistical Analysis and Aggregation",
+      "description": "Compute ANOVA, Cohen's d, L0-absorption correlation, and component interaction analysis across all experiment results.",
+      "type": "analysis",
+      "depends_on": ["e1_baseline", "e1_topk", "e1_multiscale", "e1_orthogonality", "e1_gating", "e1_matryoshka", "e1_random", "e2_l0_matched", "e3_ksweep"],
+      "candidate_id": "shared",
+      "expected_output": "exp/results/full/statistical_analysis.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Statistical summary table with effect sizes",
+          "columns": ["Comparison", "Cohen's d", "p-value", "Absorption Diff"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 0,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All primary hypotheses (H1, H2, H3) have computed effect sizes and p-values"
+      }
+    }
+  ]
+}

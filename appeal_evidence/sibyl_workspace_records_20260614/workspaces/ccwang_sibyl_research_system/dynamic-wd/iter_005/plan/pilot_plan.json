@@ -1,0 +1,131 @@
+{
+  "iteration": 5,
+  "created_at": "2026-03-18",
+  "pilot_config": {
+    "seed": 42,
+    "timeout_sec": 900,
+    "samples_note": "All pilots use the full dataset (50k CIFAR, 1.28M ImageNet) — subsampling would invalidate the signal since per-epoch timing is the primary metric"
+  },
+  "pilots": [
+    {
+      "id": "pilot_nobn_cifar10",
+      "task_ref": "full_nobn_cifar10",
+      "purpose": "Verify NoBN ResNet-20 training stability before committing 9 runs x 200 epochs",
+      "script_config": {
+        "arch": "resnet20_nobn",
+        "dataset": "cifar10",
+        "wd_methods": ["constant", "cwd_hard", "no_wd"],
+        "seed": 42,
+        "epochs": 5,
+        "lr": 0.0005,
+        "wd": 0.0005,
+        "gradient_clip": 1.0,
+        "warmup_epochs": 0,
+        "batch_size": 128,
+        "gpu_count": 1
+      },
+      "new_code_required": {
+        "description": "Add resnet20_nobn to models.py — replace all nn.BatchNorm2d with nn.Identity in BasicBlock and ResNet",
+        "file": "exp/code/models_extended.py",
+        "change": "Add resnet20_nobn factory function; BasicBlockNoBN with Identity instead of BN"
+      },
+      "pass_criteria": {
+        "stability": "All 3 methods complete 5 epochs without loss > 5.0 or NaN",
+        "timing": "Note per-epoch time for constant and cwd_hard to plan wave1 dispatch",
+        "no_oom": "Confirm no GPU OOM errors on single GPU"
+      },
+      "output_dir": "exp/results/pilots/nobn_cifar10/",
+      "estimated_minutes": 15
+    },
+    {
+      "id": "pilot_rho_sweep_cifar10",
+      "task_ref": "full_rho_low_cifar10",
+      "purpose": "Check rho=5.0 stability before 12 runs x 200 epochs; measure effective rho",
+      "script_config": {
+        "arch": "resnet20",
+        "dataset": "cifar10",
+        "wd_methods": ["constant"],
+        "seeds": [42],
+        "epochs": 5,
+        "lr": 0.001,
+        "wd_values": [0.00005, 0.005],
+        "gradient_clip_rho_high": 5.0,
+        "batch_size": 128,
+        "gpu_count": 1
+      },
+      "new_code_required": null,
+      "pass_criteria": {
+        "rho_low_stable": "wd=5e-5 run converges (loss < 5.0 at epoch 5)",
+        "rho_high_stable_or_fallback": "wd=5e-3 run either converges OR triggers documented fallback to wd=2e-3",
+        "rho_measurement": "Measured rho_per_layer mean at epoch 1: rho_low in [0.01, 0.2], rho_high in [1.0, 20.0] or fallback in [0.5, 5.0]"
+      },
+      "output_dir": "exp/results/pilots/rho_sweep/",
+      "estimated_minutes": 10,
+      "fallback_logic": "If wd=5e-3 diverges (loss > 5.0 within 5 epochs), switch to wd=2e-3 for full experiments and update full_rho_high_cifar10 task accordingly"
+    },
+    {
+      "id": "pilot_imagenet_resnet50",
+      "task_ref": "full_imagenet_resnet50_seed42",
+      "purpose": "Validate ImageNet data loading, ResNet-50 DataParallel, bf16, per-layer diagnostics — infrastructure only",
+      "script_config": {
+        "arch": "resnet50",
+        "dataset": "imagenet",
+        "wd_methods": ["constant"],
+        "seed": 42,
+        "epochs": 1,
+        "lr": 0.001,
+        "wd": 0.0001,
+        "bf16": true,
+        "warmup_epochs": 0,
+        "batch_size": 256,
+        "gpu_count": 2,
+        "multi_gpu": "DataParallel",
+        "imagenet_data_path": "data/imagenet/"
+      },
+      "new_code_required": {
+        "description": "New training script for ImageNet/ResNet-50 with bf16, DataParallel, per-layer diagnostics",
+        "files": [
+          {
+            "name": "exp/code/train_imagenet.py",
+            "purpose": "Main training script adapted from train_unified.py, adds: bf16 autocast, torchvision ResNet-50, ImageNet loader, per-layer rho heatmap logging"
+          },
+          {
+            "name": "exp/code/data_imagenet.py",
+            "purpose": "ImageNet DataLoader with standard augmentation (RandomResizedCrop 224, RandomHorizontalFlip, Normalize ImageNet mean/std)"
+          }
+        ]
+      },
+      "pass_criteria": {
+        "data_loads": "ImageNet train/val dataloaders initialize without error",
+        "trains_1_epoch": "1 epoch completes within 30 min on 2 GPUs",
+        "no_oom": "No GPU OOM error on 2x RTX PRO 6000 with batch=512 (256 per GPU)",
+        "diagnostics_valid": "Summary JSON contains: top1_acc (non-NaN), per_layer_rho (list of L values where L = num params), alignment_cosine_mean, CSI, AIS, BEM",
+        "throughput": "Report images/sec for performance baseline"
+      },
+      "output_dir": "exp/results/pilots/imagenet_infra/",
+      "estimated_minutes": 20,
+      "imagenet_availability_check": {
+        "note": "If ImageNet not at data/imagenet/, the pilot script should: (1) check /datasets/imagenet/, /data/imagenet/, ~/data/imagenet/; (2) if not found, download via torchvision with download=True (requires ~150 GB); (3) log data path in summary.json",
+        "fallback_subset": "If download fails or takes too long, use a 1-class subset (1000 images) for smoke test only — flag output as SMOKE_TEST_ONLY in summary.json"
+      }
+    }
+  ],
+  "pilot_execution_order": [
+    {
+      "step": 1,
+      "pilots": ["pilot_nobn_cifar10", "pilot_rho_sweep_cifar10"],
+      "parallelism": "Run both on separate GPUs simultaneously",
+      "estimated_minutes": 15,
+      "action_on_pass": "Immediately launch full_nobn_cifar10 (9 runs), full_rho_low_cifar10 (12 runs), full_rho_high_cifar10 (12 runs) in parallel",
+      "action_on_fail": "Diagnose, fix code (e.g. reduce lr, increase clipping), re-run pilot before launching full"
+    },
+    {
+      "step": 2,
+      "pilots": ["pilot_imagenet_resnet50"],
+      "parallelism": "Can run after step 1 passes, uses 2 GPUs",
+      "estimated_minutes": 20,
+      "action_on_pass": "Launch full_imagenet_resnet50_seed42 (4 runs x 2 GPUs = 8 GPUs, or 2 at a time)",
+      "action_on_fail": "Debug ImageNet data loading or DataParallel setup; most likely issue is data path or memory"
+    }
+  ]
+}

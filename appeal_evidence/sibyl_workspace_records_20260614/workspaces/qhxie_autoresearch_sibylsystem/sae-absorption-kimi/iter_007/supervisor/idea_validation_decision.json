@@ -1,0 +1,85 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_a",
+  "confidence": 0.55,
+  "candidate_scores": {
+    "cand_a": {
+      "weighted_score": 2.90,
+      "verdict": "REFINE",
+      "rationale": "Strong negative result on causality (H2 falsified) is valuable but L0-confound undermines RQ1. Needs proper L0-matching and paper reframing."
+    },
+    "cand_b": {
+      "weighted_score": 1.55,
+      "verdict": "DROP",
+      "rationale": "No pilot data; high cost; partially covered by prior work."
+    },
+    "cand_c": {
+      "weighted_score": 1.65,
+      "verdict": "DROP",
+      "rationale": "No pilot data; new direction with limited leverage from existing experiments."
+    },
+    "cand_d": {
+      "weighted_score": 2.05,
+      "verdict": "DROP",
+      "rationale": "Pivot trigger met (H2 null) but insufficient evidence to justify abandoning existing data. Better integrated as discussion point in reframed Candidate A paper."
+    }
+  },
+  "reasons": [
+    "H2a/b FALSIFIED: Absorption varies 2.3x across lambda levels (0.141-0.319) but feature_recovery_mcc is flat (~0.22, std ~0.001). No dose-response relationship.",
+    "L0-confound in RQ1: TopK/Matryoshka at L0=50 show absorption ~0.056 vs Baseline at L0=964 with absorption ~0.254. Not a fair comparison.",
+    "H1c FALSIFIED: TopK shows LOWER absorption than Baseline, opposite of prediction. May be due to L0 mismatch.",
+    "H1b SUPPORTED: Orthogonality SAE (0.247) ≈ Baseline (0.254) — no absorption benefit from orthogonality penalty.",
+    "H3/H4 untested: Insufficient data for mutual coherence correlation or semantic generalization.",
+    "Pre-registered risk plan anticipated this: 'Frame as important negative result. Contrarian was right. Still publishable.'",
+    "Ablation: Matryoshka nesting has no effect (flat vs nested same absorption). OrtSAE penalty has no effect (with/without same). TopK explicit k-selection matters."
+  ],
+  "next_actions": [
+    "Fix L0-matching: Train Baseline L1 with lambda sweep to achieve L0=50 for fair comparison with TopK/Matryoshka (1 seed pilot, then 5 seeds)",
+    "Reframe paper contribution from 'causal link' to 'L0-matched architecture comparison + negative causal result'",
+    "Drop H3 (mutual coherence) and H4 (semantic generalization) from primary contributions — report as exploratory only",
+    "Add contrarian discussion: absorption may be a feature not a bug; community focus on reduction may be misdirected",
+    "Integrate Candidate D (compositional semantics) as discussion point if L0-matched results confirm pattern",
+    "Do NOT fully pivot to Candidate D — existing data supports reframed paper"
+  ],
+  "dropped_candidates": ["cand_b", "cand_c", "cand_d"],
+  "pilot_evidence": {
+    "absorption_range_across_architectures": {
+      "min": 0.056,
+      "max": 0.495,
+      "ratio": 8.8
+    },
+    "absorption_range_dose_response": {
+      "min": 0.141,
+      "max": 0.319,
+      "ratio": 2.3
+    },
+    "feature_recovery_mcc_range_dose_response": {
+      "min": 0.217,
+      "max": 0.222,
+      "ratio": 1.02
+    },
+    "h1a_status": "partially_supported_confounded",
+    "h1b_status": "supported",
+    "h1c_status": "falsified",
+    "h2a_status": "falsified",
+    "h2b_status": "falsified",
+    "h2c_status": "not_tested",
+    "h3a_status": "insufficient_data",
+    "h3b_status": "not_tested",
+    "h4a_status": "insufficient_data",
+    "h4b_status": "insufficient_data"
+  },
+  "critical_issues": [
+    "L0-matching not executed: TopK/Matryoshka at L0=50 vs Baseline at L0=964 creates sparsity confound",
+    "Core causal hypothesis (H2) falsified: absorption does not predict downstream feature recovery",
+    "Full experiments used 1024 features (same as pilot), not planned 16k — may limit generalizability",
+    "Only Baseline mutual coherence computed — cannot test H3a cross-variant correlation"
+  ],
+  "positive_findings": [
+    "Absorption varies 10x across architectures — metric has discrimination power (Random 0.495 vs TopK 0.056)",
+    "TopK and Matryoshka consistently show low absorption (~0.05-0.06) across 5 seeds",
+    "Orthogonality penalty has NO effect on absorption — important negative result for OrtSAE claims",
+    "Matryoshka nesting structure has NO effect — flat dictionary performs identically",
+    "The null causal result itself is a genuine contribution: answers the field's most important open question"
+  ]
+}

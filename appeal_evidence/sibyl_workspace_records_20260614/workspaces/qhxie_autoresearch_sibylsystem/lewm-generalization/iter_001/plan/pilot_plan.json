@@ -1,0 +1,157 @@
+{
+  "version": "1.0",
+  "planning_date": "2026-04-14",
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_sec": 900
+  },
+  "pilots": [
+    {
+      "pilot_id": "P0_env_verify",
+      "parent_task": "setup_env",
+      "name": "Environment Setup Verification",
+      "description": "Verify that le-wm, dm-control, mujoco, peft and necessary-compositionality all import correctly. Run a single forward pass of LeWM (encoder + predictor) on a random 64x64 RGB frame. Verify MuJoCo Walker environment with custom gravity, friction, and body density can be instantiated.",
+      "script_outline": [
+        "import lewm; import dm_control; import mujoco; import peft; print('all imports OK')",
+        "Run lewm forward pass on random tensor (1, 3, 64, 64)",
+        "Instantiate Walker with gravity=4.9 (0.5g) and verify observation shape",
+        "Instantiate Walker with friction=2.0x and collect 5 steps"
+      ],
+      "pass_criteria": "All imports succeed; forward pass returns latent of expected shape; Walker variants run without error",
+      "estimated_minutes": 5,
+      "decision": "If any import fails: document missing package and install before proceeding. This is a blocking gate."
+    },
+    {
+      "pilot_id": "P1_framework_validation",
+      "parent_task": "pilot_framework_validation",
+      "name": "P1: Framework Validation — Friction-Only Holdout",
+      "description": "Train LeWM-SIGReg on friction levels {0.5x, 2.0x} in Walker (gravity=1.0g, mass=1.0x fixed). Use exactly 100 trajectories per training friction level. Then probe with linear Ridge regression (sklearn) on: (a) friction=1.0x (interpolation holdout, 100 trajectories), (b) friction=3.0x (extrapolation holdout, 100 trajectories). Targets: friction factor label (classification → R²), joint angles (regression). Seed=42, 5 training epochs (for speed), batch_size=32.",
+      "script_outline": [
+        "Collect 100 trajectories for friction in {0.5x, 1.0x, 2.0x, 3.0x} with Walker (gravity=1.0g, mass=1.0x)",
+        "Train LeWM-SIGReg on friction {0.5x, 2.0x} trajectories for 5 epochs, seed=42",
+        "Extract frozen encoder embeddings for all 4 friction levels",
+        "Train Ridge probe (alpha=1e-3) to predict friction label; compute R² on {1.0x, 3.0x}",
+        "Train Ridge probe to predict joint angles; compute R² on {1.0x, 3.0x}",
+        "Save: lewm_pilot_checkpoint.pt, pilot_framework_validation.json"
+      ],
+      "pass_criteria": "Training loss converges in 5 epochs; R² in-distribution (friction {0.5x, 2.0x}) > 0.3 for at least one target; framework runs end-to-end without error",
+      "decision_rules": {
+        "proceed_full_study": "R² drops > 15% relative on friction=1.0x (interpolation)",
+        "aggressive_holdout": "R² drops < 5% relative on friction=1.0x → extend to extrapolation holdout or 3-factor combinations",
+        "reduce_factor_range": "R² drops > 40% relative on interpolation → reduce gravity/friction range to narrower intervals",
+        "flag_as_trivial": "R² < 0.1 in-distribution → revisit training budget (more epochs needed before probing)"
+      },
+      "estimated_minutes": 12,
+      "output_file": "exp/results/pilots/pilot_framework_validation.json",
+      "output_schema": {
+        "pilot_id": "P1_framework_validation",
+        "seed": 42,
+        "training_friction_levels": [0.5, 2.0],
+        "in_dist_r2_friction_label": null,
+        "in_dist_r2_joint_angles": null,
+        "interp_holdout_r2_friction_label": null,
+        "interp_holdout_r2_joint_angles": null,
+        "extrap_holdout_r2_friction_label": null,
+        "extrap_holdout_r2_joint_angles": null,
+        "relative_drop_interp": null,
+        "relative_drop_extrap": null,
+        "decision": null,
+        "notes": null
+      }
+    },
+    {
+      "pilot_id": "P2_lora_feasibility",
+      "parent_task": "pilot_framework_validation",
+      "name": "P2: LoRA Feasibility on ViT-Tiny Predictor",
+      "description": "Using the checkpoint from P1, apply LoRA with rank=4 to the predictor Q/V matrices only (using peft library). Fine-tune on 50 trajectories from friction=1.0x (interpolation holdout). Measure R² recovery on probe for friction label and joint angles. Run for 20 gradient steps (fast feasibility check, not convergence).",
+      "script_outline": [
+        "Load P1 checkpoint (LeWM-SIGReg, 5 epochs, seed=42)",
+        "Apply peft.LoraConfig(r=4, target_modules=['predictor.attn.q', 'predictor.attn.v'])",
+        "Fine-tune for 20 steps on 50 friction=1.0x trajectories",
+        "Extract updated embeddings; re-run linear probe; compute R² recovery",
+        "Save: pilot_lora_results.json"
+      ],
+      "pass_criteria": "LoRA inserts without error; fine-tuning converges (loss decreases from step 1 to 20); R² recovery metric is computable",
+      "decision_rules": {
+        "lora_viable": "R² recovery > 50% → proceed with full LoRA sweep (ranks {2, 4, 8, 16}, data sizes {10, 25, 50, 100, 200})",
+        "increase_rank": "R² recovery < 20% → extend rank range to {32, 64} in full study; report low-rank limitation as negative result",
+        "flag_architecture_issue": "LoRA insertion fails or causes error → investigate ViT-Tiny architecture compatibility; fallback to full fine-tuning as ceiling"
+      },
+      "estimated_minutes": 8,
+      "output_file": "exp/results/pilots/pilot_lora_results.json",
+      "output_schema": {
+        "pilot_id": "P2_lora_feasibility",
+        "seed": 42,
+        "lora_rank": 4,
+        "adaptation_target": "predictor_qv",
+        "n_adaptation_trajectories": 50,
+        "n_gradient_steps": 20,
+        "before_lora_r2": null,
+        "after_lora_r2": null,
+        "r2_recovery_pct": null,
+        "decision": null,
+        "notes": null
+      }
+    },
+    {
+      "pilot_id": "P3_geometric_analysis",
+      "parent_task": "eval_geometric_h2_h4",
+      "name": "P3: Principal Angle Analysis Verification",
+      "description": "Using P1 checkpoint embeddings, run the necessary-compositionality principal angle analysis on 3 factor subspaces. Verify the tool runs end-to-end on the le-wm embedding space (ViT-Tiny produces 192-dim latents).",
+      "pass_criteria": "Principal angle matrix (3x3) computed; mean cosine similarity in valid range [0, 1]; no import errors or numerical issues",
+      "estimated_minutes": 5,
+      "output_file": "exp/results/pilots/pilot_geometric_results.json",
+      "output_schema": {
+        "pilot_id": "P3_geometric_analysis",
+        "latent_dim": 192,
+        "n_pca_components": 8,
+        "principal_angle_matrix": null,
+        "mean_cosine_similarity": null,
+        "notes": null
+      }
+    },
+    {
+      "pilot_id": "P4_iis_computation",
+      "parent_task": "eval_iis_h3",
+      "name": "P4: IIS Computation Feasibility",
+      "description": "Using P1 checkpoint, compute IIS for the gravity-friction concept pair on 100 trajectories. Verify that: (1) linear probe direction can be extracted; (2) Gram-Schmidt orthogonalization works; (3) latent shift and predictor rollout are numerically stable; (4) random-direction IIS baseline is near 0.5.",
+      "pass_criteria": "IIS(gravity, friction) computed; random baseline IIS in [0.4, 0.6]; no NaN or overflow in rollout",
+      "estimated_minutes": 5,
+      "output_file": "exp/results/pilots/pilot_iis_results.json",
+      "output_schema": {
+        "pilot_id": "P4_iis_computation",
+        "seed": 42,
+        "concept_pair": ["gravity", "friction"],
+        "iis_score": null,
+        "random_baseline_iis": null,
+        "notes": null
+      }
+    },
+    {
+      "pilot_id": "P5_regime_coupling",
+      "parent_task": "eval_physical_regime_h5",
+      "name": "P5: Physical Coupling Estimation Feasibility",
+      "description": "Using pilot trajectory data (100 trajectories per combo), estimate coupling strength c(friction, gravity) via finite-difference mixed partial derivative of velocity variance. Verify numerical stability with 100 samples.",
+      "pass_criteria": "Coupling strength computed; non-negative; finite; output JSON has correct schema",
+      "estimated_minutes": 3,
+      "output_file": "exp/results/pilots/pilot_regime_results.json",
+      "output_schema": {
+        "pilot_id": "P5_regime_coupling",
+        "factor_pair": ["friction", "gravity"],
+        "coupling_strength": null,
+        "regime_classification": null,
+        "notes": null
+      }
+    }
+  ],
+  "pilot_execution_order": [
+    {"step": 1, "pilot_id": "P0_env_verify", "blocking": true, "note": "Must pass before any other pilot"},
+    {"step": 2, "pilot_id": "P1_framework_validation", "blocking": true, "note": "Gate for full study design; results inform holdout aggressiveness"},
+    {"step": 3, "pilot_id": "P2_lora_feasibility", "blocking": false, "note": "Determines LoRA rank range for full study; can run in parallel with P3-P5 after P1"},
+    {"step": 3, "pilot_id": "P3_geometric_analysis", "blocking": false, "note": "Verifies necessary-compositionality compatibility"},
+    {"step": 3, "pilot_id": "P4_iis_computation", "blocking": false, "note": "Verifies IIS pipeline"},
+    {"step": 3, "pilot_id": "P5_regime_coupling", "blocking": false, "note": "Verifies coupling estimation"}
+  ],
+  "pilot_summary_template": "exp/results/pilots/pilot_summary.md"
+}

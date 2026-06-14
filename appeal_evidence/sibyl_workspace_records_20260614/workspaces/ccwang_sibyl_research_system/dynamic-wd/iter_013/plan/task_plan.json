@@ -1,0 +1,558 @@
+{
+  "tasks": [
+    {
+      "id": "setup_codebase",
+      "name": "Setup unified experiment codebase",
+      "description": "Create a modular training codebase with: (1) WD method implementations (Fixed, SWD, CWD, CPR, CAWD, EqWD) as pluggable modules, (2) per-layer diagnostic logging (r_t, delta_hat_t, lambda_t, weight norms), (3) CIFAR-10/100 and ImageNet data loaders with standard augmentation, (4) DDP-compatible training loop with mixed precision support, (5) checkpoint saving and metric export to JSON. All methods share a single training script with method selection via config.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/train.py, exp/code/wd_methods.py, exp/code/diagnostics.py, exp/code/data_utils.py",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Code runs without errors on CIFAR-10 for 2 epochs with all 7 WD methods"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_cifar10_vgg",
+      "name": "Pilot: EqWD signal validation on CIFAR-10/VGG-16-BN",
+      "description": "Run 50-epoch pilot on CIFAR-10 with VGG-16-BN to validate EqWD ratio deviation signal. Test Fixed WD, SWD, CWD, and EqWD (beta=0.5, 1.0, 2.0). Log per-layer r_t, delta_hat_t, lambda_t every 10 steps. Go/no-go: (1) ratio deviation variance > 0.01, (2) no divergence, (3) accuracy within 2% of fixed WD, (4) distinct per-layer behavior across methods.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_codebase"
+      ],
+      "expected_output": "exp/results/pilots/cifar10_vgg16bn_pilot.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "EqWD ratio deviation variance > 0.01 AND accuracy within 2% of fixed WD AND no divergence"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Per-layer ratio r_t trajectories under each WD method",
+          "x": "step",
+          "y": "ratio_r_t",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "EqWD effective WD lambda_t over training",
+          "x": "step",
+          "y": "effective_wd",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_cifar10_resnet",
+      "name": "Pilot: EqWD on CIFAR-10/ResNet-20",
+      "description": "Run 50-epoch pilot on CIFAR-10 with ResNet-20 (0.27M params) to validate EqWD on a smaller architecture. Same methods and diagnostics as VGG pilot. Validates that ratio deviation signal is architecture-independent.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_codebase"
+      ],
+      "expected_output": "exp/results/pilots/cifar10_resnet20_pilot.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "EqWD ratio deviation variance > 0.01 AND accuracy within 2% of fixed WD"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_summary",
+      "name": "Pilot analysis and go/no-go decision",
+      "description": "Analyze pilot results from both architectures. Compute ratio deviation statistics, compare accuracy across methods, generate diagnostic plots. Make go/no-go decision for full experiments. If GO: select best beta value for full experiments. If NO-GO: diagnose failure mode and report.",
+      "type": "analysis",
+      "depends_on": [
+        "pilot_cifar10_vgg",
+        "pilot_cifar10_resnet"
+      ],
+      "expected_output": "exp/results/pilot_summary.md",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": []
+    },
+    {
+      "id": "cifar100_resnet20_full",
+      "name": "Full: CIFAR-100/ResNet-20, all 7 methods, 3 seeds",
+      "description": "Run 200-epoch training on CIFAR-100 with ResNet-20 for all 7 WD methods (No-WD, Fixed, SWD, CWD, CPR, CAWD, EqWD) with seeds 42, 123, 456. SGD+momentum 0.9, cosine LR from 0.1, batch 128. Log per-layer diagnostics every 10 steps. Save checkpoints at epoch 100 and 200. Total: 21 runs. With 4 parallel on 4 GPUs, ~5 waves.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_summary"
+      ],
+      "expected_output": "exp/results/full/cifar100_resnet20/",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 21 runs complete without errors; EqWD mean accuracy >= Fixed WD mean accuracy - 0.5%"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CIFAR-100/ResNet-20 results: 7 methods x 3 seeds (mean +/- std)",
+          "columns": [
+            "Method",
+            "Test Acc (%)",
+            "Gen Gap",
+            "CSI",
+            "C_T"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Training loss curves for all methods on CIFAR-100/ResNet-20",
+          "x": "epoch",
+          "y": "test_accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cifar100_vgg16bn_full",
+      "name": "Full: CIFAR-100/VGG-16-BN, all 7 methods, 3 seeds",
+      "description": "Run 200-epoch training on CIFAR-100 with VGG-16-BN for all 7 WD methods with seeds 42, 123, 456. Same setup as ResNet-20 but with VGG-16-BN (15M params). Total: 21 runs. Critical for multi-architecture coverage in the paper.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_summary"
+      ],
+      "expected_output": "exp/results/full/cifar100_vgg16bn/",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "shared/datasets/cifar100"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 21 runs complete without errors; results consistent with ResNet-20 trends"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CIFAR-100/VGG-16-BN results: 7 methods x 3 seeds (mean +/- std)",
+          "columns": [
+            "Method",
+            "Test Acc (%)",
+            "Gen Gap",
+            "CSI",
+            "C_T"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "alignment_diagnostic",
+      "name": "Alignment informativeness diagnostic (H3)",
+      "description": "Prerequisite diagnostic: test whether delta_hat_t (cosine similarity) contains information beyond (||g_t||, ||w_t||). Run single training run per architecture-dataset pair (ResNet-20/CIFAR-100, VGG-16-BN/CIFAR-100) logging delta_hat_t, ||g_t||, ||w_t|| per layer every 10 steps. Compute k-NN MI estimate I(delta_hat_t; test_acc | ||g_t||, ||w_t||) with 1000 bootstrap samples. If CI includes 0 for >=3/4 settings, alignment-aware WD is theoretically unjustified.",
+      "type": "analysis",
+      "depends_on": [
+        "cifar100_resnet20_full",
+        "cifar100_vgg16bn_full"
+      ],
+      "expected_output": "exp/results/full/alignment_diagnostic.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "AIS heatmap by layer and training phase",
+          "x": "training_phase",
+          "y": "layer",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_beta",
+      "name": "Ablation: EqWD beta sensitivity",
+      "description": "Run EqWD with beta in {0.1, 0.5, 1.0, 2.0, 5.0} on CIFAR-100/ResNet-20, seed 42, 200 epochs. Determines sensitivity of EqWD to the adaptation strength hyperparameter. If performance varies >1% across beta, practical adoption suffers.",
+      "type": "ablation",
+      "depends_on": [
+        "pilot_summary"
+      ],
+      "expected_output": "exp/results/full/ablation_beta.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Beta sensitivity: test accuracy vs. beta value",
+          "x": "beta",
+          "y": "test_accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_ema",
+      "name": "Ablation: EMA decay rate sensitivity",
+      "description": "Run EqWD with EMA alpha in {0.8, 0.9, 0.95, 0.99} on CIFAR-100/ResNet-20, seed 42, 200 epochs. Tests how the equilibrium tracking speed affects performance.",
+      "type": "ablation",
+      "depends_on": [
+        "pilot_summary"
+      ],
+      "expected_output": "exp/results/full/ablation_ema.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 35,
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "EMA decay sensitivity: test accuracy vs. alpha",
+          "x": "ema_alpha",
+          "y": "test_accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_layertype",
+      "name": "Ablation: Layer-type-aware vs. uniform EqWD (H4)",
+      "description": "Run EqWD in two modes on CIFAR-100/VGG-16-BN, 3 seeds: (1) uniform — same EqWD formula for all layers, (2) layer-type-aware — ratio-only for BN-preceded layers, ratio+alignment for non-BN layers. Also compute SNR of delta_hat_t in BN vs. non-BN layers. Tests the contrarian's hypothesis that alignment is uninformative for normalized layers.",
+      "type": "ablation",
+      "depends_on": [
+        "pilot_summary"
+      ],
+      "expected_output": "exp/results/full/ablation_layertype.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "SNR of alignment signal in BN vs. non-BN layers",
+          "x": "layer_type",
+          "y": "snr",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Layer-type-aware vs. uniform EqWD accuracy comparison",
+          "columns": [
+            "Mode",
+            "Test Acc (%)",
+            "Std"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "nobn_ablation",
+      "name": "Ablation: VGG-16 (no BN) vs. VGG-16-BN",
+      "description": "Run all 7 methods on CIFAR-100/VGG-16 (WITHOUT batch normalization) with 3 seeds to test whether the Phi invariance phenomenon depends on BN. Compare accuracy spread across methods for VGG-16 vs. VGG-16-BN. Prior iteration had only 2/7 methods tested — this time we must test ALL 7.",
+      "type": "ablation",
+      "depends_on": [
+        "pilot_summary"
+      ],
+      "expected_output": "exp/results/full/nobn_ablation.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "NoBN ablation: VGG-16 vs. VGG-16-BN across all 7 methods",
+          "columns": [
+            "Method",
+            "VGG-16 Acc",
+            "VGG-16-BN Acc",
+            "Delta"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cifar_analysis",
+      "name": "CIFAR results analysis and visualization",
+      "description": "Aggregate all CIFAR-100 results (ResNet-20, VGG-16-BN, ablations). Compute BEM, CSI, AIS, C_T for all methods. Generate Tables 1, 3, 5 and Figures 2-6, 10. Produce per-layer diagnostic visualizations. Write results summary for paper integration.",
+      "type": "analysis",
+      "depends_on": [
+        "cifar100_resnet20_full",
+        "cifar100_vgg16bn_full",
+        "ablation_beta",
+        "ablation_ema",
+        "ablation_layertype",
+        "nobn_ablation",
+        "alignment_diagnostic"
+      ],
+      "expected_output": "exp/results/full/cifar_analysis_summary.md, exp/results/full/figures/",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "multi_figure",
+          "description": "All CIFAR diagnostic figures (ratio trajectories, WD heatmaps, C_T scatter, beta curve, SNR bars)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "imagenet_sanity",
+      "name": "ImageNet 1-epoch sanity check",
+      "description": "Run a 1-epoch ImageNet/ResNet-50 training with DDP on 2 GPUs to verify: (1) data loading works, (2) DDP initializes correctly, (3) loss decreases within 1 epoch, (4) GPU memory fits batch 256/GPU with mixed precision, (5) diagnostic logging works at scale. This prevents repeating past failures of 'two iterations of blind failure on ImageNet'. If OOM: try batch 128, then 64. Log full error traces.",
+      "type": "setup",
+      "depends_on": [
+        "setup_codebase"
+      ],
+      "expected_output": "exp/results/pilots/imagenet_sanity.json",
+      "candidate_id": "shared",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 1281167,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "1 epoch completes without OOM/crash AND loss decreases AND DDP gradient sync verified"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "imagenet_resnet50_full",
+      "name": "Full: ImageNet/ResNet-50, 6 methods, 3 seeds (PRIMARY)",
+      "description": "Run 90-epoch ImageNet training with ResNet-50 for 6 WD methods (Fixed, SWD, CWD, CPR, CAWD, EqWD) with seeds 42, 123, 456. DDP on 2 GPUs, batch 256/GPU (effective 512), step LR (decay at 30/60/80), mixed precision. Total: 18 runs. Run 4 concurrently (4 runs x 2 GPUs = 8 GPUs). Save checkpoints at epoch 30, 60, 80, 90. Log per-layer diagnostics every 100 steps. THIS IS THE MOST IMPORTANT EXPERIMENT — it provides the primary evidence for the paper.",
+      "type": "experiment",
+      "depends_on": [
+        "imagenet_sanity",
+        "pilot_summary"
+      ],
+      "expected_output": "exp/results/full/imagenet_resnet50/",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 300,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "imagenet1k",
+          "path": "shared/datasets/imagenet"
+        }
+      ],
+      "pilot": {
+        "samples": 1281167,
+        "seed": 42,
+        "timeout": 21600,
+        "pass_criteria": "All 18 runs complete; ResNet-50 Top-1 accuracy for fixed SGDW >= 75.5% (sanity check); EqWD achieves >= 0.2% improvement over fixed WD"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ImageNet/ResNet-50 results: 6 methods x 3 seeds (Top-1, Top-5 mean +/- std)",
+          "columns": [
+            "Method",
+            "Top-1 (%)",
+            "Top-5 (%)",
+            "CSI",
+            "C_T"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "ImageNet training curves for all methods",
+          "x": "epoch",
+          "y": "top1_accuracy",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Per-layer effective WD heatmap on ImageNet (representative run)",
+          "x": "training_step",
+          "y": "layer",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "imagenet_analysis",
+      "name": "ImageNet results analysis and visualization",
+      "description": "Aggregate ImageNet results. Compute Top-1, Top-5, BEM, CSI for all methods. Generate Table 2, Figures 7-8. Compare with CIFAR results for consistency. This analysis directly feeds into the paper's primary evidence section.",
+      "type": "analysis",
+      "depends_on": [
+        "imagenet_resnet50_full"
+      ],
+      "expected_output": "exp/results/full/imagenet_analysis_summary.md, exp/results/full/figures/imagenet_*.png",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Multi-architecture comparison: ResNet-20, VGG-16-BN, ResNet-50",
+          "x": "method",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "control_phase_schedule",
+      "name": "Control: Phase-schedule replay",
+      "description": "Record the average lambda_t trajectory from EqWD (best run) and replay it as a deterministic schedule with fixed WD at each step. If this matches EqWD accuracy, the adaptive mechanism is not needed — a pre-computed schedule suffices. CIFAR-100/ResNet-20, 3 seeds.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar100_resnet20_full"
+      ],
+      "expected_output": "exp/results/full/control_phase_schedule.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "visualizations": []
+    },
+    {
+      "id": "control_gradnorm_only",
+      "name": "Control: Gradient-norm-only ratio replacement",
+      "description": "Replace ratio deviation |r_t - r*|/r* with normalized gradient norm ||g_t||/max(||g_t||) as EqWD's modulation signal. If this matches EqWD accuracy, the weight norm information in the ratio is not incrementally useful. CIFAR-100/ResNet-20, 3 seeds.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar100_resnet20_full"
+      ],
+      "expected_output": "exp/results/full/control_gradnorm.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "visualizations": []
+    },
+    {
+      "id": "control_noise_injection",
+      "name": "Control: Noise injection into alignment signal",
+      "description": "Add Gaussian noise with sigma = std(delta_hat_t) to the alignment signal in CAWD. If noisy-CAWD matches clean-CAWD accuracy, the precise alignment value is not important (only its sign matters, supporting CWD). CIFAR-100/ResNet-20, 3 seeds.",
+      "type": "experiment",
+      "depends_on": [
+        "cifar100_resnet20_full"
+      ],
+      "expected_output": "exp/results/full/control_noise.json",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "visualizations": []
+    },
+    {
+      "id": "final_analysis",
+      "name": "Final comprehensive analysis and paper figures",
+      "description": "Aggregate ALL results (CIFAR + ImageNet + ablations + controls + budget equivalence). Generate all paper tables and figures. Compute final hypothesis verdicts (H1-H7). Write comprehensive results summary for paper writing stage. Visually verify all generated figures.",
+      "type": "analysis",
+      "depends_on": [
+        "cifar_analysis",
+        "imagenet_analysis",
+        "control_phase_schedule",
+        "control_gradnorm_only",
+        "control_noise_injection"
+      ],
+      "expected_output": "exp/results/full/final_analysis.md, exp/results/full/figures/",
+      "candidate_id": "cand_eqwd",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Hypothesis verdict summary (H1-H7: CONFIRMED/REFUTED/INCONCLUSIVE)",
+          "columns": [
+            "Hypothesis",
+            "Verdict",
+            "Key Evidence",
+            "Effect Size"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "total_tasks": 20,
+    "total_estimated_gpu_hours": 120,
+    "total_estimated_wall_clock_hours": 72,
+    "critical_path": [
+      "setup_codebase",
+      "imagenet_sanity",
+      "pilot_summary",
+      "imagenet_resnet50_full",
+      "imagenet_analysis",
+      "final_analysis"
+    ],
+    "gpu_config": {
+      "total_gpus": 8,
+      "gpu_model": "NVIDIA RTX PRO 6000 Blackwell",
+      "vram_per_gpu_gb": 98,
+      "max_concurrent_single_gpu": 4,
+      "max_concurrent_ddp_2gpu": 4
+    },
+    "parallelism_strategy": "CIFAR tasks (1 GPU each) run 4 concurrent on GPUs 0-3; ImageNet tasks (2 GPU DDP each) run 4 concurrent on GPUs 0-7; ablations can fill remaining GPUs during ImageNet runs",
+    "candidate_id": "cand_eqwd",
+    "hypotheses_covered": [
+      "H1",
+      "H2",
+      "H3",
+      "H4",
+      "H5",
+      "H6",
+      "H7"
+    ],
+    "evolution_lessons_addressed": [
+      "ImageNet experiments now mandatory and on critical path (task imagenet_resnet50_full)",
+      "Multi-architecture: VGG-16-BN is a separate full task, not optional",
+      "NoBN ablation covers ALL 7 methods (not just 2)",
+      "ImageNet sanity check prevents blind failure",
+      "Statistical power: N=3 seeds for all core experiments",
+      "Figures vs. text consistency: analysis tasks include visual verification"
+    ]
+  }
+}

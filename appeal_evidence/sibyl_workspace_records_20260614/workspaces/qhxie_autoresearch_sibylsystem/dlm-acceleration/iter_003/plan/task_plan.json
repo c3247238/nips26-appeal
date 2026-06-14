@@ -1,0 +1,611 @@
+{
+  "project": "dlm-acceleration",
+  "candidate_id": "cand_composeaccel",
+  "created": "2026-04-15",
+  "iteration": 3,
+  "pilot_config": {
+    "samples": 200,
+    "seeds": [42],
+    "timeout": 900
+  },
+  "full_config": {
+    "samples": 1319,
+    "seeds": [42, 123, 456],
+    "timeout": 3600
+  },
+  "purpose": "Iteration 3: Full-scale pairwise evidence (recurring critical), Fast-dLLM kernel-level KV cache (fixes M1 no-op), JoT new method axis (first cross-family composition validation), M3 speedup clarification, baseline standardization, IGSD honest reframing",
+  "shared_resources": [
+    {
+      "type": "checkpoint",
+      "name": "LLaDA-8B-Instruct",
+      "path": "shared/checkpoints/llada-8b-instruct"
+    },
+    {
+      "type": "checkpoint",
+      "name": "Dream-7B-Instruct",
+      "path": "shared/checkpoints/dream-7b-instruct"
+    },
+    {
+      "type": "checkpoint",
+      "name": "Qwen2.5-0.5B",
+      "path": "shared/checkpoints/qwen2.5-0.5b"
+    },
+    {
+      "type": "dataset",
+      "name": "GSM8K",
+      "path": "shared/datasets/gsm8k"
+    },
+    {
+      "type": "dataset",
+      "name": "MATH500",
+      "path": "shared/datasets/math500"
+    },
+    {
+      "type": "dataset",
+      "name": "HumanEval",
+      "path": "shared/datasets/humaneval"
+    },
+    {
+      "type": "code",
+      "name": "LLaDA inference",
+      "path": "iter_001/exp/code/LLaDA"
+    },
+    {
+      "type": "code",
+      "name": "Inference wrapper",
+      "path": "iter_001/exp/code/inference_wrapper.py"
+    },
+    {
+      "type": "code",
+      "name": "Eval harness",
+      "path": "iter_001/exp/code/eval_harness.py"
+    },
+    {
+      "type": "code",
+      "name": "IGSD implementation",
+      "path": "iter_001/exp/code/igsd.py"
+    },
+    {
+      "type": "results",
+      "name": "iter_002 full baseline",
+      "path": "iter_002/exp/results/full_baseline/llada_baseline_full.json"
+    },
+    {
+      "type": "results",
+      "name": "iter_002 IGSD ablation",
+      "path": "iter_002/exp/results/ablation/igsd_ablation_refined.json"
+    },
+    {
+      "type": "results",
+      "name": "iter_002 KL profiles",
+      "path": "iter_002/exp/results/ablation/igsd_kl_profiles_raw.json"
+    },
+    {
+      "type": "results",
+      "name": "iter_002 Dream-7B baseline",
+      "path": "iter_002/exp/results/dream7b_baseline/dream7b_baseline_pilot.json"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "baseline_standardization",
+      "name": "Phase 0: Canonical Baseline TPS Standardization",
+      "description": "Establish the single canonical baseline TPS measurement. Run LLaDA-8B-Instruct with 64-step denoising, bf16, greedy, on 200 GSM8K samples (seed=42). Measure generation-only wall-clock time (exclude prompt encoding). Discard first 10 warm-up samples. Record per-sample latency, total TPS, VRAM usage, GPU utilization. ALSO run at batch={4, 8} for batch sensitivity reference. Write canonical reference to exp/results/baseline/canonical_baseline.json. This resolves the 31.0/33.8/58.5 TPS inconsistency from iter_001/002. ALL subsequent speedup calculations must reference this file.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/results/baseline/canonical_baseline.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "TPS measurement consistent across last 150 samples (CV < 10%) AND all 3 batch sizes produce valid measurements"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "fastdllm_integration",
+      "name": "Phase 1: Fast-dLLM Kernel-Level KV Cache Integration",
+      "description": "Clone NVlabs/Fast-dLLM (ICLR 2026). Run with published configs on LLaDA-8B-Instruct. This replaces our broken M1 (EntropyCache without kernel integration, 1.16x no-op from iter_002). Sweep confidence_threshold={0.5, 0.7, 0.85, 0.95}. Evaluate on 200 GSM8K, seed=42. Record actual TPS, accuracy, cache hit rate, VRAM. Compare against canonical baseline from Phase 0. DECISION: if TPS >= 5x at < 5% accuracy drop -> use as new M1. If 2-5x -> use with caveats. If < 2x -> M1 remains documented no-op. FALLBACK: if Fast-dLLM requires block-wise generation incompatible with LLaDA, try (1) adapter pattern, (2) EntropyCache unified benchmark code (arXiv 2603.18489 which already supports LLaDA), (3) report gap.",
+      "type": "setup",
+      "depends_on": ["baseline_standardization"],
+      "expected_output": "exp/results/fastdllm/fastdllm_integration.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Fast-dLLM loads and produces valid outputs on LLaDA-8B AND at least one config achieves TPS > 2x canonical baseline"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Fast-dLLM integration results: config x {TPS, speedup, accuracy, cache_hit_rate}",
+          "columns": ["confidence_threshold", "GSM8K_Acc", "TPS", "Speedup_vs_canonical", "CacheHitRate", "VRAM_GB"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "jot_integration",
+      "name": "Phase 2: JoT (Token-Level Early Stopping) Integration",
+      "description": "Clone Anonym-cybersudo/JoT (arXiv 2602.11133). Run on LLaDA-8B-Instruct. JoT monitors per-token prediction confidence and stops denoising for each token independently once confidence exceeds threshold. This is a genuinely new axis NOT tested in iter_001/002. JoT claims orthogonality to KV caching but this has NEVER been empirically validated. Sweep threshold={0.7, 0.85, 0.9, 0.95}. Evaluate on 200 GSM8K, seed=42. Record TPS, accuracy, per-token step counts (mean, std, distribution), VRAM. FALLBACK: if JoT repo has dependency issues, re-implement core logic (~50 lines: per-position confidence tracking + early commit when confidence > threshold for N consecutive steps).",
+      "type": "setup",
+      "depends_on": ["baseline_standardization"],
+      "expected_output": "exp/results/jot/jot_integration.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "JoT produces valid outputs AND at least one threshold achieves speedup > 2x at AccRet > 90%"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "JoT individual Pareto: threshold x {TPS, speedup, AccRet, mean_steps_per_token}",
+          "columns": ["threshold", "GSM8K_Acc", "AccRet", "TPS", "Speedup", "MeanStepsPerToken"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "JoT per-token step count distribution at different thresholds",
+          "x": "threshold",
+          "y": "mean_steps_per_token",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "fastdllm_pareto_full",
+      "name": "Fast-dLLM Full-Scale Pareto Curve",
+      "description": "Full-scale Pareto curve for Fast-dLLM (new M1). Sweep confidence_threshold={best_from_pilot, 0.7, 0.85, 0.95}. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Use canonical baseline TPS for speedup calculation. Report mean+/-std across seeds. This establishes the proper M1 operating points for all composition experiments.",
+      "type": "experiment",
+      "depends_on": ["fastdllm_integration"],
+      "expected_output": "exp/results/fastdllm/fastdllm_pareto_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 4 thresholds produce valid results AND best config achieves QAS > 2.0"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Fast-dLLM Pareto: speedup vs accuracy retention with error bars from 3 seeds",
+          "x": "speedup_mean",
+          "y": "accuracy_retention_mean",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "jot_pareto_full",
+      "name": "JoT Full-Scale Pareto Curve",
+      "description": "Full-scale Pareto curve for JoT. Sweep threshold={0.7, 0.85, 0.9, 0.95}. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Report per-token step count statistics alongside accuracy and TPS. This establishes JoT's individual contribution before composition tests.",
+      "type": "experiment",
+      "depends_on": ["jot_integration"],
+      "expected_output": "exp/results/jot/jot_pareto_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 4 thresholds produce valid results AND best config achieves QAS > 3.0"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "JoT Pareto: speedup vs accuracy retention with error bars from 3 seeds",
+          "x": "speedup_mean",
+          "y": "accuracy_retention_mean",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "igsd_pareto_full",
+      "name": "IGSD Full-Scale Pareto Curve (Corrected, Reframed)",
+      "description": "Full-scale IGSD Pareto at consistent scale. Reframe as 'simple draft-truncate scheme' per reflection C1. Use tau={0.85, 0.9}, T_draft={32, 48} (4 configs). Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Use canonical baseline TPS. Note: the confidence gate is inert (tau=0.0 = tau=0.9 at T_draft=32 per iter_002 ablation). Include this null result in output metadata. REUSE iter_002 ablation data for T_draft=32/tau=0.9 if seed/sample counts match.",
+      "type": "experiment",
+      "depends_on": ["baseline_standardization"],
+      "expected_output": "exp/results/igsd/igsd_pareto_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 4 configs produce valid results AND per-seed variance < 5pp accuracy"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "IGSD Pareto: tau x T_draft x {speedup, AccRet, QAS} with 3-seed statistics",
+          "columns": ["tau", "T_draft", "GSM8K_Acc_mean", "GSM8K_Acc_std", "Speedup_mean", "AccRet_mean", "QAS_mean"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "m3_pareto_full",
+      "name": "M3 (AR-Guided) Full-Scale Pareto with Speed Clarification",
+      "description": "Full-scale M3 Pareto at consistent scale with NEW speed disambiguation. Sweep gw={0.3, 0.5, 0.7}. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. CRITICAL NEW MEASUREMENT: for each sample, record (a) output token count, (b) per-sample wall-clock latency, (c) per-token latency = wall_clock / output_tokens. This separates per-token speed from output-length efficiency. If M3 generates shorter outputs, report as 'efficiency gain from output-length reduction', not 'speedup'. Recalculate all M3 QAS using per-sample latency ratio (not TPS ratio). Use canonical baseline TPS AND per-sample latency from Phase 0.",
+      "type": "experiment",
+      "depends_on": ["baseline_standardization"],
+      "expected_output": "exp/results/m3/m3_pareto_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 gw values produce valid results AND per-token latency, per-sample latency, and output length all recorded"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "M3 Pareto with speed disambiguation: gw x {TPS_ratio, per_sample_latency_ratio, avg_output_length, AccRet, QAS}",
+          "columns": ["guidance_weight", "GSM8K_Acc", "AccRet", "TPS_ratio", "Latency_ratio", "Avg_output_tokens", "QAS_latency"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_fastdllm_jot",
+      "name": "Pairwise: Fast-dLLM + JoT (HEADLINE -- Predicted Synergy)",
+      "description": "THE HEADLINE EXPERIMENT. Fast-dLLM (per-step cost reduction via KV cache) + JoT (per-token step reduction via early stopping) target genuinely orthogonal computational axes. JoT's arXiv paper (2602.11133) explicitly claims orthogonality to KV caching but provides NO empirical validation. This is the first controlled test. Use best operating points from Phase 3 Pareto curves. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Report Ortho with bootstrap 95% CI. PREDICTION: Ortho > 0.8 (near-multiplicative composition). If confirmed, this is the first validated cross-family synergy in DLM acceleration.",
+      "type": "experiment",
+      "depends_on": ["fastdllm_pareto_full", "jot_pareto_full"],
+      "expected_output": "exp/results/pairwise/fastdllm_jot_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Combined method produces valid outputs AND Ortho value computed without error AND combined TPS > max(individual TPS)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Fast-dLLM + JoT pairwise: per-seed and mean Ortho with bootstrap CI",
+          "columns": ["Seed", "Speedup", "AccRet", "QAS", "Ortho"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_fastdllm_igsd",
+      "name": "Pairwise: Fast-dLLM + IGSD (Full Scale)",
+      "description": "Full-scale Fast-dLLM + IGSD composition. Replaces iter_002's M1+IGSD (where M1 was a 1.16x no-op). With proper kernel-level KV cache from Fast-dLLM, this tests genuine two-axis composition: per-step cost (cache) + step count (truncation). Use best operating points. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Report Ortho with bootstrap 95% CI.",
+      "type": "experiment",
+      "depends_on": ["fastdllm_pareto_full", "igsd_pareto_full"],
+      "expected_output": "exp/results/pairwise/fastdllm_igsd_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Ortho computed without error AND combined speedup > max(individual speedups)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Fast-dLLM + IGSD pairwise: per-seed Ortho with bootstrap CI",
+          "columns": ["Seed", "Speedup", "AccRet", "QAS", "Ortho"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_fastdllm_m3",
+      "name": "Pairwise: Fast-dLLM + M3 (Full Scale -- Resolves Discrepancy)",
+      "description": "Full-scale Fast-dLLM + M3 composition. Iter_002 M1+M3 showed dramatic discrepancy (pilot Ortho=1.34 vs full Ortho=0.30). With proper kernel-level Fast-dLLM, the KV cache actually works, so the interference mechanism may differ. Use best operating points. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Record per-sample latency (not just TPS) to handle M3's output-length confound. Report Ortho using BOTH TPS-based and latency-based speedup.",
+      "type": "experiment",
+      "depends_on": ["fastdllm_pareto_full", "m3_pareto_full"],
+      "expected_output": "exp/results/pairwise/fastdllm_m3_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Ortho computed without error AND both TPS-based and latency-based Ortho reported"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Fast-dLLM + M3 pairwise: per-seed Ortho (TPS-based and latency-based)",
+          "columns": ["Seed", "Speedup_TPS", "Speedup_Latency", "AccRet", "Ortho_TPS", "Ortho_Latency"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_igsd_m3",
+      "name": "Pairwise: IGSD + M3 (Full Scale -- Expected Interference)",
+      "description": "Full-scale IGSD + M3 composition. Iter_002 pilot showed Ortho=0.49 (interference). Both methods modify the denoising trajectory: IGSD truncates steps, M3 changes unmasking order within steps. Full-scale replication validates the interference finding. Use best operating points. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Report Ortho with bootstrap 95% CI.",
+      "type": "experiment",
+      "depends_on": ["igsd_pareto_full", "m3_pareto_full"],
+      "expected_output": "exp/results/pairwise/igsd_m3_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Ortho computed without error AND interference pattern consistent with iter_002 pilot (Ortho < 0.7)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "IGSD + M3 pairwise: per-seed Ortho showing interference",
+          "columns": ["Seed", "Speedup", "AccRet", "QAS", "Ortho"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_igsd_jot",
+      "name": "Pairwise: IGSD + JoT (Full Scale -- Both Reduce Steps)",
+      "description": "IGSD reduces GLOBAL step count (fewer forward passes). JoT reduces PER-TOKEN step count (individual tokens exit early). These both reduce denoising computation but at different granularities. Potential interference: if JoT exits tokens early, the KL signal IGSD uses for step decisions is computed over fewer active tokens, potentially destabilizing the threshold. Use best operating points. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Report Ortho with bootstrap 95% CI.",
+      "type": "experiment",
+      "depends_on": ["igsd_pareto_full", "jot_pareto_full"],
+      "expected_output": "exp/results/pairwise/igsd_jot_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Ortho computed without error"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "IGSD + JoT pairwise: per-seed Ortho",
+          "columns": ["Seed", "Speedup", "AccRet", "QAS", "Ortho"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_m3_jot",
+      "name": "Pairwise: M3 + JoT (Full Scale)",
+      "description": "M3 (AR-guided unmasking) + JoT (per-token early stopping). M3 changes token unmasking ORDER while JoT monitors per-token CONVERGENCE. Potential synergy: M3 provides better initial token predictions, allowing JoT to commit earlier. Potential interference: M3's guidance model adds overhead that JoT's early stopping cannot recoup. Use best operating points. Run on FULL 1319 GSM8K, seeds=[42, 123, 456]. Report Ortho with bootstrap 95% CI.",
+      "type": "experiment",
+      "depends_on": ["m3_pareto_full", "jot_pareto_full"],
+      "expected_output": "exp/results/pairwise/m3_jot_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Ortho computed without error"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "M3 + JoT pairwise: per-seed Ortho",
+          "columns": ["Seed", "Speedup", "AccRet", "QAS", "Ortho"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "threeway_top3_pilot",
+      "name": "Three-Way Composition Pilot (Top 3 Combinations)",
+      "description": "Pilot three-way combinations informed by Phase 4 pairwise results. Test: (1) Fast-dLLM + JoT + IGSD (cache + token-stop + step-truncate), (2) Fast-dLLM + JoT + M3 (cache + token-stop + AR-guide), (3) Fast-dLLM + IGSD + M3 (evolved from iter_002 three-way). For each, sweep 2-3 hyperparameter settings. Run on 200 GSM8K, seed=42. Identify Pareto-optimal configs for full-scale validation.",
+      "type": "experiment",
+      "depends_on": [
+        "pairwise_fastdllm_jot",
+        "pairwise_fastdllm_igsd",
+        "pairwise_fastdllm_m3",
+        "pairwise_igsd_m3",
+        "pairwise_igsd_jot",
+        "pairwise_m3_jot"
+      ],
+      "expected_output": "exp/results/threeway/threeway_pilot.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 2 of 3 combinations produce valid outputs AND Pareto frontier has >= 2 distinct operating points"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Three-way Pareto pilot: speedup vs accuracy retention",
+          "x": "speedup",
+          "y": "accuracy_retention",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "threeway_top3_full",
+      "name": "Three-Way Composition Full Validation (Top 3 Configs)",
+      "description": "Full-scale validation of top 3 three-way configs from pilot. Run on 1319 GSM8K, seeds=[42, 123, 456]. Report per-seed stability, Ortho vs best pairwise, and final acceleration recipes. These become the paper's recommended operating points. If a four-way combination (Fast-dLLM + JoT + IGSD + M3) showed promise in pilot, include it here.",
+      "type": "experiment",
+      "depends_on": ["threeway_top3_pilot"],
+      "expected_output": "exp/results/threeway/threeway_full.json",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 configs complete on 3 seeds AND per-seed QAS std < 25% of mean"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Final acceleration recipes: config x {speedup, AccRet, QAS} with confidence intervals",
+          "columns": ["Recipe", "Config", "Speedup_mean", "Speedup_std", "AccRet_mean", "AccRet_std", "QAS_mean"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Final Pareto frontier with error bars from 3 seeds",
+          "x": "speedup_mean",
+          "y": "accuracy_retention_mean",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "kv_drift_diagnostic",
+      "name": "KV Drift Diagnostic (Interference Mechanism)",
+      "description": "Measure the mechanistic cause of interference. For 100 GSM8K samples (seed=42), at EACH denoising step record: (1) Cosine similarity of KV states between step t and step t-1 (KV drift rate), (2) KV drift under vanilla, Fast-dLLM, M3-guided, JoT-pruned, and Fast-dLLM+JoT combined generation. HYPOTHESIS: M3 guidance changes unmasking order -> different KV evolution -> amplified drift -> cache staleness. JoT stops tokens early but does NOT inject new information, so drift amplification should be lower. If confirmed, this explains WHY Fast-dLLM+JoT synergizes while Fast-dLLM+M3 interferes.",
+      "type": "analysis",
+      "depends_on": ["fastdllm_pareto_full", "jot_pareto_full", "m3_pareto_full"],
+      "expected_output": "exp/results/diagnostics/kv_drift_diagnostic.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "KV drift trajectories recorded for >= 80 samples AND drift rate under M3 > drift rate under JoT (directional hypothesis)"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "KV drift rate across denoising steps under different methods",
+          "x": "step",
+          "y": "kv_cosine_similarity",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Mean KV drift amplification: M3 vs JoT vs combined",
+          "x": "method",
+          "y": "mean_drift_amplification",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "dream7b_validation",
+      "name": "Dream-7B Cross-Model Validation (Top 3 Configs)",
+      "description": "Validate top 3 compositions from Phase 5 on Dream-7B-Instruct. Run baseline + top 3 configs on 200 GSM8K, seed=42. Compare Ortho patterns across models. CAVEAT: Dream-7B baseline ~36% GSM8K; all AccRet values inflated. Report in SEPARATE table, do NOT mix with LLaDA primary results. If step truncation improves Dream-7B accuracy (as in iter_002), discuss as evidence that late-step refinement is counterproductive on Dream-7B (not as 'transferable composition pattern'). Use honest framing per reflection M7.",
+      "type": "experiment",
+      "depends_on": ["threeway_top3_full"],
+      "expected_output": "exp/results/dream7b/dream7b_validation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Dream-7B baseline and at least 2 of 3 compositions complete without error"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Cross-model comparison: LLaDA vs Dream for top 3 configs (separate table)",
+          "columns": ["Config", "LLaDA_Ortho", "Dream_Ortho", "Pattern_Match"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ar_baseline_comparison",
+      "name": "AR Baseline Honest Comparison (Qwen2.5-7B)",
+      "description": "Honest AR comparison. Reuse iter_002 setup: Qwen2.5-7B-Instruct with HuggingFace Transformers. Batch={1, 8}. 200 GSM8K, seed=42. If vLLM installable in <15 min, add vLLM comparison. Report TPS, accuracy, QAS. Include caveat: 'HF-based comparison is conservative lower bound on AR advantage.' This establishes the honest context: DLM composed acceleration still cannot match properly served AR models.",
+      "type": "baseline",
+      "depends_on": ["baseline_standardization"],
+      "expected_output": "exp/results/ar_comparison/ar_baseline.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "AR inference completes AND TPS measurements recorded for both batch sizes"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "DLM vs AR honest comparison at batch=1 and batch=8",
+          "columns": ["System", "BatchSize", "GSM8K_Acc", "TPS", "Speedup_vs_LLaDA_canonical", "QAS"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "degenerate_output_analysis",
+      "name": "Degenerate Output Analysis",
+      "description": "Quantify output quality beyond pass/fail for all methods with AccRet < 80%. For IGSD and low-AccRet compositions, analyze existing outputs: (1) Count samples with repetition loops (>3 consecutive identical tokens), (2) Count with premature truncation (<50 tokens), (3) Count with whitespace flooding (>20% whitespace), (4) Correlate accept_rate with output quality categories, (5) Select 3 qualitative examples for paper. This is CPU-only analysis of existing experiment outputs.",
+      "type": "analysis",
+      "depends_on": ["igsd_pareto_full", "pairwise_fastdllm_igsd"],
+      "expected_output": "exp/results/analysis/degenerate_output_analysis.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "N/A",
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Repetition, truncation, and whitespace rates computed for >= 2 method configurations"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Degenerate output rates by method: repetition, truncation, whitespace flooding",
+          "x": "method",
+          "y": ["repetition_rate", "truncation_rate", "whitespace_rate"],
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

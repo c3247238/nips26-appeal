@@ -1,0 +1,99 @@
+{
+  "summary": "ZERO statistically significant results after proper multiple comparison correction (12 tests, Bonferroni alpha=0.00417, BH-FDR q<0.05). The sole uncorrected significant result (H1b L8: p=0.028) is a post-hoc cherry-pick from the pre-registered H1. Primary hypothesis H6 is decisively falsified (precision@20=0.0, p=1.0). The paper's title and abstract promise a predictive graph tool that predicts nothing. H9 co-occurrence measurement is a definitional tautology. OrtSAE ablation compares unmatched L0 (920 vs 550). Probe quality confound in CMI-absorption analysis (rho=-0.67 with probe F1). MCC~0.21 at chance level across all variants including Random control. The LCA-theoretical framework is the only valid contribution, but it is obscured by failed predictive claims.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Multiple comparisons problem: ZERO significant results after Bonferroni or BH-FDR correction. The paper claims H1b at layer 8 (Pearson p=0.028, Spearman p=0.009) as evidence of a real effect, but these are post-hoc cherry-picks from H1 (the pre-registered primary hypothesis). After Bonferroni correction for 12 tests, the lowest corrected p is 0.107 (BH-FDR). The paper incorrectly presents p=0.028 as evidence of statistical significance.",
+      "suggestion": "Honestly report zero significant results after correction. Revise paper framing to acknowledge this is a null-result study. Every p-value citation must include MCP context: 'p=0.028 uncorrected; Bonferroni-corrected p=0.334; BH-FDR q=0.107.'"
+    },
+    {
+      "category": "writing",
+      "severity": "critical",
+      "description": "Title-abstract-contributions mismatch: title 'Competitive Suppression in Sparse Autoencoders' and Section 1.4 contribution 'First local inhibition graph for SAE diagnostics' create expectation of a predictive tool. The abstract and introduction explicitly claim the graph 'predicts absorption pairs.' Results show precision@20=0.0 (H6 falsified). Section 6.3 claims 'the graph identifies latents with high total incoming inhibition' despite H8 finding r=+0.12, p=0.55. This is a direct contradiction.",
+      "suggestion": "If the contribution is the LCA-theoretical framework, retitle to emphasize theory, not graph predictions. Remove 'First local inhibition graph for SAE diagnostics' from contributions. Remove all claims that the graph identifies at-risk features."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H9 co-occurrence measurement is a definitional tautology: p_11 + absorption_rate = 1.0 by construction. The reported r=-1.0 is a mathematical identity, not an empirical finding. This was known from iteration 1 yet the paper references H9 in Section 4.8 integration table.",
+      "suggestion": "Remove H9 from the paper entirely. Remove from all tables, integration discussions, and hypothesis summaries."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "OrtSAE ablation comparison is at unmatched L0 dimensions: OrtSAE without penalty (L0~920) vs OrtSAE with penalty (L0~550). The paper criticizes others for unmatched comparisons but makes the identical mistake. The conclusion 'orthogonality penalty does not appear to reduce absorption' is invalid because the confound itself explains any difference.",
+      "suggestion": "Match L0 values for a valid comparison, or explicitly acknowledge this confound invalidates the ablation conclusion. Do not claim the orthogonality penalty comparison is informative."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Probe quality confound in CMI-absorption analysis: absorption rate correlates with probe F1 at rho=-0.67 (p<0.001). CMI-absorption analysis uses rates from L0=82 where mean probe F1=0.817. Low-CMI letters may be inherently harder to probe, causing both low estimated CMI and artificially high absorption rates. Paper never computes partial correlation controlling for probe F1.",
+      "suggestion": "Compute partial correlation controlling for probe F1. Alternatively, restrict CMI analysis to quality-gated letters (F1>0.85) where probe quality is validated."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "CMI-absorption correlation is dimensionally unstable: rho=-0.383 (p=0.059 uncorrected) at d'=10 reverses sign at d'>=20 (d'=20: rho=+0.048, d'=30: rho=+0.299, d'=50: rho=+0.197). Bonferroni-corrected p=0.236 at d'=10. Sign reversal across dimensions is qualitative failure, not sensitivity issue. d'=10 was not pre-registered as primary dimension.",
+      "suggestion": "Report results across all dimensions. Do not cherry-pick d'=10 as primary. Acknowledge dimension instability as a confound."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Post-hoc power analysis (Section 3.6 claims 'approximately 20% power to detect a medium effect size') is methodologically questionable. Power should be computed before the experiment, not after observing null results to explain them away.",
+      "suggestion": "Remove post-hoc power analysis entirely. If power is low, acknowledge this as a design limitation: 'n=26 features provides insufficient power to detect medium effects; null results are inconclusive rather than evidence of no effect.'"
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Feature U (24.2% absorption, 100% steering) is n=1 case evidence overgeneralized to conclude 'absorption is benign.' Other high-absorption features show much lower steering success: H (19.0%) at 0.55, S (16.0%) at 0.65. One feature's behavior does not establish a general principle.",
+      "suggestion": "Remove the generalization entirely. Report Feature U's result as a single case observation. Do not use it as evidence for general absorption benignity."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "MCC~0.21 across ALL variants including Random control (MCC=0.197) suggests Hungarian matching yields chance-level recovery regardless of training. The paper acknowledges MCC failure but does not address the implication: absorption reduction may reflect sparsity-induced suppression rather than genuine hierarchical feature recovery.",
+      "suggestion": "Investigate whether Hungarian matching is valid before claiming any comparisons. If MCC is at chance level for Random SAEs, the entire matching pipeline is suspect and all matching-based conclusions are unreliable."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "H8 claim (r=+0.12, p=0.55 for total incoming inhibition vs absorption rate) has no verifiable data source. The h6_inhibition_graph.json does not contain this per-feature statistic. The number appears to be computed but the computation is not documented.",
+      "suggestion": "Provide reproducible computation or remove specific numbers. Document how total incoming inhibition was computed per feature."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "Figure filename mismatch: text references 'Figure 3' for precision-recall but the actual file is fig7_precision_recall.pdf. This creates confusion for readers trying to match text to figures.",
+      "suggestion": "Use consistent figure numbering that matches filenames, or include figure file paths in the text."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The LCA-SAE structural correspondence (G=W_dec^T W_dec) is a mathematical identity for tied-weight SAEs. The paper admits modern SAEs use untied weights, making the correspondence 'approximate.' Given the core theoretical contribution is an identity that applies exactly only to architectures not used in practice, the novelty claim is weakened.",
+      "suggestion": "Acknowledge that the exact correspondence holds only for tied-weight SAEs. Quantify the approximation error for untied-weight SAEs if possible."
+    }
+  ],
+  "metric_gaming_risks": [
+    "Delta-corrected steering isolates absorption-specific effects but the random baseline may not match the specific absorption phenomenon being corrected for",
+    "Precision=1.0 universally could indicate the probing task is too easy rather than absorption not affecting selectivity",
+    "The single uncorrected significant result (H1b p=0.028) appears only with delta-correction and only at layer 8 - this pattern suggests possible p-hacking across conditions (6 steering strengths x 2 layers)",
+    "H6 precision@20=0.0 is reported as 'informative' but provides no actionable predictive value"
+  ],
+  "novelty_risks": [
+    "The LCA-SAE structural correspondence (G=W_dec^T W_dec) is a mathematical identity for tied-weight SAEs - this is not novel, it is a restatement of Rozell et al. (2008) applied to SAEs",
+    "The 'local inhibition graph' approach uses standard top-k neighbor construction - similar approaches appear in Bricken et al. and other SAE literature",
+    "Competitive suppression as an explanation for absorption was already hypothesized in Chanin et al. - this paper provides theoretical grounding but no new empirical validation thatcompetitive suppression causes absorption",
+    "The untied-weight approximation weakens the core theoretical claim - for modern SAEs with untied weights, the correspondence is approximate, not exact"
+  ],
+  "reproducibility_gaps": [
+    "n=26 features provides insufficient power for correlation analysis - detectable effect size is r>0.5 only",
+    "Single model (GPT-2 Small 124M) limits generalization to larger models",
+    "Single SAE variant (res-jb, 24K latents) limits generalization to other architectures (JumpReLU, Gated, TopK)",
+    "First-letter features are a shallow hierarchy - semantic hierarchies (animal,dog,poodle) may exhibit different absorption dynamics",
+    "Homeostatic rebalancing (H10) was deferred - the proposed repair cannot be evaluated",
+    "Random SAE baseline comparison used unmatched L0 values (unmatched comparison)",
+    "MCC pipeline is at chance level for Random SAEs - the matching procedure itself may be invalid",
+    "Probe quality confound not controlled in CMI-absorption analysis"
+  ]
+}

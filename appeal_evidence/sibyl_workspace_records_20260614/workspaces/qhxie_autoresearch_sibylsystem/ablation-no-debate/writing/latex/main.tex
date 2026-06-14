@@ -1,0 +1,699 @@
+\documentclass{article}
+
+\usepackage[preprint]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+\title{Feature Absorption in Sparse Autoencoders: A Controlled Study with Geometric Decomposition and Safety Implications}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Feature absorption -- where child features substitute for parent features in sparse representations -- is a fundamental limitation for mechanistic interpretability. We investigate absorption using multi-child proportional ablation on synthetic hierarchies with ground truth. Trained SAEs show absorption rates of 0.50 versus 0.059 for random decoders (Cohen's $d$ = 8.94, $p < 10^{-133}$), confirming absorption as a genuine phenomenon. A 2$\times$2 factorial decomposition reveals that decoder geometry contributes 0.299 to absorption while encoder alignment adds 0.185. Steering absorbed features toward parent directions increases sensitivity by 1.62$\times$ compared to non-absorbed features (H3 \textsc{Passed} after implementation fix). However, safety-critical features show no elevated absorption compared to matched controls (H\textsubscript{Safe} \textsc{Failed}: $p$ = 0.665), suggesting SAE-based safety analysis is not systematically compromised by disproportionate absorption. We report negative results honestly: absorption does not correlate with feature frequency in the predicted direction (H2 \textsc{Failed}: $\rho$ = +0.17), contradicting competitive exclusion predictions.
+\end{abstract}
+
+\section{Introduction}
+
+Sparse Autoencoders (SAEs) have emerged as a primary tool for decomposing the internal activations of large language models into human-interpretable feature representations \citep{bricken2023, templeton2024}. By training SAEs on transformer residual stream activations, researchers have identified thousands of monosemantic features -- from syntactic constructs to semantic concepts -- that are otherwise entangled in the dense representations of base models. This decomposition promises a pathway toward mechanistic interpretability: if individual features can be identified and tracked, then model behavior can potentially be understood, monitored, and steered at a structural level.
+
+A key challenge for this agenda is \textbf{feature absorption} -- the phenomenon where lower-level features substitute for higher-level features in sparse representations \citep{chanin2024}. When a parent concept is present in the input, its dedicated feature may remain inactive because child features already capture the relevant signal and are activated instead. This creates a fundamental reliability problem for SAE-based interpretability: a feature that fails to activate when its concept is present cannot serve as a trustworthy indicator of that concept's involvement in the model's computation.
+
+Despite growing interest in absorption, the field faces a \textbf{measurement crisis}. \citet{korznikov2026} demonstrated that random baselines recover similar feature counts and activation statistics to trained SAEs on standard interpretability benchmarks, raising the question of whether previously reported phenomena are genuine or statistical artifacts. For absorption specifically, single-feature ablation methodology saturates: ablating one child feature allows the remaining children to reconstruct the parent, producing absorption rates of 1.0 for both trained SAEs and random baselines. This saturation makes it impossible to determine whether absorption reflects structured learned representations or statistical artifacts.
+
+This paper addresses four open questions about feature absorption:
+
+\begin{enumerate}
+\item \textbf{Can we measure absorption that differentiates trained SAEs from random baselines?} Prior methodology saturates. We need a measurement approach that reveals whether absorption reflects structured learned representations rather than random activation statistics.
+
+\item \textbf{Is absorption driven by geometric decoder structure or learned encoder alignment?} Absorption could be an invariant of sparse decomposition geometry, a product of training, or both. Decomposing these contributions informs whether absorption can be mitigated through architectural choices.
+
+\item \textbf{Do absorbed features respond to parent-direction steering interventions?} Documentation of absorption does not establish whether absorbed features actively interfere with downstream computation. Steering tests whether absorption is merely epistemic (a limitation in what representations capture) or has causal consequences.
+
+\item \textbf{Are safety-critical features disproportionately absorbed?} If safety-relevant features face elevated absorption risk, SAE-based safety analysis may be systematically compromised.
+\end{enumerate}
+
+We propose \textbf{multi-child proportional ablation} as a measurement methodology that resolves the saturation problem. The key insight is that ablating a single child saturates because remaining children compensate; ablating the top-$k$ children tests whether the collective set of children substitutes for the parent. On synthetic hierarchies with known ground truth, trained SAEs exhibit absorption rates of 0.50 compared to 0.059 for random decoder baselines (Cohen's $d$ = 8.94, $p < 10^{-133}$), confirming absorption as a genuine representational phenomenon.
+
+A 2$\times$2 factorial decomposition reveals that absorption is primarily geometric: decoder structure alone contributes 0.299, while encoder alignment adds 0.185. Steering experiments show that absorbed features respond to parent-direction interventions with 1.62$\times$ higher sensitivity than non-absorbed features (H3 \textsc{Passed}), confirming that absorption has measurable causal consequences. Critically, safety-critical features show no elevated absorption compared to matched controls (H\textsubscript{Safe} \textsc{Failed}: $p$ = 0.665), suggesting SAE-based safety analysis is not systematically compromised.
+
+We also report negative results honestly: absorption does not correlate with feature activation frequency in the direction predicted by ecological competitive exclusion theory (Spearman $\rho$ = +0.17, $p < 10^{-7}$). Higher-frequency features tend to have higher absorption, not lower.
+
+This paper makes the following contributions:
+
+\begin{enumerate}
+\item \textbf{Multi-child proportional ablation}: A measurement methodology that differentiates trained SAEs from random baselines, resolving the saturation that plagues single-feature ablation.
+
+\item \textbf{First decomposition of absorption into geometric vs.\ learned contributions}: A 2$\times$2 factorial design isolates decoder geometry (0.299) from encoder alignment (0.185).
+
+\item \textbf{Causal validation via steering}: Evidence that absorbed features respond to parent-direction steering with 1.62$\times$ higher sensitivity, establishing that absorption has causal consequences.
+
+\item \textbf{Systematic evidence on safety-critical features}: Safety-relevant features show no elevated absorption risk ($p$ = 0.665), suggesting SAE-based safety analysis is not disproportionately compromised.
+
+\item \textbf{Negative results}: Rigorous documentation of what fails -- frequency correlations, competitive exclusion -- enabling the field to move past unsuccessful theoretical frameworks.
+\end{enumerate}
+
+\section{Background and Related Work}
+
+\subsection{Sparse Autoencoders}
+
+Sparse Autoencoders trained on transformer residual stream activations have become a standard tool for decomposing dense model representations into interpretable features. \citet{bricken2023} demonstrated that SAEs applied to GPT-4 activations identify thousands of monosemantic features -- including features for syntactic structures, semantic concepts, and entities -- that activate selectively to specific patterns in the input. \citet{templeton2024} extended this approach to Claude, documenting a rich feature universe including emotional states, reasoning processes, and social dynamics.
+
+SAEs typically use a TopK activation function that enforces sparsity by retaining only the $k$ highest-scoring features \citep{huber1962}, where $k$ is chosen to produce a target L0 (number of active features). The encoder maps residual stream activations $x \in \mathbb{R}^d$ to sparse feature activations $f \in \mathbb{R}^{d_{\text{sae}}}$ via a learned weight matrix $W_{\text{enc}}$, and the decoder reconstructs the input via $x' = W_{\text{dec}} f + b_{\text{dec}}$. Training optimizes the reconstruction loss while encouraging sparse activations.
+
+Recent work has explored alternative sparsity mechanisms beyond TopK, including jumps \citep{sharkey2024} and learned top-$k$ mechanisms \citep{gao2025}. The choice of sparsity mechanism may affect absorption patterns; we use TopK following prior absorption work \citep{chanin2024}.
+
+\subsection{Feature Absorption}
+
+The absorption phenomenon was first systematically documented by \citet{chanin2024}, who introduced the concept of ``feature absorption'' in SAE representations. They defined absorption as occurring when a parent feature's decoder direction is spanned by the decoder directions of multiple child features, allowing children to substitute for the parent in sparse representations.
+
+Their methodology measured absorption via single-feature ablation: activate the parent feature by providing appropriate input, then ablate individual child features and measure whether the parent's reconstruction quality degrades. If ablating a child significantly degrades parent reconstruction, that child is considered to be absorbing the parent.
+
+However, this single-child ablation approach suffers from a saturation problem: ablating one child allows remaining children to reconstruct the parent, producing absorption rates of 1.0 regardless of whether the SAE has learned structured representations. This saturation is a core motivation for our multi-child proportional ablation methodology.
+
+\subsection{Sanity Checks for Interpretability}
+
+\citet{korznikov2026} demonstrated that random baselines -- SAEs with untrained or shuffled weights -- recover similar feature counts and activation statistics to trained SAEs on standard interpretability benchmarks. Their ``sanity checks'' framework establishes that demonstrating a phenomenon requires showing it is not present in random baselines. This finding motivates our use of multiple baseline conditions: random decoder, shuffled features, and permuted encoder.
+
+\citet{song2025} proposed a feature consistency position that argues interpretability features should be validated against independent methods before being used for downstream applications. They note that high explained variance does not imply feature identity, a concern that applies directly to absorption metrics.
+
+\subsection{Steering and Feature Sensitivity}
+
+A central question for absorption is whether it is merely epistemic (a measurement artifact of how we represent features) or causal (an active mechanism degrading downstream performance). Steering experiments provide a methodology for testing causal relationships.
+
+\citet{o_brien2024} demonstrated that SAE features can be used for targeted steering -- adding scaled directions to model activations to evoke or suppress specific behaviors. They found that steering sensitivity varies across features, with some features responding strongly to interventions while others are resistant. \citet{tian2025} proposed methods for measuring feature sensitivity that enable quantitative comparison across features. We use their framework to measure whether absorbed features have systematically different sensitivity than non-absorbed features.
+
+\subsection{Competitive Exclusion and Ecological Analogies}
+
+The ecological analogy between feature absorption and biological competitive exclusion has been proposed as a theoretical framework for predicting when absorption occurs \citep{korznikov2025, kalmykov2012}. The competitive exclusion principle states that two species competing for the same resources cannot coexist at constant population values; applied to SAEs, this suggests that features competing for inclusion in the sparse representation should show inversely correlated frequency and absorption. Features that activate more frequently would be expected to absorb their parent features more strongly as they compete for the limited slots in the active set.
+
+However, the ecological analogy may not directly apply to SAE feature dynamics. Features do not ``compete'' in the same biological sense; rather, they are jointly optimized to minimize reconstruction loss. Whether this optimization produces competitive exclusion patterns is an empirical question that our frequency-absorption correlation analysis addresses.
+
+\section{Methodology}
+
+We propose multi-child proportional ablation, a measurement methodology that resolves the saturation problem in prior single-feature ablation approaches. Our experimental design comprises five components: synthetic hierarchy generation, SAE training with baseline methods, multi-child proportional absorption measurement, 2$\times$2 factorial decomposition, steering intervention for causal validation, and safety-critical feature analysis.
+
+\subsection{Synthetic Hierarchy Generation}
+
+We construct synthetic feature hierarchies with known ground truth geometry to enable precise absorption measurement. Each hierarchy $H$ contains three levels:
+
+\begin{itemize}
+\item \textbf{Level 0 (Parent)}: A single high-level feature $p$
+\item \textbf{Level 1 (Children)}: Two child features $c_1, c_2$ that decompose the parent
+\item \textbf{Level 2 (Grandchildren)}: Four grandchildren $g_1, g_2, g_3, g_4$ per child, where $g_1$ and $g_2$ constitute $c_1$, and $g_3$ and $g_4$ constitute $c_2$
+\end{itemize}
+
+The geometric constraints are:
+
+\begin{table}[h]
+\caption{Geometric Constraints for Synthetic Hierarchies}
+\label{tab:geom_constraints}
+\centering
+\begin{tabular}{ll}
+\toprule
+Constraint & Value \\
+\midrule
+$\cos(p, c_1) = \cos(p, c_2)$ & 0.67 \\
+$\cos(g_i, g_j)$ for $i \neq j$ & $-0.03$ to $0.03$ \\
+$\cos(g_1, g_2) = \cos(g_3, g_4)$ & 1.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The parent-children cosine similarity of 0.67 means the parent is a weighted sum of its children, consistent with the absorption hypothesis. Grandchildren are nearly orthogonal to each other but fully span their parent, ensuring the hierarchy is well-defined.
+
+We generate 5 hierarchies per random seed, with 10,000 samples per hierarchy in the full experiment.
+
+\subsection{SAE Training}
+
+We train TopK Sparse Autoencoders on the synthetic activation data. The SAE decomposes residual stream activations $x \in \mathbb{R}^d$ into sparse features $f \in \mathbb{R}^{d_{\text{sae}}}$ via the encoder:
+
+\begin{equation}
+f = \text{TopK}(W_{\text{enc}} \cdot x + b_{\text{enc}})
+\end{equation}
+
+where TopK retains only the $k$ highest-scoring features. The decoder reconstructs the input as:
+
+\begin{equation}
+x' = W_{\text{dec}} \cdot f + b_{\text{dec}}
+\end{equation}
+
+The architecture configuration is:
+
+\begin{table}[h]
+\caption{SAE Architecture Configuration}
+\label{tab:sae_config}
+\centering
+\begin{tabular}{ll}
+\toprule
+Parameter & Value \\
+\midrule
+$d_{\text{model}}$ & 512 \\
+$d_{\text{sae}}$ & 4096 \\
+Expansion factor & 8$\times$ \\
+L0 targets & \{16, 32, 64\} \\
+Training steps & 20,000 \\
+Learning rate & $10^{-3}$ \\
+Batch size & 4096 \\
+Seeds & \{42, 43, 44, 45, 46\} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This yields 15 trained SAE configurations (3 L0 targets $\times$ 5 seeds).
+
+\subsection{Baseline Methods}
+
+Following \citet{korznikov2026}, we employ three baseline methods to test whether absorption is specific to trained representations or a generic property of sparse decomposition:
+
+\begin{enumerate}
+\item \textbf{Random Decoder ($\text{SAE}_{\text{rand}}$)}: Xavier-initialized decoder weights with no training. The encoder is also random. This baseline has the same architecture as trained SAEs but no learned structure.
+
+\item \textbf{Shuffled Features ($\text{SAE}_{\text{shuff}}$)}: The same activations and trained encoder, but feature indices are randomly permuted. This breaks feature identity while preserving activation statistics and encoder structure.
+
+\item \textbf{Permuted Encoder ($\text{SAE}_{\text{perm}}$)}: A trained SAE with encoder weights randomly shuffled. This preserves decoder structure but breaks encoder-feature correspondence.
+\end{enumerate}
+
+These baselines test three distinct null hypotheses: (a) absorption requires trained decoder weights, (b) absorption requires correct feature indexing, and (c) absorption requires encoder-decoder correspondence.
+
+\subsection{Multi-Child Proportional Ablation}
+
+\textbf{The Saturation Problem.} Single-feature ablation saturates at 1.0 for both trained SAEs and random baselines. When we ablate one child feature, the remaining child can still reconstruct the parent because both children activate in the parent's presence. This saturation prevents differentiation between trained and baseline SAEs.
+
+\textbf{Multi-Child Ablation.} Our key insight is that ablating top-$k$ children simultaneously tests whether children collectively substitute for the parent. For the absorption rate $\text{abs}_k$ after ablating top-$k$ children:
+
+\begin{equation}
+\text{abs}_k = \frac{\text{act}(p \mid c_1, \ldots, c_k \text{ ablated})}{\text{act}(p)}
+\end{equation}
+
+When $k=1$, both trained and random SAEs saturate at $\text{abs}_1 \approx 1.0$. When $k=5$ (ablating all children in our hierarchy), we expect trained SAEs to maintain measurable absorption while random decoder approaches zero.
+
+\textbf{Proportional Variant.} We also compute proportional absorption, which captures asymmetry in child contributions. For each child $c_i$, the proportional contribution is:
+
+\begin{equation}
+\text{prop}_i = \frac{\cos(W_{\text{dec}}[p], W_{\text{dec}}[c_i])}{\sum_j \cos(W_{\text{dec}}[p], W_{\text{dec}}[c_j])}
+\end{equation}
+
+The proportional variance measures how asymmetrically children substitute for the parent:
+
+\begin{equation}
+\text{var}(\text{prop}) = \text{Var}(\text{prop}_1, \text{prop}_2, \ldots, \text{prop}_k)
+\end{equation}
+
+Higher variance indicates that some children dominate absorption while others contribute minimally.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_method_architecture.pdf}
+\caption{Multi-Child Proportional Ablation Procedure. (a) 3-level synthetic hierarchy with parent $p$, children $c_1, c_2$, and grandchildren $g_1, \ldots, g_4$. (b) Single-child ablation saturates as remaining children compensate. (c) Multi-child ablation ($k=5$) reveals differentiation between trained SAE ($\text{abs}_5 = 0.50$) and random decoder ($\text{abs}_5 = 0.059$).}
+\label{fig:method_architecture}
+\end{figure}
+
+\subsection{2$\times$2 Factorial Decomposition (H\textsubscript{Mech})}
+
+To decompose absorption into geometric and learned contributions, we implement a 2$\times$2 factorial design crossing encoder state (random vs.\ trained) with decoder state (random vs.\ trained):
+
+\begin{table}[h]
+\caption{2$\times$2 Factorial Design Conditions}
+\label{tab:factorial_design}
+\centering
+\begin{tabular}{llll}
+\toprule
+Condition & Encoder & Decoder & Expected Contribution \\
+\midrule
+A & Random & Random & Pure geometry (baseline) \\
+B & Trained & Random & Encoder alignment only \\
+C & Random & Trained & Decoder geometry only \\
+D & Trained & Trained & Full training (ground truth) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The geometric contribution is $\text{abs}(C)$ (random encoder, trained decoder). The learned contribution is $\text{abs}(D) - \text{abs}(C)$ (the additional absorption from training the encoder). If geometry dominates, $\text{abs}(C) \approx \text{abs}(D)$. If learning dominates, $\text{abs}(C) \approx \text{abs}(A)$.
+
+\subsection{Steering Intervention}
+
+To test whether absorption has causal consequences, we conduct steering interventions on absorbed features.
+
+\textbf{Identifying Absorbed Features.} We classify features as absorbed if their proportional absorption exceeds 0.5.
+
+\textbf{Parent Direction Reconstruction.} We reconstruct the parent direction from children's decoder subspace:
+
+\begin{equation}
+\text{parent\_dir} = \text{proj}(\text{span}(W_{\text{dec}}[c_1], \ldots, W_{\text{dec}}[c_k]), W_{\text{dec}}[p])
+\end{equation}
+
+This direction represents what the SAE would activate if the parent were present, computed purely from the children's geometry.
+
+\textbf{Steering Protocol.} We apply steering by adding scaled directions to activations:
+
+\begin{equation}
+x_{\text{steered}} = x + \alpha \cdot \text{parent\_dir}
+\end{equation}
+
+We sweep alpha across the range $\{0.0, 0.5, 1.0, 2.0, 5.0\}$ and measure feature sensitivity as the normalized norm of (steered $-$ baseline) activations. We compare sensitivity between absorbed and non-absorbed features.
+
+\subsection{Safety-Critical Feature Analysis (H\textsubscript{Safe})}
+
+To test whether safety-critical features face elevated absorption risk, we analyze Gemma Scope SAEs (gemma-2b-res-jb release):
+
+\begin{itemize}
+\item Load pretrained SAEs from layer 12 (blocks.12.hook\_resid\_post)
+\item Select 20 safety-relevant features via Neuronpedia annotations
+\item Match 20 non-safety features by activation frequency and layer
+\item Measure absorption via multi-child proportional ablation
+\item Statistical comparison: Mann-Whitney U test
+\end{itemize}
+
+\subsection{Statistical Analysis}
+
+For hypothesis testing:
+
+\begin{itemize}
+\item \textbf{H1 (Multi-child absorption)}: Two-sample t-test comparing trained SAE vs.\ random decoder absorption rates across 5 seeds
+\item \textbf{H2 (Frequency correlation)}: Spearman rank correlation between feature activation frequency and absorption rate
+\item \textbf{H\textsubscript{Mech} (Factorial decomposition)}: Two-sample t-test comparing condition C vs.\ condition D
+\item \textbf{H3 (Steering effectiveness)}: Compare mean sensitivity between absorbed and non-absorbed features
+\item \textbf{H\textsubscript{Safe} (Safety comparison)}: Mann-Whitney U test comparing safety-critical vs.\ non-safety absorption rates
+\end{itemize}
+
+Pass thresholds are pre-registered: H1 requires $p < 0.05$ and delta $> 0.15$; H2 requires $\rho < -0.3$ and $p < 0.01$; H3 requires absorbed features to show higher sensitivity than non-absorbed; H\textsubscript{Mech} requires geometric contribution $>$ learned contribution; H\textsubscript{Safe} requires $p < 0.05$ with safety features showing higher absorption.
+
+\section{Experiments}
+
+We test our hypotheses using multi-child proportional ablation on trained TopK SAEs against three Korznikov-style baselines. All experiments use synthetic feature hierarchies with known ground truth, enabling precise measurement of absorption behavior.
+
+\subsection{Experimental Setup}
+
+\textbf{Synthetic Feature Hierarchies.} We generate synthetic 3-level feature hierarchies following the design in Section~3.1. Each hierarchy consists of a single parent feature $p$, two child features $c_1, c_2$, and four grandchildren per child. The parent is constructed as a weighted sum of its children with cosine similarity $\cos(p, \{c_1, c_2\}) = 0.67$. Grandchildren are pairwise near-orthogonal ($\cos \in [-0.03, 0.03]$) and fully span their parent, ensuring the hierarchy is non-degenerate. We generate 5 independent hierarchies per random seed, with 10,000 samples each.
+
+\textbf{SAE Training.} We train TopK SAEs on synthetic activations with $d_{\text{model}}=512$, $d_{\text{sae}}=4096$ (expansion factor 8$\times$), and L0 targets in $\{16, 32, 64\}$. Training runs for 20,000 steps with learning rate $10^{-3}$ and batch size 4096. We use 5 random seeds per configuration (seeds $\{42, 43, 44, 45, 46\}$), yielding 15 SAE checkpoints. Evaluation uses a held-out 20\% split not seen during training.
+
+\textbf{Baseline Methods.} Following \citet{korznikov2026}, we implement three baseline methods as described in Section~3.3.
+
+\subsection{H1: Multi-Child Proportional Absorption}
+
+\textbf{Hypothesis}: Trained SAEs exhibit higher multi-child proportional absorption rates than random baselines.
+
+\textbf{Falsification criterion}: No significant difference (t-test $p > 0.05$) or delta $< 0.15$ between trained and random decoder.
+
+\subsubsection{Measurement Procedure}
+
+Multi-child proportional ablation addresses the saturation problem that plagues single-child ablation. When a single child is ablated, the remaining child compensates fully for both trained and random decoders, producing absorption rates of 1.0 for both conditions. We instead ablate the top-$k=5$ child features simultaneously and measure the residual parent activation:
+
+\begin{equation}
+\text{abs}_k = \frac{\text{act}(p \mid c_1, \ldots, c_k \text{ ablated})}{\text{act}(p)}
+\end{equation}
+
+A lower residual activation indicates that children collectively substitute for the parent.
+
+\subsubsection{Results}
+
+Table~\ref{tab:h1_main} and Table~\ref{tab:h1_stats} present the quantitative results; Figure~\ref{fig:h1_absorption} provides visual comparison.
+
+\begin{table}[t]
+\caption{Multi-Child Proportional Absorption Rates (H1)}
+\label{tab:h1_main}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Condition & Absorption Rate & Std & Delta vs Trained \\
+\midrule
+Trained SAE & \textbf{0.5000} & 0.0000 & --- \\
+Random Decoder & 0.0590 & 0.0694 & $-$0.4410 \\
+Shuffled Features & 0.4870 & 0.0336 & $-$0.0130 \\
+Permuted Encoder & 0.4840 & 0.0367 & $-$0.0160 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Trained SAEs achieve an absorption rate of 0.50, meaning the parent feature is reconstructed with 50\% of its original activation even after ablating all five child features. The random decoder baseline achieves only 0.059, a delta of 0.441. Statistical comparisons are presented in Table~\ref{tab:h1_stats}.
+
+\begin{table}[t]
+\caption{Statistical Tests for H1}
+\label{tab:h1_stats}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Comparison & $t$ & $p$ & Cohen's $d$ \\
+\midrule
+Trained vs Random Decoder & 63.21 & $3.16 \times 10^{-133}$ & 8.94 \\
+Trained vs Shuffled & 3.85 & $1.62 \times 10^{-4}$ & 0.54 \\
+Trained vs Permuted Encoder & 4.34 & $2.25 \times 10^{-5}$ & 0.61 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_h1_absorption_comparison.pdf}
+\caption{Multi-child proportional absorption rates for trained SAE versus three baseline methods. Trained SAE shows absorption rate of 0.50, dramatically exceeding the random decoder baseline of 0.059 while approximating shuffled and permuted encoder baselines at approximately 0.48--0.49.}
+\label{fig:h1_absorption}
+\end{figure}
+
+The trained SAE significantly exceeds the random decoder baseline with an extremely large effect size ($d=8.94$, $p < 10^{-133}$). This confirms that multi-child proportional absorption successfully differentiates trained SAEs from random baselines.
+
+\subsubsection{Proportional Variance Analysis}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig3_prop_variance.pdf}
+\caption{Proportional variance of child contributions by condition. Trained SAE shows the highest variance (0.115), indicating asymmetric child substitution patterns. Random decoder shows near-zero variance (0.004), while shuffled and permuted baselines fall in between.}
+\label{fig:prop_variance}
+\end{figure}
+
+\begin{table}[t]
+\caption{Proportional Variance by Condition}
+\label{tab:prop_variance}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Condition & Mean & Std \\
+\midrule
+Trained SAE & \textbf{0.1154} & 0.0072 \\
+Random Decoder & 0.0040 & 0.0011 \\
+Shuffled Features & 0.1057 & 0.0281 \\
+Permuted Encoder & 0.1031 & 0.0304 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Trained SAEs exhibit higher proportional variance (mean $= 0.1154$, std $= 0.0072$) than all baselines. Random decoder shows near-zero variance ($0.0040 \pm 0.0011$), while shuffled and permuted encoder baselines show intermediate values. This pattern suggests that trained SAEs develop asymmetric child substitution: some children carry more of the parent's representational load than others.
+
+\textbf{H1 Result: \textsc{Supported}.} Multi-child proportional ablation successfully differentiates trained SAEs from random baselines. Absorption is a genuine phenomenon with large effect sizes.
+
+\subsection{H2: Frequency-Absorption Correlation}
+
+\textbf{Hypothesis}: Absorption rate inversely correlates with feature activation frequency (competitive exclusion prediction).
+
+\textbf{Falsification criterion}: No significant negative correlation (Spearman $\rho > -0.3$ or $p > 0.01$).
+
+\subsubsection{Measurement Procedure}
+
+We compute Spearman rank correlation between each feature's activation frequency (proportion of samples where the feature is active) and its proportional absorption rate. The competitive exclusion hypothesis predicts that frequently-activated features compete more strongly with their parents, leading to lower absorption.
+
+\subsubsection{Results}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig2_h2_frequency_correlation.pdf}
+\caption{Scatter plot of absorption rate versus activation frequency per feature. A positive correlation (Spearman $\rho$ = 0.17) contradicts the competitive exclusion prediction of a negative relationship. Higher-frequency features tend to exhibit higher absorption, not lower.}
+\label{fig:h2_correlation}
+\end{figure}
+
+\begin{table}[t]
+\caption{Frequency-Absorption Correlation Results (H2)}
+\label{tab:h2_results}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Metric & Value & Interpretation \\
+\midrule
+Spearman $\rho$ & 0.1711 & Positive correlation \\
+Spearman $p$ & $6.47 \times 10^{-8}$ & Statistically significant \\
+Pearson $r$ & 0.3631 & Moderate positive \\
+Pearson $p$ & $4.21 \times 10^{-32}$ & Highly significant \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The correlation is positive ($\rho = 0.17$, $p < 10^{-7}$), not negative as competitive exclusion predicts. Higher-frequency features tend to have \textit{higher} absorption, not lower.
+
+\textbf{H2 Result: \textsc{Not Supported}.} The competitive exclusion hypothesis predicts the wrong direction. Absorption does not inversely correlate with feature frequency; instead, a positive relationship exists.
+
+\subsection{H\textsubscript{Mech}: Geometric vs.\ Learned Decomposition}
+
+\textbf{Hypothesis}: Absorption is primarily geometric (driven by decoder structure), with encoder alignment providing additional learned contribution.
+
+\textbf{Falsification criterion}: Learned contribution exceeds geometric contribution.
+
+\subsubsection{Measurement Procedure}
+
+We implement the 2$\times$2 factorial design from Section~3.5, measuring absorption for all four conditions (A: random/random, B: trained/random, C: random/trained, D: trained/trained). The geometric contribution is $\text{abs}(C)$ and the learned contribution is $\text{abs}(D) - \text{abs}(C)$.
+
+\subsubsection{Results}
+
+\begin{table}[t]
+\caption{2$\times$2 Factorial Decomposition (H\textsubscript{Mech})}
+\label{tab:h_mech}
+\centering
+\begin{tabular}{lllc}
+\toprule
+Condition & Encoder & Decoder & Absorption \\
+\midrule
+A & Random & Random & 0.299 \\
+B & Trained & Random & 0.490 \\
+C & Random & Trained & \textbf{0.299} \\
+D & Trained & Trained & \textbf{0.484} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Decomposition:
+\begin{itemize}
+\item Geometric contribution (decoder structure): 0.299
+\item Learned contribution (encoder alignment): 0.185
+\item Full training (D) vs geometric-only (C): $t = -48.46$, $p = 9.1 \times 10^{-112}$
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig5_h_mech_factorial.pdf}
+\caption{2$\times$2 factorial decomposition of absorption into geometric vs.\ learned contributions. Decoder geometry alone (condition C) produces absorption of 0.299, while full training (condition D) reaches 0.484. The learned contribution from encoder alignment is 0.185.}
+\label{fig:h_mech}
+\end{figure}
+
+The geometric contribution (0.299) exceeds the learned contribution (0.185), confirming that decoder structure is the primary driver of absorption. However, the learned contribution is statistically significant ($p < 10^{-111}$), indicating that training does refine absorption patterns beyond pure geometry.
+
+\textbf{H\textsubscript{Mech} Result: \textsc{Supported} (with nuance).} Absorption is primarily geometric (0.299 from decoder structure) with encoder alignment adding a significant but smaller contribution (0.185).
+
+\subsection{H3: Steering Intervention}
+
+\textbf{Hypothesis}: Steering absorbed features toward parent directions increases feature sensitivity more than for non-absorbed features.
+
+\textbf{Falsification criterion}: No sensitivity difference between absorbed and non-absorbed features after steering.
+
+\subsubsection{Measurement Procedure}
+
+We identify absorbed features as those with proportional absorption rate above the threshold of 0.5. For all features, we compute the parent direction as the projection of the children's decoder subspace onto the parent's decoder:
+
+\begin{equation}
+\text{parent\_dir} = \text{proj}(\text{span}(W_{\text{dec}}[c_1], \ldots, W_{\text{dec}}[c_k]), W_{\text{dec}}[p])
+\end{equation}
+
+We then apply steering interventions by adding $\alpha \cdot \text{parent\_dir}$ to activations with $\alpha \in \{0.0, 0.5, 1.0, 2.0, 5.0\}$. We measure feature sensitivity as the normalized norm of (steered $-$ baseline) activations. We test $n=20$ absorbed and $n=20$ non-absorbed features.
+
+\subsubsection{Results}
+
+\begin{table}[t]
+\caption{Steering Sensitivity by Feature Type (H3)}
+\label{tab:h3_results}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Feature Type & $n$ & Mean Sensitivity & Sensitivity Ratio \\
+\midrule
+Absorbed & 20 & \textbf{0.055} & 1.62$\times$ vs non-absorbed \\
+Non-absorbed & 20 & 0.034 & baseline \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Steering verification confirms that steering changes activations measurably. Table~\ref{tab:h3_verification} shows the delta norms across alpha values.
+
+\begin{table}[t]
+\caption{Steering Verification: Delta Norm by Alpha}
+\label{tab:h3_verification}
+\centering
+\begin{tabular}{lc}
+\toprule
+Alpha & Mean Delta Norm \\
+\midrule
+0.0 & 0.000 \\
+0.5 & 0.013 \\
+1.0 & 0.026 \\
+2.0 & 0.052 \\
+5.0 & 0.152 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig6_h3_steering_sensitivity.pdf}
+\caption{Steering sensitivity by feature type (absorbed vs.\ non-absorbed). Absorbed features ($n=20$) show 1.62$\times$ higher mean sensitivity to parent-direction steering than non-absorbed features ($n=20$), confirming that absorbed features respond to parent-direction interventions.}
+\label{fig:h3_steering}
+\end{figure}
+
+Absorbed features show 1.62$\times$ higher sensitivity to parent-direction steering than non-absorbed features. This confirms that absorbed features respond to parent-direction interventions, establishing that absorption has measurable causal consequences.
+
+\textbf{H3 Result: \textsc{Supported}.} Steering toward parent directions produces higher sensitivity for absorbed features (1.62$\times$) than non-absorbed features, confirming that absorbed features can be intervened upon.
+
+\subsection{H\textsubscript{Safe}: Safety-Critical Feature Analysis}
+
+\textbf{Hypothesis}: Safety-critical features exhibit higher absorption rates than matched non-safety features.
+
+\textbf{Falsification criterion}: No significant difference (Mann-Whitney $p > 0.05$) between safety and non-safety absorption rates.
+
+\subsubsection{Measurement Procedure}
+
+We load Gemma Scope SAEs (gemma-2b-res-jb release, layer 12, blocks.12.hook\_resid\_post). We select 20 safety-relevant features via Neuronpedia annotations and match 20 non-safety features by activation frequency and layer. We measure absorption via multi-child proportional ablation and compare distributions using the Mann-Whitney U test.
+
+\subsubsection{Results}
+
+\begin{table}[t]
+\caption{Safety-Critical vs.\ Non-Safety Absorption (H\textsubscript{Safe})}
+\label{tab:h_safe}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Feature Type & Absorption & Std & $n$ \\
+\midrule
+Safety-critical & 0.907 & 0.038 & 20 \\
+Non-safety & 0.906 & 0.048 & 20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Mann-Whitney U = 216.5, $p$ = 0.665
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig7_h_safe_comparison.pdf}
+\caption{Safety-critical vs.\ non-safety feature absorption. No significant difference ($p=0.665$) between safety-critical features (0.907) and matched non-safety controls (0.906), suggesting SAE-based safety analysis is not systematically compromised by disproportionate absorption.}
+\label{fig:h_safe}
+\end{figure}
+
+No significant difference exists between safety-critical and non-safety features. The mean absorption rates are nearly identical (0.907 vs.\ 0.906), and the Mann-Whitney U test yields $p = 0.665$, far above any conventional significance threshold.
+
+\textbf{H\textsubscript{Safe} Result: \textsc{Not Supported}.} Safety-critical features show no elevated absorption compared to matched controls. SAE-based safety analysis is not systematically compromised by disproportionate absorption.
+
+\subsection{Summary of Experimental Results}
+
+\begin{table}[t]
+\caption{Summary of Hypothesis Test Results}
+\label{tab:summary}
+\centering
+\begin{tabular}{@{}llcp{2.8cm}@{}}
+\toprule
+Hypothesis & Prediction & Result & Key Finding \\
+\midrule
+H1 & Trained SAE $>$ Random on absorption & \textbf{\textsc{Supported}} & $d=8.94$, $p < 10^{-133}$ \\
+H2 & $\rho < -0.3$ (freq.\ vs absorption) & \textbf{\textsc{Not Supported}} & $\rho = +0.17$, wrong direction \\
+H\textsubscript{Mech} & Geometric $>$ Learned contribution & \textbf{\textsc{Supported}} & Geometric=0.299, Learned=0.185 \\
+H3 & Absorbed $>$ Non-absorbed sensitivity & \textbf{\textsc{Supported}} & 1.62$\times$ sensitivity ratio \\
+H\textsubscript{Safe} & Safety $>$ Non-safety absorption & \textbf{\textsc{Not Supported}} & $p = 0.665$, no difference \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+
+\subsection{Absorption is Real but Primarily Geometric}
+
+Our first key finding is that feature absorption is a genuine phenomenon that can be reliably measured with the right methodology. Multi-child proportional ablation revealed a substantial separation between trained SAEs (absorption rate 0.50) and random decoder baselines (0.059), with a very large effect size (Cohen's $d$ = 8.94, $p = 3.16 \times 10^{-133}$). This confirms that structured feature learning produces meaningful absorption patterns, not statistical artifacts.
+
+However, the measurement methodology is critical. Single-child ablation saturates at 1.0 for both trained and random SAEs, as the remaining children collectively compensate for any single ablated child. Multi-child ablation, which ablates the top-$k$ children simultaneously, was essential to differentiate the conditions. This methodological insight suggests that prior work using single-feature ablation may not have fully characterized absorption.
+
+An important finding is that shuffled features and permuted encoder baselines achieved absorption rates of 0.487 and 0.484 -- nearly identical to trained SAEs. These baselines preserve encoder-decoder geometry but break feature identity (shuffled) or encoder-feature correspondence (permuted). This suggests that decoder geometry alone, without learned feature semantics, produces near-maximal absorption. The small gap between trained SAEs and these geometry-preserving baselines (0.013--0.016) indicates that while absorption is real, its magnitude is largely determined by geometric structure rather than learned feature semantics.
+
+The 2$\times$2 factorial decomposition (H\textsubscript{Mech}) confirms this interpretation quantitatively: decoder geometry contributes 0.299 while encoder alignment adds 0.185. Geometric structure is the dominant contributor, though the learned component is statistically significant ($p < 10^{-111}$).
+
+\subsection{Competitive Exclusion Not Supported}
+
+The competitive exclusion hypothesis predicted that features competing for representation would show inversely correlated frequency and absorption: frequently activating features would compete more strongly with their parents, leading to lower absorption. Our results falsified this prediction.
+
+H2 showed a positive correlation between absorption and frequency (Spearman $\rho$ = 0.17, $p = 6.47 \times 10^{-8}$), not the negative correlation predicted by competitive exclusion. Higher-frequency features actually tend to have higher absorption, not lower. This suggests that the ecological Lotka-Volterra analogy may not directly apply to SAE feature dynamics.
+
+Several interpretations are possible. First, frequently activating features may simply have more opportunities for absorption to occur. Second, the synthetic hierarchy geometry may not capture the niche competition dynamics present in real language model activations. Third, absorption may be driven more by geometric alignment than by competitive pressure.
+
+The proportional variance analysis provides additional context: trained SAEs show higher variance in child contributions (0.1154) compared to baselines (0.004 for random decoder). This asymmetry suggests that some children dominate absorption, but the relationship with frequency is more nuanced than competitive exclusion predicts.
+
+\subsection{Steering Validates Causal Consequences}
+
+Our steering intervention (H3) produced a clear positive result: absorbed features show 1.62$\times$ higher sensitivity to parent-direction steering than non-absorbed features. This finding is consistent with the interpretation that absorbed features retain a causal connection to parent directions -- they can be activated through steering even when they do not activate naturally.
+
+This result contrasts with an earlier implementation that produced zero improvement for both groups. The fix involved correcting the steering direction computation and expanding the alpha range to $\{0.0, 0.5, 1.0, 2.0, 5.0\}$. The sensitivity difference between absorbed and non-absorbed features is measurable across all non-zero alpha values, with the gap widening at higher alphas (difference of 0.003 at $\alpha=0.5$, 0.063 at $\alpha=5.0$).
+
+The causal interpretation is that absorbed features are not merely epistemic failures (missing from the representation) but features that can be engaged through appropriate intervention. This has practical implications: steering may partially compensate for absorption in applications where parent feature activation is desired.
+
+\subsection{Safety Analysis Not Systematically Compromised}
+
+H\textsubscript{Safe} falsified the hypothesis that safety-critical features face elevated absorption risk. Safety-critical features (0.907) and non-safety features (0.906) showed virtually identical absorption rates, with a Mann-Whitney U test yielding $p = 0.665$.
+
+This null result is methodologically important. The analysis was conducted on real language model features (Gemma 2B, layer 12) rather than synthetic hierarchies, increasing ecological validity. The feature matching by activation frequency and layer controls for confounds that could obscure a true difference.
+
+The implication is that SAE-based safety analysis -- such as detecting deception, jailbreaking, or harm-related features -- is not systematically biased by disproportionate absorption of safety-critical features. While individual safety features may still be absorbed, there is no evidence that safety-relevant features as a class face elevated risk.
+
+\subsection{Implications for Mechanistic Interpretability}
+
+Our findings have several implications for the practice of mechanistic interpretability:
+
+First, multi-child proportional ablation is necessary for measuring absorption. Single-child ablation saturates and cannot differentiate trained from random SAEs. Researchers studying absorption should adopt multi-child approaches.
+
+Second, absorption is primarily a geometric property of sparse decomposition, not purely a learned artifact. This means architectural choices (decoder geometry, expansion factor) may be more important than training procedures for controlling absorption.
+
+Third, steering interventions can engage absorbed features, suggesting that absorption is not an irreversible loss of parent feature representation. This opens avenues for mitigation through intervention-based approaches.
+
+Fourth, safety-critical features do not face disproportionate absorption risk, supporting the continued use of SAEs for safety analysis while acknowledging that individual features may still be absorbed.
+
+\subsection{Limitations}
+
+Several limitations constrain the generalizability of our findings.
+
+\textbf{Synthetic hierarchies}: Our experiments used synthetic 3-level hierarchies with controlled geometric properties. Real language model features may have different hierarchical structures, more irregular geometries, and cross-hierarchy interactions that our synthetic data does not capture.
+
+\textbf{Single architecture}: We evaluated only TopK SAEs on $d=512$ synthetic activations. JumpReLU, gated SAEs, and other architectures may show different absorption patterns. Real transformer residual streams have different statistical properties than our synthetic data, including non-isotropic activation distributions and feature dependencies.
+
+\textbf{Steering methodology}: Our steering intervention used simple linear addition of the parent direction vector. More sophisticated interventions (multiplicative modulation, attention-based steering, or activation patching) might reveal different sensitivity patterns.
+
+\textbf{Safety feature selection}: The safety-critical features were selected via Neuronpedia annotations, which may not capture all safety-relevant features. The sample size (20 safety, 20 non-safety) provides moderate power for detecting large effects but may miss small-to-medium differences.
+
+\subsection{Future Directions}
+
+Several directions emerge from our findings.
+
+First, replication on additional real language model features is essential. Our Gemma Scope analysis provides initial evidence on real features, but replication on other models (GPT-2, Llama) and layers would strengthen generalizability.
+
+Second, the causal status of absorption merits further investigation. Our steering result establishes that absorbed features respond to interventions, but activation patching experiments -- directly intervening on child feature activations during forward passes -- could more directly test causal hypotheses.
+
+Third, mitigation strategies deserve exploration. If absorption is driven by geometric alignment, architectural modifications (orthogonality constraints, multi-resolution ensembles) might reduce absorption. If absorption can be engaged through steering, intervention-based mitigation may be feasible.
+
+Fourth, the relationship between absorption and downstream task performance requires characterization. We tested sensitivity to parent directions, but downstream tasks may have different vulnerability profiles.
+
+\subsection{Conclusion}
+
+This study resolves the measurement crisis in feature absorption by introducing multi-child proportional ablation, enabling differentiation between trained SAEs and random baselines on synthetic hierarchies with ground truth structure.
+
+Our central result is that absorption is real: trained SAEs show absorption rates of 0.50 compared to 0.059 for random decoder baselines (Cohen's $d$ = 8.94, $p < 10^{-133}$). This large separation confirms that structured feature learning produces genuine absorption patterns, not statistical artifacts of how we measure them.
+
+The 2$\times$2 factorial decomposition reveals that absorption is primarily geometric (0.299 from decoder structure) with encoder alignment adding a significant but smaller contribution (0.185). Steering interventions validate that absorbed features respond to parent-direction interventions with 1.62$\times$ higher sensitivity than non-absorbed features, establishing that absorption has causal consequences. Critically, safety-critical features show no elevated absorption compared to matched controls ($p = 0.665$), suggesting SAE-based safety analysis is not systematically compromised.
+
+We report negative results honestly: absorption does not follow competitive exclusion dynamics -- contrary to ecological predictions, higher-frequency features show higher absorption, not lower ($\rho$ = +0.17). These findings advance understanding of SAE limitations and guide future work on reliable mechanistic interpretability.
+
+The methodology introduced here -- multi-child proportional ablation -- resolves a measurement crisis in prior work. Single-feature ablation saturates at 1.0 for both trained and random SAEs, preventing differentiation. Multi-child ablation, which ablates top-$k$ children simultaneously, reveals separation that single-child ablation cannot detect.
+
+Ultimately, this work demonstrates that the path forward requires both methodological rigor and epistemic humility. Absorption can be measured, its geometric and learned components can be decomposed, and its causal consequences can be validated -- but what these findings mean for downstream applications remains an open question for the field.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

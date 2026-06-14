@@ -1,0 +1,62 @@
+{
+  "pilot_focus": "Validate PCA-basis SAE construction and confirm decomposition pattern on 2 SAEs + 3 hierarchies",
+  "pilots": [
+    {
+      "id": "pilot_pca_construction",
+      "name": "Pilot: PCA-Basis SAE Construction",
+      "description": "Compute top-k PCs from 512 tokens (vs 2048 in full) and construct PCA SAE. Verify orthonormality and L0 matching.",
+      "parent_task": "e1_pca_construction",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "samples": 512,
+      "seed": 42,
+      "timeout": 600,
+      "pass_criteria": "PCA SAE loads; decoder orthonormal (max |I - W^T W| < 0.01); L0 within 30% of Standard"
+    },
+    {
+      "id": "pilot_decomposition",
+      "name": "Pilot: Decomposition on 2 SAEs x 3 Hierarchies",
+      "description": "Run absorption on Standard and Matryoshka SAEs (trained), Random SAE, and PCA SAE. Use 3 hierarchies (building, tool, animal) and 2 non-hierarchy pairs. Confirm PCA ~= trained pattern.",
+      "parent_task": "e1_absorption_eval",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "samples": 100,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "All 4 conditions return finite scores; PCA semantic absorption within 0.15 of trained; random ~= trained (replicating iter_002 identity)"
+    },
+    {
+      "id": "pilot_downstream",
+      "name": "Pilot: Downstream Metrics on 2 SAEs",
+      "description": "Collect sparse probing F1 and L0 for Standard and Matryoshka SAEs. Verify metric ranges and data quality.",
+      "parent_task": "e2_downstream_collection",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "samples": 100,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "F1 in [0, 1]; L0 consistent with config; data successfully saved to JSON"
+    },
+    {
+      "id": "pilot_low_cooccurrence",
+      "name": "Pilot: Low Co-occurrence Pairs on 2 SAEs",
+      "description": "Test 3 low co-occurrence pairs on Standard and Matryoshka. Verify probe AUROC < 0.8 (confirming these are genuinely hard).",
+      "parent_task": "e3_low_cooccurrence",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "samples": 100,
+      "seed": 42,
+      "timeout": 600,
+      "pass_criteria": "All pairs finite; at least 2/3 have probe AUROC < 0.8"
+    }
+  ],
+  "pilot_go_criteria": {
+    "description": "Proceed to full experiments if all pilots pass",
+    "conditions": [
+      "PCA SAE constructs successfully and produces absorption scores",
+      "Random ~= trained identity replicates (confirming metric is not learned-structure-specific)",
+      "Downstream metrics are collectable and in valid ranges",
+      "Low co-occurrence pairs show lower probe AUROC than hierarchies"
+    ]
+  }
+}

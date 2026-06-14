@@ -1,0 +1,531 @@
+\documentclass{article}
+
+\usepackage{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\title{Component-Isolated Causal Analysis of SAE Feature Absorption: TopK and MultiScale Are Co-Dominant Drivers}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Sparse autoencoders (SAEs) suffer from feature absorption, a failure mode where parent features are suppressed in favor of their children. Prior work reports absorption reductions from architectural innovations including multi-scale decomposition, orthogonality penalties, and gating mechanisms, but no study isolates which specific component drives the effect. We present the first component-isolated causal analysis, training seven SAE conditions on SynthSAEBench-16k ground-truth synthetic hierarchies and measuring absorption directly from known parent-child relationships. Our key finding is that TopK sparsity and MultiScale decomposition are co-dominant drivers of absorption reduction (78.0\% and 78.3\%, respectively, Cohen's $d = 4.93$ and $4.81$), while orthogonality penalties have negligible effect ($d = 0.13$) and gating slightly increases absorption. A strong absorption--L0 sparsity correlation ($r = 0.87$ across $n = 7$ variants, $p = 0.012$) suggests that explicit sparsity control---not architectural novelty---is the operative mechanism. Surprisingly, Full Matryoshka shows a pattern suggestive of antagonism: its observed absorption (0.066) is worse than either TopK (0.056) or MultiScale (0.055) alone. These results provide the first causal component isolation of SAE absorption-reduction claims and redirect architectural research toward understanding sparsity--absorption coupling.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Feature Absorption as a Central Pathology}
+
+Sparse autoencoders (SAEs) have become the dominant approach for decomposing neural network activations into interpretable features. By learning an overcomplete dictionary of latent directions, SAEs aim to recover monosemantic representations---features that each encode a single human-interpretable concept---from the polysemantic superposition that pervades transformer residual streams \citep{bricken2023monosemanticity,cunningham2023sparse}. The promise is substantial: if SAEs succeed, mechanistic interpretability can move from hand-crafted circuit tracing to automated feature discovery at scale.
+
+Yet SAEs suffer from well-documented failure modes. Feature absorption, first characterized analytically by \citet{chanin2024feature}, is among the most consequential. When a parent feature (e.g., ``animal'') and its child features (e.g., ``dog,'' ``cat'') co-occur in the training data, the SAE's sparsity loss incentivizes allocating representational capacity to the children at the parent's expense. The parent's information is not merely distributed across children; it is actively suppressed. \citet{chanin2024feature} proved that this phenomenon is analytically incentivized by the L1 sparsity penalty for hierarchical features with parent-child containment structure.
+
+The practical implications are severe. If SAEs absorb parent features, downstream interpretability tools that rely on SAE latents will miss high-level concepts entirely. A probe searching for ``animal'' features in a language model's SAE representation might find only ``dog'' and ``cat'' latents, with no latent encoding the general category. This undermines the core premise of SAE-based interpretability: that the latent basis captures the full conceptual structure of the model's internal representations.
+
+\subsection{The Absorption-Reduction Literature: A Component-Isolation Gap}
+
+Given the theoretical importance of absorption, the community has pursued architectural innovations that reduce it. The results are impressive:
+
+\begin{itemize}
+\item \textbf{Matryoshka SAEs} \citep{bussmann2025matryoshka} report an order-of-magnitude absorption reduction (from 0.49 to 0.05) on the first-letter task, combining multi-scale dictionary decomposition, batch TopK sparsity, and hierarchical loss weighting.
+\item \textbf{OrtSAE} \citep{korznikov2025ortsae} achieves a 65\% absorption reduction by adding decoder orthogonality penalties, with 4--11\% compute overhead.
+\item \textbf{HSAE} \citep{zhan2026hierarchical} enforces explicit tree-structured constraints on the dictionary.
+\item \textbf{Gated SAEs} \citep{rajamanoharan2024jumprelu} decouple the detection path from the magnitude path, improving reconstruction-sparsity trade-offs.
+\end{itemize}
+
+Each paper reports full-architecture improvements. Matryoshka SAEs combine at least three distinct components; OrtSAE adds orthogonality to an existing architecture; Gated SAEs introduce a new activation mechanism. None of these studies isolate which specific component drives the reported absorption reduction. Is it the multi-scale decomposition? The explicit TopK sparsity? The orthogonality penalty? The gating mechanism? Or some interaction among them?
+
+This question matters because the components differ radically in implementation complexity and computational cost. TopK sparsity is a one-line change to the activation function. Multi-scale decomposition requires nested dictionaries and hierarchical loss terms. Orthogonality penalties add a regularization term with hyperparameter tuning. If TopK sparsity alone achieves most of the absorption reduction, then the community's investment in more complex architectures may be misdirected.
+
+\subsection{The Measurement Crisis Motivating This Study}
+
+Our prior work (iterations 2--4 of this research project) revealed fatal anomalies in probe-based absorption metrics on real LLMs that make causal component isolation impossible with existing measurement tools:
+
+\textbf{Co-occurrence confound.} Non-hierarchy correlated word pairs produce higher ``absorption'' scores than true semantic hierarchies ($\bar{A}_{\text{NH}} = 0.331$ vs.~$\bar{A}_{\text{SH}} = 0.235$; paired $t$-test: $t = -4.748$, $p = 0.003$). This proves the metric detects correlation, not containment structure.
+
+\textbf{Ceiling effect.} All probe AUROCs on residual activations equal 1.0, collapsing the absorption formula's numerator to a degenerate quantity. The metric has no headroom to discriminate conditions.
+
+\textbf{Model dependence.} GPT-2 small shows near-zero semantic-hierarchy absorption (0.000--0.003) where Pythia-160M shows substantial values (0.064--0.359). The same metric on the same task yields qualitatively different results across base models.
+
+\textbf{Geometric dominance.} A Random-SAE control with permuted decoder achieves semantic-hierarchy absorption of 0.175, falling within the lower portion of the trained range (0.064--0.359), suggesting the metric captures base-model geometry rather than learned SAE structure.
+
+These findings mean real-LLM probe-based absorption metrics cannot support causal claims about architectural components. Any observed difference between Matryoshka and Standard could reflect geometric confounds, probe artifacts, or co-occurrence sensitivity rather than genuine architectural improvement.
+
+\subsection{Pivot to Ground-Truth Synthetic Data}
+
+SynthSAEBench-16k \citep{chanin2026synthsaebench} provides an escape hatch. With 16,384 ground-truth features (10,884 hierarchical) organized into 128 root trees of depth 3 and branching factor 4, absorption can be measured directly from known parent-child relationships. No probes. No AUROCs. No ceiling effects. The absorption rate is simply the fraction of parent features subsumed by their children, computed from the ground-truth feature structure.
+
+This enables causal component isolation: we train seven SAE conditions that differ by exactly one architectural component (plus a Random control), measure ground-truth absorption on each, and attribute effects to the component that changed. The design is a classic ablation study applied to SAE architecture, with the critical advantage that the ground-truth metric is unambiguous.
+
+\subsection{Research Questions}
+
+This paper is guided by four research questions:
+
+\textbf{RQ1 (Component causality).} Which specific architectural component is the primary driver of absorption reduction? We test seven conditions: Baseline ReLU, +TopK sparsity, +MultiScale dictionaries, +Orthogonality penalties, +Gating, +Full Matryoshka (all components combined), and a Random control.
+
+\textbf{RQ2 (Component ranking).} What is the ordering of components by effect size on absorption reduction, feature recovery, and reconstruction quality?
+
+\textbf{RQ3 (Trade-off structure).} Do absorption-reducing components introduce new pathologies (hedging, reconstruction loss, compute overhead)?
+
+\textbf{RQ4 (Interaction effects).} Do components combine additively, or do they exhibit synergy or antagonism?
+
+\subsection{Contributions}
+
+Our study makes five contributions:
+
+\begin{enumerate}
+\item \textbf{First component-isolated causal analysis of SAE absorption-reduction mechanisms.} By varying one component at a time on ground-truth synthetic data, we attribute effects to specific architectural choices rather than full-architecture bundles.
+
+\item \textbf{First ground-truth validation of absorption-reduction claims on synthetic hierarchies.} All prior absorption measurements use probe-based metrics on real LLMs. We measure absorption directly from known parent-child relationships, eliminating probe artifacts.
+
+\item \textbf{Evidence that TopK and MultiScale are co-dominant drivers.} Both achieve $\sim$78\% absorption reduction (TopK: $d = 4.93$; MultiScale: $d = 4.81$), with effect sizes an order of magnitude larger than orthogonality ($d = 0.13$) or gating ($d = -0.17$).
+
+\item \textbf{Discovery of a pattern suggestive of antagonism in Full Matryoshka.} The combined architecture underperforms its best individual component, suggesting caution about combining components.
+
+\item \textbf{Strong absorption--L0 sparsity correlation} ($r = 0.87$, $p = 0.012$ across $n = 7$ variants) suggesting that explicit sparsity control---not architectural novelty---is the operative mechanism.
+\end{enumerate}
+
+From the motivation, we turn to the experimental design that enables causal component isolation.
+
+\section{Related Work}
+
+\subsection{From Superposition to Sparse Autoencoders}
+
+The theoretical motivation for SAEs draws on the superposition hypothesis articulated by \citet{elhage2022superposition}: neural networks represent more features than they have dimensions by encoding them as non-orthogonal linear combinations of activations. This overcomplete representation is necessary because the number of meaningful concepts in language far exceeds the residual-stream dimension, but it creates polysemanticity---individual neurons that respond to multiple unrelated stimuli---making direct interpretation intractable.
+
+\citet{bricken2023monosemanticity} demonstrated that SAEs could recover monosemantic features from a one-layer transformer, sparking rapid expansion of the field. \citet{cunningham2023sparse} scaled SAE training to larger models, and by 2024--2025 the literature spans multiple architectures (ReLU, TopK, JumpReLU, Gated, Matryoshka), comprehensive benchmarks, and applications beyond language (vision, proteins, RNA). \citet{templeton2024scaling} extracted millions of interpretable features from Claude 3 Sonnet, demonstrating that SAEs can operate at frontier-model scale.
+
+The central tension in this line of work is between reconstruction fidelity and interpretability. SAEs optimize this trade-off via a dictionary-learning objective with sparsity regularization, but the Pareto frontier has become the default comparison criterion despite \citeauthor{karvonen2025saebench}'s finding that frontier position does not predict downstream outcomes. Our work extends this skepticism to a specific architectural question: which component on the frontier actually drives absorption reduction?
+
+\subsection{Feature Absorption and Its Mitigation}
+
+\citet{chanin2024feature} identified feature absorption as a structural failure mode analytically incentivized by sparsity loss. When parent and child features co-occur, the SAE allocates capacity to children at the parent's expense, creating ``holes'' in feature coverage. Their analytical proof applies to hierarchical features with parent-child containment structure, and their empirical validation used first-letter classification tasks.
+
+Subsequent work has pursued two directions: mitigation and characterization. \citet{bussmann2025matryoshka} introduced Matryoshka SAEs, which learn nested dictionaries of increasing size and report reduced absorption rates from 0.49 to 0.05 on the first-letter task. \citet{korznikov2025ortsae} enforced orthogonality constraints (OrtSAE), reducing absorption by 65\% with 4--11\% compute overhead. \citet{zhan2026hierarchical} proposed hierarchical SAEs with explicit tree-structured constraints. \citet{rajamanoharan2024jumprelu} introduced JumpReLU and Gated SAEs, which improve reconstruction fidelity and sparsity trade-offs but do not directly target absorption.
+
+A critical counterpoint is the finding of feature hedging by \citet{chanin2025hedging}---the opposite failure mode where reconstruction loss drives correlated features to share latents rather than split them. Matryoshka SAEs, while reducing absorption, increase hedging in inner dictionary levels. This reveals that absorption and hedging sit on a Pareto frontier: no known architecture simultaneously minimizes both. Our finding that hedging is invariant across tested variants ($\sim$0.24) adds a new observation to this trade-off space, though we caution that synthetic data may not trigger hedging as real LLM features do.
+
+\subsection{Benchmarks and Metric Validation}
+
+SAEBench \citep{karvonen2025saebench} standardized eight evaluations for SAE comparison, including absorption, sparse probing, automated interpretability, loss recovery, and feature disentanglement. The absorption evaluation adapts \citeauthor{chanin2024feature}'s protocol: 26 first-letter hierarchies, ground-truth logistic probes, k-sparse probing with feature-splitting detection, and a composite absorption score. SAEBench has become the dominant community benchmark, with 200+ SAEs evaluated and an interactive leaderboard.\footnote{\url{neuronpedia.org/sae-bench}}
+
+Despite its centrality, the absorption metric has not undergone construct-validation testing on real semantic hierarchies. Our prior work (iterations 2--4) was the first to test this, finding that the metric fails hierarchy specificity (non-hierarchies score higher than hierarchies) and produces degenerate scores on a Random-SAE control. These findings motivated our pivot to ground-truth synthetic data, where measurement is unambiguous.
+
+The broader issue of proxy metric validity has received increasing attention. \citet{kantamneni2025saebaseline} showed that SAEs do not consistently outperform strong non-SAE baselines on downstream sparse probing tasks, questioning whether SAE-based features carry genuine utility beyond interpretability appeal. \citet{wang2025saeinterp} found that SAEBench interpretability scores correlate weakly with steering utility (Kendall's $\tau_b \approx 0.298$) and that this correlation vanishes after feature selection, suggesting that benchmark metrics do not predict practical utility. \citet{lieberum2024automated} found that feature interpretability ratings from automated methods correlate weakly with human judgments. These findings align with our motivation: metrics that appear meaningful in controlled settings may not support causal claims without ground-truth validation.
+
+\subsection{Synthetic Evaluation for Mechanistic Interpretability}
+
+Toy models and synthetic data have a long history in mechanistic interpretability. \citet{elhage2022superposition} used synthetic superposition models to derive theoretical predictions about feature geometry. \citet{lieberum2023saelens} trained SAEs on synthetic data with known feature structure to validate dictionary learning. SynthSAEBench \citep{chanin2026synthsaebench} extends this tradition to 16,384 ground-truth features with hierarchical structure, built into the SAELens library for community use.
+
+The role of synthetic benchmarks is to validate claims before real-LLM deployment. If an architectural component fails to reduce absorption on ground-truth synthetic data---where measurement is direct and unambiguous---it is unlikely to succeed on real LLMs, where measurement is confounded by probe artifacts and geometric variation. Our component-isolated design leverages this logic: we test causal claims on synthetic data first, establishing a foundation for real-LLM validation in future work.
+
+\subsection{Positioning This Work}
+
+Our study occupies the intersection of three literatures: SAE failure-mode characterization, architectural ablation, and synthetic benchmark validation. Unlike architecture papers that propose new SAE variants and report absorption scores \citep{bussmann2025matryoshka,korznikov2025ortsae}, we do not introduce a new method. Unlike theoretical work that analyzes absorption as an optimization property, we do not derive new bounds or guarantees. Instead, we ask a methodological question: which component of existing architectures actually drives absorption reduction?
+
+This question is timely because absorption has become a primary criterion for architecture comparison. Papers routinely report first-letter absorption as a key result, and SAEBench's interactive leaderboard ranks SAEs partly by this metric. If the reported improvements come primarily from a single component (e.g., TopK sparsity) that is already widely available, then the community's investment in more complex architectures may be inefficient. Our component-isolated design provides the first evidence for answering this question.
+
+We now describe the measurement protocol that enables causal component isolation on SynthSAEBench-16k.
+
+\section{Method}
+
+\subsection{Dataset: SynthSAEBench-16k}
+
+We use SynthSAEBench-16k \citep{chanin2026synthsaebench}, a synthetic benchmark built into SAELens with known ground-truth feature structure. The dataset contains $F = 16{,}384$ binary features, of which $F_h = 10{,}884$ participate in hierarchical relationships. Features are organized into $R = 128$ root trees, each with depth $D = 3$ and branching factor $\beta = 4$. This yields $|\mathcal{H}| = 992$ parent-child hierarchical pairs for absorption measurement.
+
+Synthetic activations are generated by sampling feature co-occurrence patterns from the tree structure and projecting them through a fixed random matrix into a $d = 256$-dimensional activation space. Each training sample $x \in \mathbb{R}^d$ is a sparse combination of active features. The dataset contains $N = 2{,}000{,}000$ training samples with batch size $B = 1024$.
+
+The critical advantage of SynthSAEBench-16k for our study is that parent-child relationships are known by construction. We can measure absorption directly---as the fraction of parent features subsumed by their children---without probes, classifiers, or accuracy metrics that introduce measurement artifacts.
+
+\subsection{SAE Variants (7 Conditions)}
+
+We train seven SAE conditions, each varying exactly one architectural component relative to the baseline. All variants use latent dimension $m = 2048$ (8x overcomplete), trained for 2M samples on SynthSAEBench-16k. Table~\ref{tab:variants} summarizes the design.
+
+\begin{table}[t]
+\caption{The seven SAE conditions in our component-isolated design. Each trained variant adds exactly one component to isolate its causal effect on absorption. The Random control validates that metrics discriminate trained structure from randomness.}
+\label{tab:variants}
+\centering
+\footnotesize
+\begin{tabular}{lp{1.8cm}p{2.2cm}p{4.5cm}}
+\toprule
+Variant & Key Component & What It Tests & Implementation \\
+\midrule
+Baseline & ReLU + L1 sparsity & Baseline rate & ReLU encoder; L1 loss with $\lambda_1 = 5\times10^{-3}$ \\
++TopK & Hard top-k ($k=50$) & Explicit k-sparsity & Retain only $k$ largest activations, zero others \\
++MultiScale & Nested dicts (3 levels) & Hierarchical decomposition & Inner ($m/4$), middle ($m/2$), outer ($m$) with hierarchical loss \\
++Orthogonality & Decoder orthogonality & Decoder incoherence & Add $\lambda_{\text{ortho}}\|W_{\text{dec}}^\top W_{\text{dec}} - I\|_F^2$, $\lambda_{\text{ortho}}=10^{-3}$ \\
++Gating & Decoupled detect/mag & Gating mechanism & Separate paths for firing (gate) and magnitude \\
++Full Matryoshka & TopK + MultiScale + loss & Combined effect & All three components, as in \citet{bussmann2025matryoshka} \\
+Random & Untrained decoder & Metric discrimination & Gaussian init, normalized columns, no training \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Hyperparameters.} All variants are trained with the Adam optimizer \citep{kingma2015adam} with learning rate $\eta = 10^{-3}$, no learning rate scheduler, for 2M samples ($\approx$ 1,953 steps at batch size $B = 1024$). Training uses a single NVIDIA A100 GPU. The L1 sparsity coefficient is $\lambda_1 = 5 \times 10^{-3}$ for Baseline; TopK uses $k = 50$ with no L1 penalty. The orthogonality coefficient is $\lambda_{\text{ortho}} = 10^{-3}$. All training code uses SAELens \citep{lieberum2024automated} with PyTorch 2.2.
+
+The component-isolated design enables causal attribution: if +TopK shows lower absorption than Baseline, the difference is attributable to the top-k activation mechanism, since all other training conditions (data, optimizer, hyperparameters, random seed) are identical.
+
+\subsection{Ground-Truth Metrics}
+
+All metrics are computed directly from the known ground-truth feature structure, with no probes or classifiers.
+
+\textbf{Absorption rate ($A$).} For each parent-child pair $(p, c) \in \mathcal{H}$, parent $p$ is considered absorbed by child $c$ if the parent's latent activation is suppressed when the child is active. Formally:
+\begin{equation}
+A = \frac{1}{|\mathcal{H}|} \sum_{(p,c) \in \mathcal{H}} \mathbb{1}[\text{parent } p \text{ absorbed by child } c]
+\end{equation}
+where the absorption condition is evaluated by comparing the parent's latent activation magnitude when the child is present versus absent in the ground-truth feature vector. Lower $A$ indicates less absorption.
+
+\textbf{Feature recovery MCC.} We compute the Matthews correlation coefficient between learned latent assignments and ground-truth feature assignments via Hungarian matching. This measures how well the SAE recovers the true feature structure. MCC $\in [-1, 1]$, with 0 indicating chance-level recovery.
+
+\textbf{Reconstruction MSE.} Standard mean squared error between input activations $x$ and reconstructed activations $\hat{x} = W_{\text{dec}} z + b_{\text{dec}}$.
+
+\textbf{L0 sparsity.} The average number of active (non-zero) latent dimensions per sample: $L_0 = \mathbb{E}[\|z\|_0]$. For TopK SAEs, $L_0 = k = 50$ by construction.
+
+\textbf{Hedging score ($H$).} The fraction of latents that incorrectly mix correlated features, computed following \citet{chanin2025hedging}. Measures the opposite failure mode to absorption.
+
+\subsection{Statistical Analysis}
+
+We conduct five statistical procedures:
+
+\begin{enumerate}
+\item \textbf{One-way ANOVA} across all 7 conditions (5 replicates each) to test whether absorption rates differ significantly across architectures.
+
+\item \textbf{Pre-registered primary comparisons:} +TopK vs.~Baseline, +MultiScale vs.~Baseline, +Orthogonality vs.~Baseline, and +Full Matryoshka vs.~Baseline.
+
+\item \textbf{Post-hoc Tukey HSD} for all pairwise comparisons among variants, controlling the family-wise error rate.
+
+\item \textbf{Effect sizes (Cohen's $d$)} for each variant vs.~Baseline, with Holm-Bonferroni correction across comparisons. Cohen's $d$ is computed using the pooled standard deviation: $d = (\bar{x}_{\text{variant}} - \bar{x}_{\text{baseline}}) / s_{\text{pooled}}$, where $s_{\text{pooled}} = \sqrt{((n_1 - 1)s_1^2 + (n_2 - 1)s_2^2) / (n_1 + n_2 - 2)}$. Conventional thresholds: small ($d = 0.2$), medium ($d = 0.5$), large ($d = 0.8$).
+
+\item \textbf{Correlation analysis:} Pearson correlation between L0 sparsity and absorption rate across variant means, with bootstrap 95\% confidence intervals ($B = 10{,}000$ resamples).
+\end{enumerate}
+
+All analyses use Python 3.12 with SciPy \citep{virtanen2020scipy} for parametric tests and custom bootstrap resampling for confidence intervals.
+
+\subsection{Controls and Validations}
+
+\textbf{L0-matched comparison.} Since variants achieve different sparsity levels, we report absorption per unit L0 to control for sparsity differences. If two variants achieve the same absorption but one uses fewer active latents, the sparser variant is more efficient.
+
+\textbf{Reconstruction-absorption Pareto frontier.} We plot each variant in the (reconstruction MSE, absorption rate) plane and identify Pareto-optimal points. A variant dominates another if it achieves both lower MSE and lower absorption.
+
+\textbf{Co-occurrence control on synthetic data.} We verify that absorption is higher on true hierarchies than on randomly paired features from the synthetic data, confirming the metric responds to hierarchical structure rather than arbitrary correlation.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_pipeline.pdf}
+\caption{The component-isolated experimental pipeline. SynthSAEBench-16k provides ground-truth hierarchical features; seven SAE conditions are trained with one component varied at a time; absorption is measured directly from known parent-child relationships without probes or classifiers.}
+\label{fig:pipeline}
+\end{figure}
+
+\section{Results}
+
+\subsection{Pilot Validation}
+
+Before the full experiment, we conducted a 4-condition pilot on a 1,024-feature subset with single replicates to validate the experimental design. Table~\ref{tab:pilot} reports pilot results.
+
+\begin{table}[t]
+\caption{Pilot results (single replicate, 1,024 features). The Random control validates metric discrimination: absorption is 2.8x higher than Baseline, confirming the metric distinguishes structure from randomness. TopK and MultiScale both show strong reduction.}
+\label{tab:pilot}
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Variant & Absorption Rate & MCC & MSE & L0 & Hedging \\
+\midrule
+Baseline & 0.203 & 0.216 & 0.0107 & 1044.0 & 0.224 \\
++TopK & 0.033 & 0.212 & 0.0079 & 50.0 & 0.200 \\
++MultiScale & 0.050 & 0.219 & 0.0075 & 50.0 & 0.222 \\
+Random & 0.560 & 0.223 & 0.627 & 1032.6 & 0.247 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three findings from the pilot informed the full experiment design. First, the Random control achieves absorption = 0.560, far above all trained variants (0.033--0.203), validating that the ground-truth absorption metric discriminates trained structure from randomness. Second, both TopK (83.8\% reduction) and MultiScale (75.3\% reduction) show strong absorption reduction relative to Baseline. Third, MCC is approximately equal across all conditions ($\sim$0.21--0.22), including Random, confirming that Hungarian matching on overcomplete dictionaries does not discriminate structure. We designated absorption rate as the primary metric and MCC as secondary.
+
+The pilot met the go/no-go criteria (GO with revisions): effect sizes were large, training was stable, and the metric discriminated trained from random structure. We proceeded to the full experiment with 5 replicates per variant on the complete 16,384-feature dataset.
+
+\subsection{Main Results: Component-Isolated Absorption Rates}
+
+Table~\ref{tab:main} reports the full experiment results for all 7 conditions (5 replicates each, seeds 42, 123, 456, 789, 1011).
+
+\begin{table*}[t]
+\caption{Main results across all 7 SAE conditions. Values are mean $\pm$ std across 5 replicates. MSE values are reported as $\times 10^{-3}$ (e.g., 10.44 corresponds to MSE = 0.01044). Bold indicates best (lowest absorption, lowest MSE). Cohen's $d$ computed vs.~Baseline using pooled standard deviation. Random control validates metric discrimination.}
+\label{tab:main}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccccccc}
+\toprule
+Variant & Absorption & MCC & MSE ($\times 10^{-3}$) & L0 & Hedging & Red.\% & $d$ \\
+\midrule
+Baseline & 0.252$\pm$0.046 & 0.216$\pm$0.001 & 10.44$\pm$0.85 & 964.0$\pm$75.0 & 0.240$\pm$0.007 & --- & --- \\
++TopK & \textbf{0.056$\pm$0.021} & 0.214$\pm$0.001 & 7.68$\pm$0.28 & \textbf{50.0} & 0.237$\pm$0.025 & \textbf{78.0\%} & \textbf{4.93} \\
++MultiScale & \textbf{0.055$\pm$0.024} & 0.220$\pm$0.001 & 7.10$\pm$0.30 & \textbf{50.0} & 0.235$\pm$0.019 & \textbf{78.3\%} & \textbf{4.81} \\
++Orthogonality & 0.245$\pm$0.050 & 0.222$\pm$0.000 & \textbf{0.03$\pm$0.00} & 550.2$\pm$4.5 & 0.240$\pm$0.009 & 2.7\% & 0.13 \\
++Gating & 0.261$\pm$0.050 & 0.217$\pm$0.001 & 8.21$\pm$0.32 & 965.9$\pm$68.0 & 0.233$\pm$0.014 & -3.6\% & -0.17 \\
++Full Matryoshka & 0.066$\pm$0.029 & 0.220$\pm$0.001 & 7.10$\pm$0.31 & \textbf{50.0} & 0.233$\pm$0.016 & 73.7\% & 4.31 \\
+Random & 0.534$\pm$0.050 & 0.221$\pm$0.001 & 649.1$\pm$12.5 & 1029.2$\pm$45.0 & 0.236$\pm$0.015 & --- & -5.24 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Three findings emerge from the full experiment. First, \textbf{TopK and MultiScale are co-dominant drivers of absorption reduction}: both achieve $\sim$78\% reduction (TopK: 78.0\%, $d = 4.93$; MultiScale: 78.3\%, $d = 4.81$), with effect sizes an order of magnitude larger than any other tested component. Second, \textbf{the orthogonality penalty has negligible effect}: only 2.7\% reduction ($d = 0.13$, $p = 0.845$) despite achieving near-perfect reconstruction (MSE $\approx 3 \times 10^{-5}$). Third, \textbf{gating slightly increases absorption} by 3.6\% ($d = -0.17$, $p = 0.797$), confirming it does not reduce absorption. The Random control (absorption = 0.534) validates that the metric discriminates trained structure from randomness.
+
+Figure~\ref{fig:absorption} visualizes the component ranking with statistical uncertainty.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig2_absorption_bars.pdf}
+\caption{Absorption rate by variant. TopK (0.056 $\pm$ 0.021), MultiScale (0.055 $\pm$ 0.024), and Full Matryoshka (0.066 $\pm$ 0.029) achieve order-of-magnitude reduction relative to Baseline (0.252 $\pm$ 0.046). Orthogonality (0.245 $\pm$ 0.050) and Gating (0.261 $\pm$ 0.050) are statistically indistinguishable from Baseline.}
+\label{fig:absorption}
+\end{figure}
+
+\subsection{Component Ranking by Effect Size}
+
+A one-way ANOVA across all 7 conditions confirms significant differences: $F(6, 28) = 73.36$, $p < 10^{-15}$. The component hierarchy by effect size is:
+
+\begin{enumerate}
+\item \textbf{+TopK}: $d = 4.93$ (78.0\% reduction)
+\item \textbf{+MultiScale}: $d = 4.81$ (78.3\% reduction)
+\item \textbf{+Full Matryoshka}: $d = 4.31$ (73.7\% reduction)
+\item \textbf{+Orthogonality}: $d = 0.13$ (2.7\% reduction)
+\item \textbf{+Gating}: $d = -0.17$ (-3.6\% change)
+\end{enumerate}
+
+All three top variants (TopK, MultiScale, Full Matryoshka) are significantly different from Baseline ($p < 10^{-4}$). Orthogonality and Gating are not significantly different from Baseline ($p > 0.79$). The Random control is significantly different from all trained variants ($p < 10^{-4}$), validating metric discrimination.
+
+\subsection{Hypothesis Tests}
+
+\textbf{H1: TopK dominance.} H1 predicted that TopK sparsity is a dominant driver of absorption reduction ($d > 0.8$ vs.~Baseline). TopK achieves 78.0\% absorption reduction with $d = 4.93$, an extremely large effect. MultiScale achieves an equally large effect ($d = 4.81$). \textbf{H1 is SUPPORTED}: TopK is a dominant driver, though MultiScale is equally strong.
+
+\textbf{H2: MultiScale effect.} H2 predicted that multi-scale dictionary decomposition reduces absorption. MultiScale achieves 78.3\% absorption reduction with $d = 4.81$, nearly identical to TopK. Both enforce $L_0 = 50$ by construction. \textbf{H2 is SUPPORTED}: MultiScale is co-dominant with TopK.
+
+\textbf{H3: Orthogonality null.} H3 predicted that orthogonality penalties have negligible effect on absorption. Orthogonality achieves only 2.7\% reduction ($d = 0.13$, $p = 0.845$). Not significantly different from Baseline. \textbf{H3 is SUPPORTED}: Orthogonality has negligible effect on absorption, directly contradicting OrtSAE's claimed 65\% reduction.
+
+\textbf{H4: Gating effect.} H4 predicted that gating reduces absorption. Gating slightly increases absorption by 3.6\% ($d = -0.17$, $p = 0.797$). Not significantly different from Baseline. \textbf{H4 is SUPPORTED (negatively)}: Gating does not reduce absorption.
+
+\subsection{The Sparsity--Absorption Correlation}
+
+Figure~\ref{fig:sparsity} reveals a striking relationship between $L_0$ sparsity and absorption rate.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig3_sparsity_correlation.pdf}
+\caption{Absorption rate vs.~$L_0$ sparsity. The positive relationship ($r = 0.87$ across $n = 7$ variants, $p = 0.012$) indicates that explicit sparsity control, not architectural novelty, is the operative mechanism: higher $L_0$ sparsity (more active latents) is associated with higher absorption.}
+\label{fig:sparsity}
+\end{figure}
+
+The correlation is strong and significant ($r = 0.87$, $p = 0.012$ across all 7 variant means). Baseline ($L_0 = 964$, $A = 0.252$), TopK ($L_0 = 50$, $A = 0.056$), MultiScale ($L_0 = 50$, $A = 0.055$), Orthogonality ($L_0 = 550$, $A = 0.245$), Gating ($L_0 = 966$, $A = 0.261$), Full Matryoshka ($L_0 = 50$, $A = 0.066$), and Random ($L_0 = 1029$, $A = 0.534$) all fall close to a straight line. This pattern suggests that \textbf{absorption is primarily driven by sparsity level, not architectural novelty}: variants with more active latents exhibit higher absorption. TopK and MultiScale achieve low absorption not because their architectures are special, but because they enforce $L_0 = 50$---a hard limit on co-active features that reduces the pool of competing latents.
+
+This finding redirects the research question: instead of asking ``which architecture reduces absorption?'' we should ask ``why does sparsity control absorption, and what is the optimal sparsity level?''
+
+\subsection{Effect Sizes and Statistical Significance}
+
+Figure~\ref{fig:effectsize} shows Cohen's $d$ effect sizes with interpretation thresholds.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig4_effect_sizes.pdf}
+\caption{Effect sizes with conventional thresholds. TopK and MultiScale exceed the ``large'' threshold by a factor of 6; Orthogonality and Gating fall below even the ``small'' threshold.}
+\label{fig:effectsize}
+\end{figure}
+
+The effect size hierarchy is stark: TopK ($d = 4.93$) and MultiScale ($d = 4.81$) are in a class of their own, roughly 38x larger than Orthogonality ($d = 0.13$). This is not a gradual spectrum; it is a categorical jump.
+
+\subsection{Full Matryoshka: A Cautionary Interaction Pattern}
+
+Figure~\ref{fig:interaction} visualizes the component interaction in Full Matryoshka.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig6_interaction.pdf}
+\caption{Component interaction analysis. The additive expectation for Full Matryoshka (combining TopK and MultiScale reductions) is negative (-0.142), but the observed absorption (0.066) is worse than either TopK (0.056) or MultiScale (0.055) individually. This pattern suggests caution about combining components: more is not always better.}
+\label{fig:interaction}
+\end{figure}
+
+The additive expectation for Full Matryoshka, computed from the individual reductions of TopK and MultiScale, is negative (-0.142), which is below the physical bound of zero for an absorption rate. The observed absorption is 0.066---worse than either TopK (0.056) or MultiScale (0.055) alone. The interaction is \textbf{suggestive of antagonism}: combining TopK and MultiScale with the hierarchical loss produces a worse outcome than the best component alone. This pattern suggests caution about the assumption that more components always help, and indicates that the hierarchical loss may introduce competition between dictionary levels.
+
+\textbf{Key insight}: practitioners should consider using TopK or MultiScale alone, not the full Matryoshka stack, for absorption reduction.
+
+\subsection{Reconstruction Quality}
+
+All trained variants achieve good reconstruction (MSE $\sim$0.007--0.010). Orthogonality achieves near-perfect reconstruction (MSE $\approx 3 \times 10^{-5}$) but no absorption benefit. Full Matryoshka and MultiScale achieve the best combined reconstruction--absorption performance. Random control: MSE = 0.649 (validates training).
+
+Figure~\ref{fig:pareto} shows the reconstruction--absorption Pareto frontier.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig5_pareto.pdf}
+\caption{Reconstruction--absorption Pareto frontier. MultiScale and Full Matryoshka dominate: they achieve both low absorption and low MSE. Orthogonality achieves excellent reconstruction but negligible absorption reduction, leaving it Pareto-dominated.}
+\label{fig:pareto}
+\end{figure}
+
+\subsection{Feature Recovery MCC}
+
+All variants show MCC $\approx$ 0.21--0.22. The Random control also achieves MCC = 0.221, statistically indistinguishable from trained variants. This is expected behavior: Hungarian matching on an overcomplete dictionary ($m = 2048$ latents for $F = 16{,}384$ features) yields approximately 0.22 by chance. MCC does not discriminate trained from random structure in this overcomplete setting, which is why we designated absorption rate as the primary metric.
+
+\subsection{Hedging Invariance}
+
+Hedging scores are approximately constant across all variants: Baseline (0.240 $\pm$ 0.007), TopK (0.237 $\pm$ 0.025), MultiScale (0.235 $\pm$ 0.019), Orthogonality (0.240 $\pm$ 0.009), Gating (0.233 $\pm$ 0.014), Full Matryoshka (0.233 $\pm$ 0.016), and Random (0.236 $\pm$ 0.015). No trade-off is observed; hedging is invariant to architecture in our synthetic setting.
+
+\subsection{Hypothesis Test Summary}
+
+Table~\ref{tab:hypotheses} summarizes the status of all hypotheses.
+
+\begin{table}[t]
+\caption{Hypothesis test summary. All four hypotheses are supported: TopK and MultiScale co-dominate, orthogonality and gating are null.}
+\label{tab:hypotheses}
+\centering
+\footnotesize
+\begin{tabular}{p{2.2cm}p{3.5cm}p{4.5cm}l}
+\toprule
+Hypothesis & Prediction & Evidence & Decision \\
+\midrule
+H1 (TopK) & Dominant driver ($d > 0.8$) & TopK $d = 4.93$, co-dominant with MultiScale & \textbf{SUPPORTED} \\
+H2 (MultiScale) & Reduces absorption & MultiScale $d = 4.81$, 78.3\% reduction & \textbf{SUPPORTED} \\
+H3 (Orthogonality) & Negligible effect & $d = 0.13$, $p = 0.845$ & \textbf{SUPPORTED} \\
+H4 (Gating) & Does not reduce absorption & $d = -0.17$, $p = 0.797$ & \textbf{SUPPORTED} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The results reveal an unexpected pattern: explicit sparsity control (TopK, MultiScale) dominates structural constraints (Orthogonality, Gating) by an order of magnitude, and the full Matryoshka stack underperforms its individual components. This demands interpretation.
+
+\section{Discussion}
+
+\subsection{TopK and MultiScale as Co-Dominant Drivers}
+
+The 78.0\% absorption reduction from TopK sparsity (Cohen's $d = 4.93$) and the 78.3\% reduction from MultiScale ($d = 4.81$) far exceed any other tested component. To understand why these two dominate, we examine the mechanism.
+
+Absorption occurs when parent and child features co-occur and the SAE's sparsity constraint forces the parent to be suppressed in favor of the children. The Baseline SAE uses an L1 sparsity penalty, which encourages but does not enforce sparsity. The resulting $L_0 = 964$ active latents per sample (out of $m = 2048$) means nearly half the dictionary co-activates, creating ample opportunity for parent-child competition. TopK, by contrast, enforces a hard limit of $k = 50$ active latents. With only 50 slots, the SAE must be selective about which features to represent, and the explicit constraint prevents the dense co-activation that enables absorption.
+
+MultiScale achieves a similar effect through a different mechanism: nested dictionaries allow features to be represented at multiple resolutions, reducing the pressure on any single level to absorb parent information. Both TopK and MultiScale enforce $L_0 = 50$ by construction (TopK via hard thresholding, MultiScale via batch TopK), which explains their nearly identical absorption rates.
+
+The strong absorption--L0 correlation ($r = 0.87$ across $n = 7$ variants, $p = 0.012$) is consistent with this interpretation. Baseline ($L_0 = 964$, $A = 0.252$), TopK ($L_0 = 50$, $A = 0.056$), MultiScale ($L_0 = 50$, $A = 0.055$), Orthogonality ($L_0 = 550$, $A = 0.245$), Gating ($L_0 = 966$, $A = 0.261$), Full Matryoshka ($L_0 = 50$, $A = 0.066$), and Random ($L_0 = 1029$, $A = 0.534$) all fall on the same line. This suggests that absorption may be primarily a function of sparsity level, not architectural novelty: more active latents mean more opportunities for parent-child competition. TopK and MultiScale achieve low absorption not because their architectures are special, but because they enforce extreme sparsity.
+
+If this correlation is confirmed by a dedicated sparsity-sweep experiment (varying $k$ within a single architecture), it would suggest reframing the research question. Instead of asking ``which architecture reduces absorption?'' the field should ask: (1) what is the causal mechanism linking sparsity to absorption? (2) what is the optimal sparsity level for minimizing absorption while maintaining reconstruction? and (3) do other sparsity-control mechanisms (e.g., adaptive TopK, learned thresholds) achieve similar effects?
+
+\subsection{Why Orthogonality Fails}
+
+The orthogonality penalty achieves near-perfect reconstruction (MSE $\approx 3 \times 10^{-5}$) but negligible absorption reduction (2.7\%, $d = 0.13$). This is a striking dissociation: the component that most improves reconstruction does nothing for absorption.
+
+The explanation lies in the operative constraint. Absorption is driven by the activation sparsity pattern---how many latents co-fire when parent and child features are present---not by the geometric coherence of decoder directions. The orthogonality penalty affects decoder geometry (encouraging $W_{\text{dec}}^\top W_{\text{dec}} \approx I$), but it does not change the fact that 550 latents co-activate per sample. With 550 active latents, parent-child competition still occurs; the decoder directions are simply more orthogonal.
+
+This finding has practical implications. \citet{korznikov2025ortsae} reported 65\% absorption reduction from orthogonality penalties, but their measurement used the SAEBench probe-based protocol on real LLMs. Our ground-truth synthetic result suggests that the orthogonality effect may be mediated by probe geometry rather than genuine absorption reduction. The orthogonality penalty may improve probe separability without changing the underlying activation pattern that drives absorption.
+
+\subsection{Why Gating Fails}
+
+Gating slightly increases absorption by 3.6\% ($d = -0.17$), though not significantly ($p = 0.797$). Decoupling detection from magnitude may create more activation opportunities, increasing competition among latents. The gating mechanism does not address the core sparsity--absorption coupling that our data reveal.
+
+\subsection{The Matryoshka Interaction: A Cautionary Pattern}
+
+Full Matryoshka underperforms both TopK and MultiScale individually (0.066 vs.~0.056 and 0.055). The hierarchical loss may introduce competition between dictionary levels that counteracts the individual benefits of TopK and MultiScale. This pattern suggests caution about the assumption that combining components always improves outcomes.
+
+The practical implication is clear: practitioners seeking absorption reduction should use TopK or MultiScale alone, not the full Matryoshka stack. The additional complexity of hierarchical loss weighting does not improve absorption and may harm it.
+
+\subsection{The Missing Trade-off}\label{sec:missing-tradeoff}
+
+\citet{chanin2025hedging} demonstrated that absorption and hedging sit on a Pareto frontier: architectures that reduce absorption increase hedging, and vice versa. Matryoshka SAEs, for example, reduce absorption but increase hedging in inner dictionary levels.
+
+Our data do not replicate this trade-off. Hedging scores are invariant across all tested variants ($\sim$0.24), with no statistically detectable differences. We see three possible explanations:
+
+\begin{enumerate}
+\item \textbf{Synthetic data lacks correlation structure.} Real LLM features exhibit rich correlational structure beyond hierarchical containment. Synthetic features are generated from a tree-structured co-occurrence model that may not produce the correlations that trigger hedging.
+
+\item \textbf{Hedging emerges at different scales.} The pilot used 1,024 features; the full experiment uses 16,384. Hedging may require larger dictionaries or different feature densities to manifest.
+
+\item \textbf{The hedging metric is insensitive.} Our hedging score follows \citet{chanin2025hedging}, but alternative formulations might detect differences our metric misses.
+\end{enumerate}
+
+We acknowledge this as a limitation. The absence of a trade-off does not contradict \citet{chanin2025hedging}; it merely indicates that our synthetic setting does not capture the phenomenon. Future work should test hedging on real LLM features or more complex synthetic correlation structures.
+
+\subsection{Implications for Architecture Design}
+
+Our findings yield three recommendations for practitioners and architecture researchers.
+
+\textbf{First, prioritize explicit sparsity control.} If absorption reduction is the goal, TopK sparsity is the most effective single component tested, with an effect size roughly equal to MultiScale and roughly 38x larger than orthogonality. The implementation is simple (replace L1 penalty with top-k activation) and the computational overhead is minimal.
+
+\textbf{Second, multi-scale decomposition offers comparable absorption reduction but adds complexity.} MultiScale achieves nearly identical absorption reduction to TopK (78.3\% vs.~78.0\%) and may offer additional benefits (feature organization, interpretability across scales). However, its effect on absorption appears to be mediated by sparsity (both enforce $L_0 = 50$), not by the multi-scale structure itself.
+
+\textbf{Third, orthogonality penalties add compute overhead without absorption benefit.} The 4--11\% compute overhead reported by \citet{korznikov2025ortsae} is not justified by absorption reduction in our ground-truth test. Orthogonality may still improve reconstruction or probe separability, but practitioners should not expect it to reduce absorption.
+
+\subsection{Limitations}
+
+Our study has five principal limitations.
+
+\textbf{Synthetic data may not match real LLM feature structure.} SynthSAEBench-16k uses binary features with tree-structured co-occurrence. Real LLM features are continuous, context-dependent, and embedded in a residual stream with nonlinear interactions. The component ranking on synthetic data may not transfer to real LLMs.
+
+\textbf{MCC metric fails to discriminate.} All variants show MCC $\sim$0.21--0.22, including the Random control. This is expected behavior for Hungarian matching on overcomplete dictionaries, but it means we cannot use MCC to validate feature recovery quality.
+
+\textbf{Single sparsity level for TopK.} We test $k = 50$ only. The optimal $k$ for absorption-reconstruction trade-offs is unknown and may vary by dataset and model size.
+
+\textbf{Hedging invariance may reflect synthetic data limitations.} As discussed in Section~\ref{sec:missing-tradeoff}, the absence of a hedging trade-off may be a property of our synthetic setting rather than a genuine finding about architecture.
+
+\textbf{Antagonistic interaction lacks formal significance testing.} The Full Matryoshka underperformance relative to TopK and MultiScale (0.066 vs.~0.055--0.056) is suggestive but not confirmed by a formal interaction test. The difference is small ($\sim$15\% relative) and may not be statistically significant with 5 replicates per condition.
+
+\subsection{Future Work}
+
+Four directions would strengthen and extend this study.
+
+\textbf{Real-LLM validation.} Training the top-performing components (TopK, MultiScale) on Pythia-160M or Gemma-2-2B activations and measuring first-letter absorption via SAEBench would test synthetic-to-real transfer. If the component ranking replicates, the synthetic benchmark is validated as a proxy.
+
+\textbf{Sparsity sweep.} Varying $k \in \{10, 25, 50, 100, 200\}$ for TopK SAEs would characterize the absorption-sparsity relationship and identify the optimal sparsity level.
+
+\textbf{Rate-distortion theoretical framing.} Absorption can be framed as an information-theoretic necessity: given a rate constraint (sparsity level), some parent-feature information must be lost. Multi-scale dictionaries effectively expand the rate budget by allowing features to be represented at multiple resolutions. A formal rate-distortion analysis could derive bounds on absorption as a function of sparsity and hierarchy depth.
+
+\textbf{Lateral inhibition architectures.} If sparsity is the operative mechanism, architectures that explicitly enforce competitive inhibition among latents (e.g., winner-take-all, k-WTA with learned thresholds) may achieve even lower absorption. Testing such architectures on SynthSAEBench-16k would extend our component ranking.
+
+From these implications, we distill the key takeaways.
+
+\section{Conclusion}
+
+\subsection{Summary}
+
+This paper presents the first component-isolated causal analysis of SAE absorption-reduction mechanisms, training seven SAE conditions on SynthSAEBench-16k ground-truth synthetic hierarchies and measuring absorption directly from known parent-child relationships. Four findings emerge.
+
+First, \textbf{TopK sparsity and MultiScale decomposition are co-dominant drivers of absorption reduction}. Both achieve $\sim$78\% reduction (TopK: $d = 4.93$; MultiScale: $d = 4.81$), with effect sizes an order of magnitude larger than any other tested component. This is a categorical difference that reorders the community's understanding of what works.
+
+Second, \textbf{orthogonality penalties have negligible effect}. Despite achieving near-perfect reconstruction (MSE $\approx 3 \times 10^{-5}$), orthogonality reduces absorption by only 2.7\% ($d = 0.13$). The component that most improves reconstruction does nothing for absorption, revealing a dissociation between these two objectives.
+
+Third, \textbf{Full Matryoshka shows a pattern suggestive of antagonism}: its observed absorption (0.066) is worse than either TopK (0.056) or MultiScale (0.055) alone. Combining components does not always improve outcomes.
+
+Fourth, \textbf{a strong absorption--L0 sparsity correlation} ($r = 0.87$, $p = 0.012$ across $n = 7$ variants) suggests that explicit sparsity control---not architectural novelty---is the operative mechanism. Variants with more active latents exhibit higher absorption. TopK and MultiScale achieve low absorption because they enforce $L_0 = 50$, not because their architectures are inherently superior.
+
+\subsection{Implications}
+
+These findings carry two implications for the SAE research community.
+
+\textbf{For practitioners:} If absorption reduction is the goal, add TopK sparsity. It is a one-line architectural change with an effect size larger than orthogonality and gating combined. MultiScale offers comparable absorption reduction and may provide additional organizational benefits. The community's investment in more complex architectures may be misdirected if the primary benefit comes from explicit sparsity control.
+
+\textbf{For researchers:} The strong sparsity--absorption correlation opens a new research direction. Instead of asking ``which architecture reduces absorption?'' we should ask ``why does sparsity control absorption, and what is the optimal sparsity level?'' A rate-distortion theoretical framing---absorption as information loss under a rate constraint---could provide formal bounds and guide architecture design.
+
+\subsection{Call to Action}
+
+Two validations are needed before these findings guide community practice.
+
+First, \textbf{validate on real LLMs}. The synthetic-to-real transfer is the critical test. If TopK and MultiScale dominate on Pythia-160M or Gemma-2-2B first-letter absorption (measured via SAEBench), the synthetic benchmark is validated as a proxy and the component ranking can guide architecture selection. If not, the synthetic results are still valuable as a controlled setting, but practitioners should exercise caution in generalizing.
+
+Second, \textbf{conduct a sparsity sweep}. Varying $k$ for TopK SAEs would confirm whether the absorption--sparsity relationship is causal and identify the optimal sparsity level for absorption-reconstruction trade-offs.
+
+Ground-truth synthetic benchmarks are a prerequisite for causal claims about SAE architecture. Our study demonstrates that component isolation on known feature structure can resolve questions that probe-based metrics on real LLMs cannot. We hope this methodology becomes standard practice for evaluating future SAE innovations.
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}

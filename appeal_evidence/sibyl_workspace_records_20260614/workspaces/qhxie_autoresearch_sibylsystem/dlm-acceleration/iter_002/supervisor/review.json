@@ -1,0 +1,119 @@
+{
+  "score": 5.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 6,
+    "soundness": 5,
+    "experiments": 5,
+    "reproducibility": 6
+  },
+  "summary": "ComposeAccel presents the first controlled factorial study of training-free DLM acceleration composition, which fills a genuine gap. The Ortho metric and interference taxonomy are useful conceptual contributions. However, the paper suffers from five interconnected problems that collectively place it below the acceptance threshold: (1) M1's measured speedup (1.16x) is so marginal that M1+IGSD 'near-orthogonal composition' largely measures the absence of interference from a near-no-op, not genuine synergistic composition of two acceleration axes; (2) the IGSD confidence gate ablation at T_draft=32 shows tau=0.0 equals tau=0.9 (both 49.5% accuracy), meaning IGSD reduces to naive step truncation at the most-used operating point, undermining the 'information-geometric' framing; (3) pairwise compositions are pilot-scale (100 samples, 1 seed) while three-way results have 8% QAS coefficient of variation with wide per-seed accuracy swings (45-58%); (4) the AR comparison (Qwen2.5-7B QAS=3.08 vs best composed DLM QAS=1.07) is so overwhelming that the practical motivation for DLM acceleration is undercut; (5) M3 evaluations use only 100 samples while M1 uses 1319, making cross-method QAS comparisons unreliable. The paper is honest about limitations and reports negative results well, but the central contribution -- the composition taxonomy -- rests on thin statistical ground with one non-functional axis.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "M1 (entropy-based KV caching) achieves only 1.16x measured speedup at eta=0.5. This is barely above measurement noise for a 1319-sample evaluation. The paper acknowledges this is due to running full forward passes (no kernel-level sparse attention), but then treats M1 as a fully functional 'acceleration axis' in the composition framework. M1+IGSD Ortho=0.96 fundamentally measures 'IGSD composes with a near-no-op without losing speed,' not 'two acceleration axes compose near-orthogonally.' The flagship result -- M1+IGSD achieves 2.75x speedup -- is essentially IGSD's 2.81x speedup minus trivial overhead from entropy computation.",
+      "suggestion": "Either (a) implement kernel-level sparse attention to demonstrate M1 as a genuine acceleration method, or (b) reframe the M1+IGSD result honestly: 'entropy-based cache hit rate analysis confirms frozen tokens are low-entropy, providing evidence that kernel-level KV caching WOULD compose near-orthogonally with IGSD, but this remains a projection, not a demonstrated composition.' Report projected Ortho alongside measured Ortho."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "IGSD confidence gate ablation (Section 4.4) demonstrates that at T_draft=32, tau=0.0 (no partitioning) and tau=0.9 produce identical GSM8K accuracy (49.5%). The paper correctly reports this but underplays the implication: at the most commonly used operating point (T_draft=32), IGSD IS naive step truncation. The 'information-geometric step distillation' framing implies a sophisticated mechanism (KL divergence, confidence partitioning) that provides no measurable benefit over simply running fewer denoising steps. The paper's own data refutes the algorithmic contribution of the confidence gate.",
+      "suggestion": "Rename IGSD to something that does not imply the KL/confidence mechanism is the source of its effectiveness (e.g., 'draft-refine step reduction' or simply 'step truncation with optional refinement'). Alternatively, find an operating point where confidence partitioning demonstrably outperforms naive truncation and center the presentation there. The tau sensitivity analysis at T_draft=32 shows 1.4pp accuracy difference across tau in [0.7, 0.9] -- within noise."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Inconsistent sample sizes across methods make cross-method QAS comparisons unreliable. M1 is evaluated on 1319 GSM8K samples (full scale, 1 seed). IGSD is evaluated on 200 GSM8K samples (pilot, 1 seed). M3 is evaluated on 100 GSM8K samples (pilot, 1 seed for most configs, 2-seed for some). All pairwise compositions use 100 samples, 1 seed. Three-way compositions use 100 samples, 3 seeds. The paper's Table 3 presents these side-by-side without clearly marking the different statistical power. M3's reported 103.9% accuracy retention on 100 samples has much wider confidence intervals than M1's 94.5% on 1319 samples.",
+      "suggestion": "Either (a) run all methods at full scale (1319 GSM8K, 3 seeds) for a fair comparison, or (b) clearly annotate every table cell with sample size and number of seeds, and add a 'statistical power' discussion acknowledging that M3 results are pilot-scale estimates. The current presentation implicitly treats all numbers as equally reliable."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Three-way composition results (Table 5) show QAS coefficient of variation of 8.1-8.3% across 3 seeds, with per-seed GSM8K accuracy swinging from 45% to 58% (Max-Speed recipe). The Ortho mean is 1.02 but per-seed Ortho ranges from 0.91 to 1.11 (seed 42 to seed 456). This means the composition verdict (near-orthogonal vs synergistic) depends on which seed you happen to pick. The paper reports the mean as definitive but the per-seed variance suggests the true Ortho is not precisely determined.",
+      "suggestion": "Report 95% confidence intervals for Ortho (with 3 seeds, even bootstrap CIs would help). Acknowledge that the per-seed range [0.91, 1.11] spans both 'near-orthogonal' and 'synergistic' classification. The current thresholding at 0.8/1.0 is too fine-grained for the statistical resolution."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "MATH500 baseline accuracy is 11.1%, making MATH500 results extremely noisy. The paper acknowledges this in the limitations but still uses MATH500 in the combined metric (0.7*GSM8K + 0.3*MATH500). On 100-sample MATH500 evaluation, a 3-sample fluctuation changes accuracy by 3 percentage points and AccRet by ~27%. Several key claims depend on MATH500: M3+IGSD 'task-dependent' composition (MATH500 Ortho=0.76 vs GSM8K Ortho=0.96), and M1+IGSD combined Ortho dropping from 0.99 (GSM8K) to 0.64 (MATH500). These MATH500 Ortho values are very likely noise-dominated.",
+      "suggestion": "Report GSM8K-only results as the primary metric throughout the paper. Use MATH500 as a secondary/supplementary benchmark with explicit noise caveats. The 'task-dependent' claim for M3+IGSD requires either (a) much larger MATH500 sample sizes or (b) a different benchmark with a stronger baseline signal."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "M3 evaluation inconsistencies. M3 at wg=0.3 on GSM8K reports 103.9% accuracy retention (73 correct out of 100 samples vs 71.2% baseline). From the M1+M3 pairwise data, M1+M3 at gw=0.3 also achieves 73/100 correct on GSM8K. However, the baseline pilot subset shows 73/100 correct at seed 42 (73%), which equals the M3 result exactly. This raises the question of whether M3 genuinely improves accuracy or whether the 100-sample pilot happened to match the baseline. On the full 1319-sample baseline, accuracy is 73.3% (seed 42), so 73% on 100 samples with M3 is actually a slight decrease. The '103.9%' figure uses the 3-seed mean baseline (71.2%), not the seed-42 pilot baseline (73%).",
+      "suggestion": "Report M3 accuracy retention relative to the same-seed, same-subset baseline. If M3 at seed 42 on 100 samples achieves 73% vs a baseline of 73% on the same 100 samples, AccRet is 100%, not 103.9%. The claim that M3 is 'the only quality-preserving accelerator' may be overstated."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The Ortho metric definition (QAS(A+B) / max(QAS(A), QAS(B))) has a structural issue when one method (M1) has QAS close to 1.0. For M1+IGSD, the denominator is max(0.98, 1.40) = 1.40, and the numerator is 1.34. This gives Ortho=0.96 ('near-orthogonal'). But if we use QAS(A+B)/QAS(B) directly (since M1 contributes essentially nothing to the composition speedup), we get 1.34/1.40 = 0.96, which simply says 'adding M1 to IGSD loses 4% QAS.' This is a trivially expected result, not evidence of successful composition. The Ortho metric is designed for pairs where both methods contribute meaningfully.",
+      "suggestion": "Discuss the Ortho metric's behavior when one method has QAS near 1.0. Acknowledge that M1+IGSD Ortho=0.96 is better interpreted as 'M1 overhead is negligible when added to IGSD' rather than 'two acceleration axes compose near-orthogonally.' Reserve the composition narrative for pairs where both methods contribute substantial speedup."
+    },
+    {
+      "stage": "review",
+      "category": "novelty",
+      "severity": "major",
+      "description": "The paper's central contribution -- the composition taxonomy (near-orthogonal, task-dependent, destructive interference) -- is built on only three pairwise measurements. With one pair essentially being a no-op composition (M1+IGSD), the taxonomy reduces to two data points: M3+IGSD (moderate interference) and M1+M3 (strong interference). A taxonomy with two real data points on one model is thin for a contribution claim.",
+      "suggestion": "Strengthen by either (a) adding more method families (FastDLLM, SSD, Saber with backtracking) to the composition matrix, or (b) reducing the claim from 'taxonomy' to 'case study of three specific pairs' with hypotheses for future validation."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The AR comparison (Section 5.2) uses HuggingFace Transformers, not an optimized serving engine like vLLM. Qwen2.5-7B at batch=1 achieves 71 TPS with HF Transformers; with vLLM this would likely be 2-4x faster. The paper argues this comparison establishes the 'remaining gap,' but the gap is even larger than reported. Meanwhile, the DLM baseline (33.8 TPS) also uses HF Transformers, but DLMs cannot benefit from vLLM-style optimizations to the same degree. The comparison methodology is fair (same framework) but understates the practical gap.",
+      "suggestion": "Add a sentence acknowledging that optimized AR serving (vLLM, TensorRT-LLM) would widen the gap further, and that the HF-based comparison represents a conservative lower bound on the AR advantage."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Figure 2 (ComposeAccel architecture diagram) and Figure 7 (KL divergence profile) are TODO items. A paper submission with missing figures is incomplete.",
+      "suggestion": "Generate both figures before submission. The KL divergence profile data exists in igsd_kl_profiles_raw.json."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Batch sensitivity analysis (Section 5.3) reports results without standard deviations or multiple seeds. At batch=4, accuracy improves from 45% to 50% -- this is unexpected (batching should not improve accuracy for a deterministic model with fixed seed) and may indicate implementation issues or measurement artifact.",
+      "suggestion": "Investigate and explain why accuracy increases with batch size. Run with multiple seeds to confirm the batch sensitivity pattern. If this is a measurement artifact, correct or remove it."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "All citations use [CITE:xxx] placeholder format. The paper cannot be evaluated for proper attribution of prior work. The related work section is well-structured but the missing bibliography is a submission blocker.",
+      "suggestion": "Replace all [CITE:xxx] placeholders with proper bibtex citations before submission."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "The paper uses 'M1', 'M3', 'IGSD' shorthand throughout without mnemonic anchoring. After the first definition, the reader must remember the mapping. Given that M2 is excluded, the numbering is non-sequential, adding confusion.",
+      "suggestion": "Consider renaming to mnemonic labels (e.g., 'EntCache' for M1, 'ARGuide' for M3, 'IGSD' already is mnemonic) or at minimum add a reference table at the start of Section 3."
+    }
+  ],
+  "risks": [
+    "If kernel-level KV cache integration becomes available (from another group or library update), M1 speedup could increase 5-20x, potentially changing the M1+IGSD and M1+M3 composition outcomes entirely. The current findings may become obsolete.",
+    "IGSD's confidence gate providing zero benefit at T_draft=32 means the 'information-geometric' framing could invite reviewer skepticism about over-claiming on a simple step-reduction technique.",
+    "The overwhelming AR advantage (QAS=3.08 vs 1.07) may lead reviewers to question whether DLM acceleration composition is a research direction worth pursuing at all.",
+    "Dream-7B cross-model validation shows amplified effects (QAS=2.18 on Dream vs 1.07 on LLaDA), but Dream's low baseline accuracy (36%) makes the high AccRet (125%) potentially degenerate -- it may simply mean IGSD's draft produces outputs no worse than Dream's weak baseline."
+  ],
+  "evidence_gaps": [
+    "No full-scale (1319-sample, 3-seed) pairwise composition results. All pairwise Ortho values are pilot-scale.",
+    "No confidence intervals reported for any Ortho value. The synergy/interference classification is presented as crisp despite wide per-seed variance.",
+    "No per-step entropy distribution comparison between standalone IGSD and M3+IGSD to explain the mechanistic basis for task-dependent interference.",
+    "CHR refine-phase measurement (0.943) exists in chr_refine_measurement.json at tau=0.9/T_draft=16, but the paper cites this for M1+IGSD composition at eta=0.5 without clearly specifying the same operating point.",
+    "M3's TPS measurement uses different pilot subset (100 samples) than M1 (1319 samples). The reported 1.68x speedup for M3 has not been validated at full scale.",
+    "No qualitative output examples in the paper to verify that IGSD outputs are not degenerate (sample texts in the JSON show repetitive 'ske ske ske' patterns at low accept rates)."
+  ],
+  "what_would_raise_score": "Score would increase by approximately 1.5 points (to ~7.0) with: (1) full-scale pairwise evaluations (1319 GSM8K, 3 seeds) for all three pairs, with proper confidence intervals on Ortho -- this is the single highest-impact improvement; (2) honest reframing of IGSD as 'draft-refine step reduction' that acknowledges the confidence gate provides no measurable benefit at T_draft=32; (3) either implementing kernel-level M1 or clearly separating measured vs projected results throughout all tables; (4) replacing placeholder figures and citations. An additional 0.5 points (to ~7.5) would require finding an operating point where the confidence gate demonstrably outperforms naive truncation, or adding more method families to strengthen the composition taxonomy."
+}

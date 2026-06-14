@@ -1,0 +1,117 @@
+{
+  "score": 6.0,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 5,
+    "experiments": 6,
+    "reproducibility": 5.5
+  },
+  "summary": "The paper has been substantially restructured since iter_007/008: all Lyapunov/PMP-WD/certified-band theoretical apparatus has been removed, and the paper now positions itself as an empirical contribution centered on the Phi Modulator Framework, three diagnostic metrics, and the Phi Invariance Conjecture. This is the RIGHT strategic move -- the empirical story is cleaner and more honest. However, the restructuring has not fixed the fundamental data integrity problems. The score DECREASES from 6.5 to 6.0 because: (1) Figure 3(a) uses iter_006 data (constant=89.80, PMP-WD=90.29) while Table 2 uses iter_003 data (constant=90.13), and PMP-WD appears in Figure 3(a) but is not in ANY table -- now directly contradicting the paper's own text which describes '7 methods' without PMP-WD; (2) Figure 4 still plots half_lambda at BEM~0.0 despite Table 6 correctly reporting BEM=0.500 -- this bug was flagged in iter_007 and iter_008 and remains unfixed; (3) Figure 3(a) reports 'Spread: 0.49pp' while the paper text (Section 5.1) says 0.25pp and Table 2 data gives 0.25pp -- three contradictory numbers; (4) No ImageNet despite 4+ iterations of project constraints requiring it. The paper now has FEWER theoretical claims to defend (good), but the figure-table-text inconsistencies are worse than before because the figures still contain PMP-WD and iter_006 data while the text/tables do not.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Data provenance mismatch between figures and tables is now WORSE than prior iterations. Table 2 reports AdamW CIFAR-10 constant = 90.13 +/- 0.31 (from iter_003 raw data: seeds 90.48, 90.03, 89.89). Figure 3(a) shows constant at ~89.80 (from iter_006 raw data: seeds 89.72, 90.15, 89.54). The 0.33pp shift between identical configurations in different iterations EXCEEDS the paper's headline 0.25pp spread. A reader looking at Table 2 and Figure 3(a) will see different data for the same method. Additionally, Figure 3(a) shows PMP-WD (~90.29) which does not appear in any table or in the paper's method list. The paper describes '7 methods' throughout but Figure 3(a) shows 6 methods (including PMP-WD, excluding half_lambda and random_mask).",
+      "suggestion": "Choose ONE data source. Recommended: rerun all 7 methods with the iter_006 instrumented codebase (21 runs, ~6 GPU-hours) so all numbers are provenance-consistent. Then regenerate ALL figures from the same data. Alternatively, regenerate Figure 3(a) using iter_003 data with the 7 methods that appear in Table 2 (constant, cosine, cwd_hard, swd, random_mask, half_lambda, no_wd). Remove PMP-WD from all figures unless it is added to all tables."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Figure 4 (BEM scatter plot) plots half_lambda at BEM approximately 0.0 on the CIFAR-10 panel. Table 6 correctly reports BEM = 0.500 for half_lambda. This is a direct visual contradiction between a figure and a table in the same paper, flagged in both iter_007 and iter_008 reviews and still unfixed. A reviewer will notice that half_lambda (which by definition applies half the WD budget) appears at BEM=0 (identical budget to constant). Either the figure data is stale or the BEM computation code has a bug for this method.",
+      "suggestion": "Regenerate Figure 4 from the same data that produced Table 6. Verify that half_lambda appears at x=0.5 in the scatter plot. This is a 20-minute fix."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Three contradictory spread numbers for the same experimental condition (AdamW + ResNet-20 + CIFAR-10): Figure 3(a) annotation says 'Spread: 0.49pp'; Section 5.1 says '0.25 percentage points'; Table 2 data computes to max(90.13) - min(89.88) = 0.25pp. The 0.49pp in Figure 3(a) comes from iter_006 data with a different method set (including PMP-WD), not from Table 2. A paper that cannot agree with itself on its central quantitative claim is not submittable.",
+      "suggestion": "After fixing the data provenance (all figures and tables from same source), recompute the spread from the final authoritative Table 2. Annotate Figure 3 with the matching number. Remove any residual references to different spread values."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "No ImageNet experiments. Project constraints mandate ImageNet. Every comparable paper at top venues (CWD at ICLR 2026, AlphaDecay at NeurIPS 2025, SWD at NeurIPS 2023) includes ImageNet or larger-scale validation. The paper's conclusions about 'the weight decay illusion' are confined to CIFAR-10/100 with ResNet-20 (270K params) and VGG-16-BN (15M params). The paper acknowledges this in Section 6.4 Limitation 1, but a limitation acknowledgment does not substitute for missing experiments. Previous ImageNet attempts failed without root cause diagnosis across 4+ iterations.",
+      "suggestion": "Highest-ROI path: (1) Diagnose why ImageNet failed -- check data path, batch size OOM, data loader config on the compute server (2 hours). (2) Run ImageNet-100 (100-class subset) with 3 methods (constant, CWD, no_wd) x 3 seeds x ResNet-50 = 9 runs (~6-8 GPU-hours). Even partial results at this scale would raise the experiments score by 1 full point."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "PMP-WD is a ghost method. It appears in Figure 3(a), Figure 8 filename (theorem2_validation.png), and Figure 9, but is absent from Table 1 (method catalog), Table 2 (main results), Table 3 (statistical tests), Table 5 (VGG results), and Table 6 (diagnostic metrics). The paper text consistently describes '7 methods' which does not include PMP-WD. Figure 3(a) shows 6 methods (No WD, Constant, Cosine, CWD, SWD, PMP-WD) while Figure 3(b) shows 7 different methods (No WD, Constant, Cosine, CWD, SWD, Half-lambda, Random Mask). This makes the cross-architecture spread comparison invalid.",
+      "suggestion": "Make a clean decision: either (a) add PMP-WD to all tables and upgrade to '8 methods', or (b) remove PMP-WD from all figures and regenerate them with the 7 methods listed in the paper. Option (b) is faster and cleaner. Both panels of Figure 3 must show identical method sets for the spread comparison to be valid."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Section 5.7 (Cumulative Alignment Analysis) uses symbols (delta_t, bar_delta_T, delta_T^sup) that are never formally defined in Section 3. The alignment deviation delta_t is defined inline in Section 5.7, but this makes the analysis feel like an afterthought rather than part of the framework. More importantly, the analysis shows rho=-0.379 with p=0.121 (not significant) and rho=0.045 with p=0.858. This is a negative result dressed as a contribution. With N=18 and both correlations non-significant, this section adds page count without adding evidence.",
+      "suggestion": "Two options: (a) Keep Section 5.7 but frame it explicitly as an exploratory negative result: 'We examined whether alignment deviation predicts generalization gap and found no statistically significant relationship (rho=-0.379, p=0.121, N=18). This null result is consistent with the Phi Invariance Conjecture.' (b) Remove Section 5.7 and Figure 8 entirely to save space for an ImageNet section or more thorough discussion. Option (a) is acceptable if the framing is honest."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Statistical power remains insufficient for a null-result paper. N=3 seeds gives ~15-20% power to detect delta=0.5% effects. TOST confirms equivalence in only 6/12 comparisons at the lenient delta=1.0% margin. The paper's headline claim is that 'all methods are statistically equivalent,' but the evidence is 'we failed to reject the null at low power' for half the comparisons. This is not the same as confirming equivalence.",
+      "suggestion": "Add 2 seeds (N=5 total) for the 4 key AdamW CIFAR-10 comparisons: constant, CWD, cosine, no_wd. Cost: 8 runs, ~2 GPU-hours. This roughly triples TOST power. Alternatively, be more precise in the claims: 'We found no statistically significant differences at N=3, and confirmed formal equivalence (TOST, delta=1.0%) for 6 of 12 comparisons. The remaining comparisons are underpowered rather than falsified.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "NoBN ablation data from iter_005 (constant: 87.74+/-0.21, CWD: 87.62+/-0.13) exists but is not in the paper. Section 6.2 discusses 'The Role of Batch Normalization' and speculates that BN enables Phi Invariance under SGD. The NoBN data would directly test this hypothesis at zero compute cost. The NoBN spread (0.12pp) is NARROWER than VGG-16-BN (0.16pp), which would actually complicate the narrative: if invariance holds without BN, the mechanism is not BN-specific.",
+      "suggestion": "Integrate the NoBN data. If it confirms Phi Invariance without BN, revise Section 6.2 to acknowledge that CIFAR-scale overparameterization (not BN specifically) may be the driver. This is zero compute, maximum insight."
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "CSI has arbitrary component weights (0.4, 0.3, 0.3) and the paper admits it does not predict accuracy (rho < 0.3, p > 0.3). The 'sensitivity analysis' tests only three nearly-identical weight sets. This metric occupies significant space (Definition, Table 6, Figure 5, Discussion) for zero predictive value. As a diagnostic tool, it is fine -- but listing it as a 'contribution' (Section 1.3, item 2) overstates its utility.",
+      "suggestion": "Demote CSI from 'contribution' to 'exploratory diagnostic' in Section 1.3. State honestly: 'CSI captures coupling stability differences but does not predict accuracy outcomes in our experiments.' Consider presenting the three components separately rather than as a weighted composite."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "major",
+      "description": "Abstract claims '105 controlled experiments across 7 methods, 2 optimizers, 2 architectures, 2 datasets' which implies a full factorial design (7 x 2 x 2 x 2 x 3 = 168 runs). The actual design is non-factorial: ResNet-20 gets the full 7 x 2 x 2 x 3 = 84 matrix; VGG-16-BN gets only 7 x 1 x 1 x 3 = 21 (SGD, CIFAR-10 only). This is misleading. A reviewer will expect VGG-16-BN AdamW results or CIFAR-100 VGG results and not find them.",
+      "suggestion": "Revise abstract: '105 controlled experiments: 84 on ResNet-20 (7 methods x 2 optimizers x 2 datasets x 3 seeds) and 21 on VGG-16-BN (7 methods x SGD x CIFAR-10 x 3 seeds).' Also add one sentence explaining why VGG-16-BN was only tested under SGD."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "Figure numbering in the paper text does not match a consistent sequential order. Section 5.2 refers to 'Figure 6' for weight norms before Figures 3-5 are fully discussed. The internal filenames (fig3_bem_vs_accuracy.png, fig4_diagnostic_heatmap.png) do not match the paper's Figure 4, Figure 5 numbering. A 'Figures and Tables' build manifest appears to have been removed from the text but the numbering artifacts remain.",
+      "suggestion": "Renumber all figures sequentially in order of first reference: Figure 1 (taxonomy), Figure 2 (accuracy), Figure 3 (multi-arch), Figure 4 (BEM scatter), Figure 5 (diagnostic heatmap), Figure 6 (weight norms), Figure 7 (weight trajectories), Figure 8 (alignment). Verify each reference in text matches."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "The paper positions itself as having no theorems or formal proofs (the restructuring removed all theorem references). This is a valid empirical-paper strategy. However, the proposal.md still lists 4 theorems and 2 propositions as expected contributions, and the figure filename 'theorem2_validation.png' is a vestigial reference. More importantly, the paper's 'Proposition 1' (Section 3.2, composition closure) is trivially obvious -- labeling 'product of non-negative functions is non-negative' as a Proposition inflates its importance.",
+      "suggestion": "Downgrade Proposition 1 to an inline remark. Rename theorem2_validation.png to alignment_analysis.png. These are cosmetic but improve consistency."
+    }
+  ],
+  "risks": [
+    "Data provenance mismatch is now the most critical risk: Table 2 and Figure 3 show different data for the same method, and the spread numbers are contradictory. This is a desk-reject-level issue at any top venue.",
+    "Scale limitation will be the first reviewer objection. CIFAR-10/100 are toy-scale by 2026 standards, and the paper's claims about 'modern deep learning' have no evidence beyond 15M parameters.",
+    "The figure-table BEM contradiction (half_lambda at BEM~0.0 in Figure 4 vs BEM=0.500 in Table 6) has persisted for 3 iterations. A reviewer who notices this will question all data integrity.",
+    "NoBN data showing 0.12pp spread (narrower than VGG-16-BN) may undermine the BN mechanism narrative in Section 6.2 if integrated. But NOT integrating it is worse -- it is a known evidence gap.",
+    "The null-result framing requires higher evidentiary burden than positive-result papers. N=3 with 50% TOST pass rate is below that burden."
+  ],
+  "evidence_gaps": [
+    "Figure 3(a) uses iter_006 data (constant=89.80) while Table 2 uses iter_003 data (constant=90.13). Reader cannot reconcile the two.",
+    "Figure 4 shows half_lambda at BEM~0.0; Table 6 says BEM=0.500. Direct visual contradiction.",
+    "Figure 3(a) spread annotation (0.49pp) contradicts text (0.25pp) and Table 2 data (0.25pp).",
+    "PMP-WD appears in Figure 3(a) but nowhere in any table or the text's method list.",
+    "No ImageNet experiments despite project constraints and paper claims about 'modern deep learning.'",
+    "NoBN ablation data exists but is unused -- directly relevant to the BN mechanism discussion in Section 6.2.",
+    "TOST equivalence confirmed for only 6/12 comparisons at delta=1.0%, yet paper claims 'all methods equivalent.'",
+    "Section 5.7 alignment analysis: rho=-0.379, p=0.121 is not significant, yet occupies a full section.",
+    "CSI does not predict accuracy (rho<0.3, p>0.3) but is listed as a contribution.",
+    "Figure 3 panels use different method sets, invalidating the cross-architecture spread comparison."
+  ],
+  "what_would_raise_score": "Five actions would raise the score from 6.0 to ~7.5-8.0: (1) HIGHEST PRIORITY: Fix all figure-table-text consistency issues. Regenerate Figures 3 and 4 using the 7 methods from Table 2, sourced from iter_003 data. This is ~2 hours of work with zero compute. Removes 3 critical issues and 1 major issue. (2) Consistency rerun: all 7 methods on CIFAR-10/CIFAR-100 AdamW ResNet-20 with iter_006 instrumented code, 21 runs, ~6 GPU-hours. Makes ALL numbers provenance-consistent. (3) ImageNet-100: 3 methods x 3 seeds x ResNet-50, ~6-8 GPU-hours. Eliminates the scale objection. (4) Integrate NoBN data from iter_005 -- zero compute, tests the BN mechanism hypothesis. (5) Add 2 seeds for 4 key TOST comparisons -- 8 runs, ~2 GPU-hours, triples statistical power. Total: ~16 GPU-hours + ~4 hours of figure/text work. The figure consistency fix alone would raise the score from 6.0 to 6.5; adding the consistency rerun would reach 7.0; ImageNet would push to 7.5; NoBN + more seeds would reach 8.0."
+}

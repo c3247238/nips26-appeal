@@ -1,0 +1,211 @@
+{
+  "issues_classified": [
+    {
+      "description": "AIS=0.566 in paper (Section 4.3, abstract) is fabricated. Actual measured value is AIS=0.123 (Spearman rho=0.195) from metrics_results_v2.json. LOO-CV R^2=-0.18 (zero out-of-sample predictive power). This was flagged as critical in iter_014 and not fixed in iter_015.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Replace AIS=0.566 with 0.123 throughout paper (abstract, Section 4.3, conclusion). Add caveat: 'n=6, 95% CI includes zero, LOO-CV R^2=-0.18; this is exploratory evidence.' Remove r=0.698 claim. Estimated effort: 30 min text edits. Verification: grep for '0.566' and '0.698' returns zero matches in paper.md.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:abstract-actual-ais-ais-and-as-critical-cv:c452482a68b7"
+    },
+    {
+      "description": "CWD K_d mapping in Table 1 claims 'K_d > 0, Derivative only.' Fitting data (200-epoch, 3-seed) shows K_p=0.0000, K_i=-0.0000, K_d=-0.0000, scale=0.5000. The 4.71% fit is entirely from WD magnitude halving, not derivative gain. Table 1 contains an empirically falsified claim. Flagged iter_014, not fixed iter_015.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Revise Table 1 CWD row to: 'scale=0.5 (magnitude reduction); K_p, K_i, K_d approximately zero.' Update Section 3.2: 'CWD's 4.71% fitting error is explained by effective 50% WD reduction, not by derivative gain feedback.' This strengthens Section 6.3 CWD magnitude confound discussion. Estimated effort: 1 hour text edits. Verification: Table 1 CWD row no longer claims non-zero K_d.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:an-claim-claims-contains-cwd-data-derivative-derivative:4374426d0589"
+    },
+    {
+      "description": "CSI has four contradictory formulas across Section 4.2, Table 6 caption, normalization paragraph, and computation code. CSI_temporal=-5.75 for UDWDC is impossible under any stated formula (all produce non-negative values). The paper's central instability finding is unverifiable. Flagged since iter_007, 4+ iterations recurring.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Standardize to one formula: CSI = 1/(1 + Var_t[lambda_eff^l / mean_t[lambda_eff^l]]), computed over last 25% of training, FixedWD anchored to 1.0. Recompute all CSI values from 200-epoch data. Replace 10-epoch pilot values in Table 6. If negative values are needed, introduce a new named metric (e.g., WD Coefficient of Variation). Estimated effort: 2 hours. Verification: single formula in Section 4.2, no negative CSI values unless formula explicitly allows them.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:across-all-and-any-caption-central-code-computation:4ff982e12ff3"
+    },
+    {
+      "description": "Theorem 1 and Propositions 2-3 stated without proofs for 7+ iterations. Paper claims 'Theoretical analysis' as Contribution 4. Theorem 1 claims 'strictly tighter generalization bounds' -- a strong quantitative claim requiring formal derivation. Lyapunov V_t empirically increases, contradicting Theorem 1's guarantee.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Fastest path (30 min): Demote Theorem 1 to 'Conjecture 1', Propositions 2-3 to 'Hypotheses'. Remove 'Theoretical analysis' from Contribution 4. This eliminates a guaranteed reviewer rejection trigger. Alternative: write formal proofs (2-4 weeks). Verification: contributions list no longer claims 'Theoretical analysis'; no theorem without proof in paper body.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-analysis-and-as-bounds-claim-claims-claims:5eadf7fe980c"
+    },
+    {
+      "description": "ImageNet experiments are 12/40 complete. SWD, DefazioCorrective, NoWD have zero 90-epoch results. CWD has 1 seed (no CI). Without NoWD, BEM is uncomputable at ImageNet scale. The paper's primary novel metric is undemonstrable at its largest scale. Flagged since iter_004, 11+ iterations unresolved.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Complete remaining 28 ImageNet runs. Priority: (1) NoWD x 3 seeds (BEM denominator), (2) SWD x 3 seeds, (3) DefazioCorrective x 3 seeds, (4) CWD x 2 additional seeds. Use 3 GPU pairs (0-1, 2-3, 4-5) with DDP. Estimated: ~60 GPU-hours, 2-3 days wall clock. Verification: all 7 methods have 3+ seeds in phase4_imagenet_main/.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:are-at-at-bem-ci-complete-cwd-defaziocorrective:74dbe2be12aa"
+    },
+    {
+      "description": "CWD halved-lambda ablation never executed despite being flagged P0 for 4 iterations. FixedWD @ lambda=5e-5 vs CWD @ lambda=1e-4 on CIFAR-10 would definitively resolve whether CWD's behavior is alignment information or magnitude reduction. This is ~1 GPU-hour on an 8-GPU machine.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run IMMEDIATELY: FixedWD @ lambda=5e-5, CIFAR-10, ResNet-20, 200 epochs, 3 seeds (42, 123, 456). Also ImageNet ResNet-50, 90 epochs, 3 seeds. Total ~7 GPU-hours. If halved-lambda matches CWD (90.32%), alignment mask has no value. Report result in Section 6.3. Verification: results exist for 'FixedWD_half_lambda' config.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:1e-5e-ablation-alignment-an-behavior-being-cifar:ec8edc4dd9ab"
+    },
+    {
+      "description": "CPR's 3.02pp ImageNet advantage over FixedWD is confounded by 2.3x WD budget difference. Without budget-matched controls (FixedWD at lambda=2e-4/3e-4, 90 epochs), the paper cannot distinguish 'better WD allocation' from 'simply stronger regularization.' This is the most important unresolved question for the paper's core mechanistic claim.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run FixedWD at lambda=2e-4 and lambda=3e-4 on ImageNet, 3 seeds each, 90 epochs. 6 runs, ~18 GPU-hours. If budget-matched FixedWD approaches CPR, narrative shifts to 'CPR works through stronger regularization.' Verification: budget-matched results exist in phase4.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:2e-3e-advantage-allocation-at-better-budget-budget:61233a1358b4"
+    },
+    {
+      "description": "UDWDC-v2 BN layer bug produces 205,000x WD budget (98,599 vs FixedWD's 0.48). Floor clipping applies lambda_min to all 65 layers including 41 BN/bias layers. BN layers are scale-invariant, so WD on them is meaningless. All v2 BEM values are contaminated. One-line code fix flagged for 3+ iterations.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Fix UDWDC-v2: exclude BN/bias from control loop (apply control only where param has weight_decay > 0). Rerun CIFAR-10 diagnostic, 3 seeds. Estimated: 1 hour code + 3 GPU-hours rerun. Verification: v2 WD budget within 10x of FixedWD.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:all-all-applies-are-are-bem-bias-bn:1dc6045d09e5"
+    },
+    {
+      "description": "Title 'Unified Feedback Control Framework' overpromises: 2/5 methods (SWD 45.81%, DefazioCorrective 37.56%) fail fitting. CWD fit explained by scale=0.5, not PID gains. Only CPR (9.57%) genuinely captured by PID parameters. The framework unifies 1-2 of 5 methods.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Change title to 'A PID-Style Taxonomy for Dynamic Weight Decay: Gains, Instabilities, and Diagnostic Metrics' or similar. Update abstract to accurately reflect scope: 'alignment-based (CWD) and constraint-based (CPR) captured to <10%; scheduling-based methods fall outside the feedback paradigm.' Estimated: 1 hour. Verification: title does not claim 'unified.'",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:by-by-captured-control-cpr-cwd-defaziocorrective-explained:184461c2ecf2"
+    },
+    {
+      "description": "UDWDC listed as Contribution 2 ('simple proportional controller') but underperforms NoWD on CIFAR-10 (90.15% vs 90.25%) and FixedWD on all benchmarks. Listing a method that harms performance as a contribution is overclaiming.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Reframe Contribution 2: 'UDWDC is a diagnostic probe demonstrating proportional-only control is insufficient, providing empirical evidence that integral terms (K_i > 0) are necessary.' Remove from contributions as 'proposed algorithm.' Estimated: 30 min text edit. Verification: contribution list does not claim UDWDC as algorithmic advance.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:a-a-all-and-as-as-benchmarks-but:d76e189ef839"
+    },
+    {
+      "description": "Figure 1 uses TikZ hand-drawn curves with caption claiming '10-epoch pilot, seed 42.' Real trajectory plots exist (ratio_trajectories.png). A schematic masquerading as data is a presentation integrity issue.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Replace TikZ schematic with actual experimental plot from exp/results/full/figures/ or regenerate from 200-epoch phase1_diagnostic data with 3-seed mean and std bands. Estimated: 1 hour. Verification: Figure 1 displays actual data, not hand-drawn curves.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:a-a-as-caption-claiming-curves-data-drawn:27d2e012bdf7"
+    },
+    {
+      "description": "BEM negative result omitted: Under 15-trial Bayesian optimization, SWD 68.57% > CWD 68.39% > EqWD 68.30% > FixedWD 68.21%. EqWD does NOT beat tuned FixedWD. Omitting a conducted negative result is more damaging than disclosing it.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Add BEM Bayesian optimization result to Section 5 or 6. Frame as: 'BEM identifies efficiency differences but does not predict accuracy ranking, confirming BEM and accuracy measure orthogonal properties.' Estimated: 30 min text edit. Verification: BEM negative result reported in paper.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-bayesian-beat-bem-conducted-cwd-damaging-disclosing:653ae2b39925"
+    },
+    {
+      "description": "Section 5.7 draws directional conclusions from two non-significant correlations (rho=-0.379, p=0.121; rho=0.045, p=0.858). Claims 'cumulative alignment may be more informative' without formal test. Contradicts the rigorous statistical standard set elsewhere.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Remove directional claim. State: 'Neither correlation is significant at alpha=0.05; no conclusion about relative informativeness is warranted.' Estimated: 15 min. Verification: no directional claim from p>0.1 correlations.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:alignment-be-claims-conclusions-contradicts-correlations-cumulative-dire:3b1f9cd906d9"
+    },
+    {
+      "description": "Population std (ddof=0) used throughout ImageNet results. At N=3-5, sample std (ddof=1) is appropriate and the difference is meaningful: FixedWD reports 0.36 should be 0.40; UDWDC reports 0.19 should be 0.24.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Recalculate all std using ddof=1. Update Tables 3, 4, 5, abstract, inline text. Recompute Welch's t-tests with sample std. Estimated: 1 hour. Verification: all std values use ddof=1.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:and-appropriate-at-be-be-ddof-ddof-difference:c0a7f2d81f18"
+    },
+    {
+      "description": "Figure 1 uses 10-epoch pilot data (seed 42 only) instead of available 200-epoch phase1_diagnostic data with 3 seeds. Using pilot data for the primary claim figure weakens evidence.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Regenerate Figure 1 from 200-epoch phase1_diagnostic trajectories with 3-seed mean and std bands. Estimated: 1 hour. Verification: Figure 1 caption references 200-epoch, 3-seed data.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:available-claim-data-data-data-epoch-epoch-evidence:a597c7b3adbf"
+    },
+    {
+      "description": "Batch size 432 with DDP across 2 GPUs is non-standard. LR scaling rule not stated. Linear scaling from 256-batch would give eta_0=0.169, but paper uses eta_0=0.1. Affects rho*(t) and reproducibility.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Add footnote in Section 5.1 explaining batch size choice and LR scaling decision. Estimated: 15 min. Verification: Section 5.1 explains batch size 432 and LR 0.1 rationale.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:across-affects-and-batch-batch-but-ddp-eta_0:d4b42627a9e5"
+    },
+    {
+      "description": "Notation inconsistency: Section 3.4 introduces delta_t as alias for alpha_t and references a 'notation table' that does not exist. Dual notation adds confusion without benefit.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Either add notation table to Section 1 or Appendix, or use alpha_t uniformly and note delta_t correspondence in footnote. Estimated: 30 min. Verification: no reference to nonexistent notation table.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:a-adds-alias-alpha_t-and-as-benefit-confusion:a02a923cf8dc"
+    },
+    {
+      "description": "GPU utilization approximately 35% across project lifetime. Writing phases (iter_007-012, iter_015) had 0% GPU use while 8 GPUs sat idle. Experiments and writing should run in parallel.",
+      "category": "efficiency",
+      "severity": "medium",
+      "suggestion": "Always queue experiments to run during writing phases. CWD halved-lambda (1 GPU-hour) and budget-matched controls (18 GPU-hours) should run concurrently with text editing. Verification: gpu_progress.json shows no idle GPU periods during writing iterations.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "efficiency:across-and-approximately-experiments-gpu-gpu-gpus-had:2546e7f8b4fa"
+    }
+  ],
+  "issues_fixed": [],
+  "success_patterns": [
+    "Cross-validation discipline: all CIFAR and ImageNet table values match raw source data with zero discrepancies. This consistency has been maintained for 3+ iterations.",
+    "Negative result honest reporting: UDWDC failure, fitting failures, H3 falsification are all transparently reported. This is the paper's strongest differentiator and generates reviewer goodwill.",
+    "Rigorous statistical methodology: paired t-tests with Bonferroni correction, Cohen's d, TOST equivalence testing, explicit power analysis exceed community norms.",
+    "Pre-generated figure pipeline: 13 publication-quality figures exist in exp/results/full/figures/. The generation infrastructure is mature.",
+    "Incremental editing pattern: targeted fixes are safer than rewrites. Rewrites historically caused -2.0 score drops (iter_003, iter_006).",
+    "Data-first ordering: checking raw data before writing claims prevents claim-evidence drift."
+  ],
+  "systemic_patterns": [
+    "Score oscillation 6.5-7.0 for 7 iterations (iter_009-015). Text-only improvements capped at ~7.0. Only experiments and integrity fixes can break through.",
+    "Zero-GPU-cost text fixes not executed despite being flagged critical: AIS (30 min), CWD K_d (1 hr), CSI formula (2 hr), Theorem demotion (30 min). Combined 4 hours work, zero GPU, would raise score to 7.0-7.5.",
+    "Action plan --> next iteration execution gap: reflection produces detailed plans, but the next writing iteration does not consume them. Feedback loop is broken at the plan-to-execution boundary.",
+    "P0 label has no enforcement mechanism: CWD halved-lambda flagged P0 for 4 iterations, never executed. Need mandatory execution for P0 items.",
+    "Experiment execution concentrated in 2-3 iterations out of 15. The other 12 iterations had minimal or zero GPU usage despite 8 available GPUs.",
+    "ImageNet incompleteness is the longest-standing unresolved issue in the project (11+ iterations). It blocks the paper's primary metric (BEM) at its most important scale."
+  ],
+  "quality_trajectory": "declining",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 0,
+    "total_gpu_idle_minutes": 11520.0,
+    "bottleneck_stages": [
+      "reflection: this iteration was pure review/critique/reflection with zero experiment execution",
+      "action_plan execution: zero items from iter_014 action_plan were addressed",
+      "text fixes: 4 zero-GPU-cost critical fixes (~4 hours total) not performed"
+    ],
+    "suggestions": [
+      "Execute zero-GPU-cost text fixes FIRST in iter_016 before any other work (AIS, CWD K_d, CSI, Theorem demotion). Combined 4 hours, no GPU needed.",
+      "Start CWD halved-lambda ablation immediately after text fixes (~1 GPU-hour CIFAR, ~5 GPU-hours ImageNet). This is the highest information/GPU-hour experiment.",
+      "Queue ImageNet NoWD (3 seeds, 24 GPU-hours) on GPU pair 0-1 in parallel with other work.",
+      "Budget-matched FixedWD (lambda=2e-4/3e-4, 6 runs, 18 GPU-hours) on GPU pair 2-3.",
+      "UDWDC-v2 BN fix + rerun (3 GPU-hours) on GPU 4.",
+      "All experiments above can run in parallel across the 8 GPUs. Total wall clock: ~2 days."
+    ]
+  },
+  "recommended_focus": [
+    "1. IMMEDIATE TEXT FIXES (0 GPU-hours, ~4 hours): (a) Replace AIS=0.566 with 0.123 + LOO-CV caveat, (b) Fix Table 1 CWD K_d mapping, (c) Standardize CSI to one formula, (d) Demote Theorem 1 to Conjecture. These four fixes alone will restore score to 7.0-7.5.",
+    "2. CWD HALVED-LAMBDA ABLATION (~7 GPU-hours): FixedWD @ lambda=5e-5 on CIFAR-10 + ImageNet. Highest information-per-GPU-hour experiment. Must execute in iter_016.",
+    "3. COMPLETE IMAGENET NoWD (~24 GPU-hours): 3 seeds, 90 epochs. Enables BEM computation at ImageNet scale.",
+    "4. TITLE AND FRAMING (~1 hour): Change title to 'PID-Style Taxonomy' not 'Unified Framework.' Reframe UDWDC as diagnostic probe.",
+    "5. BUDGET-MATCHED CONTROLS (~18 GPU-hours): FixedWD at lambda=2e-4/3e-4 on ImageNet. Resolves CPR budget confound.",
+    "6. FIX UDWDC-v2 BN BUG (~4 GPU-hours): Exclude BN/bias from control loop, rerun."
+  ],
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 20
+}

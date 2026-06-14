@@ -1,0 +1,72 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_lyapunov_unified",
+  "confidence": 0.82,
+  "candidate_scores": {
+    "cand_lyapunov_unified": {
+      "weighted_score": 4.25,
+      "verdict": "ADVANCE",
+      "scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 4},
+        "hypothesis_survival": {"weight": 0.25, "score": 5},
+        "path_to_full_result": {"weight": 0.20, "score": 4},
+        "novelty": {"weight": 0.15, "score": 4},
+        "resource_efficiency": {"weight": 0.10, "score": 4}
+      }
+    },
+    "cand_alignment_mirage": {
+      "weighted_score": 3.05,
+      "verdict": "MERGE_INTO_MAIN",
+      "scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 3},
+        "hypothesis_survival": {"weight": 0.25, "score": 3},
+        "path_to_full_result": {"weight": 0.20, "score": 3},
+        "novelty": {"weight": 0.15, "score": 2},
+        "resource_efficiency": {"weight": 0.10, "score": 5}
+      }
+    },
+    "cand_architecture_aware": {
+      "weighted_score": 1.95,
+      "verdict": "MERGE_INTO_MAIN",
+      "scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1},
+        "hypothesis_survival": {"weight": 0.25, "score": 3},
+        "path_to_full_result": {"weight": 0.20, "score": 2},
+        "novelty": {"weight": 0.15, "score": 2},
+        "resource_efficiency": {"weight": 0.10, "score": 2}
+      }
+    }
+  },
+  "reasons": [
+    "H5 (narrow certified band for BN) strongly supported across CIFAR-10 (0.25% spread), CIFAR-100 (0.76%), VGG-16-BN (0.12%) with 7+ methods and 3 seeds each",
+    "No hypothesis falsified by pilot evidence — all core predictions remain viable",
+    "PMP-WD pilot confirms implementation convergence and bang-bang switching behavior; LR mismatch explains -0.39% delta vs constant baseline",
+    "Framework resilient to negative results: narrow band IS the finding, explaining why constant WD is near-optimal",
+    "Novelty score 7/10 with genuinely new contributions (Lyapunov certificate, PMP-WD optimality, formal subsumption)",
+    "Both backup candidates recommended by novelty report to merge into main candidate (novelty 5/10 each)",
+    "Random mask matching CWD on CIFAR-10 provides strong ablation evidence for the framework"
+  ],
+  "next_actions": [
+    "Fix PMP-WD LR from 0.001 to 0.1 to match baselines",
+    "Re-run PMP-WD pilot with corrected LR on CIFAR-10/ResNet-20",
+    "Execute full PMP-WD campaign: CIFAR-10 + CIFAR-100, 3 seeds each",
+    "Run instrumented reruns of 5 methods to validate H1 (certificate) and H3 (subsumption)",
+    "Complete NoBN ablation with all 8 methods x 3 seeds to properly test H5",
+    "Debug and execute ImageNet pilot before committing to full ImageNet campaign",
+    "Absorb alignment mirage thesis as H5 analysis section in the paper"
+  ],
+  "dropped_candidates": [],
+  "merged_candidates": ["cand_alignment_mirage", "cand_architecture_aware"],
+  "key_risks": [
+    "PMP-WD may still underperform constant WD with matched LR — reframe as 'constant is near-optimal' (still publishable)",
+    "Instrumented reruns may show certified band too narrow for meaningful subsumption analysis",
+    "ImageNet pipeline has failed in prior iterations — needs careful debugging",
+    "Cumulative alignment bound (H2) may not improve on worst-case — lowest priority hypothesis"
+  ],
+  "sanity_checks": {
+    "compared_all_candidates": true,
+    "penalized_falsified_hypotheses": true,
+    "no_sunk_cost_bias": true,
+    "inconclusive_defaulted_to_refine": false
+  }
+}

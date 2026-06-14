@@ -1,0 +1,5 @@
+- 核心论文: "Investigating the Role of Weight Decay in Enhancing Nonconvex SGD"（本目录 `SL-wd证明cvpr.pdf`）
+- 参考材料目录: `/home/ccwang/research/wd_dynamic_2026-03-16/`
+  - `proposal_dynamic_weight_decay_cn.md` — 完整研究 proposal
+  - `claude_chat_key_extract_cn.md` — 关键对话摘录
+  - `claude_chat_raw_extract.md` — 原始对话记录

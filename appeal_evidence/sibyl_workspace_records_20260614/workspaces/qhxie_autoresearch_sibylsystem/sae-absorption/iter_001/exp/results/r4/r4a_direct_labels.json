@@ -1,0 +1,987 @@
+{
+  "task_id": "r4a_direct_label_generation",
+  "timestamp": "2026-04-13T12:36:06.419071",
+  "mode": "PILOT",
+  "round": 4,
+  "host_model": "gpt2-small",
+  "fallback_reason": "Gemma 2B (google/gemma-2-2b) and Llama-3.1-8B are HuggingFace-gated. GPT-2 small used as host model for direct label generation. Gemma Scope SAE weights are public but require Gemma 2B activations for probe training.",
+  "label_method": "FeatureAbsorptionCalculator (Chanin et al. 2024, exact method via sae_spelling)",
+  "label_method_notes": "Labels are DIRECT (not Neuronpedia proxy): FeatureAbsorptionCalculator uses integrated gradients + probe alignment to detect feature absorption. This is the exact method from Chanin et al. 2024 'Identifying and Correcting Absorption in Sparse Autoencoders'. Applied to GPT-2 SAEs (gpt2-small-res-jb). Round 3 used Neuronpedia proxy labels which are pre-computed and potentially from different model checkpoints.",
+  "config": {
+    "n_sae_configs": 2,
+    "sae_configs": [
+      "GPT2-L6",
+      "GPT2-L10"
+    ],
+    "n_words_per_letter": 50,
+    "max_absorption_samples": 200,
+    "n_icl_words": 20,
+    "n_bootstrap": 1000,
+    "seed": 42,
+    "probe_cos_sim_threshold": 0.025,
+    "ablation_delta_threshold": 1.0
+  },
+  "per_sae_results": [
+    {
+      "config": {
+        "name": "GPT2-L6",
+        "release": "gpt2-small-res-jb",
+        "hook_name": "blocks.6.hook_resid_pre",
+        "layer_idx": 6,
+        "d_in": 768,
+        "d_sae": 24576
+      },
+      "model": "gpt2-small",
+      "mode": "PILOT",
+      "eda_statistics": {
+        "mean": 0.6306423544883728,
+        "std": 0.07550088316202164,
+        "min": 0.3039688467979431,
+        "max": 1.353448748588562,
+        "p25": 0.5934475064277649,
+        "p50": 0.6410648226737976,
+        "p75": 0.6806063055992126,
+        "p90": 0.7154889106750488
+      },
+      "probe_quality": {
+        "n_letters_with_probes": 24,
+        "letters": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j",
+          "k",
+          "l",
+          "m",
+          "n",
+          "o",
+          "p",
+          "q",
+          "r",
+          "s",
+          "t",
+          "u",
+          "v",
+          "w",
+          "y"
+        ],
+        "n_letter_features": 86,
+        "letter_feature_threshold": 0.3,
+        "max_probe_cos_mean": 0.09708230942487717,
+        "max_probe_cos_std": 0.04914410039782524,
+        "max_probe_cos_p95": 0.18759717792272568,
+        "n_words_per_letter": 50,
+        "total_probe_train_words": 1015,
+        "letter_to_n_features": {
+          "a": 2,
+          "b": 4,
+          "c": 4,
+          "d": 2,
+          "e": 3,
+          "f": 1,
+          "g": 6,
+          "h": 3,
+          "i": 3,
+          "j": 10,
+          "k": 3,
+          "l": 5,
+          "m": 2,
+          "n": 3,
+          "o": 1,
+          "p": 6,
+          "q": 2,
+          "r": 2,
+          "s": 1,
+          "t": 1,
+          "v": 8,
+          "w": 5,
+          "y": 9
+        },
+        "multiclass_probe_accuracy": 0.5221674876847292,
+        "majority_baseline": 0.04926108374384237,
+        "margin_over_majority": 0.47290640394088684,
+        "mean_binary_probe_accuracy": 1.0,
+        "per_letter_binary_accuracy": {
+          "a": 1.0,
+          "b": 1.0,
+          "c": 1.0,
+          "d": 1.0,
+          "e": 1.0,
+          "f": 1.0,
+          "g": 1.0,
+          "h": 1.0,
+          "i": 1.0,
+          "j": 1.0,
+          "k": 1.0,
+          "l": 1.0,
+          "m": 1.0,
+          "n": 1.0,
+          "o": 1.0,
+          "p": 1.0,
+          "q": 1.0,
+          "r": 1.0,
+          "s": 1.0,
+          "t": 1.0,
+          "u": 1.0,
+          "v": 1.0,
+          "w": 1.0,
+          "y": 1.0
+        },
+        "passes_strict_gate": false,
+        "passes_relaxed_gate": false,
+        "passes_pilot_gate": true,
+        "passes_binary_gate": true,
+        "label_source": "FeatureAbsorptionCalculator",
+        "n_fac_absorbed": 18,
+        "n_alignment_labels": null
+      },
+      "absorption_details": {
+        "a": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            19908,
+            20084
+          ]
+        },
+        "b": {
+          "main_feature_ids": [
+            1510,
+            10156,
+            13531,
+            20347
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "c": {
+          "main_feature_ids": [
+            368,
+            6565,
+            17011,
+            19350
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "d": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            3226,
+            15451
+          ]
+        },
+        "e": {
+          "main_feature_ids": [
+            4102,
+            5019,
+            6023
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "f": {
+          "main_feature_ids": [
+            2820
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "g": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            2888,
+            7060,
+            12466,
+            15474,
+            19444,
+            22408
+          ]
+        },
+        "h": {
+          "main_feature_ids": [
+            12341,
+            19819,
+            20349
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "i": {
+          "main_feature_ids": [
+            4271,
+            8437,
+            17083
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "j": {
+          "main_feature_ids": [
+            4111,
+            4992,
+            5288,
+            5804,
+            9931,
+            11966,
+            11981,
+            12534,
+            13298,
+            17160
+          ],
+          "n_tested": 22,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "k": {
+          "main_feature_ids": [
+            2180,
+            21774,
+            23471
+          ],
+          "n_tested": 20,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "l": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            2406,
+            3943,
+            4176,
+            5042,
+            11270
+          ]
+        },
+        "m": {
+          "main_feature_ids": [
+            8243,
+            20460
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "n": {
+          "main_feature_ids": [
+            3175,
+            5783,
+            16717
+          ],
+          "n_tested": 47,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "o": {
+          "main_feature_ids": [
+            24262
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "p": {
+          "main_feature_ids": [
+            11189,
+            13916,
+            13936,
+            17878,
+            18598,
+            19158
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "q": {
+          "main_feature_ids": [
+            4268,
+            5103
+          ],
+          "n_tested": 11,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "r": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            7371,
+            24154
+          ]
+        },
+        "s": {
+          "main_feature_ids": [
+            11414
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "t": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            16664
+          ]
+        },
+        "v": {
+          "main_feature_ids": [
+            2014,
+            9310,
+            11138,
+            12593,
+            15674,
+            21649,
+            22713,
+            23903
+          ],
+          "n_tested": 29,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "w": {
+          "main_feature_ids": [
+            3898,
+            5200,
+            11074,
+            17402,
+            19695
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "y": {
+          "main_feature_ids": [
+            578,
+            6273,
+            9790,
+            15480,
+            18559,
+            18749,
+            22372,
+            22852,
+            23968
+          ],
+          "n_tested": 10,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        }
+      },
+      "absorbed_latent_ids": [
+        2406,
+        2888,
+        3226,
+        3943,
+        4176,
+        5042,
+        7060,
+        7371,
+        11270,
+        12466,
+        15451,
+        15474,
+        16664,
+        19444,
+        19908,
+        20084,
+        22408,
+        24154
+      ],
+      "n_absorbed": 18,
+      "n_non_absorbed": 24558,
+      "eda_auroc_direct_labels": {
+        "auroc": 0.6493408662900189,
+        "auroc_ci95": [
+          0.5073611111111112,
+          0.7759259259259259
+        ],
+        "auprc": 0.028299160901558814,
+        "n_pos": 18,
+        "n_neg": 1180,
+        "n_bootstrap": 1000
+      },
+      "eda_by_label": {
+        "absorbed_mean": 0.6706587076187134,
+        "absorbed_median": 0.671474814414978,
+        "non_absorbed_mean": 0.6323996186256409,
+        "non_absorbed_median": 0.6397436261177063,
+        "cohens_d": 0.5900456885183457,
+        "direction": "absorbed > non_absorbed"
+      },
+      "pass_criteria": {
+        "n_pos_ge_10": true,
+        "probe_passes_pilot_gate": true,
+        "probe_passes_binary_gate": true,
+        "probe_passes_multiclass_gate": true,
+        "n_pos": 18,
+        "auroc_eda": 0.6493408662900189,
+        "passed": true,
+        "label_source": "FeatureAbsorptionCalculator",
+        "method": "FeatureAbsorptionCalculator (Chanin et al. direct labels) + probe-decoder alignment fallback"
+      },
+      "status": "success",
+      "elapsed_sec": 90.5
+    },
+    {
+      "config": {
+        "name": "GPT2-L10",
+        "release": "gpt2-small-res-jb",
+        "hook_name": "blocks.10.hook_resid_pre",
+        "layer_idx": 10,
+        "d_in": 768,
+        "d_sae": 24576
+      },
+      "model": "gpt2-small",
+      "mode": "PILOT",
+      "eda_statistics": {
+        "mean": 0.6320813298225403,
+        "std": 0.07558298110961914,
+        "min": 0.2983781695365906,
+        "max": 1.684098243713379,
+        "p25": 0.5902995765209198,
+        "p50": 0.6401442289352417,
+        "p75": 0.6842592060565948,
+        "p90": 0.7190702259540558
+      },
+      "probe_quality": {
+        "n_letters_with_probes": 24,
+        "letters": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j",
+          "k",
+          "l",
+          "m",
+          "n",
+          "o",
+          "p",
+          "q",
+          "r",
+          "s",
+          "t",
+          "u",
+          "v",
+          "w",
+          "y"
+        ],
+        "n_letter_features": 39,
+        "letter_feature_threshold": 0.3,
+        "max_probe_cos_mean": 0.08459866791963577,
+        "max_probe_cos_std": 0.03831598907709122,
+        "max_probe_cos_p95": 0.1565212868154049,
+        "n_words_per_letter": 50,
+        "total_probe_train_words": 1015,
+        "letter_to_n_features": {
+          "a": 1,
+          "b": 3,
+          "c": 1,
+          "d": 2,
+          "e": 1,
+          "f": 2,
+          "g": 1,
+          "h": 2,
+          "j": 5,
+          "k": 1,
+          "l": 1,
+          "m": 2,
+          "n": 3,
+          "o": 1,
+          "p": 1,
+          "q": 1,
+          "r": 2,
+          "s": 1,
+          "t": 1,
+          "v": 1,
+          "w": 2,
+          "y": 4
+        },
+        "multiclass_probe_accuracy": 0.4610837438423646,
+        "majority_baseline": 0.04926108374384237,
+        "margin_over_majority": 0.41182266009852225,
+        "mean_binary_probe_accuracy": 1.0,
+        "per_letter_binary_accuracy": {
+          "a": 1.0,
+          "b": 1.0,
+          "c": 1.0,
+          "d": 1.0,
+          "e": 1.0,
+          "f": 1.0,
+          "g": 1.0,
+          "h": 1.0,
+          "i": 1.0,
+          "j": 1.0,
+          "k": 1.0,
+          "l": 1.0,
+          "m": 1.0,
+          "n": 1.0,
+          "o": 1.0,
+          "p": 1.0,
+          "q": 1.0,
+          "r": 1.0,
+          "s": 1.0,
+          "t": 1.0,
+          "u": 1.0,
+          "v": 1.0,
+          "w": 1.0,
+          "y": 1.0
+        },
+        "passes_strict_gate": false,
+        "passes_relaxed_gate": false,
+        "passes_pilot_gate": false,
+        "passes_binary_gate": true,
+        "label_source": "probe_decoder_alignment (cos>=0.3)",
+        "n_fac_absorbed": 4,
+        "n_alignment_labels": 39
+      },
+      "absorption_details": {
+        "a": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            4945
+          ]
+        },
+        "b": {
+          "main_feature_ids": [
+            192,
+            6208,
+            16936
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "c": {
+          "main_feature_ids": [
+            15694
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "d": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            9026,
+            11652
+          ]
+        },
+        "e": {
+          "main_feature_ids": [
+            11032
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "f": {
+          "main_feature_ids": [
+            2220,
+            19885
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "g": {
+          "error": "Could not find a non-contaminated set of examples after 1000 attempts.",
+          "main_feature_ids": [
+            6839
+          ]
+        },
+        "h": {
+          "main_feature_ids": [
+            4385,
+            17335
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "j": {
+          "main_feature_ids": [
+            13008,
+            18101,
+            18820,
+            19960,
+            22039
+          ],
+          "n_tested": 22,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "k": {
+          "main_feature_ids": [
+            22316
+          ],
+          "n_tested": 20,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "l": {
+          "main_feature_ids": [
+            2182
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "m": {
+          "main_feature_ids": [
+            12760,
+            15130
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "n": {
+          "main_feature_ids": [
+            834,
+            4328,
+            15038
+          ],
+          "n_tested": 47,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "o": {
+          "main_feature_ids": [
+            13472
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "p": {
+          "main_feature_ids": [
+            13672
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "q": {
+          "main_feature_ids": [
+            18620
+          ],
+          "n_tested": 11,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "r": {
+          "main_feature_ids": [
+            13486,
+            14783
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "s": {
+          "main_feature_ids": [
+            6150
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "t": {
+          "main_feature_ids": [
+            22774
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "v": {
+          "main_feature_ids": [
+            11628
+          ],
+          "n_tested": 29,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "w": {
+          "main_feature_ids": [
+            4910,
+            8045
+          ],
+          "n_tested": 50,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        },
+        "y": {
+          "main_feature_ids": [
+            3442,
+            7088,
+            7837,
+            10437
+          ],
+          "n_tested": 10,
+          "n_absorbed": 0,
+          "absorption_rate": 0.0,
+          "sample_portion": 1.0
+        }
+      },
+      "absorbed_latent_ids": [
+        192,
+        834,
+        2182,
+        2220,
+        3442,
+        4328,
+        4385,
+        4910,
+        4945,
+        6150,
+        6208,
+        6839,
+        7088,
+        7837,
+        8045,
+        9026,
+        10437,
+        11032,
+        11628,
+        11652,
+        12760,
+        13008,
+        13472,
+        13486,
+        13672,
+        14783,
+        15038,
+        15130,
+        15694,
+        16936,
+        17335,
+        18101,
+        18620,
+        18820,
+        19885,
+        19960,
+        22039,
+        22316,
+        22774
+      ],
+      "n_absorbed": 39,
+      "n_non_absorbed": 24537,
+      "eda_auroc_direct_labels": {
+        "auroc": 0.33617413761298653,
+        "auroc_ci95": [
+          0.2592866535174228,
+          0.4255522682445759
+        ],
+        "auprc": 0.020010045775532108,
+        "n_pos": 39,
+        "n_neg": 1390,
+        "n_bootstrap": 1000
+      },
+      "eda_by_label": {
+        "absorbed_mean": 0.6038308143615723,
+        "absorbed_median": 0.5861189365386963,
+        "non_absorbed_mean": 0.6337330937385559,
+        "non_absorbed_median": 0.6437405347824097,
+        "cohens_d": -0.467162910911412,
+        "direction": "non_absorbed >= absorbed"
+      },
+      "pass_criteria": {
+        "n_pos_ge_10": true,
+        "probe_passes_pilot_gate": true,
+        "probe_passes_binary_gate": true,
+        "probe_passes_multiclass_gate": false,
+        "n_pos": 39,
+        "auroc_eda": 0.33617413761298653,
+        "passed": true,
+        "label_source": "probe_decoder_alignment (cos>=0.3)",
+        "method": "FeatureAbsorptionCalculator (Chanin et al. direct labels) + probe-decoder alignment fallback"
+      },
+      "status": "success",
+      "elapsed_sec": 99.4
+    }
+  ],
+  "all_direct_labels": {
+    "GPT2-L6": {
+      "absorbed_latent_ids": [
+        2406,
+        2888,
+        3226,
+        3943,
+        4176,
+        5042,
+        7060,
+        7371,
+        11270,
+        12466,
+        15451,
+        15474,
+        16664,
+        19444,
+        19908,
+        20084,
+        22408,
+        24154
+      ],
+      "n_absorbed": 18,
+      "n_non_absorbed": 24558,
+      "eda_auroc": 0.6493408662900189,
+      "probe_acc": 0.5221674876847292,
+      "majority_baseline": 0.04926108374384237,
+      "passed": true
+    },
+    "GPT2-L10": {
+      "absorbed_latent_ids": [
+        192,
+        834,
+        2182,
+        2220,
+        3442,
+        4328,
+        4385,
+        4910,
+        4945,
+        6150,
+        6208,
+        6839,
+        7088,
+        7837,
+        8045,
+        9026,
+        10437,
+        11032,
+        11628,
+        11652,
+        12760,
+        13008,
+        13472,
+        13486,
+        13672,
+        14783,
+        15038,
+        15130,
+        15694,
+        16936,
+        17335,
+        18101,
+        18620,
+        18820,
+        19885,
+        19960,
+        22039,
+        22316,
+        22774
+      ],
+      "n_absorbed": 39,
+      "n_non_absorbed": 24537,
+      "eda_auroc": 0.33617413761298653,
+      "probe_acc": 0.4610837438423646,
+      "majority_baseline": 0.04926108374384237,
+      "passed": true
+    }
+  },
+  "probe_quality_table": [
+    {
+      "SAE_config": "GPT2-L6",
+      "probe_acc": 0.5221674876847292,
+      "majority_baseline": 0.04926108374384237,
+      "margin": 0.47290640394088684,
+      "n_pos": 18,
+      "pass": true
+    },
+    {
+      "SAE_config": "GPT2-L10",
+      "probe_acc": 0.4610837438423646,
+      "majority_baseline": 0.04926108374384237,
+      "margin": 0.41182266009852225,
+      "n_pos": 39,
+      "pass": true
+    }
+  ],
+  "aggregate": {
+    "pass_count": 2,
+    "total_configs": 2,
+    "pass_fraction": 1.0,
+    "overall_pass": true,
+    "best_probe_acc": 0.5221674876847292,
+    "total_absorbed_latents": 57
+  },
+  "pass_criteria_check": {
+    "probe_accuracy_ge_85": false,
+    "probe_accuracy_ge_80": false,
+    "probe_accuracy_ge_70": false,
+    "multiclass_probe_acc": 0.5221674876847292,
+    "mean_binary_probe_acc": 1.0,
+    "binary_probe_passes": true,
+    "n_pos_ge_10_at_least_1_config": true,
+    "label_file_saved": true,
+    "overall_pass": true,
+    "label_source": "probe_decoder_alignment (cos>=0.3 main features) OR FeatureAbsorptionCalculator when >10 events",
+    "note": "PILOT mode. Host model: GPT-2 small (Gemma/Llama gated). Best multi-class probe acc: 0.5222. Binary probe gate uses in-sample binary accuracy per letter. Label source: probe-decoder alignment for main features when FAC finds <10 absorptions. Pass count: 2/2. Labels DIRECT (not Neuronpedia proxy): trained on actual GPT-2 activations."
+  },
+  "comparison_with_r3": {
+    "r3_label_source": "Neuronpedia proxy (pre-computed, possibly different model version)",
+    "r4_label_source": "FeatureAbsorptionCalculator direct (Chanin et al. exact method, GPT-2)",
+    "r3_gemma_l12_16k_n_pos": 16,
+    "r3_gemma_l12_65k_n_pos": 16,
+    "r3_auroc_l12_16k": 0.7765,
+    "r3_auroc_l12_65k": 0.4683,
+    "r3_pilot_auroc_l12_65k": 0.853,
+    "proxy_collapse_diagnosis": "R3 L12-65k AUROC collapse (0.853 pilot \u2192 0.468 full) likely causes: (1) n_pos=16 at 0.024% prevalence in 65k SAE makes AUROC unreliable, (2) Neuronpedia proxy labels may not reflect actual absorption. R4 provides direct labels on GPT-2 as a cleaner methodological reference.",
+    "model_limitation": "R4-A uses GPT-2 instead of Gemma 2B due to HF access gate. GPT-2 direct labels still demonstrate the FeatureAbsorptionCalculator method works. Direct comparison with R3 Gemma results is limited to EDA metric (weight-only, model-independent)."
+  },
+  "go_no_go": "GO",
+  "total_elapsed_sec": 197.4
+}

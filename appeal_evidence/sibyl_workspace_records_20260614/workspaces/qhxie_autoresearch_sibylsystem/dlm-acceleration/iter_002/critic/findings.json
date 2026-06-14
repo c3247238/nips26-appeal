@@ -1,0 +1,85 @@
+{
+  "summary": "ComposeAccel iter_002 has substantially improved over iter_001 (corrected QAS formula, dropped uninformative benchmarks, added Dream-7B cross-model, added AR baseline, addressed fabricated statistics). The paper is now honestly framed as a negative/exploratory result. However, seven problems remain, two of which are critical. (C1) IGSD's algorithmic contribution is invalidated by its own ablation: tau=0.0 (no confidence gate) produces identical accuracy to tau=0.9 at T_draft=32, meaning IGSD reduces to naive step truncation -- yet the paper's abstract and contributions still frame IGSD as a 'confidence-partitioned step scheduler.' (C2) Nearly all composition experiments remain pilot-scale (100 samples, 1 seed) despite the methodology planning full-scale (1319 GSM8K, 3 seeds), severely limiting statistical reliability of the core Ortho claims. Additional major issues: (M1) M1 is effectively a no-op (1.16x measured speedup), making the M1+IGSD 'near-orthogonal composition' claim misleading -- it reflects absence of interference from instrumentation, not genuine multi-axis synergy. (M2) M3's reported 1.68x speedup likely confounds per-token speed with output-length reduction, since M3 TPS is ~50 vs. baseline ~58.5. (M3) The paper claims 'first controlled factorial study' but 3 of 6 pairwise combinations are missing (M2 dropped), and the three-way study uses only 100-sample pilots. (M4) Dream-7B AccRet=125% on GSM8K is inflated by a low 36% baseline -- small absolute accuracy fluctuations produce large retention swings. (M5) Sample outputs show clear degenerate generation (repetitive 'ske ske ske...' patterns) that is not discussed or quantified in the paper.",
+  "findings": [
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "IGSD confidence-partitioning mechanism provides zero measurable benefit. The paper's own ablation (Section 4.4) shows tau=0.0 (no partitioning) and tau=0.9 produce identical GSM8K accuracy (49.5%) at T_draft=32. The paper acknowledges this ('IGSD at T_draft=32 is functionally equivalent to naive step reduction') but the abstract still describes IGSD as using 'inter-step KL divergence for adaptive step compression' and Contribution 3 frames it as a 'training-free step scheduler that partitions denoising into draft and refine phases using inter-step KL divergence.' This is technically misleading: IGSD's design was MOTIVATED by KL divergence, but the confidence gate is demonstrably inert at the primary operating point. The iter_001 critic flagged the same issue (tau=0.0 outperformed full IGSD by 88.5% on QAS); iter_002 confirms it.",
+      "suggestion": "Rewrite Contribution 3 to honestly state: 'IGSD is a simple draft-then-truncate scheme that achieves 1.71x speedup at 67.8% accuracy retention. The confidence-partitioning mechanism, while theoretically motivated by inter-step KL divergence, provides zero measurable accuracy benefit at T_draft=32 -- the primary operating point.' Move the KL motivation to a 'Design Rationale' subsection and frame the null ablation result as a finding, not an embarrassment. The paper already does this partially in Section 4.4 but the abstract and contributions contradict it."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Composition experiments are almost entirely pilot-scale despite methodology planning full-scale. Pairwise M1+IGSD: 100 GSM8K, 1 seed. Pairwise M1+M3: 100 GSM8K, 1 seed. Pairwise M3+IGSD: 100 GSM8K, 1 seed. Only the three-way composition has 3-seed validation, but at 100 samples per seed. The methodology (Section 3.5) specifies 'full-scale experiments use seeds {42, 123, 456}' but pairwise Ortho -- the paper's central metric -- is computed from single-seed 100-sample pilots. At 100 samples with ~45% accuracy, the 95% CI is approximately +/-10 percentage points, meaning Ortho values have wide uncertainty bands that are never reported. The paper's verdicts ('near-orthogonal', 'destructive interference') rest on point estimates without confidence intervals.",
+      "suggestion": "Either (a) rerun all pairwise compositions at full GSM8K scale (1319 samples) with 3 seeds and report Ortho with bootstrap CIs, or (b) prominently caveat all pairwise Ortho values as pilot estimates with expected +/-15-20% uncertainty, add a 'Statistical Limitations' subsection, and downgrade the strength of composition verdicts. Option (a) is strongly preferred -- the methodology promised it and the GPU budget (estimated 8-10 hours) is feasible."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "M1 (entropy-based KV caching) is effectively a no-op acceleration method. Measured wall-clock speedup is 1.16x at eta=0.5 because the implementation runs full forward passes with entropy monitoring overhead. The d2Cache kernel integration failed (15.2x framework overhead). The M1+IGSD 'near-orthogonal composition' (Ortho=0.96) therefore measures the interference between IGSD and an entropy-monitoring wrapper, not between two genuine acceleration methods. The paper frames this correctly in Section 3.2 ('projected speedup') but Table 4 and the abstract present M1+IGSD Ortho=0.96 without qualifying that M1 contributes negligible real speedup. A reader would interpret 'near-orthogonal composition of KV caching and step distillation' as two meaningful acceleration techniques synergizing, not as 'step distillation plus an inert wrapper.'",
+      "suggestion": "Add explicit caveats to every Ortho claim involving M1: 'M1+IGSD Ortho=0.96 reflects minimal interference from M1's entropy-monitoring overhead (1.16x measured speedup), not composition of two high-speedup methods.' In the abstract, replace 'M1+IGSD achieves near-orthogonal composition' with a more honest formulation. Consider presenting M1 projected Ortho separately as a simulation, clearly distinguished from measured composition."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "M3's reported 1.68x speedup is suspicious and may confound per-token speed with output-length reduction. The raw data shows M3 TPS is ~50-52 (m3_pareto_full.json: avg_tps=52.04 at gw=0.3), while baseline TPS is ~58.5 (d2cache_integration.json: baseline gsm8k tps=58.50). M3 is SLOWER per token than baseline. The reported 1.68x 'speedup' appears to come from the 'total output tokens / elapsed wall-clock time' metric, where M3 generates more efficient (shorter?) outputs that achieve the same or better accuracy. The paper's Experimental Setup (Section 3.5) states 'Tokens per second (TPS) is measured as total generated tokens divided by wall-clock generation time' -- this definition INCLUDES output length effects. If M3 generates shorter, higher-quality outputs, TPS goes up even though per-token latency is worse. This measurement ambiguity was flagged by the Methodologist in the debate round but is not addressed in the paper.",
+      "suggestion": "Clarify M3 speedup measurement. Report (a) per-token latency (time per generated token), (b) average output length for M3 vs. baseline, and (c) total wall-clock time to complete the benchmark. If M3 generates shorter outputs, the 'speedup' is actually an 'efficiency' gain from output-length reduction, which is a qualitatively different contribution than per-token acceleration. This distinction matters for the Ortho calculation: composing M3 with IGSD should be modeled differently depending on whether M3 reduces per-step cost vs. reduces total output tokens."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Dream-7B cross-model validation is inflated by a low baseline and does not provide the claimed evidence. Dream-7B GSM8K baseline is 36.0% vs. LLaDA 71.2%. When IGSD produces 45% accuracy on Dream-7B, AccRet = 125% (accuracy IMPROVES over the weak baseline). This is not evidence of 'transferable composition patterns' -- it is evidence that Dream-7B's late denoising steps HURT accuracy, making truncation beneficial. The QAS=2.18 on Dream-7B vs. QAS=1.07 on LLaDA is entirely driven by this artifact. The paper partially acknowledges this ('The amplification arises from Dream-7B's lower baseline accuracy') but still uses it as a positive finding ('confirms transferable composition patterns').",
+      "suggestion": "Reframe Dream-7B results as evidence of model-specific denoising dynamics, not as 'transferable composition patterns.' The honest finding is: 'On Dream-7B, step truncation improves accuracy, suggesting its late-step refinement is counterproductive. On LLaDA, step truncation degrades accuracy, confirming its refinement is productive. The composition MECHANISMS (M1+IGSD > M3-based compositions) transfer, but the magnitudes are not comparable.' Report AccRet and QAS separately for each model to avoid conflation."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Degenerate text generation is visible in sample outputs but never discussed or quantified. Multiple sample outputs across experiments show severe repetition: 'ske ske ske ske ske ske ske...' (pairwise/m1_igsd_full.json, sample id=4; ablation/igsd_ablation_refined.json, sample id=4), truncated/incoherent outputs ('To determine how much James spends on candles, we need to know the total number candles he wants = $ on candles.'), and collapsed formatting ('1. Let n find the greatest possible value of gcd and 2n+1' followed by hundreds of newlines). These degenerate outputs occur at accept_rate=0.48-0.77, indicating IGSD's confidence gate correctly identifies them as low-confidence but the draft phase already corrupted them. The paper reports aggregate exact_match accuracy but never examines output quality beyond pass/fail.",
+      "suggestion": "Add a degenerate output analysis subsection. Compute: (a) fraction of outputs with repetition loops (>3 consecutive identical tokens), (b) fraction with premature truncation (<50 tokens for multi-step reasoning), (c) correlation between accept_rate and output quality. This analysis would strengthen the paper's negative-result framing by showing that IGSD's accuracy degradation is not random -- it systematically produces degenerate outputs on hard problems. The repetition patterns also suggest that confidence-based freezing creates self-reinforcing loops."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "The paper's framing as 'first controlled factorial study' overclaims given the actual experimental coverage. A factorial study of 3 methods should test C(3,2)=3 pairwise + 1 three-way = 4 combinations, each at multiple hyperparameter settings, each at full scale with statistical replication. The paper achieves: 3 pairwise combinations at pilot scale (100 samples, 1 seed), 5 three-way configurations at pilot scale (100 samples, 3 seeds). This is a pilot-scale survey, not a controlled factorial study. Additionally, M2 (step scheduling) -- one of four originally planned axes -- is entirely excluded, reducing the 'three orthogonal axes' to two-and-a-half (M1 is near-inert). The original proposal planned C(4,2)=6 pairs; only 3 were measured.",
+      "suggestion": "Soften the 'first controlled factorial study' claim to 'first systematic pilot study of training-free DLM acceleration composition' or 'first controlled comparison of three acceleration families on a shared evaluation protocol.' Reserve the 'factorial study' label for full-scale experiments. Acknowledge the reduced scope prominently in Section 1.3 (Scope) -- the current Scope paragraph partially does this but uses hedging rather than direct acknowledgment."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "Two planned figures are missing (Figure 2: architecture diagram, Figure 7: KL divergence profile). Editorial artifacts survive in the manuscript: line 47 parenthetical note about section renumbering, HTML comment blocks at lines 233-237 and 328-337, 'Figures and Tables' index at lines 442-457, [TODO] tags at lines 231 and 324. These are flagged by the writing review and must be resolved before submission.",
+      "suggestion": "Generate Figure 2 and Figure 7 from existing specifications and data. Remove all editorial artifacts."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "The paper promises to release 'the IGSD implementation, validated acceleration recipes, and the composability benchmark suite' but no repository structure, code artifacts, or supplementary material are described. The experiment code exists in exp/code/ but is not organized for release. Configuration files and evaluation harness are scattered across multiple Python scripts.",
+      "suggestion": "Create a minimal reproducibility package: (1) inference_wrapper.py with IGSD, M1, M3 integration points, (2) eval_harness.py for benchmark evaluation, (3) config files for all reported configurations, (4) a README with hardware requirements and expected runtimes. This can be done post-acceptance but should be planned now."
+    },
+    {
+      "category": "analysis",
+      "severity": "minor",
+      "description": "The Ortho metric (QAS_composed / max(QAS_individual)) has a structural limitation not discussed: when the denominator method is M3 (which has AccRet > 1.0 and thus QAS inflated by quality improvement), all compositions against M3 will have deflated Ortho. M1+M3 Ortho = 0.41 looks like severe interference, but QAS(M3) = 2.136 is inflated by MATH500 AccRet = 2.349 (from 11.1% to 26.1% -- high variance at this baseline). The Ortho metric is sensitive to the denominator method's QAS, which is itself noisy on MATH500.",
+      "suggestion": "Add a paragraph in Section 3.1 or Section 6 discussing Ortho metric limitations. Consider reporting GSM8K-only Ortho as a sensitivity check (MATH500 Ortho is unreliable due to the 11.1% baseline). The paper partially does this (Table 4 shows per-benchmark Ortho) but does not discuss the denominator sensitivity."
+    }
+  ],
+  "metric_gaming_risks": [
+    "M3 speedup of 1.68x may conflate per-token speed with output-length reduction -- if M3 generates shorter outputs, TPS metric inflates speedup without actual per-token acceleration",
+    "Dream-7B AccRet=125% is inflated by a weak 36% baseline; a +9pp absolute improvement (36% -> 45%) produces a seemingly impressive 25% retention gain",
+    "MATH500 AccRet values are unreliable: 11.1% baseline means 3-sample fluctuations on 100 samples produce ~1pp changes, amplified to ~9% AccRet swings. M3's MATH500 AccRet=2.349 (from 11.1% to 26.1%) may be partially noise",
+    "Batch sensitivity TPS numbers for batch=4 and batch=8 lack baseline TPS at those batch sizes, making 'speedup' uninterpretable",
+    "QAS metric conflates speed and quality in a single scalar that obscures Pareto dominance relationships -- a method with 3x speedup at 50% AccRet (QAS=1.5) looks better than 1.5x speedup at 95% AccRet (QAS=1.43) despite the latter being clearly preferable for deployment"
+  ],
+  "novelty_risks": [
+    "IGSD's algorithmic novelty collapses to naive step truncation at the primary operating point (T_draft=32). The remaining contribution is the composition study framework (Ortho metric, factorial design), which is methodological rather than algorithmic",
+    "The 'composition reveals pervasive interference' finding is a negative result. While negative results are publishable, the claim must be substantiated with full-scale experiments, not pilot-scale estimates",
+    "QAS and Ortho are straightforward metric definitions (product of speedup and accuracy retention; ratio of composed vs. individual QAS). These are useful conventions but not technically novel contributions",
+    "The M3 quality-improvement finding (AccRet > 100%) is genuinely interesting but is a property of Qwen2.5-0.5B guidance, not a methodological contribution of this paper"
+  ],
+  "reproducibility_gaps": [
+    "No code release plan described. Experiment code scattered across 20+ Python scripts in exp/code/ with no unified entry point",
+    "d2Cache integration failure is hardware-specific (RTX PRO 6000 Blackwell + SDPA incompatibility). Different hardware may yield different M1 speedup, potentially changing all M1-involving Ortho values",
+    "M3 requires Qwen2.5-0.5B as guide model -- model availability and versioning not specified",
+    "Baseline TPS varies across experiments (58.5 in d2cache_pilot, 33.8 in paper text for full GSM8K). The discrepancy between pilot and full-scale baselines is not explained. Generation-only vs. end-to-end timing is not consistently specified",
+    "Three-way results at 100 samples x 3 seeds have QAS CV of 8.1-8.3% -- close to the 10% stability threshold. Increasing sample size would likely push some configurations over this threshold"
+  ]
+}

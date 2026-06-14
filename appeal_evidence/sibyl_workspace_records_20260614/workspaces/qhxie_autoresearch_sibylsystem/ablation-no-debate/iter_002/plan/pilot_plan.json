@@ -1,0 +1,84 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout": 900,
+    "description": "Pilot experiments use 100 samples with seed 42 and 15-minute timeout for quick feasibility checks"
+  },
+  "pilots": [
+    {
+      "id": "pilot_h_mech",
+      "task_id": "h_mech_factorial",
+      "description": "Quick 2x2 factorial on single seed to verify encoder-driven absorption signal",
+      "config": {
+        "n_samples": 100,
+        "seed": 42,
+        "k_children": 5,
+        "conditions": ["A", "B", "C", "D"]
+      },
+      "pass_criteria": "Condition B ≈ D (|diff| < 0.05) AND Condition C ≈ A (|diff| < 0.05)",
+      "estimated_minutes": 15,
+      "gpu_count": 1
+    },
+    {
+      "id": "pilot_multiseed",
+      "task_id": "multiseed_validation",
+      "description": "Single-seed trained vs random to verify absorption signal exists",
+      "config": {
+        "n_samples": 100,
+        "seed": 42,
+        "trained_vs_random": true
+      },
+      "pass_criteria": "Trained absorption > 0.3 AND random absorption < 0.2 AND t-test p < 0.001",
+      "estimated_minutes": 10,
+      "gpu_count": 1
+    },
+    {
+      "id": "pilot_h3",
+      "task_id": "h3_steering",
+      "description": "Steering test on small feature set to verify implementation works",
+      "config": {
+        "n_samples": 100,
+        "seed": 42,
+        "alpha_values": [0.0, 1.0, 2.0, 5.0],
+        "n_features": 10
+      },
+      "pass_criteria": "Steering changes activations (||delta|| > 1e-6) AND absorbed sensitivity > non-absorbed",
+      "estimated_minutes": 10,
+      "gpu_count": 1
+    },
+    {
+      "id": "pilot_h_safe",
+      "task_id": "h_safe_gemma",
+      "description": "Load Gemma Scope SAE and measure absorption on small feature subset to verify pipeline",
+      "config": {
+        "release": "gemma-2b-res-jb",
+        "sae_id": "blocks.12.hook_resid_post",
+        "n_safety_features": 10,
+        "n_non_safety_features": 10,
+        "n_samples_per_feature": 50
+      },
+      "pass_criteria": "SAE loads successfully AND absorption computed for all features AND pipeline completes without error",
+      "estimated_minutes": 15,
+      "gpu_count": 1
+    },
+    {
+      "id": "pilot_gemma_loading",
+      "task_id": "h_safe_gemma",
+      "description": "Minimal test: can we load Gemma Scope via SAELens?",
+      "config": {
+        "release": "gemma-2b-res-jb",
+        "sae_id": "blocks.12.hook_resid_post",
+        "test_encode": true
+      },
+      "pass_criteria": "SAE loads without error AND can encode a test prompt",
+      "estimated_minutes": 5,
+      "gpu_count": 1
+    }
+  ],
+  "go_no_go_criteria": {
+    "GO": "At least 3 of 4 main pilots pass (pilot_h_mech, pilot_multiseed, pilot_h3, pilot_h_safe)",
+    "NO_GO": "Fewer than 3 pilots pass OR encoder-driven signal not replicated",
+    "CONDITIONAL": "Gemma loading fails but synthetic pilots pass -- proceed with synthetic-only experiments and flag Gemma as future work"
+  }
+}

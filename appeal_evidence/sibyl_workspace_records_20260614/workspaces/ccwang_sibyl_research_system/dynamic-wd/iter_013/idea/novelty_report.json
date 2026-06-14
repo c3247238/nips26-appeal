@@ -1,0 +1,128 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_eqwd",
+      "title": "Equilibrium-Driven Weight Decay (EqWD) with Cumulative Alignment Contraction Theory",
+      "novelty_score": 7,
+      "collisions": [
+        {
+          "paper": "Defazio, 2025. Why Gradients Rapidly Increase Near the End of Training. arXiv:2506.02285",
+          "overlap": "Defazio establishes that gradient-to-weight ratios converge to a universal equilibrium r* across normalized layers under weight decay. EqWD uses deviation from this same r* as a WD scheduling signal. The ratio equilibrium concept is directly from Defazio.",
+          "severity": "partial_overlap",
+          "differentiation": "Defazio uses ratio as a diagnostic and proposes AdamC (correcting WD to stabilize norms). EqWD instead uses ratio DEVIATION as a modulation signal to increase/decrease WD adaptively. This is a different use case: diagnostic vs. scheduling."
+        },
+        {
+          "paper": "Xie et al., 2023 (updated 2024). On the Overlooked Pitfalls of Weight Decay (SWD). arXiv:2011.11152",
+          "overlap": "SWD schedules weight decay based on gradient norm ||g_t||. EqWD uses ||g_t||/||w_t|| (ratio) instead of ||g_t|| alone. Both are gradient-statistic-driven WD schedulers.",
+          "severity": "partial_overlap",
+          "differentiation": "EqWD uses the ratio (encoding both gradient and weight magnitude) and its deviation from equilibrium, not gradient norm alone. The ratio deviation signal is structurally different from gradient norm scheduling."
+        },
+        {
+          "paper": "Li et al., ICLR 2026. Cautious Weight Decay (CWD). arXiv:2510.12402",
+          "overlap": "CWD uses sign alignment between update and parameters to mask WD. Both CWD and EqWD are alignment-informed WD methods.",
+          "severity": "related_work",
+          "differentiation": "CWD uses binary sign mask (no magnitude). EqWD uses continuous ratio deviation. CWD does not use gradient-to-weight ratio dynamics. Fundamentally different mechanisms."
+        },
+        {
+          "paper": "Sun et al., CVPR 2025. Investigating the Role of Weight Decay in Enhancing Nonconvex SGD",
+          "overlap": "Sun provides the first generalization bound for SGDW using alignment quantity. The proposal's Theorem 1 extends Sun's worst-case bound to an average-case bound.",
+          "severity": "partial_overlap",
+          "differentiation": "Sun's bound is worst-case (delta_T = sup_t). The proposed average-case bound (delta_avg) and the formal proof of alignment-aware optimality under fixed budget are new theoretical contributions not in Sun's paper."
+        },
+        {
+          "paper": "Ghiasi et al., NeurIPS 2024. Constrained Parameter Regularization (CPR). arXiv:2311.09058",
+          "overlap": "CPR applies per-matrix adaptive weight decay using Lagrangian constraints on statistical measures of weight matrices. Both CPR and EqWD are per-layer/per-matrix adaptive WD methods.",
+          "severity": "related_work",
+          "differentiation": "CPR uses L2-norm constraints with augmented Lagrangian. EqWD uses gradient-to-weight ratio deviation. Different mechanisms, different theoretical grounding."
+        },
+        {
+          "paper": "He et al., NeurIPS 2025. AlphaDecay: Module-wise Weight Decay for Heavy-Tailed Balancing in LLMs. arXiv:2506.14562",
+          "overlap": "AlphaDecay assigns per-module adaptive WD strengths based on spectral properties (heavy-tailed self-regularization). Both are module/layer-wise adaptive WD methods.",
+          "severity": "related_work",
+          "differentiation": "AlphaDecay uses spectral density analysis (PL_Alpha_Hill) for LLM modules. EqWD uses gradient-to-weight ratio deviation. Different signals, different theoretical basis, different target architectures (LLMs vs. vision)."
+        },
+        {
+          "paper": "Kosson et al., ICML 2024. Rotational Equilibrium: How Weight Decay Balances Learning Across Neural Networks. arXiv:2305.17212",
+          "overlap": "Kosson establishes the rotational equilibrium framework for understanding WD dynamics, linking layer learning rates to weight decay. EqWD's equilibrium concept draws from this line of work.",
+          "severity": "related_work",
+          "differentiation": "Kosson's work is analytical (understanding dynamics) not algorithmic (no WD scheduling algorithm proposed). EqWD translates equilibrium insights into a concrete scheduling algorithm."
+        },
+        {
+          "paper": "Chou, 2025. Correction of Decoupled Weight Decay. arXiv:2512.08217",
+          "overlap": "Proposes corrected WD (lambda proportional to gamma^2 instead of gamma) for stable weight norms. Both address WD scheduling for stability.",
+          "severity": "related_work",
+          "differentiation": "This corrects the schedule-dependence of decoupled WD (a global fix). EqWD is a per-layer adaptive method based on ratio deviation. Orthogonal contributions."
+        },
+        {
+          "paper": "Tian et al., NeurIPS 2024. Rethinking Weight Decay for Robust Fine-Tuning (Selective Projection Decay). NeurIPS 2024",
+          "overlap": "SPD selectively applies WD per-layer based on gradient-parameter alignment (inner product sign). Both use gradient-parameter relationship for selective WD.",
+          "severity": "partial_overlap",
+          "differentiation": "SPD targets fine-tuning (deviation from pretrained init). EqWD targets training from scratch (ratio equilibrium deviation). SPD uses sign of inner product for binary selection; EqWD uses continuous ratio deviation magnitude."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "The core novelty claim -- using gradient-to-weight ratio DEVIATION from equilibrium as a continuous WD modulation signal -- survives scrutiny. No existing method uses this specific signal. However, the novelty margin is narrower than claimed in the proposal: (1) Defazio 2025 establishes the ratio equilibrium that EqWD builds upon, and reviewers will perceive proximity; (2) Multiple concurrent works (AlphaDecay, SPD, CPR, CWD) are all doing per-layer/per-module adaptive WD with different signals, making this a crowded space; (3) The average-case alignment bound extending Sun CVPR 2025 appears genuinely novel but is an incremental theoretical extension. Key risks: reviewers may view EqWD as 'obvious next step from Defazio 2025' and the unified Phi framework as a notational exercise rather than genuine contribution. Recommend strong empirical differentiation on ImageNet."
+    },
+    {
+      "candidate_id": "cand_bcmwd",
+      "title": "BCM Sliding Threshold Weight Decay (BCM-WD)",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Bienenstock, Cooper, Munro, 1982. Theory of the development of neuron selectivity. J. Neuroscience.",
+          "overlap": "BCM theory with sliding threshold is the foundational concept. BCM-WD directly adapts this mechanism.",
+          "severity": "related_work",
+          "differentiation": "The original BCM theory is in neuroscience. Applying BCM's sliding threshold mechanism to weight decay scheduling in deep learning is a novel cross-domain transfer."
+        },
+        {
+          "paper": "Krotov et al., 2019. Unsupervised learning by competing hidden units. PNAS.",
+          "overlap": "Uses BCM-like learning rules in deep learning with competition between hidden units.",
+          "severity": "related_work",
+          "differentiation": "Krotov uses BCM for the learning rule itself. BCM-WD uses BCM's sliding threshold concept only for modulating weight decay strength, not for the learning rule."
+        },
+        {
+          "paper": "Li et al., ICLR 2026. Cautious Weight Decay (CWD). arXiv:2510.12402",
+          "overlap": "Both use alignment-based signals to modulate WD.",
+          "severity": "partial_overlap",
+          "differentiation": "CWD uses binary sign alignment. BCM-WD uses alignment surprise relative to a sliding EMA threshold (BCM mechanism). Different inspiration and mechanism."
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "BCM-WD is genuinely novel: no prior work applies BCM's sliding threshold mechanism to weight decay scheduling. The cross-disciplinary transfer from synaptic plasticity to WD modulation is creative and well-differentiated. However, this candidate has lower practical impact potential: (1) the biological motivation may not resonate with ML reviewers; (2) the WD direction conflict with CWD convention needs careful resolution; (3) BCM stability conditions may not transfer to deep nets. As a backup to EqWD, this is a strong second option but harder to position for top venues."
+    },
+    {
+      "candidate_id": "cand_budget_eval",
+      "title": "Budget-Equivalent Evaluation Framework for Dynamic Weight Decay",
+      "novelty_score": 5,
+      "collisions": [
+        {
+          "paper": "Schmidt et al., 2021. Descending through a Crowded Valley: Benchmarking Deep Learning Optimizers. arXiv:2007.01547",
+          "overlap": "Comprehensive optimizer benchmarking framework with controlled comparison. Similar methodology concept.",
+          "severity": "partial_overlap",
+          "differentiation": "Schmidt et al. benchmark optimizers broadly. The proposed framework specifically targets WD methods with budget-equivalent comparison and novel metrics (BEM, CSI, AIS). Different scope and metrics."
+        },
+        {
+          "paper": "D'Angelo et al., 2024. Why Do We Need Weight Decay in Modern Deep Learning? ICLR.",
+          "overlap": "Systematic empirical study of weight decay's role with controlled experiments across settings.",
+          "severity": "partial_overlap",
+          "differentiation": "D'Angelo studies WHY weight decay works (mechanism). The proposed framework compares WHICH WD method is best under budget equivalence. Different research question."
+        },
+        {
+          "paper": "Ghiasi et al., NeurIPS 2024. CPR. arXiv:2311.09058",
+          "overlap": "CPR includes matched-budget comparisons with AdamW (e.g., GPT2s reaching same performance in 2/3 budget). Overlap in budget-aware evaluation methodology.",
+          "severity": "partial_overlap",
+          "differentiation": "CPR's budget comparison is incidental to their method paper. The proposed framework makes budget equivalence the central contribution with standardized metrics."
+        }
+      ],
+      "recommendation": "modify to differentiate",
+      "differentiation_notes": "As a standalone paper, the budget-equivalent evaluation framework faces significant challenges: (1) benchmark/survey papers without novel algorithms struggle at top venues; (2) existing work (CPR, D'Angelo, Schmidt) already includes aspects of controlled WD comparison; (3) the proposed metrics (BEM, CSI, AIS) are the main novel element but may be seen as somewhat arbitrary definitions. Better positioned as a component of the EqWD paper (contributing evaluation methodology) rather than standalone. If kept standalone, a comprehensive negative finding (dynamic WD does not beat tuned fixed WD) would be the strongest positioning."
+    }
+  ],
+  "overall_novelty": "medium",
+  "search_summary": {
+    "sources_searched": ["Google Scholar (via WebSearch)", "arXiv (via WebSearch)", "OpenReview", "NeurIPS/ICML/ICLR proceedings", "Semantic Scholar"],
+    "total_relevant_papers_found": 15,
+    "search_date": "2026-03-19",
+    "key_finding": "The WD scheduling space is more crowded than the proposal acknowledges. At least 8 concurrent/recent methods (SWD, CWD, CPR, AlphaDecay, AdamC, SPD, Amos, Correction of Decoupled WD) all address adaptive/dynamic weight decay from different angles. EqWD's specific mechanism (ratio deviation from equilibrium) remains novel, but the overall contribution space is competitive."
+  }
+}

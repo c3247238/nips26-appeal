@@ -1,0 +1,17 @@
+# Discussion
+
+The main lesson of this study is not that entropy has become a validated semantic controller for training-free dLLM revision. Rather, the evidence suggests a more limited and more defensible interpretation: entropy is currently more useful for **routing and stopping compute** than for directly determining what semantic revision should be applied. This interpretation fits both sides of the empirical record. On the one hand, the shared entropy-centered control does not cleanly separate from the shared random control. On the other hand, the entropy-routed candidate preserves a better quality-speed trade-off than a matched fixed-frontier sham.
+
+This distinction matters because it changes the scientific story. A controller claim asks for strong evidence that the signal identifies the correct semantic update. A routing claim asks for weaker but still meaningful evidence that the signal identifies where extra compute is more worthwhile. The current bundle supports the second claim more convincingly than the first. In that sense, the result is small in magnitude but significant in interpretation: it narrows the role that uncertainty can credibly play in training-free dLLM intervention.
+
+At the same time, the result remains bounded in several important ways. First, the gain is modest. The candidate improves over the shared controls by only `+0.61pp` to `+0.76pp`, and the paired repair/harm counts are directionally positive rather than statistically decisive. Second, the fixed-frontier sham is not yet a perfectly matched control: it differs in effective batch size, peak VRAM, wall-clock latency, and average tokens changed. Third, the current evidence is single-benchmark evidence. Without a cross-task validation on a setting such as MBPP, the safe interpretation remains "credible GSM8K speed-line signal" rather than "general dLLM intervention principle."
+
+These limitations do not force a pivot, but they do dictate the next steps. The highest-value follow-up is one external validation that retains the shared controls and the fixed-frontier sham. This should be accompanied by a reviewer-facing runtime-lineage artifact and at least one routing/stopping split ablation. Together, these additions would address the three most likely reviewer questions: Does the result generalize? Is the gain really about routing rather than accounting? Is the sham strong enough?
+
+An equally important implication concerns the broader iteration-4 narrative. The original proposal ranked the object-level line, `cand_bsr`, ahead of the speed line, `cand_espd`. The full-scale evidence no longer supports that ordering. The correct interpretation is therefore evidence-first: `cand_espd` is the current mainline because it has full-scale support, whereas `cand_bsr` remains a challenger hypothesis that may still prove important but has not yet earned that status empirically. This update is not cosmetic. If the writing pipeline fails to reflect it, the paper will continue to mismatch its strongest evidence.
+
+Finally, the paper also points to a broader methodological lesson for dLLM research. Once benchmark gains become small, the field needs stronger sham controls, more explicit runtime lineage, and more disciplined claim boundaries. In such a regime, a modest but well-audited result can be scientifically more valuable than a larger but poorly attributed one.
+
+<!-- FIGURES
+- Figure 4: gen_fig4_runtime_lineage.py, fig4_runtime_lineage.pdf — Runtime lineage audit used to support the bounded-claim discussion
+-->

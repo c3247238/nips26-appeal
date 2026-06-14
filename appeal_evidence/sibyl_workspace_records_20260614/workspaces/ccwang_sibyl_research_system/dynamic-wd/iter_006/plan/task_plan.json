@@ -1,0 +1,366 @@
+{
+  "tasks": [
+    {
+      "id": "impl_pmpwd",
+      "name": "Implement PMP-WD optimizer and instrumented training",
+      "description": "Implement PMP-WD bang-bang controller in optimizers.py: lambda*(t) = Lambda_max * I(<p(t), w(t)> > 0) using momentum buffer as costate proxy. Extend train_sgd.py to log diagnostics per epoch: delta_t (alignment), ||w_t||, ||g_t||, r_t, V_t (Lyapunov value), certified band bounds [lambda_min(t), lambda_max(t)]. Add Hessian-based L estimation (power iteration every 20 epochs). Output diagnostics.jsonl alongside epoch_metrics.jsonl.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/optimizers.py (updated), exp/code/train_sgd.py (updated with diagnostics)",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "PMP-WD optimizer runs without error on 5-epoch CIFAR-10 smoke test; diagnostics.jsonl contains all required fields"
+      }
+    },
+    {
+      "id": "pilot_pmpwd_cifar10",
+      "name": "Pilot: PMP-WD on CIFAR-10/ResNet-20",
+      "description": "Run PMP-WD on CIFAR-10/ResNet-20 for 200 epochs, seed 42. Verify convergence, check bang-bang switching in lambda(t) trajectory, compare accuracy to constant WD baseline (90.13%). Log full diagnostics.",
+      "type": "experiment",
+      "depends_on": [
+        "impl_pmpwd"
+      ],
+      "expected_output": "exp/results/pilots/pmpwd_cifar10/summary.json, diagnostics.jsonl",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Accuracy >= 88% (within 2% of constant baseline 90.13%); no divergence; lambda(t) shows clear bang-bang switching pattern"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "PMP-WD lambda(t) switching trajectory showing bang-bang behavior",
+          "x": "epoch",
+          "y": "lambda_t",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "full_pmpwd_cifar10",
+      "name": "Full: PMP-WD on CIFAR-10/ResNet-20 (3 seeds)",
+      "description": "Run PMP-WD on CIFAR-10/ResNet-20 for 200 epochs with seeds 42, 123, 456. Compare to 7 existing methods from iter_003. Log full diagnostics including V_t, certified band, alignment. This is the primary validation of Theorem 4.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_pmpwd_cifar10"
+      ],
+      "expected_output": "exp/results/full/pmpwd/cifar10/resnet20/seed_{42,123,456}/summary.json",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CIFAR-10 results: 8 methods x accuracy/generalization gap",
+          "columns": [
+            "Method",
+            "Test Acc (mean +/- std)",
+            "Gen Gap",
+            "V_T"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "full_pmpwd_cifar100",
+      "name": "Full: PMP-WD on CIFAR-100/ResNet-20 (3 seeds)",
+      "description": "Run PMP-WD on CIFAR-100/ResNet-20 for 200 epochs with seeds 42, 123, 456. Compare to 7 existing methods from iter_003. Log full diagnostics.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_pmpwd_cifar10"
+      ],
+      "expected_output": "exp/results/full/pmpwd/cifar100/resnet20/seed_{42,123,456}/summary.json",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "CIFAR-100 results: 8 methods comparison",
+          "columns": [
+            "Method",
+            "Test Acc (mean +/- std)",
+            "Gen Gap"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "instrumented_reruns_cifar10",
+      "name": "Instrumented reruns: 5 methods on CIFAR-10/ResNet-20 with diagnostics",
+      "description": "Rerun constant, cwd_hard, cosine_schedule, swd, no_wd on CIFAR-10/ResNet-20 with full diagnostic instrumentation (certified band, alignment, V_t, norms). 3 seeds each = 15 runs. Needed because iter_003 did not log diagnostic quantities. These runs validate H1 (certificate) and H3 (subsumption).",
+      "type": "experiment",
+      "depends_on": [
+        "impl_pmpwd"
+      ],
+      "expected_output": "exp/results/full/instrumented/cifar10/resnet20/{method}/seed_{42,123,456}/diagnostics.jsonl",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 5,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "note": "5 methods can run in parallel on 5 GPUs (1 GPU each), then repeat for remaining seeds",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Certified band [lambda_min, lambda_max] with method trajectories overlaid",
+          "x": "epoch",
+          "y": "lambda_bounds_and_actual",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Lyapunov function V_t decay curves for all methods",
+          "x": "epoch",
+          "y": "V_t",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Alignment trajectory delta_t across training for each method",
+          "x": "epoch",
+          "y": "method",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "vgg16bn_cifar100",
+      "name": "VGG-16-BN on CIFAR-100 (8 methods x 3 seeds)",
+      "description": "Run 8 WD methods (no_wd, constant, cosine_schedule, cwd_hard, swd, half_lambda, random_mask, PMP-WD) on CIFAR-100/VGG-16-BN, 200 epochs, 3 seeds each = 24 runs. VGG-16-BN CIFAR-10 already done in iter_005 (21 runs). This completes multi-architecture validation on CIFAR-100.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_pmpwd_cifar10"
+      ],
+      "expected_output": "exp/results/full/vgg16bn/cifar100/{method}/seed_{42,123,456}/summary.json",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 8,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "note": "8 methods run in parallel (1 GPU each), repeat 3x for seeds. VGG-16-BN is ~3x slower than ResNet-20.",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "VGG-16-BN CIFAR-100 results comparison",
+          "columns": [
+            "Method",
+            "Test Acc (mean +/- std)",
+            "Spread from constant"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "nobn_complete",
+      "name": "Complete NoBN ablation (H5): 8 methods on ResNet-20-NoBN",
+      "description": "Complete the NoBN ablation for H5. From iter_005: constant (3 seeds done), cwd_hard (3 seeds done), no_wd (1 seed done). Need: no_wd seeds 123/456 + cosine_schedule/swd/half_lambda/random_mask/PMP-WD all 3 seeds. Total: 17 new runs. CIFAR-10/ResNet-20-NoBN, 200 epochs. Critical for testing whether alignment-aware WD differentiates by >1% without BN.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_pmpwd_cifar10"
+      ],
+      "expected_output": "exp/results/full/nobn/cifar10/resnet20_nobn/{method}/seed_{42,123,456}/summary.json",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 8,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "note": "Run up to 8 in parallel. ResNet-20-NoBN may converge differently; LR may need reduction (0.05 vs 0.1). Pilot first.",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "cosine_schedule and PMP-WD both converge on NoBN; no method diverges"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "BN vs NoBN accuracy spread across 8 methods",
+          "x": "method",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_imagenet",
+      "name": "Pilot: ImageNet/ResNet-50 training setup verification",
+      "description": "Verify ImageNet training pipeline works: download check, data loading, ResNet-50 instantiation, 2-epoch training with DDP on 2 GPUs. Constant WD, batch size 256, LR 0.1. Must complete without OOM or data errors. Previous ImageNet attempts all FAILED -- diagnose and fix root cause first.",
+      "type": "baseline",
+      "depends_on": [
+        "impl_pmpwd"
+      ],
+      "expected_output": "exp/results/pilots/imagenet_resnet50/summary.json",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "2-epoch training completes without error; top-1 accuracy > 5% (sanity check); data loading throughput > 500 img/s"
+      }
+    },
+    {
+      "id": "full_imagenet",
+      "name": "Full: ImageNet/ResNet-50 (4 methods x 3 seeds)",
+      "description": "Run constant, cwd_hard, cosine_schedule, PMP-WD on ImageNet/ResNet-50, 90 epochs, 3 seeds each = 12 runs. DDP on 2 GPUs per run, batch 256. Track diagnostics every 5 epochs (use 10% subsample for full-batch alignment -- full ImageNet too expensive). Expected 4-6 hours per run, total ~24-36 GPU-hours.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_imagenet"
+      ],
+      "expected_output": "exp/results/full/imagenet/resnet50/{method}/seed_{42,123,456}/summary.json",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 360,
+      "note": "4-6 hours per run. With 8 GPUs, run 4 jobs x 2 GPUs each in parallel = 3 rounds for 12 runs. Exceeds 60-min budget per project constraint override for ImageNet.",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ImageNet results: 4 methods x top-1/top-5 accuracy",
+          "columns": [
+            "Method",
+            "Top-1 (mean +/- std)",
+            "Top-5 (mean +/- std)",
+            "V_T"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "alignment_grid",
+      "name": "Cumulative alignment correlation grid (H2)",
+      "description": "Test H2: cumulative alignment predicts generalization better than worst-case. Grid: 4 WD strengths x 4 schedules x 2 architectures x CIFAR-10 x 3 seeds = 96 configs. Many overlap with existing runs. Compute full-batch alignment every 10 epochs. Compute Spearman correlations for bar_delta vs gen_gap and sup_delta vs gen_gap. Bootstrap 95% CIs.",
+      "type": "experiment",
+      "depends_on": [
+        "instrumented_reruns_cifar10"
+      ],
+      "expected_output": "exp/results/full/alignment_grid/correlation_results.json",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 8,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "note": "Many configs reuse existing data. New configs: ~50 runs at ~10 min each (CIFAR-10 is fast). Schedule across 8 GPUs.",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Full-batch alignment computation works; at least one |rho| > 0.3"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Cumulative alignment vs generalization gap scatter plot with Spearman rho",
+          "x": "bar_delta_T",
+          "y": "gen_gap",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter",
+          "description": "Worst-case alignment vs generalization gap scatter plot",
+          "x": "sup_delta",
+          "y": "gen_gap",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_visualization",
+      "name": "Generate all figures and tables for the paper",
+      "description": "Aggregate all experiment results and generate: (1) Figure 1: certified band with method trajectories, (2) Figure 2: PMP-WD bang-bang vs CWD mask, (3) Figure 3: BN vs NoBN spread, (4) Figure 4: alignment heatmap, (5) Figure 5: cumulative vs worst-case alignment correlation, (6) Figure 6: V_t curves, (7) Tables 1-3. Generate publication-quality matplotlib/seaborn figures saved as PDF.",
+      "type": "analysis",
+      "depends_on": [
+        "full_pmpwd_cifar10",
+        "full_pmpwd_cifar100",
+        "instrumented_reruns_cifar10",
+        "vgg16bn_cifar100",
+        "nobn_complete",
+        "full_imagenet",
+        "alignment_grid"
+      ],
+      "expected_output": "writing/figures/*.pdf, writing/tables/*.tex",
+      "candidate_id": "cand_lyapunov_unified",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "composite",
+          "description": "All paper figures and tables",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ],
+  "shared_resources": [
+    {
+      "type": "dataset",
+      "name": "CIFAR-10",
+      "path": "data/cifar-10-batches-py"
+    },
+    {
+      "type": "dataset",
+      "name": "CIFAR-100",
+      "path": "data/cifar-100-python"
+    },
+    {
+      "type": "dataset",
+      "name": "ImageNet (ILSVRC2012)",
+      "path": "data/imagenet"
+    },
+    {
+      "type": "prior_results",
+      "name": "iter_003 CIFAR-10/100 ResNet-20 (7 methods x 3 seeds)",
+      "path": "iter_003/exp/results/sgd_baseline"
+    },
+    {
+      "type": "prior_results",
+      "name": "iter_003 CIFAR-10/100 ResNet-20 full campaign",
+      "path": "iter_003/exp/results/full"
+    },
+    {
+      "type": "prior_results",
+      "name": "iter_005 VGG-16-BN CIFAR-10 (7 methods x 3 seeds)",
+      "path": "iter_005/exp/results/full/vgg16bn"
+    },
+    {
+      "type": "prior_results",
+      "name": "iter_005 NoBN (constant 3s, cwd_hard 3s, no_wd 1s)",
+      "path": "iter_005/exp/results/full/nobn"
+    },
+    {
+      "type": "code",
+      "name": "Training infrastructure",
+      "path": "iter_003/exp/code/"
+    }
+  ],
+  "summary": {
+    "total_new_tasks": 11,
+    "total_gpu_hours_estimate": 85,
+    "wall_clock_estimate_hours": 18,
+    "critical_path": "impl_pmpwd -> pilot_pmpwd_cifar10 -> [full_pmpwd_cifar10 | full_pmpwd_cifar100 | vgg16bn_cifar100 | nobn_complete] -> analysis",
+    "parallelism": "Phase 1/2/3 tasks can run in parallel once PMP-WD pilot passes. ImageNet is independent after setup. Alignment grid depends on instrumented reruns.",
+    "key_risks": [
+      "PMP-WD diverges: fallback to continuous soft approximation lambda_t = Lambda_max * sigmoid(beta * <p,w>)",
+      "ImageNet fails again: diagnose data path / DDP config issues first in pilot; CIFAR-100 + VGG provides intermediate scale",
+      "Certified band too narrow: this IS a finding supporting H5",
+      "L estimation unstable: use gradient Lipschitz proxy instead of Hessian"
+    ]
+  }
+}

@@ -1,0 +1,261 @@
+{
+  "iteration": 6,
+  "date": "2026-03-19",
+  "overall_quality_score": 5.5,
+  "quality_trajectory": "declining",
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 20,
+  "issues_classified": [
+    {
+      "id": "E1",
+      "description": "Experimental scope catastrophically narrow: only ResNet-20 on CIFAR-10/100 with AdamW. VGG-16-BN data exists (iter_005, 4 methods, phi spread 0.16%) but is absent from paper. ImageNet ALL FAILED with no root cause diagnosis. NoBN ablation incomplete (2 methods only). Project constraints explicitly require ImageNet and VGG-16-BN. Every top-tier WD paper includes ImageNet or LLM-scale experiments.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Immediate P0: (1) Add VGG-16-BN CIFAR-10 iter_005 data to paper as Table 3 — zero compute cost, 1 hour writing. (2) Add half_lambda + random_mask to Table 2 from iter_003 data — zero compute cost. P1: (3) Run remaining VGG methods (SWD, no_wd, random_mask, PMP-WD) x 3 seeds = 12 runs, ~3 GPU-hours. (4) Run NoBN with all 7 methods x 3 seeds = ~15 runs, ~5 GPU-hours. P2: (5) Diagnose ImageNet failures from logs before retry; consider ImageNet-100 as fallback.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:ablation-absent-adamw-all-and-bn-bn-but:f6b24bb1dd52"
+    },
+    {
+      "id": "E2",
+      "description": "Lyapunov function V_t empirically INCREASES throughout training, directly contradicting Theorem 1's guarantee V_{t+1} <= V_t. Paper hand-waves this as 'dominated by mu_t*||w_t||^2 term.' If V_t increases, the certificate is vacuous — it does not certify convergence for observed trajectories. This is the most fundamental theory-experiment contradiction in the paper.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Three options (pick one): (1) Acknowledge learning rate exceeds 1/L making the Lyapunov guarantee vacuous in practice; present certificate as asymptotic/theoretical, not empirical. (2) Redesign V_t to use f(w_t) alone (without mu_t term) and show it decreases. (3) Decompose V_t into f(w_t) + mu_t*||w_t||^2 and show f(w_t) decreases even though V_t increases. Must be addressed in Section 4.2 and Section 6.3. Estimated: 3-4 hours.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:as-by-certificate-certify-contradicting-contradiction-convergence-direct:308946362337"
+    },
+    {
+      "id": "E3",
+      "description": "Theorem 2 (Cumulative Alignment Bound) has ZERO empirical validation. Methodology planned Phase 4 (96 experiments) specifically for this. Not executed. Paper claims bound 'strictly improves on worst-case analysis' with no supporting Spearman correlation, scatter plot, or comparison of bar_delta vs sup_delta.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Minimum: Compute bar_delta and sup_delta from existing instrumented runs (5 methods x 3 seeds = 15 data points). Report Spearman correlation against generalization gap. If |rho| < 0.3, honestly report as negative result and demote Theorem 2 from 'contribution' to 'proposition.' Full validation requires Phase 4 grid (~96 configs). Estimated: 2 hours analysis + optional 10-20 GPU-hours for Phase 4.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:alignment-analysis-bar_delta-bound-bound-case-claims-comparison:82cfacba01f3"
+    },
+    {
+      "id": "E4",
+      "description": "CIFAR-100 data provenance mismatch: 5 of 6 methods' CIFAR-100 data comes from iter_003, while CIFAR-10 data uses iter_006 instrumented reruns. Different code versions, potentially different data augmentation. Paper does not acknowledge this.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Either: (1) Rerun CIFAR-100 with same instrumented script as CIFAR-10 (6 methods x 3 seeds, ~6 GPU-hours), or (2) Explicitly state provenance in paper: 'CIFAR-100 results for non-PMP-WD methods are from an earlier experiment batch using identical hyperparameters.' Verify training configs are actually identical. Estimated: 1 hour for option 2, 6 GPU-hours for option 1.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:acknowledge-augmentation-cifar-cifar-cifar-code-comes-data:cb234bada009"
+    },
+    {
+      "id": "E5",
+      "description": "PMP-WD advantage framed misleadingly. Paper says PMP-WD (90.29%) is 'consistent with optimality' over constant (89.80%), but p=0.12 (not significant). Method ordering REVERSED between iter_003 and iter_006 (constant BEST in iter_003, WORST in iter_006). This is seed noise, not a reproducible signal.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Rewrite honestly: 'PMP-WD achieves comparable accuracy to all other methods (p=0.12, not significant). Method ordering is not reproducible across independent experimental batches, confirming the narrow certified band leaves no room for meaningful differentiation.' Remove 'consistent with optimality' language. Estimated: 30 minutes.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-advantage-and-best-between-but-consistent-constant:c53dfa5c34c0"
+    },
+    {
+      "id": "E6",
+      "description": "Theory-experiment optimizer mismatch: ALL theorems assume SGD dynamics (w_{t+1} = (1-gamma*lambda)*w_t - gamma*g_t). ALL experiments use AdamW. PMP-WD costate derivation uses SGD momentum but applies to AdamW's bias-corrected first moment. This gap is never discussed.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Add explicit discussion in Section 6 or 7: 'Our theoretical analysis assumes vanilla SGD dynamics; the AdamW preconditioner introduces a theory-experiment gap that we leave to future work.' Alternatively, extend V_t to account for Adam's preconditioner (substantial theoretical work). Estimated: 1 hour for limitation statement, 8+ hours for extended theory.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:adamw-adamw-all-all-applies-assume-bias-but:0a28bc5819e7"
+    },
+    {
+      "id": "W1",
+      "description": "Figure 1 is a markdown placeholder (framework_diagram_desc.md), not an actual figure. No certified band visualization exists — the paper's central theoretical contribution has no visual. No Appendix A despite 'Full proof in Appendix A' reference. Only 6 of 8 planned figures present.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "P0: (1) Create actual Figure 1 diagram (TikZ or matplotlib showing phi modulator control loop), 2 hours. (2) Create certified band visualization showing [lambda_min(t), lambda_max(t)] with method trajectories overlaid, 3 hours. (3) Write Appendix A with Theorem 1 proof or remove reference, 3 hours. (4) Add cumulative alignment scatter plot (Figure 7) after Theorem 2 validation.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:a-a-a-actual-an-appendix-appendix-band:22644fd96bdf"
+    },
+    {
+      "id": "W2",
+      "description": "Subsumption claim (>=95% of training steps) appears without supporting data table or figure. The >=97% figure in Section 4.2 is unsubstantiated. If computed post-hoc by choosing band definition to fit methods, it is circular.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Create Table 3 showing subsumption fraction for each method (% of epochs where lambda_eff is within [lambda_min, lambda_max]). Instrumented runs should have per-epoch lambda_eff data. If subsumption < 95%, revise the claim. Estimated: 2 hours analysis + writing.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:appears-band-by-choosing-circular-claim-computed-data:d14a651ecd48"
+    },
+    {
+      "id": "W3",
+      "description": "CIFAR-100 spread reported inconsistently: abstract says '0.76 points' (including no-WD), Section 6.2 says '0.58 percentage points excluding no-WD baseline', Section 7.1 says '0.76 percentage points.' Theorem numbering is non-sequential (1, 3, 2, 4). Random mask (90.12%) cited in Section 7.3 but absent from all tables.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "(1) Pick one CIFAR-100 spread convention and use consistently. Recommend: always report both, '0.76pp including no-WD (0.58pp among WD methods).' (2) Renumber theorems sequentially. (3) Either add random_mask + half_lambda to Table 2 or remove dangling reference. Estimated: 1 hour total.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:absent-abstract-all-baseline-but-cifar-cited-excluding:3176fecdec8c"
+    },
+    {
+      "id": "W4",
+      "description": "Four missing appendices cited in main text: B.1 (Theorem 1 proof), B.3 (PMP-WD derivation), B.4 (RG derivation), A.3 (CSI sensitivity). Flagged since iteration 3, still not written.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Write B.1 (Theorem 1 proof) and B.3 (PMP-WD derivation) at minimum — essential for theory-heavy paper. Alternatively, remove all appendix references. Estimated: 4-8 hours for all four appendices.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:a-appendices-b-b-b-cited-csi-derivation:0f862c80a4ac"
+    },
+    {
+      "id": "A1",
+      "description": "BEM = 0.000 for half_lambda is mathematically impossible under the stated definition (should be ~0.5). Either BEM computation code has a bug or half_lambda accidentally uses full lambda. Flagged in evolution lessons and iter_005 action plan.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Verify BEM computation code. If BEM is computed on actual effective WD trajectory (not phi), clarify the formula. If bug, fix and recompute all BEM values. Estimated: 1 hour.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-accidentally-action-and-be-bem-bem-bug:49cd490ca179"
+    },
+    {
+      "id": "A2",
+      "description": "Smoothness constant L estimation method never reported in paper. Certified band depends critically on L. How is L estimated? Is it constant across training? What values? Without this, certified band is unreproducible.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Report L estimation method (power iteration on Hessian every 20 epochs), values obtained, variation across training, and sensitivity of certified band width to L estimation errors. Estimated: 2 hours.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:across-band-band-certified-certified-constant-constant-critically:7a03db9c5ed9"
+    },
+    {
+      "id": "A3",
+      "description": "PMP-WD is practically indistinguishable from random binary masking (random mask: 90.12% vs PMP-WD: 90.29%, both bang-bang with ~50% mean WD). If 'optimal' controller performs like random coin flips, optimality claim is vacuous on BN architectures.",
+      "category": "system",
+      "severity": "medium",
+      "suggestion": "Test PMP-WD vs random mask in same experiment batch with 5+ seeds. If statistically indistinguishable, acknowledge honestly: 'On BN architectures, PMP-WD provides no measurable advantage over random binary masking, consistent with narrow certified band.' Estimated: 3 GPU-hours.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "system:architectures-bang-bang-binary-bn-both-claim-coin:0d9df679baa2"
+    },
+    {
+      "id": "P1",
+      "description": "Writing-experiment decoupling: 6th consecutive iteration where paper text is finalized with incomplete or stale experiment data. Writing proceeds without data currency verification. Planning execution rate only ~35% — Phases 3-4 mostly unexecuted.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "Implement experiment_gate: writing_sections cannot begin until (1) all P0 experiment _DONE markers exist AND (2) automated data audit script verifies all paper tables match summary.json. Return to experiment_cycle if gate fails. Estimated: 4 hours system change.",
+      "status": "recurring",
+      "requires_system_change": true,
+      "issue_key": "pipeline:6th-consecutive-currency-data-data-decoupling-execution-experiment:fd42c7e35b5d"
+    },
+    {
+      "id": "P2",
+      "description": "ImageNet experiments all FAILED (4 runs) with no root cause diagnosis. No recovery attempt. No fallback strategy defined (e.g., ImageNet-100 subset).",
+      "category": "efficiency",
+      "severity": "medium",
+      "suggestion": "Check ImageNet failure logs for root cause (OOM, data loading path, missing dataset). If infrastructure: fix and retry with single-epoch smoke test first. If scope: use ImageNet-100 as lower-risk alternative. Estimated: 2 hours diagnosis + variable retry time.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "efficiency:all-attempt-cause-defined-diagnosis-e-experiments-failed:94ed75e64c03"
+    },
+    {
+      "id": "EF1",
+      "description": "Pilot time estimation was wildly inaccurate: pilot_pmpwd_cifar10 planned 15min, took 225min (15x overrun). This suggests the estimation model for new experiment types is unreliable.",
+      "category": "efficiency",
+      "severity": "low",
+      "suggestion": "For novel experiment types (first-time implementations), use 10x multiplier on initial time estimate. Add checkpointing at 2x planned time to decide whether to continue or abort. Estimated: 0 cost, planning rule change.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "efficiency:estimation-estimation-experiment-for-inaccurate-is-model-new:712309aaf900"
+    },
+    {
+      "id": "W5",
+      "description": "Cohen's d formula mislabeled in Section 5.3: text claims paired formula but tables use unpaired pooled formula. Flagged in iterations 4 and 5, still unresolved.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Fix Section 5.3 to state unpaired pooled formula explicitly. Either relabel as 'unpaired pooled Cohen's d' throughout, or recompute using paired formula. 30-minute text fix.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:and-but-claims-cohen-d-flagged-formula-formula:8723b6222f73"
+    },
+    {
+      "id": "W6",
+      "description": "Naming inconsistencies persist: cosine_schedule/Cosine-WD/cosine annealing, no_wd/No-WD/no weight decay mixed throughout. Flagged since iteration 2.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Standardize: 'Cosine-WD' in prose, 'cosine_schedule' in code/tables; 'No-WD' in prose, 'no_wd' in code/tables. Global find-replace across all writing files. 15 minutes.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:annealing-cosine-cosine-cosine_schedule-decay-flagged-inconsistencies-mi:dbfa0df29e6f"
+    },
+    {
+      "id": "A4",
+      "description": "CWD phi formula uses u_t (preconditioned update) but framework signature uses g_t (raw gradient). sign(u_t) and sign(g_t) can differ after Adam normalization. Flagged in multiple reviews, still unresolved.",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Define u_t explicitly in Section 3.1 and clarify CWD uses u_t not g_t. Update phi framework signature if needed. 15-minute text fix.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:adam-after-and-but-can-cwd-differ-flagged:769861b92dde"
+    },
+    {
+      "id": "A5",
+      "description": "CSI metric not validated under SGD. CSI fails to predict accuracy under AdamW (r_s < 0.3). Without SGD cross-validation, CSI could be vacuous everywhere. Flagged since iteration 4.",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Compute Spearman rank correlation between CSI and accuracy under SGD from iter_003 data. If CSI predicts SGD rankings (r_s > 0.5), validates CSI. If not, demote from primary diagnostic. 2 hours analysis.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:accuracy-adamw-be-could-cross-csi-csi-csi:7610cbe63a48"
+    }
+  ],
+  "issues_fixed": [
+    "PMP-WD implemented and validated: 6 runs on CIFAR-10/100, achieves 90.29 +/- 0.12% on CIFAR-10 and 62.98 +/- 0.27% on CIFAR-100. Resolves E1 from iteration 5 (unvalidated algorithmic contribution).",
+    "Instrumented reruns completed: 5 methods x 3 seeds on CIFAR-10 with per-epoch V_t, alignment, norm, switching function logging. Provides diagnostic data for certified band analysis.",
+    "Source-of-truth conflict partially resolved: iter_006 instrumented runs use consistent code version for CIFAR-10 data. All Table 2 numbers verified against summary.json by writing review."
+  ],
+  "success_patterns": [
+    "PMP-WD implementation was efficient: planned 30min, actual 6min for implementation. Algorithm works as predicted (bang-bang switching, lowest seed variance). This demonstrates the theoretical framework produces implementable algorithms.",
+    "Table 2 data integrity is impeccable: writing review cross-validated every number against summary.json. All values match within rounding tolerance. This is the standard for all future tables.",
+    "Three-stage review pipeline catches distinct issues: supervisor (experimental completeness, cross-iteration consistency), critic (V_t contradiction, Theorem 2 gap, PMP-WD misleading framing), writing review (Figure 1 placeholder, missing appendix, notation). Each stage adds unique value.",
+    "Statistical honesty maintained: paired t-tests with Bonferroni correction, p-values reported, non-significance acknowledged. This is above community norm for null-result papers.",
+    "Phi modulator taxonomy (Table 1) receives universal praise as genuinely useful organizational contribution.",
+    "The 'weight decay illusion' framing is compelling and memorable — multiple reviewers highlight this as the paper's strongest marketing element."
+  ],
+  "systemic_patterns": [
+    "Writing-experiment decoupling: 6th consecutive iteration. The pipeline allows paper writing to complete without verifying that all planned experiments are done or all data in tables is current. This is the most persistent systemic failure.",
+    "Missing appendices accumulate without resolution: 4 appendices cited since iteration 3. Each iteration flags this, zero writing time allocated. The pipeline does not prioritize appendix writing.",
+    "Failed experiments not retried with modifications: ImageNet failed in iter_005 and iter_006 without diagnosis. rho_high failed in iter_005 without retry with stabilization. The system records failure and moves on.",
+    "Theoretical claims outrun empirical validation: Theorem 2 (cumulative alignment) unvalidated since introduction. Theorem 3 (subsumption) claimed without supporting data. V_t increasing contradicts Theorem 1. The paper has more unvalidated theory than validated theory.",
+    "Quality score regression: iter_002 peaked at 8.2, iter_003 dropped to 5.5, iter_005 recovered to 7.0, iter_006 critic rates 5/10 (writing) and 4/10 (experiments). The pivot to unified framework in iter_003 expanded scope faster than evidence could keep up."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 55,
+    "total_gpu_idle_minutes": null,
+    "bottleneck_stages": [
+      "imagenet_failure_no_diagnosis",
+      "35pct_plan_execution_rate",
+      "pilot_time_15x_overrun",
+      "writing_before_experiments_complete"
+    ],
+    "suggestions": [
+      "Add VGG-16-BN and half_lambda/random_mask data to paper immediately — zero compute, pure writing effort, addresses biggest P0 gap",
+      "Diagnose ImageNet failure root cause before allocating more GPU time; consider ImageNet-100 as fallback",
+      "Complete NoBN ablation with all 7 methods to honestly test BN-narrowing claim — this could strengthen OR weaken the paper, but either way is scientifically necessary",
+      "Implement experiment_gate stage to prevent writing with stale data",
+      "Prioritize Theorem 2 validation from existing data (2 hours analysis) over new experiments",
+      "For novel implementations, use 10x time multiplier to avoid pilot overruns"
+    ]
+  },
+  "recommended_focus": [
+    "P0: Add VGG-16-BN data from iter_005 to paper (zero compute, 1 hour writing) — immediately broadens experimental scope",
+    "P0: Add half_lambda + random_mask to Table 2 from iter_003 data (zero compute, 1 hour) — removes dangling references, provides critical random-vs-optimal comparison",
+    "P0: Create actual Figure 1 + certified band visualization (3-5 hours) — the core contribution currently has no figure",
+    "P0: Confront V_t increasing honestly in text (2-3 hours) — prevents theoretical framework dismissal",
+    "P0: Create subsumption verification table (2 hours) — substantiates Theorem 3",
+    "P1: Validate Theorem 2 from existing instrumented data (2 hours analysis) — decides whether to keep or demote this contribution",
+    "P1: Complete NoBN ablation with all methods (5 GPU-hours) — validates or falsifies BN-narrowing mechanism",
+    "P1: Reframe PMP-WD honestly; fix CIFAR-100 spread inconsistency; discuss SGD-vs-AdamW gap (2 hours writing)",
+    "P1: Write Appendix B.1 (Theorem 1 proof) and B.3 (PMP-WD derivation) (4-6 hours) — essential for theory-heavy paper",
+    "P2: Diagnose and retry ImageNet (variable time) — needed for top-tier venue",
+    "P2: Fix remaining writing issues: theorem numbering, Cohen's d, naming conventions (1 hour)"
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_sensitivity_floor",
+      "title": "The Sensitivity Floor: Why Absorbed and Non-Absorbed Features Are Both Insensitive",
+      "status": "front_runner",
+      "summary": "Sensitivity requires BOTH high specificity AND high reliability. Absorbed features have low specificity (decoder directions close to neighbors). Non-absorbed features in sparse regions have low reliability (low activation frequency). Neither can achieve the sensitivity threshold. Q2 and Q4 are structurally impossible. The positive correlation (r=0.59) is a linear approximation of a U-shaped relationship.",
+      "hypotheses": [
+        "H-SF1: Q2+Q4 remain empty (<5%) even at N>200",
+        "H-SF2: S(A) = aA^2 + bA + c with a > 0 (U-shape)",
+        "H-SF3: Frequency mediates r(absorption, sensitivity) - partial r < 0.3",
+        "H-SF4: Geometric density mediates r(absorption, sensitivity) - partial r < 0.3"
+      ],
+      "pilot_focus": "Larger sample (200 features) to confirm Q2/Q4 emptiness; 30 min pilot",
+      "pilot_time_min": 30,
+      "full_time_min": 75,
+      "key_reference": "iter_008 pilot: Q4=0/43, r=0.59, ratio=1.0; Korznikov 2026 Sanity Check",
+      "novelty_risk": "High (8/10) - Sensitivity floor is genuinely novel; no prior work connects specificity/reliability to absorption",
+      "risk_mitigation": "Pilot is fast (30 min); falsifiable; alternatives available if SF falsified",
+      "iter_008_relationship": "Built on all iter_008 falsifications: Q4 emptiness, r=0.59 positive correlation, ratio=1.0",
+      "stagnation_alert": "Zero experiments for 2+ iterations - MUST execute pilot first"
+    },
+    {
+      "candidate_id": "cand_sensitivity_first",
+      "title": "Sensitivity-First: Sensitivity Failures Alone Explain Sanity Check",
+      "status": "backup_primary",
+      "summary": "Sensitivity failures (NOT absorption) are the primary driver of Sanity Check. Q3 dominates at 65% of features. Absorption adds no predictive value after controlling for sensitivity. 85% of features are low-sensitivity regardless of absorption.",
+      "hypotheses": [
+        "H-A: Low-sensitivity features (Q3) show steering not different from random baseline",
+        "H-B: Absorption does NOT predict steering after controlling for sensitivity"
+      ],
+      "pilot_focus": "Steering on 28 Q3 features at beta=5; compare to random baseline",
+      "pilot_time_min": 15,
+      "full_time_min": 45,
+      "key_reference": "Q3=28/43 (65%), Q2+Q4=0; Tian 2025 sensitivity decline",
+      "novelty_risk": "Moderate (6/10) - Sensitivity-first explanation not claimed in prior work",
+      "risk_mitigation": "Simplest explanation; directly testable; pilot is fast (15 min)",
+      "iter_008_relationship": "Directly uses Q3 features from iter_008 pilot; tests whether sensitivity alone explains Sanity Check",
+      "pivot_trigger": "H-SF1 fails: Q2+Q4 > 10%"
+    },
+    {
+      "candidate_id": "cand_geometric_density",
+      "title": "Geometric Density as Common Cause of Absorption and Sensitivity Failure",
+      "status": "backup_secondary",
+      "summary": "Both failure modes share geometric density as common cause. Dense regions cause decoder overlap (absorption) AND vague activation patterns (low sensitivity). Density mediates r=0.59.",
+      "hypotheses": [
+        "H-B1: Absorbed features have higher geometric density than non-absorbed",
+        "H-B2: Partial r(absorption, sensitivity | density) < 0.3"
+      ],
+      "pilot_focus": "Compute geometric density for 100 features; test r(density, absorption)",
+      "pilot_time_min": 15,
+      "full_time_min": 50,
+      "key_reference": "r=0.59 positive correlation; Empiricist perspective; OrtSAE orthogonality",
+      "novelty_risk": "Moderate (6/10) - Density as mediating variable not previously proposed",
+      "risk_mitigation": "Density is directly measurable; generates unified intervention",
+      "iter_008_relationship": "Explains the positive correlation (r=0.59) that falsified compound failure independence",
+      "pivot_trigger": "H-SF3 and H-SF4 both fail: neither frequency nor density mediates"
+    },
+    {
+      "candidate_id": "cand_layer_uas_saturation",
+      "title": "Layer-wise UAS Saturation: Measurement Path Forward",
+      "status": "backup_control",
+      "summary": "UAS saturation is layer-dependent, not universal. Some layers (4, 6, 10) show UAS variance while layer 8 shows saturation. This determines where absorption CAN be measured and whether Sensitivity Floor is layer-specific.",
+      "hypotheses": [
+        "H-C1: UAS variance differs across layers (some show std > 0.05)",
+        "H-C2: At non-saturated layers, sensitivity correlates with UAS (r > 0.4)"
+      ],
+      "pilot_focus": "Measure UAS at layers 4, 8, 10 (30 features each); compute mean and std per layer",
+      "pilot_time_min": 20,
+      "full_time_min": 45,
+      "key_reference": "UAS=1.0 saturation at layer 8 (iter_007); Empiricist + Contrarian perspectives",
+      "novelty_risk": "Moderate (6/10) - Layer-wise saturation mapping is descriptive but essential",
+      "risk_mitigation": "Addresses contrarian objection; determines measurement path for all experiments",
+      "iter_008_relationship": "Addresses layer-specificity concern from Contrarian; measurement prerequisite for Sensitivity Floor",
+      "pivot_trigger": "Contrarian layer-specificity objection needs resolution; run alongside pilot if time permits"
+    },
+    {
+      "candidate_id": "cand_steering_diffusion",
+      "title": "Steering Diffusion Explains Beta=20 Reversal",
+      "status": "backup_tertiary",
+      "summary": "The beta=20 reversal (low-absorption > high-absorption, p=0.015) is caused by steering diffusion. High-absorption features have decoder directions that overlap with MORE neighbors. At high beta, steering activates multiple neighbors simultaneously, diluting the effect.",
+      "hypotheses": [
+        "H-D1: Absorbed features have higher decoder-neighbor overlap",
+        "H-D2: Diffusion is non-linear in beta; null at beta<=10, effect at beta=20"
+      ],
+      "pilot_focus": "Measure decoder-neighbor overlap for 50 features; fit diffusion model to iter_004 data",
+      "pilot_time_min": 15,
+      "full_time_min": 30,
+      "key_reference": "iter_004 beta=20 reversal (p=0.015); H6 falsified ratio=1.0",
+      "novelty_risk": "Low (reanalysis of beta=20) but mechanism is novel given H6 falsification",
+      "risk_mitigation": "Explains an unexplained finding; consistent with H6 falsification",
+      "iter_008_relationship": "Addresses beta=20 reversal that H6 falsification left unexplained",
+      "pivot_trigger": "Secondary mechanism; run after primary experiments confirm Sensitivity Floor"
+    }
+  ],
+  "dropped_from_prior": [
+    {
+      "candidate_id": "prior_cand_sensitivity_absorption_joint",
+      "reason": "H5 FALSIFIED (r=0.59, not independent), Q4=0 (not empty), H6 FALSIFIED (ratio=1.0). The compound failure hypothesis assumed independence but pilot shows positive correlation.",
+      "action": "Dropped as front-runner. cand_sensitivity_floor (sensitivity floor) explains the positive correlation through complementary mechanisms."
+    },
+    {
+      "candidate_id": "prior_cand_coherence_protective",
+      "reason": "H1-R FALSIFIED: r=+0.36, not negative protective. Earlier r=-0.786 did not replicate across layers 4, 8, 10.",
+      "action": "Dropped permanently. The coherence-abs relationship is unstable and not reliably protective."
+    },
+    {
+      "candidate_id": "prior_cand_beta20_saturation",
+      "reason": "H6 FALSIFIED: L2 norm ratio = 1.0, not > 1.1. Decoder L2 norm saturation is not the mechanism for beta=20 reversal.",
+      "action": "Dropped as backup. cand_steering_diffusion provides an alternative mechanism (neighbor overlap) that is consistent with ratio=1.0."
+    }
+  ],
+  "evaluation_framework": {
+    "absorption_detection": "Chanin et al. 2024 first-letter protocol (tau_fs=0.03, tau_ps=0.025, tau_pa=0.4)",
+    "sensitivity_measurement": "Tian et al. 2025 paraphrase AUC protocol",
+    "steering_protocol": "Add beta * W_dec[feature] to residual stream at layer 8",
+    "geometric_density": "Mean cosine similarity to k=20 nearest neighbors in activation space",
+    "frequency_measurement": "Fraction of tokens with feature active (sae_features > 0)"
+  },
+  "pilot_findings_from_iter_008": {
+    "h5_result": {
+      "status": "falsified",
+      "expected": "r < 0.3 (independence)",
+      "actual": "r = 0.59 (positive correlation)",
+      "p_value": 3.15e-05,
+      "interpretation": "Absorption and sensitivity are POSITIVELY correlated, not independent. Common cause model preferred."
+    },
+    "h6_result": {
+      "status": "falsified",
+      "expected": "L2 norm ratio > 1.1",
+      "actual": "ratio = 1.0",
+      "interpretation": "No decoder L2 norm difference between absorption groups. Saturation mechanism not supported."
+    },
+    "h1r_result": {
+      "status": "falsified",
+      "expected": "r < -0.5 (negative protective)",
+      "actual": "r = +0.36 (positive)",
+      "layers_tested": [4, 8, 10],
+      "interpretation": "Earlier r=-0.786 did not replicate. Coherence-abs relationship is unstable."
+    },
+    "quadrant_counts": {
+      "q1_highabs_lowsens": 15,
+      "q2_highabs_highsens": 0,
+      "q3_lowabs_lowsens": 28,
+      "q4_lowabs_highsens": 0,
+      "total_features": 43,
+      "interpretation": "Q4 empty - sensitivity failures are near-universal. 100% of features are low-sensitivity."
+    }
+  },
+  "stagnation_warning": {
+    "alert": "Zero experiments for 2+ consecutive iterations",
+    "paper_identical_to": "iter_007",
+    "review_score": 6.5,
+    "consecutive_reviews": 3,
+    "recommended_experiments_not_executed": [
+      "activation patching",
+      "tightened hedging",
+      "CMI at L0=22"
+    ],
+    "action_required": "Execute pilot experiments FIRST. Theoretical refinement without data is self-perpetuating stagnation."
+  },
+  "references": {
+    "Chanin2024": "arXiv:2409.14507",
+    "Korznikov2026Sanity": "arXiv:2602.14111",
+    "Tian2025": "arXiv:2509.23717",
+    "Korznikov2025OrtSAE": "arXiv:2509.22033",
+    "Li2025ATM": "arXiv:2510.08855",
+    "Luo2026HSAE": "arXiv:2602.11881",
+    "Bereska2025": "arXiv:2512.13568"
+  }
+}

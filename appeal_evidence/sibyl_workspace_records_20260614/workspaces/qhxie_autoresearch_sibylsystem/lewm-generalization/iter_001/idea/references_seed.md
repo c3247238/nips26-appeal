@@ -1,0 +1,3 @@
+- 暂无（系统自动检索 LeWorldModel 相关论文及跨域泛化文献）
+- 待补充：LeWorldModel 原始论文 arXiv URL
+- 待补充：Compositional generalization in world models 相关文献

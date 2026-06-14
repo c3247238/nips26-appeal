@@ -1,0 +1,121 @@
+{
+  "summary": "The paper has matured substantially since the last critique round. VGG-16-BN is now complete (7 methods x 3 seeds, confirming Phi spread = 0.18%), NoBN has 2/3 methods complete, matched-rho SGD has 2 methods partially complete, and rho_low has partial data. The Phi Modulator Framework, three theorems, and Proposition 1 form a coherent theoretical contribution. The paper is honest about data gaps (Section 5.8). However, five critical and six major issues remain. CRITICAL: (1) The paper's VGG-16-BN Table 3 numbers do not match the actual experimental data -- every single mean and std is wrong (e.g., paper says constant=92.05+/-0.06, data says 91.98+/-0.08); (2) rho_high remains at 5-epoch pilot only, meaning the entire 'differentiation regime' that anchors Theorem 1's interesting prediction and Figure 1's three-zone diagram is unvalidated; (3) PMP-WD (Theorem 3's algorithm) is derived but never implemented or tested, weakening the paper's main theoretical contribution to a thought experiment; (4) Theorem 1's proof relies on A3 (independence of alignment events and stability effects) which is never verified and is likely violated in BN networks; (5) the paper claims '105 completed runs' but actual audit shows several incomplete experiments misrepresented in tables. MAJOR: data-paper inconsistencies in NoBN Table 5, CSI metric not validated under SGD, Cohen's d formula still mislabeled, Figure 1's regime diagram uses extrapolated data for 2/3 of its zones, matched-rho SGD still too incomplete for the confound-resolution claim, and three seeds remain underpowered for a null-result paper. Estimated paper quality: 6.5/10, up from 6.0 but held back by data-paper inconsistencies and the rho_high/PMP-WD gaps.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "VGG-16-BN Table 3 in the paper contains fabricated numbers that do not match the actual experimental data. The paper reports: constant=92.05+/-0.06, cosine=91.99+/-0.32, CWD=92.06+/-0.26, SWD=92.11+/-0.28, half_lambda=92.15+/-0.13, random_mask=92.05+/-0.27, no_wd=92.03+/-0.04. Actual data from epoch_metrics.jsonl: constant=91.98+/-0.08 (seeds: 91.94, 91.94, 92.07), cosine=91.89+/-0.30 (91.54, 92.03, 92.09), CWD=92.02+/-0.27 (92.31, 91.97, 91.77), SWD=92.02+/-0.24 (92.04, 91.78, 92.25), half_lambda=92.06+/-0.13 (91.92, 92.16, 92.11), random_mask=91.96+/-0.36 (91.55, 92.10, 92.23), no_wd=91.96+/-0.09 (91.97, 91.86, 92.04). The Phi spread is 0.18% (actual) vs 0.16% (paper). The best method is half_lambda (92.06, actual) vs half_lambda (92.15, paper). Every single entry in Table 3 is wrong. This is the most serious integrity issue: a reviewer who reruns the code will find different numbers than the paper reports.",
+      "suggestion": "Regenerate Table 3 from the actual VGG-16-BN epoch_metrics.jsonl files. The correct numbers are: constant 91.98+/-0.08, cosine 91.89+/-0.30, CWD 92.02+/-0.27, SWD 92.02+/-0.24, half_lambda 92.06+/-0.13, random_mask 91.96+/-0.36, no_wd 91.96+/-0.09, Phi spread 0.18%. Run the analysis script against the actual data to generate all downstream statistics (p-values, Cohen's d) from ground truth."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The rho_high regime (rho~5.0) has only a 5-epoch pilot (77.69% at epoch 5), yet the paper's Figure 1, core narrative, and Theorem 1 Corollary all depend on the claim that method sensitivity increases at high rho. The three-zone regime diagram (Figure 1) shows a 'differentiation' zone at rho>2.0 with spread>0.5%, but this zone has ZERO completed experimental data. The paper acknowledges this in Section 5.8 (Table 6), but Figure 1 and the Introduction present the three-zone framework as if it were empirically grounded. Two of three zones in the paper's central organizing figure are based on extrapolation, not data. This is the paper's largest empirical gap: without rho_high data, the core claim 'method sensitivity scales with rho' rests on exactly two data points (rho=0.005 SGD and rho=0.5 AdamW) that differ in BOTH optimizer and rho, making the relationship uninterpretable.",
+      "suggestion": "The rho_high experiment (lambda=5e-3, ResNet-20, CIFAR-10, AdamW, 4 methods x 3 seeds x 200 epochs) is the single highest-value experiment for the paper. Run it immediately with gradient clipping (max_norm=5.0). If training is unstable at rho=5.0, try rho=2.0 (lambda=2e-3). Even a negative result (invariance persists at high rho) is publishable -- it strengthens the 'structural insensitivity' claim. Without this data, Figure 1 must be relabeled as 'hypothesized regime diagram' rather than presented as empirically validated."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "PMP-WD (Theorem 3) is the paper's primary algorithmic contribution but has never been implemented or tested. The paper explicitly states 'PMP-WD is a theoretical contribution; empirical evaluation is deferred to future work' (Section 1.2, Contribution 3). This is honest but devastating for a paper whose title asks 'When Does Adaptive Weight Decay Help?' and derives an optimal WD law. A reviewer will ask: if you derived the optimal control law, why didn't you test it? The answer 'we ran out of time' is not publishable. PMP-WD's formula (lambda* = clip(kappa*(rho*-rho_hat)+, 0, lambda_max)) is ~30 lines of code. Not implementing it signals either (a) the authors don't trust their own theory, or (b) the experimental infrastructure doesn't support it -- both are reviewer red flags.",
+      "suggestion": "Implement PMP-WD in the existing optimizer wrapper (~30 LOC). Run it on ResNet-20 CIFAR-10 at rho=0.5 (standard, should match constant -- validates theory) and rho=5.0 (elevated, should outperform constant -- validates Theorem 3's prediction). Three seeds each, 200 epochs. Total: 6 runs, ~3 GPU-hours. Even if PMP-WD equals constant at both rho values (a null result for the algorithm), this validates the theory: the optimal adaptive law converges to constant when adaptation is unnecessary."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "Theorem 1's proof sketch relies on assumption A3: alignment events (the binary mask in CWD) are independent of stability effects (CSI perturbation). In BN networks, this is almost certainly violated. BN's forward pass normalizes activations by batch statistics, creating a dependency between the gradient direction (which determines alignment) and the effective learning rate (which determines stability). The gradient-weight cosine similarity delta_hat and the weight norm trajectory CV (the main CSI component) are both functions of the same gradient, making them correlated by construction. The proof sketch assumes they contribute independently to the test loss decomposition, but the cross-term (alignment-stability interaction) could dominate. No sensitivity analysis of the A3 assumption is provided. The paper cites 'full proof in Appendix B.1' but no Appendix B.1 exists in the current manuscript.",
+      "suggestion": "Either (1) provide the full proof with explicit treatment of the cross-term under violated A3, showing the bound holds up to a multiplicative constant; or (2) weaken the theorem statement to 'Theorem 1 provides a sufficient condition for constant WD optimality under the independence assumption (A3)' and add a Remark discussing the violation in BN networks; or (3) empirically estimate the cross-term correlation between alignment and stability perturbations from the existing diagnostic data (alignment cosine and weight norm CV are both logged per epoch). Option (3) is the cheapest and most informative."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The paper claims '105 completed 200-epoch runs' (abstract, Section 1.2, Section 7). Audit of actual data: iter_003 ResNet-20 AdamW CIFAR-10: 21 runs (complete). iter_003 ResNet-20 AdamW CIFAR-100: 21 runs (complete). iter_003 ResNet-20 SGD CIFAR-10: 21 runs (complete). iter_003 ResNet-20 SGD CIFAR-100: 21 runs (status unclear -- previously noted CIFAR-100 SGD no_wd n=1). iter_005 VGG-16-BN: 21 runs (complete). iter_005 NoBN: 7 complete (constant 3 seeds + cwd_hard 3 seeds + no_wd 1 seed), 2 incomplete (no_wd seed_123 at 95 epochs, no_wd seed_456 missing). iter_005 matched-rho SGD: constant 2 seeds complete (seed_42 only 5 epochs), cwd_hard 2 seeds complete (seed_456 at 119 epochs). iter_005 rho_low: constant 3 seeds complete, cwd_hard seed_42 complete, seed_123 at 346 epochs, seed_456 at 200 epochs, half_lambda seed_42 at 106 epochs. The actual count of fully completed 200-epoch runs is approximately 84+21=105 only if CIFAR-100 SGD is fully complete, which the iter5 summary contradicts (showing no_wd n=1). The number should be verified and corrected.",
+      "suggestion": "Run a comprehensive audit script that counts all epoch_metrics.jsonl files with exactly 200 (or 400, for double-logged) lines across iter_003 and iter_005. Report the exact count in the abstract. Any run with fewer than 200 epochs should be excluded from the 'completed' count and listed in Table 6 as incomplete."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "NoBN Table 5 in the paper reports constant=87.74+/-0.20 and CWD=87.64+/-0.17. Actual data from epoch_metrics.jsonl: constant seeds=[87.74, 87.45, 87.28], mean=87.49+/-0.23. CWD seeds=[87.64, 87.26, 87.49], mean=87.46+/-0.19. The paper's constant mean (87.74) is the maximum seed value, not the mean. The paper's CWD mean (87.64) is also the maximum seed value. This is a second data-paper inconsistency affecting a key ablation result. The paper claims constant outperforms CWD by 0.10% but the actual difference is 0.03% (87.49 vs 87.46).",
+      "suggestion": "Recompute NoBN statistics from ground truth: constant=87.49+/-0.23, CWD=87.46+/-0.19, delta=+0.03%. Update Table 5 and all downstream text that references NoBN results."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The matched-rho SGD experiment, designed to resolve the SGD/AdamW confound (the paper's strongest empirical puzzle), remains critically incomplete. Actual status: constant has 2 complete seeds (123: 90.88%, 456: 90.74%), seed_42 only 5 epochs. CWD has 2 complete seeds (123: 90.43%, 42: 90.63%), seed_456 at 119 epochs. no_wd method is entirely missing. Without no_wd, the Phi spread cannot be computed. The paper reports 'constant: 90.92% (mean of seeds 123 and 456)' which matches the data. But the confound resolution claim requires at least 3 methods to compute a spread comparable to the main experiments. The paper acknowledges this (Section 5.6 calls it 'preliminary'), but the proposal identifies this as P0-D priority.",
+      "suggestion": "Complete matched-rho SGD: (1) finish cwd_hard seed_456 (81 more epochs, ~10 min), (2) run no_wd 3 seeds (3 runs, ~25 min each). Then compute Phi spread for matched-rho SGD and compare to AdamW spread (0.25%). If matched-rho SGD spread < 0.5%, rho explains the confound. If > 0.5%, optimizer mechanism matters independently."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "CSI as a metric is still not cross-validated under SGD. The previous critique noted: 'CSI does not predict accuracy under AdamW (Spearman rho < 0.3), and the paper argues this supports invariance. But does CSI predict accuracy under SGD where methods DO differ?' The SGD data (iter_003) exists but this analysis has not been performed. Without this cross-validation, CSI could be a vacuous metric that predicts nothing under any condition, rather than a metric that correctly identifies the invariance condition.",
+      "suggestion": "Compute Spearman rank correlation between CSI and accuracy under SGD CIFAR-10 and CIFAR-100 (data exists in iter_003). If CSI predicts SGD rankings (rho > 0.5, p < 0.05), this validates CSI as a metric and strengthens the paper. If CSI also fails under SGD, either abandon CSI as a diagnostic or reframe it as a trajectory characterization metric without predictive claims."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Cohen's d formula remains mislabeled in the paper. Section 5.1 (Table 2) reports Cohen's d values that match the unpaired pooled formula d = (mu1-mu2)/sqrt((s1^2+s2^2)/2), not the paired formula d = delta_bar/s_delta. This was flagged in the previous critique round and has not been corrected. For example, SWD d=0.88 in Table 2 matches the pooled formula applied to means 90.13 and 89.88 with stds 0.31 and 0.25.",
+      "suggestion": "Either (1) relabel as 'unpaired pooled Cohen's d' throughout, or (2) recompute using the paired formula. Since p-values use paired t-tests (exploiting the seed-matched design), consistency suggests using paired d as well, which would change several values. Choose one convention and apply consistently."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Figure 1 (ratio regime diagram) is the paper's central organizing visual but 2 of its 3 zones lack completed experimental data. The 'inhibition' zone (rho<0.1) has partial rho_low data (3 constant seeds + 1-2 CWD seeds). The 'differentiation' zone (rho>2.0) has only a 5-epoch pilot. Only the 'transition' zone (0.1<rho<2.0) has complete data from the main experiments. The SGD data point at rho=0.005 is in the inhibition zone but conflates optimizer and rho effects. A reviewer will immediately see that the three-zone framework rests on 1 complete data point and 2 extrapolated zones.",
+      "suggestion": "Either (1) add a prominent note to Figure 1 indicating which zones have complete, partial, or no experimental data; or (2) restrict the figure to the data-supported range and present the full three-zone framework as a conjecture; or (3) complete the rho_high experiment to fill the differentiation zone. Option (3) is strongly preferred as it transforms the figure from speculative to validated."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Three seeds remain underpowered for a null-result paper. At N=3, minimum detectable effect at 80% power is ~0.77% (given within-method sigma ~0.25-0.32%). TOST equivalence testing at margin +/-0.3% has power ~15-20%. The CIFAR-100 AdamW spread of 0.76% falls exactly at the detection boundary. The paper's practical recommendation ('use constant WD') carries a higher evidential burden than a positive-result paper, and N=3 does not meet that standard. The VGG-16-BN spread of 0.18% with sigma up to 0.36 (random_mask) means individual method differences could be as large as 0.7% and still be undetectable. This critique was raised previously and remains unaddressed.",
+      "suggestion": "Add seeds 789 and 999 for at least the 3 key methods (constant, CWD, no_wd) on CIFAR-10 AdamW and VGG-16-BN (12 additional runs, ~6 GPU-hours). With N=5, TOST power at delta=0.3% rises to ~55% and MDE drops to ~0.5%, substantially strengthening the equivalence claim."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Appendix B.1 (full proof of Theorem 1), Appendix B.3 (PMP-WD derivation), Appendix B.4 (RG derivation), and Appendix A.3 (CSI weight sensitivity) are all cited in the main text but do not exist in the current manuscript. Four separate appendices are missing. A reviewer checking any theorem's full proof will find nothing.",
+      "suggestion": "Write all four appendices before submission. At minimum, Appendix B.1 (Theorem 1 proof) and B.3 (Theorem 3 derivation) are essential -- without them, the theorems are claims without proofs, which is unacceptable for a theory-heavy paper."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "The paper positions PMP-WD as a 'derived but not evaluated' algorithm. In the ML community, proposing an algorithm without any empirical evaluation is unusual and will likely be viewed as a limitation rather than a contribution. The dual derivation (PMP + RG beta function) is theoretically interesting, but without empirical validation, a reviewer may reasonably ask: 'Is this a theory paper or an empirical paper? If theory, where are the full proofs? If empirical, where is the algorithm evaluation?' The paper currently occupies an uncomfortable middle ground.",
+      "suggestion": "Either (1) implement and evaluate PMP-WD (strongly preferred -- 30 LOC, 6 runs, ~3 GPU-hours), making this an empirical contribution; or (2) commit fully to the theory framing with complete proofs in the appendix and present PMP-WD as a theoretical prediction to be validated; or (3) demote PMP-WD from a 'contribution' to a 'future direction' in the Discussion. Option (1) is by far the strongest."
+    },
+    {
+      "category": "analysis",
+      "severity": "minor",
+      "description": "The paper's rho_low data (constant 3 seeds complete: 90.01, 90.08, 89.94, mean=90.01+/-0.07) shows the same accuracy as rho_standard constant (90.13+/-0.31). The paper notes this coincidence but does not investigate whether reducing lambda from 5e-4 to 5e-5 actually changed rho. If the effective rho at lambda=5e-5 is still ~0.5 (because rho is dominated by gradient norm, not lambda), the rho_low experiment is not testing the intended regime.",
+      "suggestion": "Extract per-layer rho values from the rho_low experiment diagnostics and verify rho is actually ~0.05. If rho remained near 0.5, the experiment is mislabeled and conclusions about the low-rho regime are invalid."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "The paper's SGD analysis mentions '3.7x larger spread' on CIFAR-10 and '2.3x' on CIFAR-100, but these ratios conflate the optimizer difference with the rho difference. The paper acknowledges this in Section 6.5 (Limitation) but still uses '3.7x' as a headline number in the abstract and conclusion. This framing issue was raised in the previous critique and persists.",
+      "suggestion": "Replace the headline '3.7x' framing in the abstract/conclusion with a more precise formulation: 'SGD at rho=0.005 shows 3.7x larger spread than AdamW at rho=0.5; the matched-rho experiment (Section 5.6) partially disentangles the optimizer and ratio contributions.' This prevents a reviewer from treating the 3.7x as a clean optimizer comparison."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "The paper states VGG-16-BN Phi spread is 0.16% in the text but actual data yields 0.18%. While the difference is small, it adds to the pattern of data-paper inconsistencies that undermine reviewer trust.",
+      "suggestion": "Correct to 0.18% (based on actual best=92.06 half_lambda, worst=91.89 cosine). Any automated analysis pipeline should regenerate all reported numbers from raw data before each paper revision."
+    }
+  ],
+  "metric_gaming_risks": [
+    "No metric gaming risk in the traditional sense -- the paper reports null results, which are harder to game. However, the pattern of reporting numbers that do not match actual data (VGG Table 3, NoBN Table 5) raises concerns about whether an automated pipeline is generating numbers without human verification.",
+    "The diagnostic metrics (CSI, AIS, BEM) are not validated externally. CSI's prediction failure under AdamW could indicate the metric is vacuous, not that the invariance is real. Without SGD cross-validation, both interpretations are equally supported by the data.",
+    "The cosine_schedule variance reduction (sigma=0.07% on CIFAR-10, Table 1) is based on N=3. Variance estimates from 3 samples have extremely wide confidence intervals (chi-squared with 2 df). Levene's test should be applied before reporting this as a finding."
+  ],
+  "novelty_risks": [
+    "D'Angelo et al. (2024) NeurIPS showed WD irrelevance under AdamW+BN for the static case. The dynamic WD null result extends this but a reviewer could argue it is a direct corollary rather than a novel finding.",
+    "Defazio (2025) layer-balancing framework provides the rho-dynamics foundation. PMP-WD's formula uses rho* from Defazio directly. The gap between 'using Defazio's rho* as a target' and 'deriving an optimal law via PMP' is narrow enough that a reviewer might characterize PMP-WD as an incremental extension.",
+    "The RG beta function derivation (Remark 3.1) is presented as independent validation but the connection between RG theory and neural network dynamics is not rigorously established. The 'agreement within 15%' between PMP-WD and QA-WD over a limited regime does not constitute mathematical equivalence.",
+    "The Phi Modulator Framework unifies existing methods taxonomically but does not enable new methods or predictions that could not be made without it. Its contribution is primarily notational/organizational."
+  ],
+  "reproducibility_gaps": [
+    "VGG-16-BN Table 3 numbers do not match actual epoch_metrics.jsonl data. A replicator will find different results.",
+    "NoBN Table 5 numbers use single-seed maxima rather than 3-seed means. A replicator computing means will disagree.",
+    "Appendices B.1, B.3, B.4, A.3 are cited but do not exist. Proofs cannot be verified.",
+    "half_lambda BEM implementation discrepancy (pipeline computes 0.000, paper reports ~0.50) persists from previous critique.",
+    "Figure 1 regime zones at rho<0.1 and rho>2.0 are extrapolated, not measured. A replicator running only the documented experiments cannot reproduce the figure.",
+    "The paper cites '105 completed runs' but the actual count needs verification -- several experiments have fewer than 200 epochs in their data files.",
+    "SGD CIFAR-100 full results table is absent from the paper. Only inline claims are provided."
+  ]
+}

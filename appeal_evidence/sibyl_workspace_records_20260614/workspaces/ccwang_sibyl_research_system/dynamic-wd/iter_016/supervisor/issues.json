@@ -1,0 +1,79 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "EFFECTIVE WD INFLATION CONFOUND: EqWD's modulation factor phi_l(t) >= 1, meaning it ONLY increases weight decay relative to FixedWD. The paper acknowledges this (Section 3.2, 'effective average weight decay over training is systematically higher for EqWD') and mentions it in limitations, but does not run the definitive control experiment: FixedWD with lambda tuned to match EqWD's average effective WD. Without this control, EqWD's +0.38% over FixedWD could be entirely explained by EqWD simply applying more weight decay overall, not by adaptive modulation. This is the most important missing experiment because it directly challenges the paper's central claim that adaptive per-layer modulation is the source of improvement.",
+    "suggestion": "Compute the average effective lambda over training for EqWD (trivial from logged ratio trajectories), then run FixedWD at that lambda value with 3 seeds on ImageNet. If FixedWD at higher lambda matches EqWD, the adaptive modulation claim is falsified. If EqWD still wins, the adaptive mechanism is validated. This experiment costs approximately 3 GPU-hours and resolves the paper's most fundamental confound. Alternatively, report the average effective lambda for EqWD in the paper so reviewers can assess the magnitude of this confound."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "45-EPOCH IMAGENET TRAINING PRODUCES LOW ABSOLUTE ACCURACIES: EqWD achieves 72.27% on ImageNet ResNet-50. Standard 90-epoch training reaches ~76% (original ResNet paper: 76.15%), and modern recipes reach 79-80%+. The 45-epoch regime is described as 'efficient training' but the paper does not report how many total epochs were used (the raw data shows 30 epochs at lr=0.1, then 15 epochs at lr=0.01 -- this is not cosine annealing but a step schedule). Reviewers may question whether conclusions transfer to standard training regimes. CWD's published results (ViT-S 79.45% with AdamW, ICLR 2026) operate in a completely different accuracy range.",
+    "suggestion": "At minimum, clearly disclose the actual learning rate schedule (step decay at epoch 30 from 0.1 to 0.01, not continuous cosine annealing as stated in the paper). Ideally, run one EqWD + FixedWD comparison at 90 epochs with standard cosine annealing to validate that the relative advantage transfers. If the LR schedule description is incorrect (the raw data shows step decay, not cosine), this must be corrected immediately -- it is a factual error in the experimental setup description."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "LEARNING RATE SCHEDULE DESCRIPTION MAY BE INCORRECT: The paper states 'initial learning rate 0.1 with cosine annealing' throughout (abstract, Section 4.1, appendix). However, the raw experimental data shows lr=0.1 for epochs 1-29, then lr=0.01 for epochs 30-45. This is a step decay schedule with a 10x drop at epoch 30, NOT cosine annealing. If the code actually uses step decay but the paper describes cosine annealing, this is a factual error that affects reproducibility and the paper's discussion of 'cosine decay transitions' as key moments for EqWD's benefit.",
+    "suggestion": "Verify the training code's actual learning rate schedule. If it is step decay (as the raw data suggests), correct all references to 'cosine annealing' in the paper and update the discussion of transitional phases accordingly. The sharp step at epoch 30 (not a gradual cosine transition) would change the narrative about when EqWD provides the most benefit."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "PROPOSITION 2 (RATIO SUFFICIENCY) IS CIRCULAR: Proposition 2 states 'if alignment deviation is also a function of gradient and weight norms, then the ratio is sufficient for alignment-relevant information.' The 'if' condition is the entire content of the claim -- the proposition is a tautology. The empirical verification via AIS is the actual contribution, but the AIS diagnostic is only performed on CIFAR-100/ResNet-20 and VGG-16-BN, not on ImageNet where the main results are. The paper claims 'in the settings we evaluate' but the primary benchmark (ImageNet) is not among the settings where AIS was measured.",
+    "suggestion": "Either (a) run the AIS diagnostic on ImageNet (even a subset) to validate norm-sufficiency at scale, or (b) explicitly acknowledge that AIS was not measured on ImageNet and the ratio sufficiency claim is extrapolated from CIFAR-level experiments. Also consider downgrading Proposition 2 from a formal proposition to an empirical observation, since it is not a mathematical result but rather an 'if X then Y' where X is empirically tested."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "NO ADAM/ADAMW EXPERIMENTS IN A 2026 PAPER: The paper exclusively uses SGDW, which is a minority optimizer in modern deep learning. AdamW is the dominant optimizer for virtually all transformer and many CNN training pipelines. The paper's limitation section acknowledges this, but a NeurIPS reviewer will likely ask: 'Does this work with AdamW?' The answer is unknown, and the paper provides no evidence either way. Given that the ratio dynamics under Adam's second-moment scaling may differ fundamentally (as the paper itself notes), this is a significant scope limitation.",
+    "suggestion": "At minimum, run one ResNet-50 CIFAR-100 experiment with AdamW + EqWD to provide preliminary evidence. The ratio r_t^l = ||g_t^l|| / ||w_t^l|| is well-defined for AdamW, and the EMA tracking should work identically. This single experiment (~30 min) would dramatically strengthen the paper's practical relevance."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "ABLATION BETA=5.0 CIFAR-100 ACCURACY (66.07%) INCONSISTENT WITH MAIN TABLE: The ablation table reports beta=1.0 achieving 65.39% (single seed), but the main table reports EqWD (beta=1.0) at 65.05 +/- 0.36% (3 seeds). The single-seed ablation for beta=1.0 (65.39%) is above the 3-seed mean (65.05%), which is possible but suspicious. More importantly, the paper claims beta=5.0 'substantially exceeds all baselines' at 66.07%, but this is a single seed -- high-beta may increase variance. Without multi-seed validation of beta=5.0, the claim that CIFAR-100 benefits from stronger modulation is speculative.",
+    "suggestion": "Run beta=5.0 with 3 seeds on CIFAR-100. If the mean drops substantially, the single-seed 66.07% was noise. If it holds, this would be a strong finding worth promoting. Cost: ~30 min."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "WEIGHT DECAY LAMBDA VALUE DISCREPANCY: The raw experimental data shows wd_lambda=0.0001 (1e-4), but the paper states lambda=5e-4 throughout (Section 4.1, appendix). This is a 5x discrepancy. If the experiments actually used 1e-4 (as the JSON indicates), all comparisons to the standard 5e-4 baseline are using a non-standard configuration, and the paper's description is incorrect.",
+    "suggestion": "Verify the actual lambda used in experiments. If it was 1e-4 (as the raw data indicates), correct the paper text. If it was 5e-4 (as the paper claims), the raw data JSON field is misleading. This discrepancy must be resolved -- it directly affects reproducibility."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "LIMITED NOVELTY BEYOND DEFAZIO'S INSIGHT: The core idea of EqWD is: track the equilibrium of r_t = ||g_t|| / ||w_t|| via EMA, modulate WD based on deviation. Given Defazio's result that WD drives r_t toward lambda/gamma, the idea of using deviation from equilibrium as a control signal is a natural next step. The additive form 1 + beta * |dev| is the simplest possible modulation. While simplicity is a virtue, a reviewer may view this as incremental: 'you took Defazio's equilibrium result and added a proportional controller.' The paper needs to argue more convincingly why this specific formulation matters beyond being the obvious first thing to try.",
+    "suggestion": "Strengthen the novelty argument by (a) showing that alternative formulations (multiplicative, threshold-based, asymmetric up/down modulation) are inferior through ablation, and (b) providing deeper analysis of why the EMA-based equilibrium tracking is superior to the theoretical lambda/gamma target (beyond 'it handles non-stationarity'). The CAWD negative result partially serves this purpose but needs more mechanistic analysis."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "CIFAR-10 TABLE MISSING EQWD: Table 7 (CIFAR-10 diagnostic) includes CPR, FixedWD, DefazioCorrective, SWD, CWD, NoWD, but does NOT include EqWD or CAWD. This makes the diagnostic table incomplete for the paper's own method comparison. A reader will immediately notice that the proposed method is missing from this benchmark.",
+    "suggestion": "Add EqWD and CAWD results to the CIFAR-10 diagnostic table. If these experiments were already run, include them. If not, run them (~1 GPU-hour total)."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "VGG-16-BN RESULTS VERY WEAK: EqWD on CIFAR-100/VGG-16-BN achieves 62.81 +/- 1.31%. This is well below FixedWD's 65.19% on the same dataset with ResNet-20. The high variance (1.31%) and low accuracy suggest EqWD may interact poorly with VGG's architecture. The paper attributes this to 'VGG's sensitivity to training hyperparameters' but does not investigate further.",
+    "suggestion": "Either investigate why VGG performance is poor (potentially the per-layer granularity interacts differently with VGG's uniform architecture) or clearly flag this as a failure mode in the discussion."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "CONCLUSION NUMBERING ERROR: The Conclusion section lists future work as 'First... Second... Third... Fifth...' -- skipping 'Fourth'. This is a minor formatting issue.",
+    "suggestion": "Fix the numbering: change 'Fifth' to 'Fourth' (or add the missing fourth item)."
+  }
+]

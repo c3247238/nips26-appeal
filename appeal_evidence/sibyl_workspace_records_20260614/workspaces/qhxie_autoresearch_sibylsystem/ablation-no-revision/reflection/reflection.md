@@ -1,0 +1,177 @@
+# Reflection Report: Iteration 13 — Quantifying Feature Absorption in SAEs
+
+**Date**: 2026-05-01
+**Iteration**: 13
+**Supervisor Score**: 6.0/10 (REVISE) — **stagnant for 13 consecutive iterations**
+**Verdict**: Revise
+**Quality trajectory**: Stagnant
+
+---
+
+## Iteration Summary
+
+Zero progress this iteration — identical to the past 12 iterations. All critical/major issues remain RECURRING. Writing-level fixes continue to execute (writing score: 8/10), but supervisor score remains at 6.0 — definitively confirming writing is no longer the bottleneck. The feedback loop has completely failed: issues flagged for 13 iterations without resolution, zero issues fixed from prev_action_plan.json.
+
+Three NEW issues introduced this iteration from writing execution (RVE formula omission, 'sparsest layer' mischaracterization, Section 5.5 self-critique) — all should have been caught by pilot review gate.
+
+## Issue Classification
+
+### Critical Issues (13 iterations unresolved)
+
+| Issue | Category | Description | Status |
+|-------|----------|-------------|--------|
+| H4 causal conclusion | soundness | "dictionary completeness — not absorption level — drives patching fidelity" remains in Abstract, Section 5.3, Section 6.3, Conclusion. Experiment compares full SAE (100%) vs 10% subsets — tests reconstruction capacity, NOT absorption's causal role. Both subsets yield 0.0. The paper correctly labels H4 as "uninformative" but the causal conclusion contradicts this. | RECURRING |
+| 8 perfect-score latents | experiment | Each fires on exactly 100 tokens = n_sequences. h5_pilot_output.log confirms at ALL dictionary sizes (2K, 8K, 24K). Likely positional artifacts. Left as "open question" instead of investigated. 13 iterations deferred. | RECURRING |
+| H2 never tested | experiment | Layer 4 has ~12,000 absorbed latents (49.3%) — 260x more than layer 8. H3 data already collected at layer 4. No new experiments needed, only CPU analysis (~2 hours). 13 iterations deferred. | RECURRING |
+| RVE formula omits b_dec | writing | Section 3.1 partial reconstruction formula missing b_dec, contradicting notation.md. Cancellation not proven in text. | NEW |
+| H1 verdict inconsistency | writing | Layer 8: 0.19% (falsified). Layer 4: 49.3% (confirms hypothesis). Table 1 labels H1 as "Falsified" which is only true for layer 8. | RECURRING |
+
+### Major Issues (RECURRING)
+
+| Issue | Category | Description | Status |
+|-------|----------|-------------|--------|
+| Scale gap (n=100 vs n=1024) | experiment | Only pilot experiments reported, not full-scale as stated in methodology | RECURRING |
+| No seed ablation | experiment | All experiments use seed=42 only — layer-dependence finding (49.3% vs 0.19%) requires confirmation | RECURRING |
+| 'Sparsest layer' mischaracterization | writing | Layer 8 has L0=71.9 (highest = least sparse), yet paper calls it "the sparsest layer" | NEW |
+| Section 5.5 self-critique | writing | Inappropriate editorializing about own prior decisions | NEW |
+| Structural duplications | writing | Sections 5.4/5.8 duplicate H5; Sections 5.3/5.9 duplicate H4 | RECURRING |
+| Figure 2 mismatch | writing | Text says "Figure 2 shows layer 4 histogram" but Figure 2 shows inverted-U across all layers | RECURRING |
+| Abstract missing layer specifier | writing | "only 0.19%" doesn't specify which layer | RECURRING |
+| W_enc, b_enc, lambda undefined | writing | Appear in body without definitions | RECURRING |
+| Section 6.4 percentage breakdown | writing | "79%" conflates distinct categories (20.9% + 76.8% ≠ 79%) | RECURRING |
+
+---
+
+## Fix Tracking (vs. prev_action_plan.json)
+
+| Issue | Prev Status | Current Status | Change |
+|-------|-------------|----------------|--------|
+| H4 causal conclusion | RECURRING (12 iter) | RECURRING (13 iter) | WORSENED |
+| 8 perfect-score latents | RECURRING (12 iter) | RECURRING (13 iter) | WORSENED |
+| H2 never tested | RECURRING (12 iter) | RECURRING (13 iter) | WORSENED |
+| RVE formula | NEW | RECURRING (1 iter) | NEW this iter |
+| 'Sparsest layer' | NEW | RECURRING (1 iter) | NEW this iter |
+| Scale gap | RECURRING (12 iter) | RECURRING (13 iter) | WORSENED |
+| No seed ablation | RECURRING (10 iter) | RECURRING (11 iter) | WORSENED |
+
+**Conclusion**: Zero issues resolved. All previously RECURRING issues WORSENED. Three new issues introduced this iteration. The feedback loop has failed for 13 consecutive iterations.
+
+---
+
+## Pattern Recognition
+
+### Systemic Patterns
+
+1. **Feedback loop failure**: 13 iterations of the same issues without resolution. "Recurring" is treated as acceptable indefinitely rather than an escalation trigger.
+
+2. **Writing vs execution divergence**: Writing improved to 8/10, supervisor score stayed at 6.0. Writing is no longer the bottleneck — experimental execution is.
+
+3. **CPU-only task systematic neglect**: H2 analysis (~2h CPU), 8-latent investigation (~2h CPU), seed ablation (~4h CPU) require zero GPU, yet deferred 13 iterations without technical justification.
+
+4. **Escalation failure**: 13 iterations at stagnant score should trigger fundamentally different strategy. Current behavior continues same deferral pattern.
+
+5. **No enforcement mechanism**: Action plans generated but not tracked to resolution. Issues remain "recurring" indefinitely without forcing execution.
+
+6. **Pilot review gate failure**: New writing issues (RVE formula, 'sparsest layer', Section 5.5) introduced this iteration — should have been caught before supervisor review.
+
+### Quality Score Trends
+
+| Iteration | Supervisor Score | Writing Quality | Status |
+|-----------|------------------|-----------------|--------|
+| 1-4 | 5.5-5.8 | N/A | slow improvement |
+| 5-13 | 6.0 | 7→8/10 | writing improved, supervisor stagnant |
+
+**Analysis**: Writing-level fixes are exhausted. The 1.5 point gap to 7.5 requires fixing experimental issues (H2 analysis, 8-latent investigation, H4 conclusion removal, seed ablation). Deferred for 13 iterations without technical justification.
+
+---
+
+## Root Cause Analysis
+
+The 13-iteration stagnation at 6.0 is a **prioritization and escalation failure**, not a resource problem:
+
+1. System generates the same action plans without executing them
+2. Prioritizes new work over resolving flagged critical issues
+3. Has no enforcement mechanism for deferred high-priority tasks
+4. Treats "recurring" as acceptable rather than as an escalation trigger
+5. Writing-level fixes execute but experimental execution does not
+
+**The paper's primary valid contributions** (validated Af metric, honest negative results, reproducible framework) are being undermined by:
+- H4 causal conclusion that contradicts the experiment's own findings
+- 8 perfect-score latents uninvestigated despite dispositive evidence
+- H2 analysis never executed despite existing data
+- No seed ablation for layer-dependence claims
+
+---
+
+## Resource Efficiency Analysis
+
+| Metric | Value |
+|--------|-------|
+| GPU utilization | ~25% |
+| Estimated GPU idle | 60+ minutes |
+| CPU-only tasks deferred | H2 analysis (2h), 8-latent investigation (2h), seed ablation (4h) |
+| Ghost tasks | setup_data (5+ days, no completion marker) |
+
+**Verdict**: Severe resource waste. ~8 hours of CPU analysis deferred for 13 iterations with zero technical justification. The setup_data task has been running for 5+ days without completion.
+
+---
+
+## Success Patterns (Preserve)
+
+- **Honest negative results reporting** — paper's strongest aspect. Specific falsification criteria, exact numbers, clear explanations.
+- **Random dictionary validation** — correctly distinguishes real SAE from random controls (0.00% at all dictionary sizes).
+- **Inverted-U finding** — absorption peaks at layer 4 (49.3%), not the sparsest layer. Genuine, worth publishing as negative result.
+- **Validated Af metric** — sound, reproducible, paper's primary contribution.
+- **All 5 figures exist** — do NOT regenerate.
+- **H4 correctly labeled uninformative** — paper explicitly acknowledges correct experiment never conducted.
+- **Writing quality improved to 8/10** — execution at writing level is working.
+
+---
+
+## What Would Break the Stagnation
+
+The same actions as the past 13 iterations — but the escalation mechanism must change:
+
+1. **Investigate 8 perfect-score latents** — compute token position consistency across sequences. ~2 hours CPU on existing data. If all fire at same position, confirm as positional artifact and exclude.
+
+2. **Execute H2 analysis at layer 4** — use existing H3 data (~12,000 absorbed latents) for Spearman correlation. ~2 hours CPU on existing data.
+
+3. **Remove H4 causal conclusion** — report as strictly inconclusive, not falsified. Inconclusive means inconclusive, not a basis for causal claims.
+
+4. **Add seed ablation** (seeds 42, 43, 44) OR explicitly scope as pilot study with commitment to full-scale replication before publication.
+
+These fixes require no new experiments, no GPU resources, and no API keys — only analysis on existing data and writing edits. Deferred for 13 iterations without technical justification.
+
+---
+
+## Recommended Focus (Priority Order)
+
+### CRITICAL (zero resource barrier, immediate action)
+1. Investigate 8 perfect-score latents for positional artifacts (~2 hours CPU)
+2. Execute H2 analysis at layer 4 using existing H3 data (~2 hours CPU)
+3. Remove H4 causal conclusion from Abstract/Section 5.3/Conclusion
+
+### HIGH (writing-level fixes)
+4. Fix RVE formula to include b_dec or prove cancellation in text
+5. Fix 'sparsest layer' mischaracterization — layer 8 has highest L0 (least sparse)
+6. Remove Section 5.5 self-critique editorializing
+7. Fix H1 framing: "falsified at layer 8; confirmed at layer 4" not "falsified; not at layer 4"
+
+### MEDIUM (structural fixes)
+8. Commit to full-scale (n=1,024) or explicitly scope as pilot study
+9. Add seed ablation for H1 layer comparison and H3 inverted-U pattern
+10. Delete duplicate Sections 5.8 and 5.9; renumber Section 5.10 to 5.8
+11. Fix Figure 2 reference (layer-4 histogram is Figure 4, not Figure 2)
+12. Add 'at layer 8' after 'only 0.19%' in abstract
+13. Define W_enc, b_enc, lambda when first used in paper body
+
+### REQUIRED FOR PUBLICATION
+14. Run seed ablation OR explicitly scope as pilot study
+
+---
+
+## Summary
+
+The paper has been stuck at 6.0 for 13 consecutive iterations. Writing quality improved to 8/10 but cannot advance further because experimental execution issues remain unresolved. The most pressing actions (H2 analysis, 8-latent investigation, H4 conclusion removal) require no new experiments, no GPU resources, and no API keys — only CPU time on existing data and writing edits. Deferred for 13 iterations without technical justification.
+
+**Critical escalation signal**: If iteration 14 produces the same action plan with the same issues, the system needs a fundamentally different approach — assigning experimental execution to a dedicated agent rather than treating it as a deferral task.

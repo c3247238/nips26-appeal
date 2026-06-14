@@ -1,0 +1,107 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_seconds": 900,
+    "quality_note": "Pilot sample size >= 100 required for reliable signal. All pilots use seed=42. This is iteration 9 (full mode), so most pilots are fast sanity checks since iter_008 pilot already validated feasibility."
+  },
+  "pilot_tasks": [
+    {
+      "task_id": "setup_env_check",
+      "pilot_type": "environment_validation",
+      "description": "Quick re-verification that iter_008 environment is still functional. All dependencies confirmed in iter_008 pilot.",
+      "estimated_minutes": 10,
+      "pass_criteria": "SAELens, TransformerLens, GPU, Gemma 2B, RAVEL, sae_spelling all importable and loadable.",
+      "fail_action": "If any dependency broke: reinstall via pip. If Gemma 2B not loadable: check unsloth cache."
+    },
+    {
+      "task_id": "phase1_probe_training_full",
+      "pilot_type": "quality_gate",
+      "description": "MOST CRITICAL PILOT: Train probes at layers 12 and 18 for city-continent (best pilot F1=0.83) and first-letter. Verify that layer 18 improves over layer 12 for factual knowledge.",
+      "estimated_minutes": 15,
+      "samples": 100,
+      "seed": 42,
+      "pass_criteria": "City-continent probe F1 at layer 18 or 24 exceeds 0.85 (pilot layer 12: 0.83). First-letter via sae_spelling confirmed F1=1.0. At least one RAVEL hierarchy within 0.02 of quality gate.",
+      "fail_action": "If no RAVEL probe reaches 0.85 at any layer: try alternative prompt templates. If still failing: relax gate to 0.80 with documented caveat. If all layers fail: restrict paper to first-letter + activation patching."
+    },
+    {
+      "task_id": "phase0_threshold_reporting",
+      "pilot_type": "data_access",
+      "description": "Verify iter_001 threshold sensitivity JSON is parseable. This task FAILED in iter_008 -- ensure correct file path.",
+      "estimated_minutes": 5,
+      "pass_criteria": "File loads, 5x4 grid parseable, at least 1 cell interpretable.",
+      "fail_action": "If file corrupted or format changed: manually inspect and adapt parser."
+    },
+    {
+      "task_id": "phase1_absorption_firstletter",
+      "pilot_type": "replication_check",
+      "description": "Run first-letter absorption on 4 of 8 SAE configs (L6-16k, L12-16k, L12-65k, L18-16k) to verify replication at full scale.",
+      "estimated_minutes": 15,
+      "samples": 100,
+      "seed": 42,
+      "pass_criteria": "Absorption rates in 1-50% range for >= 3/4 configs. Bootstrap CI computed. Consistent with pilot L12-16k rate of 3.9%.",
+      "fail_action": "If rates near 0% or 100%: check probe normalization, SAE encoding pipeline."
+    },
+    {
+      "task_id": "phase0_activation_patching_full",
+      "pilot_type": "scale_check",
+      "description": "Run activation patching on 10 words (7 pilot + 3 new) with 100 contexts each. Verify pipeline scales and new words can be identified.",
+      "estimated_minutes": 15,
+      "samples": 100,
+      "seed": 42,
+      "pass_criteria": "10 words processed. At least 3 new words (beyond pilot 7) identified via integrated gradients. Recovery rates computed for all. Wilcoxon p computed (relaxed to p < 0.10 for pilot).",
+      "fail_action": "If no new words found: use all first-letter FN tokens (not just 9 core words). If pipeline errors: adapt iter_008 code."
+    },
+    {
+      "task_id": "phase1_absorption_crossdomain",
+      "pilot_type": "feasibility_check",
+      "description": "Run cross-domain absorption for the best RAVEL hierarchy at its best layer on 2 SAE configs.",
+      "estimated_minutes": 15,
+      "samples": 100,
+      "seed": 42,
+      "pass_criteria": "Absorption rate computed for 1 hierarchy x 2 SAE configs. Rate different from first-letter. Statistical comparison computable.",
+      "fail_action": "If no RAVEL hierarchy passes gate: use relaxed gate (0.80) for pilot comparison with explicit caveat."
+    },
+    {
+      "task_id": "phase4_architecture_comparison",
+      "pilot_type": "feasibility_check",
+      "description": "Verify SAEBench SAE loading and absorption measurement on first-letter with BatchTopK.",
+      "estimated_minutes": 10,
+      "samples": 100,
+      "seed": 42,
+      "pass_criteria": "BatchTopK SAE loads. Absorption rate computed. Comparable to pilot result (12.8% at L12-16k).",
+      "fail_action": "If SAEBench SAEs not available: document and restrict to Gemma Scope JumpReLU comparison."
+    },
+    {
+      "task_id": "phase2_gas_full",
+      "pilot_type": "scale_check",
+      "description": "Run GAS on 1000 sequences (up from 200 pilot) to check if scaling improves signal.",
+      "estimated_minutes": 10,
+      "samples": 100,
+      "seed": 42,
+      "pass_criteria": "GAS computed on 1000 sequences. Spearman rho computed. Any improvement over pilot rho=0.12 noted.",
+      "fail_action": "If rho still < 0.2: proceed to full 10k knowing negative result is likely. Report for appendix."
+    }
+  ],
+  "pilot_execution_strategy": {
+    "total_pilot_time": "~1.5 hours with 1 GPU, ~40 minutes with 4 GPUs",
+    "critical_path": ["setup_env_check", "phase1_probe_training_full"],
+    "go_no_go_gates": [
+      {
+        "gate": "Multi-layer probe quality",
+        "tested_in": "phase1_probe_training_full",
+        "fallback": "Relax gate to 0.80 or restrict to first-letter + activation patching"
+      },
+      {
+        "gate": "Activation patching scalability",
+        "tested_in": "phase0_activation_patching_full",
+        "fallback": "Use all FN tokens, not just named core words"
+      },
+      {
+        "gate": "SAEBench availability",
+        "tested_in": "phase4_architecture_comparison",
+        "fallback": "JumpReLU-only comparison within Gemma Scope"
+      }
+    ]
+  }
+}

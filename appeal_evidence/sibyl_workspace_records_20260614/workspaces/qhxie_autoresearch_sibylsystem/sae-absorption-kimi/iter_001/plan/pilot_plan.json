@@ -1,0 +1,85 @@
+{
+  "pilots": [
+    {
+      "id": "e2_pilot",
+      "name": "E2 Pilot: Official absorption metric pipeline on 5 checkpoints",
+      "candidate_id": "cand_a",
+      "objective": "Validate the official absorption metric pipeline and confirm stable dead-neuron estimation before scaling to full representativeness analysis.",
+      "checkpoints": [
+        {"architecture": "Standard", "release": "gpt2-small-res-jb", "sae_id": "blocks.8.hook_resid_pre"},
+        {"architecture": "TopK", "release": "gpt2-small-resid-post-v5-32k", "sae_id": "blocks.8.hook_resid_post"},
+        {"architecture": "TopK_Attn", "release": "gpt2-small-attn-out-v5-32k", "sae_id": "blocks.8.hook_attn_out"},
+        {"architecture": "ReLU", "release": "pythia-160m-saebench", "sae_id": "TBD_from_registry"},
+        {"architecture": "JumpReLU", "release": "pythia-160m-saebench", "sae_id": "TBD_from_registry"}
+      ],
+      "metrics": ["absorption_official", "L0", "CE_loss_recovered", "explained_variance", "dead_neuron_rate"],
+      "dataset": "allenai/c4 validation subset, >=50k tokens",
+      "seed": 42,
+      "timeout_seconds": 900,
+      "pass_criteria": "All 5 checkpoints load successfully; official absorption metric returns finite values; dead-neuron rate is stable (computed on >=50k tokens).",
+      "gpu_count": 1,
+      "estimated_minutes": 15
+    },
+    {
+      "id": "e1_pilot",
+      "name": "E1 Pilot: SAEBench data validation",
+      "candidate_id": "cand_a",
+      "objective": "Validate that SAEBench Pythia-160M metrics are complete and well-formed before running the downstream causal cost meta-analysis.",
+      "sample_size": 20,
+      "metrics": ["absorption", "sparse_probing_f1", "ravel_cause", "ravel_isolation", "L0", "CE_loss_recovered", "width", "architecture_family"],
+      "data_source": "SAEBench Pythia-160M release",
+      "seed": 42,
+      "timeout_seconds": 900,
+      "pass_criteria": "All required metrics are present for >=18 of 20 sampled SAEs; no missing-value rate >10%.",
+      "gpu_count": 0,
+      "estimated_minutes": 5
+    },
+    {
+      "id": "e3_pilot",
+      "name": "E3 Pilot: Task-agnostic absorption metric (geography domain)",
+      "candidate_id": "cand_a",
+      "objective": "Pilot a task-agnostic absorption metric on a single domain to demonstrate domain-dependence. Given prior refutation of H3, this is scoped as a pilot-only negative-result demonstration.",
+      "sae": {"release": "pythia-160m-saebench or gpt2-small-res-jb", "sae_id": "layer_8_residual"},
+      "domain": "geography",
+      "hierarchy_examples": [
+        {"parent": "continent", "child": "country"},
+        {"parent": "country", "child": "city"}
+      ],
+      "pairs": 10,
+      "steps": [
+        "Define 10 parent-child concept pairs for the geography domain",
+        "Collect 100 diverse sentences from C4 containing these concepts",
+        "Train logistic regression probes on residual-stream activations for each concept",
+        "For probe-true tokens, identify top-k SAE latents",
+        "Classify absorption when parent probe succeeds but no parent-matching latent fires above threshold",
+        "Compute domain-specific absorption rate"
+      ],
+      "seed": 42,
+      "timeout_seconds": 900,
+      "pass_criteria": "At least 5 valid parent-child pairs are processed; probe training converges (accuracy > 0.7); absorption detection pipeline returns a finite domain score.",
+      "gpu_count": 1,
+      "estimated_minutes": 15
+    },
+    {
+      "id": "e4_pilot",
+      "name": "E4 Pilot: Pareto tradeoff validation (2 families, 1 stratum)",
+      "candidate_id": "cand_a",
+      "objective": "Validate the Pareto analysis pipeline on a small matched stratum before scaling to all 7 Pythia-160M families.",
+      "model": "pythia-160m",
+      "families": ["ReLU", "TopK"],
+      "stratum_criteria": "same hook point (resid_post), same dictionary width (~16k)",
+      "metrics": ["absorption", "L0", "explained_variance", "dead_neuron_rate", "sparse_probing_f1"],
+      "seed": 42,
+      "timeout_seconds": 900,
+      "pass_criteria": "All checkpoints in the stratum load and compute successfully; Pareto front script runs without error; at least one non-dominated point per family.",
+      "gpu_count": 1,
+      "estimated_minutes": 15
+    }
+  ],
+  "contingencies": {
+    "if_e2_pilot_fails": "Debug SAELens API or sae-spelling dependency issues. If official absorption metric is unavailable, fall back to SAEBench precomputed absorption scores for Pythia-160M and skip GPT-2 absorption computation.",
+    "if_e1_pilot_fails": "If SAEBench metrics are incomplete, narrow the regression to the subset of SAEs with complete data and report coverage as a limitation.",
+    "if_e3_pilot_fails": "If probe training fails or hierarchy discovery is too noisy, report the pilot as inconclusive and scope E3 to a qualitative discussion rather than a numerical claim.",
+    "if_e4_pilot_fails": "If matched stratum has too few checkpoints, relax width matching to +/- 2x and report the matching criteria explicitly."
+  }
+}

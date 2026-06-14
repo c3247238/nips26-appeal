@@ -1,0 +1,166 @@
+{
+  "action_items": [
+    {
+      "priority": 1,
+      "severity": "critical",
+      "category": "experiment",
+      "title": "Reword H_Mech interpretation",
+      "description": "The claim 'Condition B ≈ Condition D confirms encoder-driven' is misleading. B (0.076) is 4.5× larger than D (0.017). The correct interpretation: encoder alignment creates absorption, but decoder training SUPPRESSES it in joint training. This is actually a more interesting finding (regulatory role of decoder).",
+      "files_to_modify": [
+        "writing/paper.md"
+      ],
+      "specific_changes": [
+        "Abstract: 'Condition B (0.076) vs Condition D (0.017)' framing",
+        "Section 4.1: Rewrite interpretation paragraph",
+        "Section 5.1: Discuss decoder's regulatory/suppressive role"
+      ]
+    },
+    {
+      "priority": 2,
+      "severity": "critical",
+      "category": "experiment",
+      "title": "Remove or rewrite H_Safe claims",
+      "description": "H_Safe uses PLACEHOLDER feature indices (1024, 2048, etc.) not actual Neuronpedia-validated safety features. The 'null result' means nothing. Must either (a) remove all H_Safe findings and state methodology awaits validated annotations, or (b) actually identify real safety features from Neuronpedia.",
+      "files_to_modify": [
+        "writing/paper.md",
+        "exp/results/pilots/h_safe_gemma_pilot.json"
+      ],
+      "specific_changes": [
+        "Abstract: Remove 'null absorption for safety-critical features' claim",
+        "Section 4.4: Rewrite as 'Methodology proposed, awaiting curated feature annotations'",
+        "Section 5.3: Remove 'implications for safety-critical features' based on placeholder data",
+        "Add clear statement that no actual safety features were tested"
+      ]
+    },
+    {
+      "priority": 3,
+      "severity": "critical",
+      "category": "analysis",
+      "title": "Verify sensitivity metric implementation",
+      "description": "h_pareto_pilot.json shows sensitivity_mean=1.525 for L0=16, which exceeds the expected [0,1] normalized range. If sensitivity is defined as Var(Δlogits), this is possible but suspicious for a 'sensitivity' metric. If it's supposed to be normalized, values >1 indicate a bug. The entire Pareto frontier claim depends on this metric.",
+      "files_to_modify": [
+        "exp/results/pilots/h_pareto_pilot.json",
+        "code/h_pareto_full.py"
+      ],
+      "specific_changes": [
+        "Verify the formula implementation",
+        "If formula is correct, explain why values exceed 1",
+        "If normalization is missing, apply proper scaling",
+        "Document the sensitivity metric range in methodology"
+      ]
+    },
+    {
+      "priority": 4,
+      "severity": "major",
+      "category": "experiment",
+      "title": "Complete multi-seed validation or honestly report single-seed",
+      "description": "The methodology promises '5 seeds × 4 conditions = 20 runs' for H_Mech and '3 seeds' for H_Comp/H_Pareto. The pilot files show only seed 42. The paper claims 'Across 5 seeds' but this appears to be based on incomplete execution. Either execute the full multi-seed validation or honestly report single-seed pilot results.",
+      "files_to_modify": [
+        "exp/experiment_state.json",
+        "writing/paper.md"
+      ],
+      "specific_changes": [
+        "Complete h_mech_full with all 5 seeds before claiming multi-seed robustness",
+        "Update paper to clarify which results are single-seed pilots vs multi-seed full",
+        "Update experiment_state.json to mark completed experiments"
+      ]
+    },
+    {
+      "priority": 5,
+      "severity": "major",
+      "category": "writing",
+      "title": "Remove or conduct promised ANOVA",
+      "description": "Section 3.5 promises 'one-way ANOVA across all completed variants' but this is never reported in Results. Either remove the promise or actually run the ANOVA.",
+      "files_to_modify": [
+        "writing/paper.md"
+      ],
+      "specific_changes": [
+        "Section 3.5: Remove specific ANOVA promise OR",
+        "Run the ANOVA and report it in Section 4"
+      ]
+    },
+    {
+      "priority": 6,
+      "severity": "major",
+      "category": "experiment",
+      "title": "Add MCC discussion to paper proper",
+      "description": "MCC ~0.21 across ALL variants including Random control (chance level) suggests Hungarian matching on overcomplete dictionaries yields no meaningful recovery. The paper mentions this in evolution lessons but not in the paper itself. This fundamental limitation should be discussed—what does absorption reduction mean if ground-truth matching is at chance?",
+      "files_to_modify": [
+        "writing/paper.md"
+      ],
+      "specific_changes": [
+        "Add to Section 5.5 Limitations: MCC validation shows chance-level recovery",
+        "Discuss what this implies for absorption interpretation",
+        "Consider alternative validation approaches"
+      ]
+    },
+    {
+      "priority": 7,
+      "severity": "minor",
+      "category": "writing",
+      "title": "Reconcile proposal.md H_Mech table with actual data",
+      "description": "The proposal.md lines 23-28 show different H_Mech values (A=0.299, B=0.490, C=0.299, D=0.484) than the pilot JSON (A=0.004, B=0.076, C=0.000, D=0.017). These are from different experimental iterations. The proposal table should be updated or clarified.",
+      "files_to_modify": [
+        "idea/proposal.md"
+      ],
+      "specific_changes": [
+        "Update H_Mech result table to reflect most recent iteration",
+        "Or add note clarifying these are from iter_001 (deterministic hierarchy) vs iter_003 (stochastic)"
+      ]
+    },
+    {
+      "priority": 8,
+      "severity": "minor",
+      "category": "experiment",
+      "title": "Standardize k-value and metrics reporting",
+      "description": "The multi-child proportional method mentions k=5 in some places but k values vary and aren't always explicitly reported. Add a unified metrics subsection in methods specifying exact protocols for each metric.",
+      "files_to_modify": [
+        "writing/paper.md",
+        "plan/methodology.md"
+      ],
+      "specific_changes": [
+        "Add 'Metrics' subsection in Section 3 with standardized definitions",
+        "Specify k values, sample sizes, and exact procedures for each metric"
+      ]
+    },
+    {
+      "priority": 9,
+      "severity": "minor",
+      "category": "experiment",
+      "title": "Validate at multiple layers for cross-model claims",
+      "description": "GPT-2 Small validation uses layer 8; Gemma Scope uses layer 12. Cross-model validation is not truly cross-layer, limiting generalization claims. Either validate at multiple layers or acknowledge layer-specific nature.",
+      "files_to_modify": [
+        "writing/paper.md"
+      ],
+      "specific_changes": [
+        "Section 4.5: Acknowledge layer 8 validation is specific to that layer",
+        "Or conduct additional validation at different layers"
+      ]
+    },
+    {
+      "priority": 10,
+      "severity": "minor",
+      "category": "planning",
+      "title": "Revise timeline to be realistic",
+      "description": "The 3.5 hour timeline for all experiments (5-seed H_Mech, H_Comp, H_Pareto, H_Safe, held-out validation) significantly underestimates complexity. Revise to reflect realistic execution times.",
+      "files_to_modify": [
+        "plan/methodology.md"
+      ],
+      "specific_changes": [
+        "Update Phase durations based on actual execution times",
+        "Specify what 'held-out validation' actually entails"
+      ]
+    }
+  ],
+  "summary": {
+    "critical": 3,
+    "major": 4,
+    "minor": 3,
+    "total": 10
+  },
+  "top_priority_fixes": [
+    "Reword H_Mech interpretation (encoder creates absorption, decoder suppresses it)",
+    "Remove H_Safe claims or properly identify real safety features",
+    "Verify sensitivity metric implementation (values > 1 need explanation)"
+  ]
+}

@@ -1,0 +1,314 @@
+{
+  "schema_version": 2,
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup and Verification",
+      "description": "Install required packages (sae-lens, transformer-lens, scipy, scikit-learn, matplotlib, seaborn). Verify GPU availability. Cache GPT-2 model and SAE weights.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "Environment ready, GPU verified, model weights cached",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 0,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "sae-lens and transformer-lens import successfully; GPU visible; GPT-2 and SAE weights accessible"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_activation_patching",
+      "name": "Pilot: Activation Patching Validation",
+      "description": "Validate 9 persistent core words using activation patching. Zero child feature -> measure parent recovery. Tests whether persistent words are genuine absorption or metric artifact.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/results/pilots/pilot_activation_patching.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Parent recovery > 10% for at least 3/9 core words; no crashes"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Parent recovery % for 9 core words",
+          "x": "word",
+          "y": "recovery_pct",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "full_activation_patching",
+      "name": "Full: Activation Patching on 9 Core Words",
+      "description": "Complete activation patching validation on 9 persistent core words. For each word: zero child feature, measure parent recovery. Use 1000 samples for robust statistics.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_activation_patching"
+      ],
+      "expected_output": "exp/results/full/activation_patching_full.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - full experiment"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Parent recovery % for 9 core words (full validation)",
+          "x": "word",
+          "y": "recovery_pct",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pilot_steering_cv",
+      "name": "Pilot: Steering Effectiveness by CV",
+      "description": "Test whether CV predicts steering effectiveness. Compare steering on 10 high-CV vs 10 low-CV features. Tests H4/actionability connection.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/results/pilots/pilot_steering_cv.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "High-CV shows larger steering effect than low-CV; no crashes"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Steering effect: high-CV vs low-CV groups",
+          "x": "feature_group",
+          "y": "steering_effect",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "full_steering_cv",
+      "name": "Full: Steering Effectiveness Test (30 vs 30)",
+      "description": "Complete steering test on 30 high-CV absorbed vs 30 low-CV non-absorbed features. Test at steering strengths ±3, ±5, ±7. Measure logit change at semantically appropriate tokens.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_steering_cv"
+      ],
+      "expected_output": "exp/results/full/steering_cv_full.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - full experiment"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Steering effect vs strength for high-CV and low-CV groups",
+          "x": "steering_strength",
+          "y": "logit_change",
+          "group": "feature_group",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "full_cross_layer_critical",
+      "name": "Full: Cross-Layer at λ_c=5e-5 (Revised)",
+      "description": "Measure absorption at layers [0,3,6,9,11] using λ_c=5e-5 (not λ=0.001) to test whether layer heterogeneity appears at true critical point.",
+      "type": "experiment",
+      "depends_on": [
+        "full_activation_patching"
+      ],
+      "expected_output": "exp/results/full/cross_layer_critical.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 40,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 1000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - full experiment"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Absorption rate by layer at λ_c=5e-5",
+          "x": "layer",
+          "y": "lambda",
+          "value": "absorption",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_hypothesis_tests_v2",
+      "name": "Analysis: Updated Hypothesis Tests",
+      "description": "Compute statistical tests for all hypotheses including new activation patching and steering results. Generate summary table with pass/fail per hypothesis.",
+      "type": "analysis",
+      "depends_on": [
+        "full_activation_patching",
+        "full_steering_cv",
+        "full_cross_layer_critical"
+      ],
+      "expected_output": "exp/results/full/hypothesis_test_summary_v2.json",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - analysis task"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Hypothesis test results summary v2",
+          "columns": [
+            "Hypothesis",
+            "Status",
+            "Statistic",
+            "p_value",
+            "Evidence"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_figures",
+      "name": "Analysis: Generate Publication Figures",
+      "description": "Generate all publication-ready figures (PDF and PNG) from experiment results.",
+      "type": "analysis",
+      "depends_on": [
+        "analysis_hypothesis_tests_v2"
+      ],
+      "expected_output": "exp/results/full/figures/",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "estimated_minutes": 25,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - analysis task"
+      },
+      "visualizations": []
+    }
+  ],
+  "pilot_overview": "Three pilot experiments validate activation patching (CRITICAL gap), steering effectiveness by CV, and cross-layer at true critical sparsity.",
+  "pilot_decision_criteria": {
+    "advance_to_full": "Pilot shows measurable recovery (>10%) and steering effect difference in expected direction",
+    "refine": "Pilot shows weak signal; adjust feature selection or increase sample count",
+    "pivot": "Pilot shows zero recovery and no steering difference; reconsider contribution narrative"
+  },
+  "pilot_execution_order": [
+    "setup_env",
+    "pilot_activation_patching",
+    "pilot_steering_cv"
+  ],
+  "pilot_parallel_groups": [
+    [
+      "pilot_activation_patching"
+    ],
+    [
+      "pilot_steering_cv"
+    ]
+  ],
+  "iteration_2_lessons_applied": [
+    "Activation Patching UNEXECUTED for 3 consecutive reviews - this is the ONLY experiment that distinguishes metric artifact from genuine absorption",
+    "H10 (Homeostatic Rebalancing) is a phantom contribution - never executed but appears as key contribution",
+    "LCA Framework logical incoherence - H6 falsified but paper claims support from H7 asymmetry",
+    "All 4 supported hypotheses (H1,H2,H4,H5) have strong empirical backing - focus on validation now"
+  ],
+  "sweep_specs": {
+    "activation_patching": {
+      "n_core_words": 9,
+      "n_samples_pilot": 100,
+      "n_samples_full": 1000,
+      "steering_strengths": [
+        -7,
+        -5,
+        -3,
+        3,
+        5,
+        7
+      ]
+    },
+    "steering": {
+      "n_high_cv": 30,
+      "n_low_cv": 30,
+      "n_samples_pilot": 100,
+      "n_samples_full": 1000,
+      "steering_strengths": [
+        -7,
+        -5,
+        -3,
+        3,
+        5,
+        7
+      ]
+    },
+    "cross_layer": {
+      "layers": [
+        0,
+        3,
+        6,
+        9,
+        11
+      ],
+      "lambda_critical": 5e-05,
+      "n_samples": 1000
+    }
+  },
+  "previously_completed_tasks": [
+    "setup_env",
+    "pilot_sparsity_sweep",
+    "pilot_cv_analysis",
+    "full_sparsity_sweep",
+    "full_dict_size_sweep",
+    "full_cross_layer",
+    "full_cv_analysis",
+    "full_cv_full",
+    "full_cooccurrence",
+    "full_graph_topology",
+    "analysis_hypothesis_tests"
+  ],
+  "reference_results": {
+    "sparsity_sweep": "exp/results/full/sparsity_sweep_full.json",
+    "dict_size_sweep": "exp/results/full/dict_size_sweep.json",
+    "cv_full_analysis": "exp/results/full/cv_full_analysis.json",
+    "hypothesis_test_summary": "exp/results/full/hypothesis_test_summary.json",
+    "graph_topology": "exp/results/full/graph_topology.json",
+    "cooccurrence_analysis": "exp/results/full/cooccurrence_analysis.json"
+  }
+}

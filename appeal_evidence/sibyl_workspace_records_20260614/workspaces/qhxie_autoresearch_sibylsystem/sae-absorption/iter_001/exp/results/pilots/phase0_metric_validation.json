@@ -1,0 +1,122 @@
+{
+  "task_id": "phase0_metric_validation",
+  "timestamp": "2026-04-11T16:09:36.650711",
+  "config": {
+    "sae_release": "gemma-scope-2b-pt-res-canonical",
+    "sae_id": "layer_12/width_16k/canonical",
+    "d_in": 2304,
+    "d_sae": 16384,
+    "seed": 42,
+    "device": "cuda:0",
+    "gemma_2_2b_available": false,
+    "note": "Gemma 2 2B model is gated (requires HF auth). Chanin activation-based metric validation deferred. This script validates the EDA weight-based metric properties."
+  },
+  "check1_threshold_sensitivity": {
+    "pass": true,
+    "t_mid": 0.20478889346122742,
+    "t_low_90pct": 0.18431000411510468,
+    "t_high_110pct": 0.2252677828073502,
+    "rate_low": 0.59912109375,
+    "rate_mid": 0.5,
+    "rate_high": 0.4007568359375,
+    "max_deviation_pct": 19.8486328125,
+    "criterion": "Max deviation from mid-threshold absorption rate < 30%",
+    "chanin_threshold_proxy": {
+      "cos=0.005": 0.395362548828125,
+      "cos=0.01": 0.30627685546875,
+      "cos=0.025": 0.1327484130859375,
+      "cos=0.05": 0.036885986328125,
+      "cos=0.1": 0.0063525390625
+    },
+    "chanin_cosine_thresholds": [
+      0.005,
+      0.01,
+      0.025,
+      0.05,
+      0.1
+    ],
+    "chanin_magnitude_gaps": [
+      0.5,
+      1.0,
+      1.5,
+      2.0
+    ]
+  },
+  "check2_random_direction_baseline": {
+    "pass": true,
+    "n_random_directions": 100,
+    "eda_real_mean": 0.21372145414352417,
+    "eda_random_mean": 1.0000144475698471,
+    "eda_random_std": 0.002464212892846936,
+    "ratio_real_to_random": 0.21371836643249753,
+    "criterion": "EDA_real/EDA_random < 0.90 (real decoders \u226510% more aligned than random)"
+  },
+  "check3_synthsaebench": {
+    "pass": true,
+    "synth_results": [
+      {
+        "trial": 0,
+        "auroc": 1.0,
+        "f1_best": 0.9743589743589743,
+        "eda_absorbed_median": 0.8270590901374817,
+        "eda_nonabsorbed_median": 0.06989777088165283
+      },
+      {
+        "trial": 1,
+        "auroc": 1.0,
+        "f1_best": 0.9743589743589743,
+        "eda_absorbed_median": 0.8245267868041992,
+        "eda_nonabsorbed_median": 0.06914418935775757
+      },
+      {
+        "trial": 2,
+        "auroc": 1.0,
+        "f1_best": 0.9743589743589743,
+        "eda_absorbed_median": 0.8417860269546509,
+        "eda_nonabsorbed_median": 0.0682951807975769
+      },
+      {
+        "trial": 3,
+        "auroc": 1.0,
+        "f1_best": 0.9743589743589743,
+        "eda_absorbed_median": 0.8468024730682373,
+        "eda_nonabsorbed_median": 0.06884291768074036
+      },
+      {
+        "trial": 4,
+        "auroc": 1.0,
+        "f1_best": 0.9743589743589743,
+        "eda_absorbed_median": 0.8424807786941528,
+        "eda_nonabsorbed_median": 0.0690619945526123
+      }
+    ],
+    "mean_f1_best": 0.9743589743589742,
+    "mean_auroc": 1.0,
+    "criterion": "EDA F1 > 0.70 on synthetic SAEs with known ground truth",
+    "synthetic_params": {
+      "n_features": 500,
+      "d_model": 64,
+      "n_absorbed": 100,
+      "n_trials": 5
+    }
+  },
+  "real_sae_eda_statistics": {
+    "p5": 0.10054244995117187,
+    "p10": 0.11724964976310731,
+    "p25": 0.15447494387626648,
+    "p50": 0.20478889346122742,
+    "p75": 0.26091495156288147,
+    "p90": 0.3215092718601227,
+    "p95": 0.363256761431694,
+    "mean": 0.21372145414352417,
+    "std": 0.08057568967342377
+  },
+  "overall": {
+    "pass": true,
+    "check1_pass": true,
+    "check2_pass": true,
+    "check3_pass": true,
+    "recommendation": "Proceed to Phase 1 EDA validation",
+    "notes": "If Check 1 fails: EDA threshold is sensitive, meaning the choice of threshold significantly affects absorption rate. Report this as a metric limitation and use a data-driven threshold (e.g., top-k or percentile). If Check 2 fails: EDA_real << EDA_random means real decoders ARE aligned with their encoders, which is the expected behavior. Check 2 failing due to ratio > 0.9 would be unexpected; failing due to ratio < 1.0 (real < random) is correct."
+  }
+}

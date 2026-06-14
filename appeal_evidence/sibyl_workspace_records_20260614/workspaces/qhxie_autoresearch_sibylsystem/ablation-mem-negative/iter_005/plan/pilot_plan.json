@@ -1,0 +1,58 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_seconds": 900,
+    "description": "Pilot experiments for Iteration 4. All core experiments were already completed in Iteration 3. Pilots serve as quick verification that the experimental pipeline still works and key results are reproducible."
+  },
+  "pilots": [
+    {
+      "id": "p1_uad_reproduce",
+      "name": "P1: Quick UAD Reproduction",
+      "description": "Re-run UAD on GPT-2 Small layer 8 with 100 samples. Verify F1 remains near-zero and same-cluster random baseline matches.",
+      "full_task_id": "e1_uad_random_baseline",
+      "pass_criteria": "F1 <= 0.01, same-cluster random F1 within 2x of UAD F1",
+      "estimated_minutes": 5,
+      "gpu_count": 1
+    },
+    {
+      "id": "p2_collision_quick",
+      "name": "P2: Quick Collision Rate Check",
+      "description": "Compute collision rate for 10 concept pairs (numbers subset). Verify Spearman r >= 0.3.",
+      "full_task_id": "e3_collision_correlation",
+      "pass_criteria": "Spearman r >= 0.3, n_pairs >= 10",
+      "estimated_minutes": 5,
+      "gpu_count": 1
+    },
+    {
+      "id": "p3_token_exclusivity",
+      "name": "P3: Token Mutual Exclusivity Spot Check",
+      "description": "Check token-level activations for 2-3 absorption features. Verify they fire on different tokens.",
+      "full_task_id": "e4_token_mutual_exclusivity",
+      "pass_criteria": "Absorption features show zero overlap in token activations",
+      "estimated_minutes": 3,
+      "gpu_count": 1
+    }
+  ],
+  "go_no_go_gates": [
+    {
+      "gate_id": "g1_uad_fails",
+      "condition": "UAD F1 <= 0.01",
+      "action_if_pass": "Proceed with negative result framing",
+      "action_if_fail": "Investigate discrepancy with prior iteration results"
+    },
+    {
+      "gate_id": "g2_collision_valid",
+      "condition": "Collision rate Spearman r >= 0.3",
+      "action_if_pass": "Proceed with operationalization reliability framing",
+      "action_if_fail": "Investigate data or computation issue"
+    },
+    {
+      "gate_id": "g3_reproducibility",
+      "condition": "Results match Iteration 3 within 10%",
+      "action_if_pass": "Proceed with writing iteration",
+      "action_if_fail": "Re-run full experiments, do not proceed with writing"
+    }
+  ],
+  "notes": "Iteration 4 is primarily a writing/reframing iteration. The pilots are sanity checks, not hypothesis tests. All hypotheses were already confirmed/falsified in Iteration 3."
+}

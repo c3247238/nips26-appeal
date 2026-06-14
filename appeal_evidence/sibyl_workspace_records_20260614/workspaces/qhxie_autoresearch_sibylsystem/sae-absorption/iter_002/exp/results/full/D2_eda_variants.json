@@ -1,0 +1,278 @@
+{
+  "task_id": "task_D2_eda_variants",
+  "timestamp": "2026-04-14T01:54:57.896587",
+  "mode": "PILOT",
+  "elapsed_sec": 27.826308727264404,
+  "config": {
+    "model": "gpt2-small",
+    "sae_release": "gpt2-small-res-jb",
+    "hook_name": "blocks.6.hook_resid_pre",
+    "layer": 6,
+    "d_sae": 24576,
+    "d_in": 768,
+    "seed": 42,
+    "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+  },
+  "labels": {
+    "n_pos": 18,
+    "n_neg": 24558,
+    "base_rate": 0.000732421875,
+    "absorbed_feature_ids": [
+      2406,
+      2888,
+      3226,
+      3943,
+      4176,
+      5042,
+      7060,
+      7371,
+      11270,
+      12466,
+      15451,
+      15474,
+      16664,
+      19444,
+      19908,
+      20084,
+      22408,
+      24154
+    ],
+    "source": "FeatureAbsorptionCalculator (Chanin et al. 2024, sae_spelling, iter_001 R4)"
+  },
+  "sae_weight_stats": {
+    "enc_norm_mean": 2.576570749282837,
+    "enc_norm_std": 0.7077494263648987,
+    "dec_norm_mean": 1.0000431537628174,
+    "dec_norm_std": 3.566997474990785e-05,
+    "dec_norms_are_unit": true,
+    "note": "W_dec rows are unit-normalized in gpt2-small-res-jb. Thus EDA-norm \u2248 EDA * ||enc_j||."
+  },
+  "variant_definitions": {
+    "EDA_base": "1 - cos(encoder_j, decoder_j)",
+    "EDA_norm": "(1 - cos(enc_j, dec_j)) * ||enc_j|| / ||dec_j|| (= EDA * ||enc_j|| since dec norms~1)",
+    "EDA_parent_max_correct": "max_{p in 43 independent letter features} cos(enc_j, dec_p)",
+    "EDA_parent_mean_correct": "mean_{p in 43 independent letter features} cos(enc_j, dec_p)",
+    "EDA_parent_trivial_DEGENERATE": "max_{p in absorbed_features} cos(enc_j, dec_p) [TAUTOLOGICAL: absorbed decoders used to predict absorption -> AUROC=1.0]",
+    "EDA_act_weighted": "EDA_base * mean_activation_j [GPT2 OWT 1 sequences, L5 hook -> blocks.6.hook_resid_pre, SAE encode]"
+  },
+  "tautology_investigation": {
+    "trivial_variant_auroc": 1.0,
+    "explanation": "Using absorbed feature decoders as parent pool is tautological: for each absorbed feature j, dec_j IS one of the parent decoders, so cos(enc_j, dec_j) is the self-similarity (high for all absorbed features). Non-absorbed features have low similarity with the 18 absorbed decoders (~0.01-0.07). This creates perfect separation by construction. AUROC=1.0 is NOT a genuine finding. The CORRECT variant uses INDEPENDENT letter features (not in absorbed set) as parents.",
+    "independent_letter_features_used": [
+      368,
+      1343,
+      2014,
+      2180,
+      2820,
+      3090,
+      4102,
+      4111,
+      4271,
+      4992,
+      5019,
+      5288,
+      5713,
+      5783,
+      5804,
+      6679,
+      8243,
+      8437,
+      9699,
+      9790
+    ],
+    "n_independent_parents": 43,
+    "n_absorbed_features": 18
+  },
+  "metrics": {
+    "EDA_base": {
+      "auroc": 0.6503266643139596,
+      "auprc": 0.0015282196277241152,
+      "auprc_over_base": 2.086529198385992,
+      "stats": {
+        "absorbed_mean": 0.6706587076187134,
+        "absorbed_std": 0.05153866112232208,
+        "non_absorbed_mean": 0.6306129693984985,
+        "non_absorbed_std": 0.07550787925720215,
+        "direction": "higher_absorbed",
+        "cohens_d": 0.5303517799880467
+      }
+    },
+    "EDA_norm": {
+      "auroc": 0.7376935327704934,
+      "auprc": 0.003419902569052939,
+      "auprc_over_base": 4.669306974280279,
+      "stats": {
+        "absorbed_mean": 2.2128758430480957,
+        "absorbed_std": 0.5323585867881775,
+        "non_absorbed_mean": 1.6637556552886963,
+        "non_absorbed_std": 0.5898176431655884,
+        "direction": "higher_absorbed",
+        "cohens_d": 0.9309999353683909
+      },
+      "delong_vs_base": {
+        "auroc_a": 0.7376935327704934,
+        "auroc_b": 0.6503266643139596,
+        "diff": 0.08736686845653385,
+        "z_stat": 3.38222056049469,
+        "p_value": 0.0007190238927426137,
+        "significant_at_005": true,
+        "boot_se": 0.02583121558570249
+      },
+      "note": "EDA-norm \u2248 EDA_base \u00d7 ||enc_j|| since dec_norms \u2248 1.0 in this SAE"
+    },
+    "EDA_parent_max_correct": {
+      "auroc": 0.6958854774637818,
+      "auprc": 0.002340294139354364,
+      "auprc_over_base": 3.1952815982651583,
+      "stats": {
+        "absorbed_mean": 0.058385416865348816,
+        "absorbed_std": 0.03306964784860611,
+        "non_absorbed_mean": 0.03860507532954216,
+        "non_absorbed_std": 0.030178764835000038,
+        "direction": "higher_absorbed",
+        "cohens_d": 0.6554390671192201
+      },
+      "delong_vs_base": {
+        "auroc_a": 0.6958854774637818,
+        "auroc_b": 0.6503266643139596,
+        "diff": 0.04555881314982224,
+        "z_stat": 0.4392118017229503,
+        "p_value": 0.6605080744448721,
+        "significant_at_005": false,
+        "boot_se": 0.10372857234505782
+      },
+      "parent_source": "43 independent letter features from B1 EDA decomposition (absorbed set excluded)",
+      "parent_feature_ids": [
+        368,
+        1343,
+        2014,
+        2180,
+        2820,
+        3090,
+        4102,
+        4111,
+        4271,
+        4992,
+        5019,
+        5288,
+        5713,
+        5783,
+        5804,
+        6679,
+        8243,
+        8437,
+        9699,
+        9790
+      ]
+    },
+    "EDA_parent_mean_correct": {
+      "auroc": 0.1902457673896716,
+      "auprc": 0.0004388875117527098,
+      "auprc_over_base": 0.5992277493796998,
+      "stats": {
+        "absorbed_mean": -0.044654905796051025,
+        "absorbed_std": 0.010895083658397198,
+        "non_absorbed_mean": -0.03183400258421898,
+        "non_absorbed_std": 0.009675140492618084,
+        "direction": "lower_absorbed",
+        "cohens_d": -1.325138698409624
+      },
+      "delong_vs_base": {
+        "auroc_a": 0.1902457673896716,
+        "auroc_b": 0.6503266643139596,
+        "diff": -0.460080896924288,
+        "z_stat": -4.680691977163587,
+        "p_value": 2.859082362294229e-06,
+        "significant_at_005": true,
+        "boot_se": 0.09829335046376808
+      }
+    },
+    "EDA_parent_DEGENERATE_tautological": {
+      "auroc": 1.0,
+      "auprc": 1.0,
+      "note": "DEGENERATE: using absorbed feature decoders as parents -> trivial AUROC=1.0. NOT a genuine finding. Documented for transparency.",
+      "excluded_from_ranking": true
+    },
+    "EDA_act_weighted": {
+      "auroc": 0.6105523432056537,
+      "auprc": 0.0011673851737839746,
+      "auprc_over_base": 1.5938698906063866,
+      "stats": {
+        "absorbed_mean": 0.3202146887779236,
+        "absorbed_std": 0.20087777078151703,
+        "non_absorbed_mean": 0.26337677240371704,
+        "non_absorbed_std": 0.2522421181201935,
+        "direction": "higher_absorbed",
+        "cohens_d": 0.22533079239601916
+      },
+      "delong_vs_base": {
+        "auroc_a": 0.6105523432056537,
+        "auroc_b": 0.6503266643139596,
+        "diff": -0.03977432110830592,
+        "z_stat": -0.9328621291291662,
+        "p_value": 0.3508911578982038,
+        "significant_at_005": false,
+        "boot_se": 0.042636869764919656
+      },
+      "activation_method": "GPT2 OWT 1 sequences, L5 hook -> blocks.6.hook_resid_pre, SAE encode",
+      "n_nonzero_features": 24533,
+      "mean_activation_mean": 0.40868568420410156
+    },
+    "enc_norm_baseline_D1": {
+      "auroc": 0.7565988906081748,
+      "auprc": 0.0041612985698836575,
+      "auprc_over_base": 5.681559647414487,
+      "note": "Best baseline from D1: encoder norm alone (AUROC=0.7566 in D1). Included for reference."
+    }
+  },
+  "best_non_trivial_variant": {
+    "name": "EDA_norm",
+    "auroc": 0.7376935327704934,
+    "improvement_over_base": 0.08736686845653385,
+    "recommended_for_D3": "EDA_norm",
+    "substantially_outperforms_base": true
+  },
+  "all_aurocs_ranked_valid": [
+    [
+      "EDA_norm",
+      0.7376935327704934
+    ],
+    [
+      "EDA_parent_max",
+      0.6958854774637818
+    ],
+    [
+      "EDA_base",
+      0.6503266643139596
+    ],
+    [
+      "EDA_act_weighted",
+      0.6105523432056537
+    ],
+    [
+      "EDA_parent_mean",
+      0.1902457673896716
+    ]
+  ],
+  "pass_criteria": {
+    "all_3_variants_computable": true,
+    "base_eda_auroc": 0.6503266643139596,
+    "best_valid_auroc": 0.7376935327704934,
+    "any_valid_variant_improves_over_base": true,
+    "parent_aware_correct_auroc": 0.6958854774637818,
+    "parent_aware_correct_outperforms_base": true,
+    "tautological_variant_identified_and_flagged": true,
+    "overall_go_nogo": "GO",
+    "notes": [
+      "EDA base AUROC=0.6503",
+      "EDA-norm AUROC=0.7377 (diff=+0.0874)",
+      "EDA-parent-aware (letter, max) AUROC=0.6959 (diff=+0.0456)",
+      "EDA-parent-aware (letter, mean) AUROC=0.1902 (diff=-0.4601)",
+      "EDA-parent-aware TRIVIAL (absorbed dec): AUROC=1.0 DEGENERATE \u2014 flagged and excluded",
+      "EDA-act-weighted AUROC=0.6106 (diff=-0.0398)",
+      "enc_norm baseline (D1 best): AUROC=0.7566",
+      "Best non-trivial: EDA_norm AUROC=0.7377",
+      "n_pos=18 (small sample; bootstrap tests have wide CIs)"
+    ]
+  }
+}

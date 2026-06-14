@@ -1,0 +1,100 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "E1 architecture comparison is massively confounded: JumpReLU is pretrained on Gemma data with d_SAE=24,576 while TopK is trained from scratch on OpenWebText with d_SAE=16,384. The 4x collision rate difference (15.4% vs 3.8%) cannot be attributed to architecture alone---it confounds architecture, training data, dictionary size, and training procedure. The paper acknowledges this in Section 4.2 but still presents the 4x difference as the key finding in the Abstract, Introduction, and Conclusion without adequate caveats.",
+    "suggestion": "Either (a) retrain JumpReLU from scratch on OpenWebText with matched hyperparameters (same d_SAE, same training data), or (b) demote the architecture comparison to an exploratory observation and reframe the paper around the sparsity sweep (E2/E3) which at least controls for architecture. The Abstract should not lead with the 4x difference."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Dead feature ratio of 89-99% across all trained SAEs indicates catastrophic training failure. With 96-99% dead features, the SAE is effectively operating with only 160-640 active features out of 16,384. At k=10, 99.4% dead features means ~100 active features. This is not a 'training problem that may confound results'---it likely invalidates the entire trained-SAE branch of experiments. Collision rate measurements on 26 first-letter concepts are statistically fragile when the effective dictionary is <1% of nominal size.",
+    "suggestion": "Investigate why dead feature ratios are so high. Possible causes: insufficient training tokens (1M may be too few), learning rate too high, or SAELens training configuration issues. Re-train with longer training (10M+ tokens), lower learning rate, and monitor dead feature ratio during training. If dead features cannot be reduced below 50%, the trained-SAE experiments should be excluded from the paper."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "H2-H4 are all falsified (near-zero correlations, p > 0.86), yet the paper frames this as a 'reframing' contribution ('collision rate is a poor proxy') rather than acknowledging that the experiments may simply be underpowered or the wrong measurement. With n=5-6 data points, the study has ~20% power to detect medium effects. The null results are consistent with both (a) collision rate truly not mattering, and (b) the study being too small to detect an effect. The paper leans toward interpretation (a) without adequately considering (b). The pilot showed 30.8% collision at k=25 while the full experiment shows 11.5%---an 8x discrepancy unexplained.",
+    "suggestion": "Add a Bayesian analysis or equivalence testing to distinguish 'no effect' from 'insufficient power.' Report the minimum detectable effect size given the sample size. Run at least 3 seeds for key experiments and report standard errors. Explain the 8x pilot/full discrepancy. Be more explicit that the null results are inconclusive, not conclusive evidence that collision rate doesn't matter."
+  },
+  {
+    "stage": "review",
+    "category": "methodology",
+    "severity": "major",
+    "description": "The collision rate metric itself is problematic. It measures whether multiple concepts activate the same feature, but this is not the same as Chanin et al.'s absorption (parent suppressing child under co-occurrence). The paper concedes this ('collision rate is a simplified proxy') but still builds the entire CAAB benchmark around it. A feature shared by 5 letters (feature 18486: c, i, o, p, u) may simply be a polysemantic feature, not an absorbed one. Without parent-child hierarchy testing, calling this 'absorption' is misleading and inflates the apparent relevance of the work.",
+    "suggestion": "Rename CAAB to 'Cross-Architecture Collision Benchmark' to be honest about the metric. Implement true Chanin et al. absorption detection for at least the first-letter hierarchies (vowel -> {a,e,i,o,u}) to validate that collision correlates with true absorption. Report the correlation between collision rate and true absorption rate. If collision does not correlate with absorption, the entire benchmark's premise is questionable."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "E2 (causal impact) uses only 5 k-values as the independent variable, but these 5 points are not independent---they come from the same training run with different k. The 'causal' claim is weak because k directly controls both sparsity and reconstruction quality, creating a structural confound. The paper notes that reconstruction MSE 'strongly predicts accuracy' (rho_S = -1.0), which is expected since k directly determines both MSE and sparsity. This is not a causal design; it's a parameter sweep masquerading as causal inference.",
+    "suggestion": "Reframe E2 as a 'sparsity sweep' rather than a 'causal impact' experiment. Remove claims of 'causal assessment' from contributions. Alternatively, fix reconstruction quality across k values by training to a target MSE rather than fixed k, or use an instrumental variable approach."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The exploratory methods (UAD and DFDA) are severely underpowered. UAD is validated on only 25 true collisions from first-letter features---a tiny, homogeneous test set. DFDA is evaluated on only 4 pairs, all sharing the same feature (18486), with one pair showing degradation (-21.4%). The 11.1% 'improvement' is on per-pair residual MSE at 10^-6 scale (absolute improvement ~10^-7), not overall reconstruction MSE. The paper correctly notes these are 'proof-of-concept' but still lists them as two of four contributions.",
+    "suggestion": "Demote UAD and DFDA from 'contributions' to 'exploratory directions' or 'future work.' The current framing overstates their maturity. At minimum, validate UAD on a more diverse set of collisions (not just first letters) and test DFDA on more than one shared feature. Report the absolute MSE values (10^-6 scale) alongside the percentage improvement to avoid inflating the claim."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "Single-seed experiments (seed=42) with no replication. All correlation p-values hover around 0.87, which is suspiciously uniform and suggests the results are driven by a single outlier or random noise pattern. With n=5-6 and one seed, the results may not replicate even on the same setup with a different seed. The pilot summary notes 30.8% collision rate for TopK, but the full experiment shows 3.8%---an 8x difference that is never explained.",
+    "suggestion": "Run at least 3 seeds for the key experiments (E1-E3) and report standard errors. Explain the 8x discrepancy between pilot (30.8%) and full (3.8%) TopK collision rates---this is a red flag for measurement instability. The pilot used d_SAE=3,072 while the full used d_SAE=16,384; this difference should be explicitly discussed."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "The core novelty claim---that collision rate differs by architecture and may be a poor proxy---is weakened by the confounded comparison. If the 4x difference is driven by training data/width rather than architecture, the 'cross-architecture benchmark' contribution evaporates. The paper's actual novel contribution may be limited to: (a) showing that collision rate on first-letter features does not correlate with probing accuracy on the same features (a narrow negative result), and (b) two underpowered proof-of-concept methods. This may not meet the bar for a top-tier ML conference. Chanin et al. (2024) already documented absorption; this paper's contribution is measuring a proxy metric across architectures, which is incremental if the comparison is confounded.",
+    "suggestion": "Consider reframing the paper as a 'negative result' or 'methodological caution' paper rather than a benchmark contribution. The honest reporting of null results is the paper's strongest asset. Alternatively, fix the confounds and collect stronger evidence: match dictionary sizes, train both architectures on the same data, and validate on multiple concept domains."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "The Abstract claims '11.1% MSE improvement' for DFDA but the paper text correctly says '11.1% per-pair residual MSE improvement.' The Abstract omits the critical 'per-pair residual' qualifier, inflating the claim. Similarly, the title uses 'Feature Absorption' while the experiments measure 'collision rate,' blurring the distinction.",
+    "suggestion": "Fix the Abstract to match the paper text: '11.1% per-pair residual MSE improvement.' Consider retitling to 'Feature Collision in Sparse Autoencoders: A Cross-Architecture Benchmark' to be honest about the metric."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "minor",
+    "description": "Section 3.6 claims 'approximately 20% power to detect a medium effect size (r = 0.5).' This is a post-hoc power analysis, which is methodologically questionable---power should be computed before the experiment. Reporting post-hoc power can be misleading because it is mathematically related to the p-value.",
+    "suggestion": "Replace post-hoc power with confidence intervals for the correlation coefficients. Report the minimum effect size detectable with 80% power given n=5-6, to contextualize the null results."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "The paper mentions Gemma-2-2B as the primary model in the outline and methodology, but all experiments use GPT-2 Small. The reason ('GemmaScope experiments were blocked by API issues') is buried in Section 3.3. This is a significant deviation from the planned methodology that should be more prominent.",
+    "suggestion": "Move the Gemma-2-2B fallback explanation to the Introduction or a dedicated 'Experimental Constraints' paragraph. Make it clear upfront that all results are on GPT-2 Small."
+  },
+  {
+    "stage": "review",
+    "category": "methodology",
+    "severity": "minor",
+    "description": "The concept set is limited to 26 first-letter features. This is a very narrow semantic domain---letters are syntactic, not semantic, concepts. The generalization to 'downstream interpretability tasks' is tenuous when the only task is first-letter classification.",
+    "suggestion": "Add at least one additional concept domain (e.g., numbers, colors, or part-of-speech tags) to validate that findings generalize beyond first letters. Or explicitly scope the claims to 'first-letter feature detection' rather than 'downstream interpretability tasks.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "The E3 sparsity sweep shows a non-monotonic relationship (k=50 has 0% collision, k=100 has 15.4%), but with n=5 and large random variation, this pattern may be noise. The paper interprets it as 'non-linear' without considering that k=50's 0% could be a sampling fluke.",
+    "suggestion": "Run multiple seeds for the sparsity sweep and report error bars. The non-monotonic pattern may disappear with replication."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "The Conclusion says 'Collision rate is a poor proxy for absorption harm' but the paper never actually measures 'absorption harm'---it measures sparse probing accuracy on first-letter features, which is a very specific task. The leap from 'no correlation with first-letter probing' to 'collision rate is a poor proxy for absorption harm' is an overgeneralization.",
+    "suggestion": "Soften the claim: 'Collision rate does not correlate with first-letter sparse probing accuracy on GPT-2 Small, suggesting it may not be a reliable proxy for this specific downstream task.'"
+  }
+]

@@ -1,0 +1,155 @@
+{
+  "summary": "ComposeAccel has a legitimate core finding — M1+CD-SSD super-multiplicative synergy (Ortho=1.385, confirmed across 2 seeds from raw JSON) — but the paper is significantly undermined by: (1) the tau=0.0 paradox is NOW RESOLVED: CD-SSD(tau=0.0) and naive-T16 achieve IDENTICAL GSM8K accuracy (0.420 both), confirming the confidence-partitioning step adds no value at tau=0.0 beyond step-count selection; (2) the 'synergy' between M1+CD-SSD is therefore M1+naive-T16, which ALSO shows synergy (7.40x speedup, QAS=4.23) — the frozen-token mechanism depends on tau=0.9, but if tau=0.9 is suboptimal vs tau=0.0, the practical deployment recommendation must change; (3) an undisclosed 0.5x QAS penalty was inconsistently applied across methods making Table 2 cross-method comparisons invalid; (4) a fabricated Wilcoxon p<0.05 claim for H4; (5) failure mode atlas numbers fabricated and not matching raw data; (6) only 3 of 6 planned method pairs tested; (7) M1 achieves 1.38x vs published 15-26x with composability implications unverified. The paper now has a richer story available: M1+naive-T16 achieves 7.40x at GSM8K AccRet=57.2%, outperforming M1+CD-SSD(tau=0.9)'s 5.13x at 32.2% combined AccRet — the confidence partitioning reduces synergy and quality simultaneously.",
+  "findings": [
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "RESOLVED PARADOX WITH NEW EVIDENCE: The tau=0.0 paradox is now resolved by full_tau0_comparison.json. CD-SSD(tau=0.0) achieves avg_gsm_acc=0.420, avg_speedup=7.12x, QAS=4.20. Naive-T16 achieves avg_gsm_acc=0.420, avg_speedup=7.56x, QAS=4.46. They are IDENTICAL in accuracy (both 0.420 GSM8K), confirming the confidence-scoring step at tau=0.0 adds NO value beyond step-count selection. This directly collapses CD-SSD's partitioning mechanism claim: the method reduces to 'run LLaDA with 16 steps instead of 64.' Furthermore, M1+naive-T16 achieves 7.40x speedup at GSM8K AccRet=57.2% (QAS=4.23), OUTPERFORMING M1+CD-SSD(tau=0.9)'s 5.13x at 32.2% combined AccRet (QAS=1.65 combined, QAS=3.91 GSM8K-specific from tau0_comparison). The paper's central claim that tau=0.9 with confidence partitioning is the optimal composability vehicle is undermined: the better practical recipe is M1+naive-T16, which skips the partitioning step entirely.",
+      "suggestion": "Reframe the paper around M1+naive-T16 as the primary practical result (7.40x speedup, 57% GSM8K AccRet) and use the tau=0.9 result as an ablation showing the mechanistic role of frozen tokens. The frozen-token KV synergy story remains valid at tau=0.9, but the paper must honestly report that tau=0.0/naive-T16 dominates on QAS and should be the deployment recommendation."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "QAS formula inconsistency: IGSD and M2 use penalized QAS (speedup × acc_ret × 0.5) when GSM8K acc_drop > 5%, while M1 uses standard speedup × acc_ret. This is undisclosed in the paper. IGSD's paper-reported QAS=1.194 is the penalized value; unpenalized QAS=2.39. M3 escapes penalty because Qwen guidance inflates its GSM8K acc_ret above 1.0. This makes cross-method QAS comparisons in Table 2 invalid. Verified in merge_igsd_pareto.py and full_m3_pareto.py code.",
+      "suggestion": "Apply a single consistent QAS formula across all methods. Use standard QAS = Speedup × AccRet everywhere without any penalty. Re-label CD-SSD's Table 2 QAS as 2.39, not 1.194. Add a separate 'quality_flag' column marking methods with >5% accuracy loss. This reordering changes Table 2 rankings: CD-SSD QAS=2.39 > M3 QAS=1.675 > M1 QAS=0.836."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Wilcoxon p<0.05 claim for H4 (task-dependent recipes) is fabricated. The task_dependence_full.json artifact contains no statistical test — only analytical comparison of QAS values across 2 task types and 3 methods. With only 3 methods, there are 3 pairs for a Wilcoxon signed-rank test; the exact one-tailed p for n=3 is 0.125 — NOT significant at p<0.05. This statistical claim is fabricated.",
+      "suggestion": "Remove the false p-value claim. Replace with: 'QAS rankings differ between reasoning and coding tasks based on our 3-method comparison, consistent with H4, but we lack sufficient data points for formal statistical testing.' The H4 finding is directionally valid; the fabricated p-value makes it dishonest."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Failure mode atlas numbers are internally inconsistent with raw experiment data and appear analytically derived (elapsed_minutes=0.0). failure_mode_atlas_full.json claims M2 J=2: speedup=2.1x, acc_ret=0.82 — but raw m2_pareto_full.json shows J=2: speedup=3.10x, combined_acc_ret=0.760, GSM8K acc_ret=0.544. The atlas numbers are fabricated approximations. Additionally, M2 J=6 and J=8 produce results identical to 3 decimal places (speedup=12.363, acc_ret=0.243), suggesting a code/experiment deduplication artifact or step-jump floor condition that was not disclosed.",
+      "suggestion": "The failure mode atlas must use numbers from raw experiment JSON files. Replace all atlas evidence values with verified numbers. Investigate the J=6 vs J=8 identical results: if both yield 12.363x speedup with 2.3% accuracy, document this as a step-jump floor and explain its implementation basis."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "The frozen-token KV synergy mechanism claim in Section 4.2 rests on a reported CHR_refine=94% (measured: 0.940) during CD-SSD's refine phase. However, no raw experiment file containing per-step CHR measurements during the refine phase was found. The 94% figure is plausible analytically (alpha=0.52 frozen tokens have H_i=0, guaranteeing hits), but the paper presents it as 'measured: 0.940 averaged across seeds 123 and 456' without a supporting data file. If this is an analytical estimate presented as a measurement, it is fabricated evidence for the paper's central mechanistic claim.",
+      "suggestion": "Add explicit instrumentation to log per-step CHR during M1+CD-SSD's refine phase and report from a dedicated data file. If the 0.940 figure is analytical, label it as 'analytically derived from alpha=0.52' — which is actually the correct mechanistic explanation. The analytical derivation is rigorous; it does not need to be presented as a measurement."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The paper claims a 'systematic pairwise composability study' with C(4,2)=6 pairs, but only 3 pairs were actually measured. M2 was dropped (NO_GO), leaving M1+M2, M2+M3, and M2+IGSD untested. H1 and H3 are listed as 'UNTESTED' in the hypothesis evaluation table. The paper's central framing as a '6-pair systematic study' is inaccurate.",
+      "suggestion": "Honestly frame the study as a 3-pair composability analysis. Retitle contributions to reflect actual scope: 'Among the three feasible pairs, exactly one achieves super-multiplicative synergy.' Alternatively, run M1+M2 to explicitly demonstrate interference and partially fill the missing hypotheses H1 and H3."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Coding benchmarks (HumanEval baseline=2.4%, MBPP baseline=0.0%) are statistically uninformative yet included in combined QAS/AccRet calculations. MBPP's 0.0% baseline makes AccRet undefined (mapped to 1.0 by convention), artificially inflating every method's combined AccRet by 0.25. This inflates M2's combined AccRet from 0.544 (GSM8K only) to 0.760, making a catastrophically-failing method look competitive. HumanEval's 2.4% baseline means every method achieves 0 passes, providing only zero/null signal.",
+      "suggestion": "Exclude MBPP and HumanEval from all quantitative QAS/AccRet comparisons. Use GSM8K + MATH500 as the sole reliable quality signals. Report coding benchmarks in a separate section with clear caveat that LLaDA-8B-Instruct cannot perform meaningful code generation at these evaluation settings. The 'coding best method' claim for CD-SSD is unsubstantiated since the baseline is 0.0%."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "M1 implementation achieves 1.38x speedup vs published EntropyCache 15-26x. The paper claims the Ortho ratio is implementation-agnostic (measured from speedup ratios under the same conditions). This is partially valid for the dimensionless Ortho ratio. However, the paper never demonstrates that the synergy mechanism (CHR elevation from 60% to 94%) produces equivalent Ortho at higher absolute M1 speedups. A production M1 achieving 15x might saturate CHR differently, the entropy threshold might need recalibration, and the refine-phase speedup premium might not scale proportionally. The claim that 5.13x 'would scale proportionally' is speculative.",
+      "suggestion": "Either implement kernel-level sparse attention (feasible with FlashAttention-2 sparse masks) to obtain a valid M1 speedup, OR explicitly scope all absolute speedup claims to the current implementation and remove the projection claim. The current 5.13x absolute speedup is ~10-20x below what a paper-faithful M1+CD-SSD would achieve, making Table 3 comparisons against published baselines misleading."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Single-model evaluation only (LLaDA-8B-Instruct). Dream-7B-Instruct failed to download and no alternative was attempted. The paper's binary composability claim is stated as a structural property of MDM inference, but it is verified on exactly one model. The binary pattern could be LLaDA-specific (dependent on LLaDA's specific masking schedule or attention implementation).",
+      "suggestion": "Either (1) download and evaluate on Dream-7B-Instruct (now likely available) or use MDLM/SEDD, or (2) scope all structural claims to LLaDA-8B-Instruct explicitly in the abstract, contributions, and conclusion. Claims about 'MDM acceleration composability' being binary should be qualified to 'LLaDA-8B-Instruct acceleration composability' given single-model evidence."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Pairwise Ortho scores use only 2 seeds on 15% of benchmark data (200/1319 GSM8K samples). The headline result (Ortho=1.385, binary composability) is based on a 2-seed estimate with per-seed range [1.292, 1.478] (std≈0.093). While both seeds confirm Ortho>1.0, the exact magnitude and the claim of 'binary' universality require full-scale validation that was not completed.",
+      "suggestion": "Complete full 3-seed, full-benchmark pairwise experiments before submitting 'binary composability' as a primary abstract claim. Alternatively, downgrade language to 'in this 2-seed evaluation, we observe one synergistic pair and two interference pairs.' The synergy finding is directionally robust; its magnitude and universality are not."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "CD-SSD (formerly IGSD) is described in the abstract as introducing 'a new method... concurrent with SSD,' but the paper text in Section 1 still frames SSD as missing the 'token-freezing architecture required for KV-cache synergy.' However, given the tau=0.0 resolution showing that M1+naive-T16 achieves higher absolute QAS (7.40x, GSM8K AccRet=57.2%) than M1+CD-SSD(tau=0.9) (combined AccRet=32.2%), the claim that the confidence-based token freezing enables BETTER composability than naive step reduction is empirically refuted. The synergy from M1 + any step-reduced method may be a general property of MDM KV-caching + fast inference, not specific to CD-SSD's partition mechanism.",
+      "suggestion": "Acknowledge in Section 4.3 that the tau=0.0 experiment not only shows CD-SSD(tau=0.0)=naive-T16, but that M1+naive-T16 achieves better overall deployment QAS than M1+CD-SSD(tau=0.9). The paper's contribution then shifts to: 'we discover that KV-caching composes super-multiplicatively with reduced-step MDM inference, and we characterize the frozen-token mechanism at tau=0.9 that explains why.' The mechanism story remains valid as an analytical contribution even if the tau=0.9 operating point is not the deployment recommendation."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "FastDLLM was not reproduced under the ComposeAccel protocol despite being listed as 'Strongest published single-method baseline; reproduce from official code' in methodology.md. The fastdllm_comparison.json explicitly uses published paper numbers from different hardware/protocol. Table 1 mixes reproduced (M1, CD-SSD) and published (FastdLLM 27.6x) numbers, making direct comparison invalid.",
+      "suggestion": "Either (1) reproduce FastdLLM on the same NVIDIA RTX PRO 6000 Blackwell under the same protocol, or (2) remove FastdLLM from the comparison table and replace with a note explaining why only the three ComposeAccel-evaluated methods are directly comparable. Do not compare implementation-specific reproduced results against published paper claims from different hardware."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Internal AccRet inconsistency for IGSD/CD-SSD: Three different AccRet figures appear — 35.1% (in summary.md, equal to penalized_QAS/speedup), 63.7% (GSM8K-specific, paper Section 3.1), 70.3% (combined 4-benchmark, igsd_pareto_full.json). The 35.1% figure propagates through task_dependence_full.json and is not an AccRet at all — it is an arithmetic artifact. Any reviewer checking Table 2 against Section 3.1 will find contradictory values.",
+      "suggestion": "Standardize all CD-SSD/IGSD accuracy retention figures to 63.7% (GSM8K-specific) in main text tables, 70.3% (combined) in supplementary. Remove 35.1% from all documents; it is not a valid AccRet."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "M3 speedup is reported inconsistently in Table 2: 1.68x (GSM8K-specific) for M3 while M1 and CD-SSD use combined speedup (1.38x and 3.40x respectively). This makes M3 appear faster than it is. M3's combined speedup is 1.33x (from m3_pareto_full.json).",
+      "suggestion": "Use combined speedup for all methods in Table 2. Note GSM8K-specific speedup for M3 in a footnote. Combined M3 speedup = 1.33x is the honest comparison basis."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "'Binary composability' language is used throughout as a universal law (abstract, Section 4.1 title, conclusion) but is based on 3 method pairs on one model. The trajectory-preserving vs trajectory-modifying classification is a useful conceptual framework but is not an established universal property.",
+      "suggestion": "Soften 'binary' to 'exhibits a binary pattern among the three feasible pairs evaluated' throughout. Frame the trajectory-preserving classification as a testable hypothesis for future methods, not a proven universal principle."
+    },
+    {
+      "category": "analysis",
+      "severity": "minor",
+      "description": "The mechanistic explanation for binary composability relies on 'trajectory-preserving vs trajectory-modifying' classification. M3's classification as trajectory-modifying through non-stationary entropy distribution is plausible but not directly measured. No per-step entropy distribution comparison (M3-on vs M3-off) is shown in the paper.",
+      "suggestion": "Add direct evidence: plot per-step H_i distribution with and without M3 guidance. This would confirm the trajectory-modification mechanism rather than reasoning backward from outcome to cause."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Saber's backtracking mechanism — its core mechanism for addressing mask inconsistencies — was not implemented in M2. The NO_GO verdict applies to simplified Saber (top-k confidence unmasking without backtracking), not the actual published Saber algorithm. The prominent M2 NO_GO claim in the abstract and conclusion may not generalize.",
+      "suggestion": "Qualify all M2 NO_GO conclusions: 'for the simplified Saber implementation without backtracking.' Do not generalize to 'adaptive step scheduling is incompatible with LLaDA-8B' without testing the actual Saber backtracking mechanism."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "All experiments at batch_size=1. The paper recommends M1+CD-SSD for 'general deployment' (Section 4.5). Production LLM serving uses batch_size=8-32. At higher batch sizes, sequences with different confidence profiles may yield lower accept rates alpha, reducing CHR elevation and potentially lowering Ortho below 1.0.",
+      "suggestion": "Run a minimal batch_size sensitivity experiment at batch_size in {4, 8} before recommending M1+CD-SSD for production deployment. If Ortho drops below 1.0 at batch_size=8, the deployment recommendation must be qualified."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "All four appendices (A: per-seed results, B: CD-SSD pseudocode, C: M2 negative results, D: qualitative examples) are marked as [Placeholder]. Appendix D (qualitative examples) is critical for verifying that CD-SSD outputs are not degenerate (high-confidence frozen tokens could systematically include repetitive/wrong tokens that game the acceptance criterion). A submission with 4 placeholder appendices will be rejected by major venues.",
+      "suggestion": "Prioritize Appendix D first (qualitative examples from baseline, M1, CD-SSD, M1+CD-SSD on selected GSM8K problems). Without qualitative examples, the metric-gaming risk (frozen tokens being systematically wrong tokens with spuriously high confidence) cannot be ruled out."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "All [CITE:xxx] citation placeholders remain in the paper. Dozens of placeholder citations ([CITE:llada], [CITE:entropycache], [CITE:ssd], etc.) must be replaced with actual bibliography entries. Without citations, the paper cannot be reviewed for proper attribution.",
+      "suggestion": "Generate a references.bib file and replace all [CITE:xxx] placeholders before any submission. Key citations: LLaDA (GSAI-ML), EntropyCache (mscheong01), SSD (Gao et al. arXiv:2510.04147), SSMD (Campbell et al. arXiv:2510.03929)."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "H6 threshold mismatch: H6 predicts 'accept_rate >= 60% at tau=0.85' but the actual operating point uses tau=0.9, yielding accept_rate=0.52 (52%). H6 is listed as 'CONFIRMED' but the GO condition was revised from the original specification (>=50% at tau=0.85 shifted to the 52% measured at tau=0.9). This is acceptable as a pragmatic adjustment but should be documented as a hypothesis revision, not a confirmation of the original prediction.",
+      "suggestion": "Label H6 as 'CONFIRMED WITH REVISED THRESHOLD' and document that the operating threshold was adjusted from 0.85 to 0.9, with accept_rate decreasing from the predicted 60%+ to the measured 52%."
+    }
+  ],
+  "metric_gaming_risks": [
+    "MBPP 0.0% baseline makes AccRet=1.0 by convention for all methods (0/0 undefined), adding 0.25 padding to every method's combined AccRet regardless of actual performance. This metric should be excluded.",
+    "MATH500 11.1% baseline is near-floor: M3's MATH500 AccRet=2.44x (243.9%) represents going from ~56 correct to ~122 correct on 500 problems — a plausible improvement, but the massive retention ratio inflates the visual impression of M3's quality recovery.",
+    "QAS undisclosed 0.5x penalty for methods with >5% GSM8K accuracy drop systematically deflates CD-SSD (2.39→1.194) and M2 while leaving M3 (which accidentally improves GSM8K) and M1 unpenalized. This metric as applied is not comparable across methods.",
+    "HumanEval 2.4% baseline (39/164 samples needed for 2.4% but actual=4 passes=2.4%) means all methods achieve 0 passes. AccRet=0.0 for all, providing no differentiation between methods. Any method achieving even 1 pass would appear to dominate on this metric.",
+    "CD-SSD accept rate alpha=0.52 means the 52% of tokens frozen as S_accept are accepted based on T_draft=16 step confidence — not based on the T_full=64 ground truth. High-confidence frozen tokens could be systematically incorrect (e.g., short common words with high P(w) that are contextually wrong), and the refine phase cannot correct these since S_accept tokens are frozen. This is a fundamental quality risk not assessed with qualitative examples.",
+    "RESOLVED: tau=0.0 paradox is now a confirmed result, not a paradox. CD-SSD(tau=0.0) = naive-T16 in accuracy. The QAS 'improvement' of +88.5% at tau=0.0 vs tau=0.9 reflects the cost of the 64-step refine phase, not genuine quality from partitioning."
+  ],
+  "novelty_risks": [
+    "CD-SSD's primary differentiator from SSD is the coarse-step frozen-token partition enabling KV-cache synergy. The tau=0.0 experiment shows this partitioning adds no quality benefit beyond step reduction. The synergy at tau=0.9 is real (Ortho=1.385), but M1+naive-T16 achieves comparable or better practical QAS (7.40x at 57.2% AccRet vs 5.13x at 32.2%). The paper must acknowledge that the recommended deployment is M1+naive-T16, not M1+CD-SSD(tau=0.9).",
+    "The Ortho metric (Speedup(A+B) / Speedup(A) × Speedup(B)) is a natural product-rule extension used implicitly in any throughput engineering context (Amdahl's Law, hardware DVFS + sparsity). The paper does not claim metric novelty but should explicitly acknowledge this to avoid reviewer concern.",
+    "The binary composability claim is based on 3 data points on 1 model. It is better framed as 'a trajectory-preserving classification hypothesis' validated on the methods studied, rather than a universal MDM property.",
+    "The failure mode atlas for M2 applies to simplified Saber without backtracking. The actual Saber paper's backtracking mechanism is specifically designed to address the mask inconsistency problem identified as FM1. The NO_GO verdict may be method-specific to the simplified implementation."
+  ],
+  "reproducibility_gaps": [
+    "FastDLLM was NOT reproduced. Table 1 comparison uses published paper numbers from different hardware/protocol.",
+    "Dream-7B-Instruct download failed; single-model study. Cross-model validation absent.",
+    "Saber backtracking mechanism was not implemented. NO_GO verdict for M2 applies to simplified version only.",
+    "Pairwise Ortho experiments used 2 seeds on 200/1319 GSM8K samples (15% scale). Full 3-seed validation incomplete.",
+    "CHR_refine=94% (0.940) cited as 'measured' in paper and Figure 8 but no supporting raw data file found. Analytically derivable from alpha=0.52 + entropy zero property. Should be labeled analytical, not measured.",
+    "Appendix D (qualitative output examples) is a placeholder. Degenerate output risk (high-confidence frozen tokens that are systematically wrong) cannot be ruled out without inspecting actual CD-SSD outputs vs baseline.",
+    "M2 J=6 and J=8 produce identical results to 3 decimal places — possible code/data deduplication artifact not disclosed.",
+    "tau=0.0 paradox NOW RESOLVED (full_tau0_comparison.json): CD-SSD(tau=0.0) = naive-T16 in accuracy (both 0.420 GSM8K mean). M1+naive-T16 confirmed at 7.40x speedup, 57.2% GSM8K AccRet. This result is verified and must be incorporated into paper."
+  ]
+}

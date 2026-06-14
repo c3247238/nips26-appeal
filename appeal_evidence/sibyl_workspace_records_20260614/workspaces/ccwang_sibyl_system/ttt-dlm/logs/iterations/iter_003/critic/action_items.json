@@ -1,0 +1,182 @@
+[
+  {
+    "id": "C1",
+    "priority": "CRITICAL",
+    "category": "writing",
+    "title": "Update all tables with completed full-scale results",
+    "description": "full_scale_summary.json contains completed results for ALL 7 methods on Countdown-500, but Table 1 in the paper still shows DTA (4.8%), DTA+ReMDM (3.6%), and SCP (9.1%) as 'pending' or 'interim'. Update Table 1 immediately. Remove all 'pending' markers. Report the actual numbers honestly.",
+    "effort": "0.5 days",
+    "impact": "Fatal — presenting known results as 'pending' is deceptive and will be caught immediately by reviewers",
+    "blocking": true
+  },
+  {
+    "id": "C2",
+    "priority": "CRITICAL",
+    "category": "writing",
+    "title": "Retitle and reframe paper around DMI and the information spectrum",
+    "description": "The title 'Denoising-Time Adaptation' centers a method that shows 4.8% accuracy vs 4.7% vanilla on the only full-scale benchmark. The paper's validated contribution is DMI (9.3%) and the information augmentation spectrum framework. Options: (A) Retitle to 'Cross-Step Information Transfer in Masked Diffusion: From Embedding Memory to Parameter Adaptation' with DMI as primary finding and DTA as instructive negative result; (B) Retitle to 'Breaking the Information Island: Diffusion Memory Injection for Masked Language Models' focusing on DMI; (C) Keep DTA title but restructure narrative to honestly present DTA's failure as a key finding alongside DMI's success.",
+    "effort": "2-3 days (major restructuring)",
+    "impact": "Fatal — current framing is misleading and will result in rejection",
+    "blocking": true
+  },
+  {
+    "id": "C3",
+    "priority": "CRITICAL",
+    "category": "writing",
+    "title": "Rewrite abstract to reflect actual results",
+    "description": "Current abstract claims DTA 'significantly outperforms' remasking methods. Full-scale data shows DTA (4.8%) = vanilla (4.7%) and DTA+ReMDM (3.6%) is actively harmful. The abstract must: (1) lead with DMI as the primary validated finding; (2) describe DTA as theoretically motivated but showing limited empirical gains; (3) present the information augmentation spectrum as the conceptual contribution; (4) remove all false claims of DTA superiority.",
+    "effort": "0.5 days",
+    "impact": "Fatal — false claims in abstract are grounds for rejection",
+    "blocking": true
+  },
+  {
+    "id": "C4",
+    "priority": "CRITICAL",
+    "category": "experiment",
+    "title": "Analyze why DTA+ReMDM is actively harmful",
+    "description": "DTA+ReMDM (3.6%) is worse than both DTA alone (4.8%) and ReMDM alone (4.4%). The paper claims they are 'orthogonal and complementary' — this claim is falsified. Needs investigation: Does DTA degrade confidence calibration, making ReMDM's confidence-based remasking worse? Run calibration analysis (binned confidence vs accuracy) for DTA-augmented model vs vanilla. This analysis is necessary to explain the negative interaction in the paper.",
+    "effort": "1 day",
+    "impact": "Critical — the 'orthogonal and complementary' claim is in the method section and must be corrected",
+    "blocking": true
+  },
+  {
+    "id": "H1",
+    "priority": "HIGH",
+    "category": "writing",
+    "title": "Address VDTA theory vs practice disconnect",
+    "description": "Section 3.2 proves ELBO monotonicity and information accumulation. DTA shows 4.8% on Countdown vs 4.7% vanilla — no improvement. The paper never confronts this contradiction. Add a subsection to Discussion explaining: (1) ELBO improvement may be real but irrelevant to task accuracy; (2) MLM self-supervision teaches token co-occurrence, not arithmetic correctness; (3) the strong convexity assumption may not hold; (4) information accumulation (higher confidence) without accuracy improvement = calibration degradation.",
+    "effort": "0.5 days",
+    "impact": "High — reviewers will ask this question immediately",
+    "blocking": false
+  },
+  {
+    "id": "H2",
+    "priority": "HIGH",
+    "category": "writing",
+    "title": "Downgrade all pilot-scale claims to hypothesis-level",
+    "description": "Sections 4.3, 6.2, and the conclusion build substantive arguments on N=16 pilot data (MBPP +12.5pp, GSM8K patterns). The paper itself documents 24pp pilot-to-full-scale discrepancies. All pilot-scale interpretive claims must: (1) be explicitly labeled as 'hypothesis-generating only'; (2) include quantified uncertainty about scaling; (3) not form the basis of entire subsections (remove Section 6.2 'Why DTA excels on code generation' or rewrite as speculative). Section 4.3 should present pilot data in a 'Preliminary observations' format with heavy caveats.",
+    "effort": "1 day",
+    "impact": "High — internal contradiction between Lesson 2 and pilot-based claims",
+    "blocking": false
+  },
+  {
+    "id": "H3",
+    "priority": "HIGH",
+    "category": "experiment",
+    "title": "Complete full-scale DMI ablation",
+    "description": "DMI is the paper's primary validated contribution but has minimal ablation support. Needed: (1) Alpha sweep: mixing weight in {0.1, 0.2, 0.3, 0.5, 0.7}; (2) Temperature sweep: tau_soft in {0.1, 0.3, 0.5, 1.0, 2.0}; (3) Negative control: inject random embeddings with same norm; (4) Hard-prediction baseline: carry over top-1 prediction instead of soft embedding; (5) Multi-step lookback: carry embeddings from last 2-3 steps. At minimum N=200 on Countdown.",
+    "effort": "2-3 days GPU",
+    "impact": "High — primary contribution needs ablation support",
+    "blocking": false
+  },
+  {
+    "id": "H4",
+    "priority": "HIGH",
+    "category": "experiment",
+    "title": "Run formal statistical tests on completed Countdown-500 data",
+    "description": "The paper promises McNemar + Bonferroni but no p-values appear in the text. Required tests on completed full-scale data: (1) DMI vs vanilla (expect significant); (2) SCP vs vanilla (expect significant); (3) DTA vs vanilla (expect not significant); (4) DMI vs SCP (are they significantly different?); (5) DTA+ReMDM vs vanilla (is the degradation significant?). Report all p-values and 95% CIs.",
+    "effort": "0.5 days",
+    "impact": "High — claimed statistical methodology not executed",
+    "blocking": false
+  },
+  {
+    "id": "H5",
+    "priority": "HIGH",
+    "category": "experiment",
+    "title": "Complete cross-benchmark full-scale evaluation for DMI",
+    "description": "DMI is the primary contribution but is only validated on Countdown-500. Need DMI full-scale on: (1) GSM8K-1319 x 3 seeds; (2) MBPP-500 x 3 seeds. If DMI shows consistent improvement across benchmarks, the paper becomes much stronger. If DMI is Countdown-specific, the paper must acknowledge this limitation.",
+    "effort": "3-4 days GPU",
+    "impact": "High — single-benchmark validation is insufficient for a methods paper",
+    "blocking": false
+  },
+  {
+    "id": "H6",
+    "priority": "HIGH",
+    "category": "writing",
+    "title": "Report partial GSM8K full-scale data",
+    "description": "full_scale_summary.json contains partial GSM8K results: vanilla 29.6% (N=1300), DTA 29.0% (N=900), DTA+ReMDM 24.5% (N=400), ReMDM-conf 21.3% (N=1300). These show DTA = vanilla and ReMDM-conf is harmful on GSM8K. The paper ignores this data entirely. It must be reported with appropriate 'partial' caveats.",
+    "effort": "0.5 days",
+    "impact": "High — omitting available data undermines credibility",
+    "blocking": false
+  },
+  {
+    "id": "H7",
+    "priority": "HIGH",
+    "category": "writing",
+    "title": "Fix computational overhead inconsistencies",
+    "description": "DTA overhead reported as '~4x' (method section), '~2-3x' (Section 3.1), 6.2x (actual: 23.0s/3.7s in Table 1). SCP is '~7x' (method) vs '~2x' (outline) vs 12.4x (actual: 45.9s/3.7s). These inconsistencies erode trust. Reconcile all overhead numbers across all sections to match actual measurements.",
+    "effort": "0.5 days",
+    "impact": "High — inconsistencies signal carelessness to reviewers",
+    "blocking": false
+  },
+  {
+    "id": "M1",
+    "priority": "MEDIUM",
+    "category": "experiment",
+    "title": "Add calibration analysis for DTA",
+    "description": "DTA increases prediction confidence (0.969 to 0.995) without improving accuracy. This suggests calibration degradation. Compute expected calibration error (ECE) and reliability diagrams for DTA vs vanilla. If DTA degrades calibration, this explains: (1) why DTA alone doesn't help; (2) why DTA+ReMDM is harmful (ReMDM relies on confidence).",
+    "effort": "1 day",
+    "impact": "Medium-high — explains the central negative result",
+    "blocking": false
+  },
+  {
+    "id": "M2",
+    "priority": "MEDIUM",
+    "category": "experiment",
+    "title": "Add compute-matched baselines",
+    "description": "DTA costs ~4-6x vanilla. Test: (1) vanilla with T=512 (4x more steps); (2) Best-of-4 vanilla (generate 4 candidates, select best). If these outperform DTA, the computational overhead is not justified. This analysis strengthens the case for DMI's superior cost-effectiveness.",
+    "effort": "1 day GPU",
+    "impact": "Medium — fair comparison requires compute matching",
+    "blocking": false
+  },
+  {
+    "id": "M3",
+    "priority": "MEDIUM",
+    "category": "writing",
+    "title": "Add qualitative examples",
+    "description": "No generated text examples appear anywhere in the paper. Add at least 3 examples comparing vanilla, DMI, DTA, and ReMDM outputs on the same Countdown problem. Show: (1) a case where DMI succeeds and vanilla fails; (2) a case where DTA changes output but doesn't improve correctness; (3) a case where ReMDM creates token churning.",
+    "effort": "0.5 days",
+    "impact": "Medium — readers need to see what the methods actually produce",
+    "blocking": false
+  },
+  {
+    "id": "M4",
+    "priority": "MEDIUM",
+    "category": "writing",
+    "title": "Generate all planned figures",
+    "description": "The outline defines 8 figures/tables but none exist. At minimum generate: (1) Figure 1: DTA algorithm overview; (2) Figure 3: Token diagnostics bar chart; (3) Figure 4: LoRA norm trajectories; (4) Table 1 updated with complete data. Figures are essential for a submission-ready paper.",
+    "effort": "1-2 days",
+    "impact": "Medium — zero figures is unacceptable for any venue",
+    "blocking": false
+  },
+  {
+    "id": "M5",
+    "priority": "MEDIUM",
+    "category": "ideation",
+    "title": "Reframe DTA's negative result as a finding",
+    "description": "DTA's failure on reasoning tasks is itself a contribution. Frame it as: 'Self-supervised MLM adaptation cannot bridge the gap between local token co-occurrence and global constraint satisfaction in reasoning tasks.' This finding has implications for all TTT-based approaches to DLMs and should be presented as a key takeaway, not hidden.",
+    "effort": "0.5 days",
+    "impact": "Medium — turns a negative into a contribution",
+    "blocking": false
+  },
+  {
+    "id": "L1",
+    "priority": "LOW",
+    "category": "writing",
+    "title": "Add positioning table empirical column",
+    "description": "The related work positioning table claims DTA uniquely satisfies all 5 criteria. Add a 6th column 'Validated empirical gain' showing that DTA has not demonstrated accuracy improvement despite satisfying all theoretical criteria. This honest addition actually strengthens the paper's analytical contribution.",
+    "effort": "0.5 days",
+    "impact": "Low-medium — preempts reviewer criticism of misleading table",
+    "blocking": false
+  },
+  {
+    "id": "L2",
+    "priority": "LOW",
+    "category": "planning",
+    "title": "Document planning lessons for future iterations",
+    "description": "Record in research diary: (1) Include early falsification checkpoints (N>=100) before full-scale commitment; (2) Elevate all ablation methods to first-class status if they could be independent contributions; (3) Run interim statistical tests during execution, not just at the reporting stage; (4) Pilot N=16 is hypothesis-generating only, never use for GO/NO-GO decisions.",
+    "effort": "0.5 days",
+    "impact": "Low — process improvement for future projects",
+    "blocking": false
+  }
+]

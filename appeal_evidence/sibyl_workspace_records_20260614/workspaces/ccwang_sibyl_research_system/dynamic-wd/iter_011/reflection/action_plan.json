@@ -1,0 +1,159 @@
+{
+  "issues_classified": [
+    {
+      "id": "I1",
+      "description": "No ImageNet experiments despite 7+ iterations of flagging. Project constraints mandate ImageNet. Paper claims 'sufficiently overparameterized problems' but evidence is CIFAR-10/100 only (32x32, <=15M params). This is the single largest barrier to top-venue acceptance. Zero diagnostic work has been done (no smoke test, no data path verification).",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "PHASE 0 (30 min): SSH into server, verify ImageNet data path, run 1-epoch ResNet-50 smoke test with batch_size=64, document specific failure or success. PHASE 1 (8 GPU-hours): ImageNet-100 (100-class subset) x 3 methods (constant, cwd_hard, no_wd) x 3 seeds x ResNet-50 = 9 runs. PHASE 2 (1 hour): Add Table 7 with ImageNet results, update abstract/conclusion. Verification: 9 summary.json files with valid accuracy.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:no-imagenet-7th-iteration:imagenet001"
+    },
+    {
+      "id": "I2",
+      "description": "Statistical power insufficient for null-result claims. N=3 gives ~15-20% power for 0.5% effects. TOST equivalence confirmed in only 6/12 comparisons at delta=1.0%. A null-result paper requires higher evidentiary burden than a positive-result paper.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Add 2 seeds (789, 1024) for 4 key AdamW CIFAR-10 comparisons: constant vs {cwd_hard, swd, cosine_schedule, no_wd}. Cost: 8 runs, ~2 GPU-hours. Recompute TOST with N=5, expect pass rate to improve from 50% to >75%. Can run in parallel with ImageNet on separate GPUs. Verification: 8 new summary.json files; TOST table updated in paper.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:tost-power-insufficient:power001"
+    },
+    {
+      "id": "I3",
+      "description": "CSI listed as a primary contribution (Section 1.3, item 2) despite zero predictive value (rho<0.3, p>0.3) and arbitrary component weights (0.4, 0.3, 0.3). Sensitivity analysis tests only 3 nearly-identical weight sets. Flagged for 6+ iterations without demotion. This is a <1 hour text fix that has been deferred every iteration.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "In Section 1.3, change CSI from 'contribution' to 'exploratory diagnostic tool'. Add honest framing: 'CSI captures coupling stability differences but does not predict accuracy outcomes in our experiments.' Reduce CSI discussion by 50%. Estimated: 45 minutes. Verification: Section 1.3 no longer lists CSI as a contribution.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:csi-no-predictive-value:csi001"
+    },
+    {
+      "id": "I4",
+      "description": "Paper references Appendix A but no appendix exists. 6th consecutive iteration of this issue. Missing proof sketches for theorems referenced in framework section.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Two options: (A) Write 1-page appendix with proof sketches for the 2 remaining referenced results (Phi closure, BEM derivation). Estimated: 1.5 hours. (B) Remove all appendix references from paper text. Estimated: 15 minutes. Verification: grep paper.md for 'Appendix' returns zero hits OR appendix file exists.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:missing-appendix-6th-iteration:appendix001"
+    },
+    {
+      "id": "I5",
+      "description": "Abstract implies full factorial design ('7 methods, 2 optimizers, 2 architectures, 2 datasets') suggesting 168 runs. Actual: 84 (ResNet-20) + 21 (VGG-16-BN SGD/CIFAR-10 only) = 105. Reviewers expecting VGG+AdamW or VGG+CIFAR-100 will be disappointed.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Revise abstract to decompose: '105 experiments: 84 on ResNet-20 (7 methods x 2 optimizers x 2 datasets x 3 seeds) and 21 on VGG-16-BN (7 methods x SGD x CIFAR-10 x 3 seeds).' Estimated: 5 minutes. Verification: abstract states 84+21.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:abstract-factorial-misleading:abstract001"
+    },
+    {
+      "id": "I6",
+      "description": "NoBN ablation data from iter_005 exists (constant: 87.74, CWD: 87.62) but only 2/7 methods tested. Section 6.2 presents these as evidence for the BN mechanism hypothesis, but spread 0.11pp WITHOUT BN is narrower than 0.25pp WITH BN, contradicting the hypothesis. Presenting 2/7 as evidence for a 7-method claim is misleading.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Option A (preferred): Run remaining 5 NoBN methods (5 x 3 seeds = 15 runs, ~4 GPU-hours). Option B: Remove partial NoBN results from Section 6.2 and rewrite BN discussion as untested hypothesis. Do NOT present 2/7 as evidence. Verification: Section 6.2 either has all 7 NoBN methods or no NoBN data.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:nobn-incomplete-contradictory:nobn001"
+    },
+    {
+      "id": "I7",
+      "description": "Section 5.7 (Cumulative Alignment Analysis) presents two non-significant correlations (rho=-0.161, p=0.485; rho=0.107, p=0.645) and occupies substantial space for a double-null finding. While now correctly framed as null results (improvement from iter_010), the section adds limited insight beyond AIS invariance already covered.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Condense Section 5.7 to 1-2 paragraphs or move to appendix. The null result is informative but does not need its own full section with figures. Estimated: 30 minutes. Verification: Section 5.7 is <=2 paragraphs or moved to appendix.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:alignment-analysis-low-roi:alignment001"
+    },
+    {
+      "id": "I8",
+      "description": "Orphan figure certified_band.png still contains PMP-WD in legend. Not referenced in paper text but exists in figures directory. Could contaminate LaTeX compilation if accidentally included.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Delete certified_band.png from figures directory or regenerate without PMP-WD. Estimated: 5 minutes. Verification: file deleted or PMP-WD absent from legend.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:orphan-certified-band:orphan001"
+    },
+    {
+      "id": "I9",
+      "description": "Proposition 1 (composition closure: product of non-negative functions is non-negative) is trivially obvious and inflates theoretical contribution appearance.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Verify Proposition 1 is an inline remark, not a labeled proposition. If still labeled, downgrade. Estimated: 5 minutes.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:proposition1-trivial:prop001"
+    },
+    {
+      "id": "I10",
+      "description": "VGG-16-BN tested only with SGD/CIFAR-10 (21 runs). Architecture x optimizer effects fully confounded. Paper cannot distinguish whether invariance is due to BN, optimizer, or architecture without VGG+AdamW comparison.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add VGG-16-BN + AdamW on CIFAR-10: 7 methods x 3 seeds = 21 runs, ~6 GPU-hours. If VGG+AdamW shows invariance, confirms cross-architecture robustness. If not, revise BN hypothesis. Lower priority than ImageNet and extra seeds. Verification: 21 new summary.json under vgg16bn/adamw/.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:vgg-adamw-confounded:vgg001"
+    },
+    {
+      "id": "I11",
+      "description": "Reproducibility gaps: CSI Hessian computation unspecified, UnifiedAdamW/UnifiedSGD code not released, SWD running mean details missing, GPU type and wall-clock time not reported in paper.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add to Section 4 or appendix: GPU type (RTX PRO 6000 Blackwell, 98GB), per-experiment wall-clock time (~15 min/ResNet-20 run), code release placeholder. Add CSI computation pseudocode. Estimated: 1 hour. Verification: Section 4 contains GPU type and wall-clock time.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:reproducibility-gaps:repro001"
+    }
+  ],
+  "issues_fixed": [
+    "Figure 8 (theorem2_validation.png) PMP-WD ghost data: FIXED. Figure now shows 7 methods, N=21 data points, correlations recomputed correctly (rho=-0.161/p=0.485, rho=0.107/p=0.645). (iter_010 C2: FIXED)",
+    "Figure 5 (diagnostic heatmap) half_lambda BEM=0.000: FIXED. Now shows BEM=0.500, matching Table 6. (iter_010 C1: FIXED, confirmed by supervisor cross-validation)",
+    "Title 'Why' overclaim: FIXED. Changed to 'When', removing causation claim that was unsupported by evidence. (iter_010 C8: FIXED)",
+    "Alignment analysis text updated to N=21 with correct rho/p values after PMP-WD removal. (iter_010 C6: PARTIALLY FIXED -- framing improved but section still occupies excessive space)"
+  ],
+  "success_patterns": [
+    "Data integrity cleanup achieved: ALL figure-table-text consistency issues that plagued iterations 7-10 are now resolved. This is the first clean-data state in 5 iterations. Confirms data-first, text-second ordering.",
+    "Targeted fix strategy outperforms rewrites: iter_011 focused on specific figure regeneration and precise text edits. Score rose from 6.5 to 6.75 (supervisor JSON) / 7.0 (supervisor markdown). No quality crashes from rewrites.",
+    "Statistical methodology remains above community norm: paired t-tests with Bonferroni, Cohen's d, TOST, power analysis, explicit detection thresholds. This is the paper's defensible competitive advantage.",
+    "Three-stage review pipeline (supervisor + critic + writing review) catches distinct issues. Supervisor caught heatmap BEM and title; critic caught missing appendix. Coverage is complementary.",
+    "Phi modulator taxonomy and CWD/random-mask bang-bang control insight praised across 9+ iterations. This is the paper's structural backbone.",
+    "Strategic scope reduction to empirical-only paper (removing Lyapunov/PMP/certified-band) was correct. The paper is internally consistent and defensible."
+  ],
+  "systemic_patterns": [
+    "EXPERIMENT EXECUTION BLOCKAGE (critical): ImageNet has been flagged for 7 iterations with ZERO progress. Not even a diagnostic smoke test has been attempted. The system can plan experiments but fails to execute them when they require non-trivial setup (new dataset, new architecture). Root cause is likely: no Phase 0 diagnosis step in the planning pipeline.",
+    "TEXT FIX DEFERRAL: Six text-level fixes (CSI demotion, alignment condensation, abstract decomposition, appendix references, Proposition 1, reproducibility details) each take <1 hour but persist across 3-6 iterations. They are always deprioritized below data/figure work. Solution: batch them as a single 3-hour block at iteration start.",
+    "QUALITY OSCILLATION PATTERN: Score trajectory 5.0->7.8->8.2->5.5->5.5->7.0->5.0->6.5->6.5->6.0->6.5->6.75. Gains come from experiment/data work; crashes from rewrites. Lesson: never do full rewrites.",
+    "SCORE CEILING AT ~6.75 WITHOUT NEW EXPERIMENTS: Text-only iterations (iter_007-011) have oscillated between 6.0-6.75. Supervisor estimates: ImageNet -> 7.5, + seeds + NoBN -> 8.0. Experiment execution is the only path to meaningful improvement."
+  ],
+  "quality_trajectory": "improving",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 0,
+    "total_gpu_idle_minutes": 0.0,
+    "bottleneck_stages": [
+      "experiment_cycle"
+    ],
+    "suggestions": [
+      "ZERO GPU utilization for iterations 7-11 (5 consecutive text-only iterations). All 8 GPUs idle. This is the primary efficiency failure.",
+      "Proposed compute plan for iter_012: ImageNet-100 (9 runs, ~8 GPU-hours on 2-3 GPUs) + Extra seeds (8 runs, ~2 GPU-hours on 1-2 GPUs) + NoBN completion (15 runs, ~4 GPU-hours on 2 GPUs) = 32 runs, ~14 GPU-hours total. With 8 GPUs, wall-clock ~2-3 hours.",
+      "All three experiment campaigns are independent and can run in parallel on different GPU subsets.",
+      "Text fix batch (CSI demotion, appendix, abstract, reproducibility) should run CONCURRENTLY with experiments, not sequentially.",
+      "VGG+AdamW (21 runs, ~6 GPU-hours) is lower priority but can fill remaining GPU slots if capacity allows."
+    ]
+  },
+  "recommended_focus": [
+    "1. BATCH TEXT FIXES (3 hours, before/during experiments): CSI demotion, appendix references, abstract 84+21 decomposition, Section 5.7 condensation, reproducibility details, orphan certified_band.png deletion",
+    "2. EXPERIMENT PHASE 0 (30 min): ImageNet smoke test -- diagnose why 7 iterations produced zero progress. Document specific blocker or confirm feasibility.",
+    "3. EXPERIMENT: ImageNet-100 (9 runs, ~8 GPU-hours) -- highest single-action ROI, estimated +0.75 score points",
+    "4. EXPERIMENT: Extra seeds N=5 for 4 key comparisons (8 runs, ~2 GPU-hours) -- strengthens TOST power for null-result claims",
+    "5. EXPERIMENT: NoBN completion 5/7 methods (15 runs, ~4 GPU-hours) -- properly tests or falsifies BN hypothesis",
+    "6. LOWER PRIORITY: VGG+AdamW (21 runs, ~6 GPU-hours) -- disentangles architecture x optimizer confound"
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

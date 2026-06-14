@@ -1,0 +1,227 @@
+{
+  "project": "dlm-acceleration",
+  "iteration": 2,
+  "created": "2026-04-15",
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_sec": 900,
+    "note": "100+ samples required for reliable signal (n=16 causes signal reversal per evolution lessons)"
+  },
+  "pilot_tasks": [
+    {
+      "task_id": "d2cache_integration_pilot",
+      "priority": 1,
+      "gate": true,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 45,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100
+      },
+      "pass_criteria": "d2Cache loads without error AND at least one config achieves TPS > 1.2x baseline (31 TPS on GSM8K)",
+      "fail_action": "Fall back to simplified M1 with theoretical speedup estimation; label as 'projected' in paper",
+      "decision_rule": {
+        "TPS_ge_1.5x_AND_acc_drop_lt_2pct": "Use kernel-level M1 for all subsequent experiments",
+        "TPS_1.2_to_1.5x_OR_acc_drop_gt_2pct": "Report both simplified and kernel-level; use kernel-level for Pareto but flag limitation",
+        "TPS_lt_1.2x_OR_integration_error": "Fall back to theoretical speedup with clear labeling"
+      },
+      "parameters": {
+        "entropy_thresholds": [0.5, 1.0, 2.0],
+        "d2cache_kp": [0.25, 0.50],
+        "d2cache_kr": [2, 4],
+        "d2cache_rou": [0.1, 0.25]
+      }
+    },
+    {
+      "task_id": "m1_pareto_corrected",
+      "priority": 2,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 20,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100,
+        "humaneval": 50
+      },
+      "pass_criteria": "At least one threshold achieves QAS > 0.8 on GSM8K AND all 3 thresholds produce valid TPS measurements",
+      "parameters": {
+        "entropy_thresholds": [0.5, 1.0, 2.0],
+        "qas_formula": "speedup * accuracy_retention (NO penalty)"
+      },
+      "depends_on": ["d2cache_integration_pilot"],
+      "reuse_from_iter_001": "iter_001/exp/results/full_baseline/llada_baseline_full.json (baseline reference)"
+    },
+    {
+      "task_id": "igsd_pareto_corrected",
+      "priority": 2,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 25,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100
+      },
+      "pass_criteria": "At least one (tau, T_draft) config achieves accuracy_retention > 0.50 AND speedup > 1.5x on GSM8K",
+      "parameters": {
+        "tau": [0.7, 0.85, 0.9],
+        "T_draft": [16, 32, 48],
+        "note": "T_draft=32 and 48 are NEW in iter_002; iter_001 only tested 4, 8, 16"
+      },
+      "key_question": "Does conservative T_draft=32-48 push accuracy retention above 60% while maintaining >= 2x speedup?"
+    },
+    {
+      "task_id": "m3_pareto_corrected",
+      "priority": 2,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 20,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100,
+        "humaneval": 50
+      },
+      "pass_criteria": "At least one gw achieves accuracy_retention >= 0.95 on GSM8K AND speedup > 1.0x",
+      "parameters": {
+        "guidance_weight": [0.3, 0.5, 0.7],
+        "guide_model": "Qwen2.5-0.5B"
+      }
+    },
+    {
+      "task_id": "pairwise_m1_igsd_full",
+      "priority": 3,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 15,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100
+      },
+      "pass_criteria": "Combined Ortho > 1.0 (synergy confirmed)",
+      "depends_on": ["m1_pareto_corrected", "igsd_pareto_corrected"],
+      "key_question": "Does M1+IGSD synergy (iter_001 Ortho=1.385) reproduce with corrected metric?"
+    },
+    {
+      "task_id": "pairwise_m1_m3_full",
+      "priority": 3,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 15,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100
+      },
+      "pass_criteria": "GSM8K-only AccRet > 0.90 (quality preservation confirmed)",
+      "depends_on": ["m1_pareto_corrected", "m3_pareto_corrected"],
+      "key_question": "Was the iter_001 full pairwise Ortho=0.301 caused by HumanEval 0% dragging down combined?"
+    },
+    {
+      "task_id": "pairwise_m3_igsd_full",
+      "priority": 3,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 15,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100
+      },
+      "pass_criteria": "Ortho values computed (interference is expected valid finding)",
+      "depends_on": ["igsd_pareto_corrected", "m3_pareto_corrected"]
+    },
+    {
+      "task_id": "dream7b_baseline",
+      "priority": 2,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 45,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100
+      },
+      "pass_criteria": "Model downloaded and loaded AND baseline GSM8K accuracy > 0.30",
+      "fail_action": "Use LLaDA with output lengths {128, 256, 512} as alternative generalization test"
+    },
+    {
+      "task_id": "ar_baseline_comparison",
+      "priority": 2,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 45,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100
+      },
+      "pass_criteria": "vLLM inference completes AND TPS measurements recorded for both batch sizes",
+      "parameters": {
+        "ar_model": "Qwen2.5-7B-Instruct",
+        "draft_model": "Qwen2.5-0.5B",
+        "batch_sizes": [1, 8]
+      }
+    },
+    {
+      "task_id": "igsd_ablation_refined",
+      "priority": 3,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 30,
+      "benchmarks": {
+        "gsm8k": 200,
+        "math500": 100
+      },
+      "pass_criteria": "All ablation parts complete AND KL profile data recorded for >= 80 samples",
+      "depends_on": ["igsd_pareto_corrected"]
+    },
+    {
+      "task_id": "chr_refine_measurement",
+      "priority": 3,
+      "gate": false,
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "estimated_minutes": 30,
+      "benchmarks": {
+        "gsm8k": 100
+      },
+      "pass_criteria": "Per-step CHR data recorded for >= 80 samples AND refine-phase CHR reported with mean and std",
+      "depends_on": ["d2cache_integration_pilot"],
+      "key_question": "Is CHR_refine=94% empirically confirmed or only analytically derivable?"
+    }
+  ],
+  "execution_strategy": {
+    "parallel_tracks": [
+      {
+        "track": "A",
+        "gpu": 0,
+        "sequence": ["d2cache_integration_pilot", "m1_pareto_corrected", "chr_refine_measurement", "pairwise_m1_igsd_full", "pairwise_m1_m3_full"]
+      },
+      {
+        "track": "B",
+        "gpu": 1,
+        "sequence": ["igsd_pareto_corrected", "m3_pareto_corrected", "pairwise_m3_igsd_full", "dream7b_baseline", "ar_baseline_comparison"]
+      }
+    ],
+    "post_parallel": ["threeway_pareto_pilot", "igsd_ablation_refined", "batch_sensitivity"],
+    "estimated_total_wall_clock_hours": 5.0,
+    "notes": "Track A blocked on d2cache gate; Track B can start immediately with IGSD and M3"
+  }
+}

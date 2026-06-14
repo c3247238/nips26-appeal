@@ -1,0 +1,117 @@
+{
+  "score": 5.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 6,
+    "soundness": 5,
+    "experiments": 5,
+    "reproducibility": 4
+  },
+  "summary": "The paper addresses a genuine gap in the SAE interpretability literature with three intellectually meaningful contributions: a weight-only EDA absorption screening metric, a cross-domain null result (H3 falsified), and a three-subtype absorption taxonomy with an early-dominance finding. However, four structural defects would cause rejection at a top venue: (1) EDA is near-identical to the existing SAEBench encoder_decoder_cosine_sim metric (Pearson r > 0.999), making the novelty claim contingent on the theorem — which is a proof sketch, not a proof. (2) The central 'early absorption dominance' finding (72-75% early-type) rests on only two SAE configurations (n=16 and n=65 absorbed latents at L12-16k and L12-65k), with the EDA ordering prediction (late > partial > early) failing at both configurations in the raw data. (3) The RAVEL cross-domain contribution collapsed under a proper shuffled hierarchy control (0/9 domain-SAE combinations pass), but the paper still carries remnant claims about intra-RAVEL coherence (rho=0.924) that originated from the wrong-model-probe experiment and whose coherence is replicated in the shuffled null (shuffled Spearman rho = 1.0 on n=3). (4) ITAC achieves 3.14% FN reduction against a 20% pre-registered target, with 4/10 targets unable to find parent candidates and 5 of the remaining 6 showing exactly 0% FN reduction — a near-null result billed as a proof-of-concept. The paper has been substantially restructured since the previous review (April 12) to incorporate R4 findings, now correctly reporting GPT2-L6 exact-label AUROC = 0.629 (n_pos=67 from R3 full mode), the H3 falsification, and the pivot to a characterization-only framing. These updates improve honest reporting but do not resolve the underlying experimental deficiencies. A targeted set of fixes would raise this to a 7.0-7.5 submission.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "novelty",
+      "severity": "critical",
+      "description": "EDA (1 - cosine(encoder_j, decoder_j)) is near-identical to the existing SAEBench metric 'encoder_decoder_cosine_sim', validated by Pearson r > 0.999 (paper's own Section 4.2) and delta AUROC = 0.0 in the R4 direct validation. The Introduction presents EDA as a new metric without disclosing that SAEBench already computes this quantity. Furthermore, R4 confirms EDA = 1 - dec_cosine is a mathematical identity (Pearson r = -1.0 across all three model families). The novelty of the contribution rests entirely on Theorem 1 and the systematic AUROC evaluation. If the theorem is informal (see soundness issue), the novelty claim degrades from 'new metric with theoretical grounding' to 're-evaluation of an existing SAEBench quantity'.",
+      "suggestion": "In Section 3 and Introduction, explicitly disclose that encoder_decoder_cosine_sim has been in SAEBench. Frame EDA's contributions as (1) formal lower bound theorem — if proved rigorously — linking the quantity to absorption degree, (2) first systematic AUROC evaluation against supervised absorption labels across multiple SAE configurations, and (3) D-EDA as a directional extension. Do not claim EDA is a new metric."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Theorem 1 (EDA Lower Bound) is stated as a formal theorem but the proof sketch does not constitute a derivation. The critical claim — 'absorption introduces a perturbation [that pushes w_{e,j} away from d_j] by an amount proportional to delta * ||d_c|| * sin(theta_{jc}) when projected perpendicular to d_j' — is asserted without derivation from the SDL loss stationarity conditions. Delta-absorption is not formally defined before the theorem (Section 3.2 says 'defined formally in Section 3' while inside Section 3 — a circular reference). The bound delta^2*sin^2(theta_{jc})/(2+delta^2) appears without algebraic derivation. This would not survive peer review by an optimization theorist.",
+      "suggestion": "Either provide a genuine proof in an appendix — (1) formally define delta-absorption as a mathematical quantity, (2) state the first-order stationarity conditions of the biconvex SDL loss, (3) show how delta-absorption creates a bias in the encoder gradient, (4) derive the bound algebraically — or downgrade Theorem 1 to a 'Heuristic Claim' or 'Proposition (informal)' with the theoretical motivation stated clearly."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The early-absorption dominance finding (72-75% early-type), presented as the paper's central actionable contribution, rests on n=16 absorbed latents at L12-16k and n=65 at L12-65k (two SAE configurations). Cross-validating against phase2a_taxonomy.json confirms: eda_ordering_holds=FALSE for both configurations at the primary threshold=0.3. The full EDA ordering (late > partial > early) does not hold: partial-type latents have LOWER median EDA than early-type at both configurations (L12-65k: partial median = 0.652 < early median = 0.668; L12-16k: same reversal). The paper states 'EDA ordering (late > partial > early) holds at L12-65k (KW p=0.0002)' but the KW test establishes late > early, not the full three-way ordering. The paper's Table 3 describes early absorption as having 'Low (decoder-absent)' EDA signal — contradicted by the data showing early-type has HIGHER EDA than partial-type.",
+      "suggestion": "Either expand taxonomy analysis to all 6 Gemma Scope configurations plus the GPT-2 SAEs, or explicitly qualify all taxonomy claims as 'preliminary evidence from two configurations, one underpowered (n=16).' Correct the EDA ordering claim to 'late > early holds at L12-65k (KW p=0.0002); the full late > partial > early ordering does not hold at either configuration.' Correct Table 3's EDA signal description for early absorption to reflect the actual data."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "ITAC achieves 3.14% FN reduction against a pre-registered 20% target (H5 falsified by 6.4x). Cross-validating against phase2b_itac.json: of 10 ITAC targets at L12-65k, 4 have n_parent_candidates=0 (D-EDA decomposition found no parent candidates and ITAC cannot be applied), 5 of 6 evaluable targets show exactly 0% FN reduction, and only j_idx=61217 shows 18.9% improvement. At L12-16k: 1 ITAC target, 0% FN reduction with +22% FVU increase. The paper bills ITAC as 'a training-free proof-of-concept correction method' but the actual data shows it corrects 1 of 10 late-type targets with any FN improvement, and 4/10 targets cannot even be evaluated. The mean FN reduction (3.14%) is dominated by zeros; the abstract's claim of '3.14% mean false-negative reduction' is technically accurate but misleading without this context. Furthermore, ITAC is evaluated on synthetic activations from decoder columns, not real model activations.",
+      "suggestion": "Present ITAC as a negative result: 'ITAC corrects 1 of 10 late-type targets meaningfully (best case: 18.9% FN reduction for j_idx=61217); 4 targets cannot be evaluated because D-EDA parent candidate detection fails, and 5 evaluable targets show 0% FN reduction. Encoder suppression in late-type latents is too severe for linear projection recovery.' Remove ITAC from the abstract as a correction method. Demote to Section 7.3 negative results. Validate on real model activations before any deployment claim."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "EDA fails on 4 of 6 Gemma Scope configurations (L5-65k: 0.617, L12-65k: 0.468, L19-16k: 0.458, L19-65k: 0.562) and on GPT2-L10 with direct exact labels (AUROC = 0.336). The paper's go/no-go criterion was AUROC >= 0.65 on at least 3/6 configurations; the result was 2/6 Gemma configurations — a NO_GO by the paper's own pre-specified criterion. The abstract's claim to 'outperform the decoder cosine baseline by +0.396 AUROC' is L5-16k specific and does not generalize; at L12-65k (the most absorbed configuration), the decoder cosine baseline slightly outperforms EDA. The paper has updated its framing to 'regime-specific screening tool' but still does not prominently disclose the go/no-go gate failure.",
+      "suggestion": "Add a clear table or statement: 'EDA meets the pre-registered AUROC >= 0.65 threshold at 2/6 Gemma configurations and 1/2 GPT-2 configurations. This constitutes a NO_GO under the pre-registered criterion. We retain the work as a characterization study of EDA's operating regime.' The decoder cosine baseline comparison in the abstract needs the L5-16k configuration qualifier."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The intra-RAVEL coherence claim (Spearman rho = 0.924) survives in the paper from the R3 Qwen2.5-0.5B proxy experiment, but the R4 shuffled control reveals that the shuffled null also produces rho = 1.0 across all three hierarchies (n=3 SAE configurations). The paper retains rho = 0.924 as 'suggestive existence evidence' but this figure is from n=6 SAE configurations in R3 with misaligned probes. The R4 shuffled control used n=3 SAE configurations and found both real and shuffled produce rho = 1.0. With n=3 points, Spearman rho is 1.0 for any monotone ordering — so the R4 intra-RAVEL coherence of the shuffled null at 1.0 does not contradict R3's 0.924, but does indicate the coherence signal on small n is fragile and present in noise. The paper does not adequately caveat that the R3 coherence (n=6) could reflect consistent measurement artifacts rather than genuine cross-domain absorption structure.",
+      "suggestion": "Downgrade the intra-RAVEL coherence claim further. The paper should note that (1) the R4 pilot shuffled null also produces rho = 1.0 on n=3 configurations, suggesting the coherence is consistent with noise; (2) the R3 value of rho = 0.924 on n=6 SAE configurations requires proper replication with same-model probes before serving as evidence of cross-domain absorption structure."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The D-EDA claim at GPT2-L10 (AUROC = 0.762 [0.686, 0.830]) is from R3 Phase 5 with n_pos=33, using D-EDA as a genuinely separate calculation from EDA. However, R4 shows that EDA and decoder cosine are mathematically identical (delta AUROC = 0.0 on both GPT-2 configurations). If EDA = 1 - dec_cos is a strict identity, D-EDA as implemented cannot be the directional LASSO-based decomposition described in Section 3.3. Either (a) the R4 validation computed D-EDA incorrectly (not implementing the LASSO decomposition), or (b) the R3 D-EDA used a different implementation. The paper does not reconcile this inconsistency. If D-EDA is a genuine LASSO decomposition, it should have different AUROC from EDA; if R4 shows them identical, something is wrong with either the R3 implementation or R4's validation of D-EDA.",
+      "suggestion": "Clarify whether D-EDA in Section 3.3 and Table 1 is (a) the LASSO-based directional decomposition described in the text, in which case its AUROC should differ from EDA and R4 should have separately computed it, or (b) simply negated decoder cosine, in which case it should be renamed and the description in Section 3.3 removed. The R4 finding (EDA = D-EDA = 1 - dec_cos) creates a direct contradiction with Table 1's separate D-EDA column and the Section 3.3 description of the decomposition."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The scaling analysis (H6) uses estimated L0 values from the Gemma Scope paper canonical targets, not measured L0 values. L0 variation across 6 SAE configurations is only 65-72, with identical values at the same layer regardless of width. This means partial rho(width | L0) is essentially identical to marginal rho(width), since L0 doesn't vary within layer-matched width comparisons. The claim of 'partial rho = 0.368 (p=0.133), H6 falsified' is not a proper partial correlation — the supposed control variable (L0) has near-zero within-layer variation and cannot separate width from L0 effects.",
+      "suggestion": "Replace the partial correlation claim with: 'H6 cannot be properly tested with the current 6 SAE configurations due to insufficient L0 variation across width comparisons (L0 range: 65-72, identical at the same layer regardless of width). The directional finding that wider SAEs show weakly higher absorption rates (marginal rho = 0.353) is reported descriptively without controlling for L0.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The pilot-to-full AUROC collapse at L12-65k (pilot 0.853, full 0.468) is attributed to 'enriched positive prevalence' and 'proxy label noise,' but the fundamental explanation is that n_pos=16 out of 65,536 latents (0.024% prevalence) makes AUROC measurement statistically unreliable regardless of label quality. The paper uses AUROC as the primary metric throughout but never addresses the well-known instability of AUROC at extreme class imbalance. AUPRC values are present in the data (phase1_eda_deda_validation.json: AUPRC = 0.0024 at L12-16k) but are not discussed in the main text.",
+      "suggestion": "Add AUPRC as a co-primary metric for all high-imbalance configurations (65k width SAEs where positive prevalence < 0.05%). Discuss AUROC reliability under extreme class imbalance. Add a power analysis showing that with n_pos=16, AUROC CIs are unreliable even with 10,000 bootstrap resamples."
+    },
+    {
+      "stage": "review",
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "Three of seven figures (Figures 5, 6, 7) are referenced in the text but listed only as generation scripts without confirmed PDF existence. All Gemma Scope validation uses Neuronpedia proxy labels — Gemma 2 2B remains HuggingFace-gated; reproduction requires access approval. The SynthSAEBench citation (synthasbench2026 / arXiv:2602.14687) requires citation verification — if this benchmark was constructed for this paper, the citation format is misleading. ITAC is evaluated on synthetic activations from decoder columns, not real model activations. DeLong test citation is missing at first use (Section 4.1).",
+      "suggestion": "Generate and confirm all three missing figures as PDFs before submission. Verify the SynthSAEBench citation or replace with 'we constructed a synthetic benchmark.' Add DeLong (1988) citation at first use. Explicitly state that reproduction of Gemma results requires HuggingFace access approval."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "minor",
+      "description": "The SynthSAEBench validation achieves AUROC = 1.000 because absorption is injected as encoder-decoder misalignment — precisely the geometric pattern EDA measures. Perfect discrimination is expected by construction and does not validate EDA against the behavioral definition of absorption used by Chanin et al. (activation-level false negatives). The paper notes this limitation in the synthetic section but does not make clear that the validation is tautological.",
+      "suggestion": "Add a sentence explicitly acknowledging the tautological nature: 'SynthSAEBench injects absorption precisely as encoder-decoder misalignment, so AUROC=1.000 is expected by construction. The non-trivial validation is Section 4, which tests against behavioral absorption labels.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The paper claims GPT2-L6 AUROC = 0.629 with CI [0.561, 0.692] and n_pos=67 (from R3 Phase 5 full mode with n_bootstrap=10000). Table 1 also shows GPT2-L10 D-EDA AUROC = 0.762 [0.686, 0.830]. These R3 Phase 5 values are correct (verified against phase5_gpt2_replication.json). However, Table 1 shows EDA AUROC for GPT2-L6 as 0.629 while the actual R3 data is 0.6289. The CI in the paper [0.561, 0.692] matches R3 ([0.561, 0.692]). The rounding is acceptable. But Table 1 shows GPT2-L10 EDA = 0.336 [0.245, 0.435] — R3 shows 0.33582 [0.245, 0.435]. These are consistent. Note that Cohen's d is missing from Table 1 for GPT2 configurations (shown as '—'), which is correct since these were not computed in R3 Phase 5.",
+      "suggestion": "Minor discrepancy: the paper uses the R3 Phase 5 full mode results (n_pos=67, n_bootstrap=10000) for GPT2-L6, not the R4 pilot results (n_pos=18, n_bootstrap=1000). This is the correct choice as R3 full mode is more reliable. Clarify in Section 4.1 that the GPT2 results are from the R3 full-mode run (reported in the paper as 'exact Chanin et al. labels')."
+    }
+  ],
+  "risks": [
+    "Primary risk: Gemma 2 2B remains HuggingFace-gated. Without exact Chanin et al. labels for Gemma, the Gemma AUROC values remain on proxy labels with known reliability issues at 65k width. This is the single highest-leverage action available.",
+    "EDA novelty depends entirely on Theorem 1's formal correctness. If a reviewer identifies the proof sketch as circular (which it is), the novelty claim degrades to 'empirical AUROC evaluation of existing SAEBench metric.'",
+    "The 'early absorption dominance' finding is the most actionable insight but rests on 2 SAE configurations. A reviewer can dismiss it as preliminary. Replication on 4+ additional configurations would make this defensible.",
+    "The D-EDA/EDA equivalence tension (R4 shows delta=0.0; R3 shows D-EDA != EDA at GPT2) is an unresolved inconsistency that a careful reviewer will catch. This could undermine the Section 3.3 description and Table 1's D-EDA column.",
+    "The intra-RAVEL coherence claim (rho=0.924) survives from R3 wrong-model probes. R4 shuffled null also produces rho=1.0 on n=3. Without a larger set of SAE configurations and same-model probes, this evidence is too fragile to support any claim about cross-domain absorption structure.",
+    "Scope creep risk: the paper still attempts five contributions (EDA, D-EDA, cross-domain, taxonomy, ITAC). Evidence supports three cleanly (EDA regime-specific screening, taxonomy early-dominance finding, cross-domain null result). Attempting to retain all five weakens the paper's focus."
+  ],
+  "evidence_gaps": [
+    "Exact Chanin et al. supervised labels for Gemma 2 2B SAEs — blocked by HuggingFace gating; all Gemma AUROC values use Neuronpedia proxy labels",
+    "Taxonomy analysis on more than 2 SAE configurations — 72-75% early-type claim needs replication on L5-16k, L5-65k, L19-16k, L19-65k, and GPT-2 SAEs",
+    "RAVEL probes trained on Gemma 2 2B (or a publicly accessible model with matching SAEs) — all cross-domain absorption rates are from below-quality-gate bridge-model probes",
+    "Formal proof of Theorem 1 — current proof sketch does not derive the bound from first principles",
+    "Reconciliation of D-EDA/EDA equivalence: R4 shows delta AUROC = 0.0 between EDA and dec_cosine_negated, but R3 Phase 5 shows D-EDA != EDA at GPT2-L10 (0.762 vs 0.336)",
+    "ITAC evaluated on real model activations (not synthetic activations from decoder columns)",
+    "Actual measured L0 values for the scaling analysis (current values are paper-canonical estimates with L0 range 65-72)",
+    "Figures 5, 6, 7 as confirmed generated PDF files",
+    "Cohen's d values in Table 1 for GPT-2 configurations"
+  ],
+  "what_would_raise_score": "To raise the score from 5.5 to 7.0: (1) Obtain Gemma 2 2B HuggingFace access and re-run Phase 1 with exact Chanin et al. labels on all 6 Gemma Scope configurations — if 3+/6 pass AUROC >= 0.65, the EDA contribution becomes a defensible regime-specific detector. (2) Expand taxonomy analysis to all 6 Gemma + 2 GPT-2 configurations — if early-dominance replicates at 70%+ across 6+ configurations, this becomes a robust finding rather than preliminary evidence. (3) Provide a formal mathematical proof of Theorem 1 in the appendix — or explicitly downgrade to a 'heuristic claim.' (4) Resolve the D-EDA/EDA equivalence tension — either re-implement D-EDA as the genuine LASSO decomposition and compute separate AUROC, or drop D-EDA from Table 1 and Section 3.3. (5) Add AUPRC as a co-primary metric for all 65k-width configurations. A paper with fixes (1)-(3) would represent a 7.0-7.5 contribution to SAE interpretability research."
+}

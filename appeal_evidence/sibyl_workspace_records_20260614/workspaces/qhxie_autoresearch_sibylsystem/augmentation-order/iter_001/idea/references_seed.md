@@ -1,0 +1,3 @@
+- AutoAugment: https://arxiv.org/abs/1805.09501
+- RandAugment: https://arxiv.org/abs/1909.13719
+- TrivialAugment: https://arxiv.org/abs/2103.10158

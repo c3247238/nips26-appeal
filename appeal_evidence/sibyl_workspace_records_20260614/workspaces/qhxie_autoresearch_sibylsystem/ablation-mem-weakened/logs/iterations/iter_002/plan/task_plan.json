@@ -1,0 +1,423 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "description": "Verify SAELens, TransformerLens, PyTorch, and dependencies are installed. Verify GPU availability and model loading for GPT-2 Small SAE.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "Environment ready, dependencies installed, GPU verified, SAE loads successfully",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All packages import successfully; GPU detected; GPT-2 Small SAE loads without error"
+      },
+      "visualizations": [],
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small-res-jb",
+          "path": "shared/checkpoints/gpt2-small-res-jb"
+        }
+      ]
+    },
+    {
+      "id": "inhibition_graph_construct",
+      "name": "Construct Local Inhibition Graph (GPT-2 Small, all layers)",
+      "description": "For GPT-2 Small res-jb SAE (24K latents), construct local inhibition graph at layers 0, 4, 8, 10. Compute decoder correlation matrix G = W_dec^T W_dec. For each latent, keep top-k=20,50,100 neighbors. Save graph edges and weights.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "inhibition_graph_gpt2_l{0,4,8,10}_k{20,50,100}.json with edges and weights per latent",
+      "candidate_id": "cand_f",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Graph construction completes for all 4 layers; mean edge weight computable; top-k neighbors extracted without error"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Mean edge weight and graph density across layers",
+          "x": "layer",
+          "y": "mean_edge_weight",
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small-res-jb",
+          "path": "shared/checkpoints/gpt2-small-res-jb"
+        }
+      ]
+    },
+    {
+      "id": "h6_graph_validate",
+      "name": "H6: Validate Graph Edges Predict Absorption Pairs",
+      "description": "Use existing Chanin absorption detection results as ground truth. For each absorption pair (parent i, absorbing j), check if j is in N(i) for k=20,50,100. Compute precision@k, recall@k, AUPR. Compare against random baseline (shuffled latent indices). Fisher exact test for enrichment.",
+      "type": "experiment",
+      "depends_on": [
+        "inhibition_graph_construct"
+      ],
+      "expected_output": "h6_graph_validation.json with precision@k, recall@k, AUPR, Fisher test p-values per layer",
+      "candidate_id": "cand_f",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Precision@20 >= 0.10 (vs ~0.004 chance) for at least one layer; Fisher test p < 0.001"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Precision-recall curves at different k values",
+          "x": "recall",
+          "y": "precision",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "H6 validation results: precision@k, recall@k, Fisher test per layer",
+          "columns": [
+            "Layer",
+            "k",
+            "Precision@k",
+            "Recall@k",
+            "Fisher_p",
+            "AUPR"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "absorption_ground_truth",
+          "path": "exp/results/full/full_absorption_gpt2_all_layers_combined.json"
+        }
+      ]
+    },
+    {
+      "id": "h7_precision_recall_asymmetry",
+      "name": "H7: Test Inhibition Explains Precision-Recall Asymmetry",
+      "description": "For each first-letter feature at layers 4 and 8, compute total incoming inhibition from graph. Test correlation: total_inhibition vs. recall (predicted: r < -0.3) and total_inhibition vs. precision (predicted: |r| < 0.1). Use existing probing precision/recall data.",
+      "type": "analysis",
+      "depends_on": [
+        "inhibition_graph_construct"
+      ],
+      "expected_output": "h7_precision_recall_asymmetry.json with correlations, p-values, scatter data",
+      "candidate_id": "cand_f",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Recall correlates negatively with inhibition (r < -0.2); precision shows no significant correlation (|r| < 0.2, p > 0.05)"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Total incoming inhibition vs. recall (predicted negative correlation)",
+          "x": "total_inhibition",
+          "y": "recall",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Total incoming inhibition vs. precision (predicted no correlation)",
+          "x": "total_inhibition",
+          "y": "precision",
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "probing_precision_recall",
+          "path": "exp/results/full/probing_results.json"
+        }
+      ]
+    },
+    {
+      "id": "h8_at_risk_prediction",
+      "name": "H8: Test Graph Predicts At-Risk Features",
+      "description": "For each first-letter feature, compute graph statistics: total_inhibition, degree, centrality, clustering coefficient. Test correlation with absorption_rate. Compare top vs. bottom quartile. Test whether graph stats alone can predict absorption rate.",
+      "type": "analysis",
+      "depends_on": [
+        "inhibition_graph_construct"
+      ],
+      "expected_output": "h8_at_risk_prediction.json with correlations, quartile comparison, prediction accuracy",
+      "candidate_id": "cand_f",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "r(total_inhibition, absorption_rate) > 0.2; top quartile has >1.5x absorption rate vs. bottom quartile"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Total incoming inhibition vs. absorption rate",
+          "x": "total_inhibition",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate by inhibition quartile",
+          "x": "quartile",
+          "y": "mean_absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "absorption_ground_truth",
+          "path": "exp/results/full/full_absorption_gpt2_all_layers_combined.json"
+        }
+      ]
+    },
+    {
+      "id": "h9_layer_structure",
+      "name": "H9: Layer-Dependent Graph Structure Analysis",
+      "description": "Compute graph statistics (mean edge weight, density, clustering coefficient) for layers 0, 4, 8, 10. Test correlation with layer depth. Compare layer 8 (where prior H1b was significant) vs. other layers.",
+      "type": "analysis",
+      "depends_on": [
+        "inhibition_graph_construct"
+      ],
+      "expected_output": "h9_layer_structure.json with graph stats per layer and correlation tests",
+      "candidate_id": "cand_f",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Mean edge weight shows monotonic increase with layer depth; layer 8 has highest or second-highest mean edge weight"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Graph statistics by layer: mean edge weight, density, clustering",
+          "x": "layer",
+          "y": "graph_statistic",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h10_homeostatic_rebalance",
+      "name": "H10: Homeostatic Rebalancing Experiment",
+      "description": "For test prompts containing first-letter words, compute original SAE latents. Apply homeostatic rebalancing: z'_i = z_i + alpha * sum_{j in N(i)} G_ij * z_j. Sweep alpha in [0.1, 0.5, 1.0, 2.0, 5.0]. Measure parent firing rate before/after and reconstruction error. Constrain error increase < 5%.",
+      "type": "experiment",
+      "depends_on": [
+        "inhibition_graph_construct"
+      ],
+      "expected_output": "h10_homeostatic_rebalance.json with parent firing rates and reconstruction errors per alpha",
+      "candidate_id": "cand_f",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 1800,
+        "pass_criteria": "Parent firing rate increases by >10% for at least one alpha; reconstruction error increase < 10% for that alpha"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Parent firing rate vs. alpha",
+          "x": "alpha",
+          "y": "parent_firing_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Reconstruction error vs. alpha",
+          "x": "alpha",
+          "y": "reconstruction_error_relative",
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small-res-jb",
+          "path": "shared/checkpoints/gpt2-small-res-jb"
+        }
+      ]
+    },
+    {
+      "id": "publication_figures",
+      "name": "Publication-Ready Visualizations",
+      "description": "Generate all publication-ready figures and tables for the paper. Includes architecture diagram, precision-recall curves, correlation plots, layer comparison, rebalancing curves, and summary tables.",
+      "type": "analysis",
+      "depends_on": [
+        "h6_graph_validate",
+        "h7_precision_recall_asymmetry",
+        "h8_at_risk_prediction",
+        "h9_layer_structure",
+        "h10_homeostatic_rebalance"
+      ],
+      "expected_output": "figures/ and tables/ directories with publication-ready artifacts",
+      "candidate_id": "cand_f",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All expected visualizations generated; summary table complete"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Hypothesis testing summary (H6-H10)",
+          "columns": [
+            "Hypothesis",
+            "Result",
+            "Key Metric",
+            "p-value",
+            "Conclusion"
+          ],
+          "paper_section": "results"
+        },
+        {
+          "type": "table",
+          "description": "Main results: precision@k across layers and k values",
+          "columns": [
+            "Layer",
+            "k",
+            "Precision@k",
+            "Recall@k",
+            "Fisher_p",
+            "AUPR"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cross_model_gemma",
+      "name": "Optional: Cross-Model Validation (Gemma-2-2B)",
+      "description": "Replicate H6 (graph validation) on Gemma-2-2B GemmaScope SAE (16K latents, layer 8). Construct inhibition graph, detect absorption on first-letter features, compute precision@k. Test whether findings generalize.",
+      "type": "experiment",
+      "depends_on": [
+        "h6_graph_validate"
+      ],
+      "expected_output": "cross_model_gemma_h6.json with graph validation results",
+      "candidate_id": "cand_f",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "status": "pending",
+      "optional": true,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 1800,
+        "pass_criteria": "Graph construction completes; precision@20 >= 0.05 (lower bar than primary due to smaller dict)"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Cross-model comparison: GPT-2 vs Gemma precision@k",
+          "x": "model",
+          "y": "precision_at_20",
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-2-2b-gemmascope",
+          "path": "shared/checkpoints/gemma-2-2b-gemmascope"
+        }
+      ]
+    },
+    {
+      "id": "final_synthesis",
+      "name": "Final Synthesis and Paper Preparation",
+      "description": "Aggregate all results, generate summary statistics, and prepare data for paper writing. Produce final hypothesis testing summary with all evidence. Apply pivot decision tree.",
+      "type": "analysis",
+      "depends_on": [
+        "publication_figures",
+        "cross_model_gemma"
+      ],
+      "expected_output": "final_synthesis.json with complete hypothesis results and paper-ready summary",
+      "candidate_id": "cand_f",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "status": "pending",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All hypotheses have clear verdicts with supporting evidence; pivot decision applied"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Final hypothesis summary with pivot decision",
+          "columns": [
+            "Hypothesis",
+            "Status",
+            "Evidence",
+            "Implication",
+            "Next Action"
+          ],
+          "paper_section": "results"
+        }
+      ]
+    }
+  ],
+  "pilot_summary": {
+    "target_candidate": "cand_f",
+    "pilot_tasks": [
+      "inhibition_graph_construct",
+      "h6_graph_validate",
+      "h7_precision_recall_asymmetry",
+      "h8_at_risk_prediction"
+    ],
+    "pilot_status": "PENDING",
+    "pilot_go_criteria": "H6 shows precision@20 >= 0.10 with Fisher p < 0.001 for at least one layer",
+    "pivot_conditions": {
+      "proceed_full": "H6 validated (precision@20 >= 0.10) -> proceed with all H6-H10 + optional cross-model",
+      "diagnostic_only": "H6 partially validated (precision@20 = 0.05-0.10) -> proceed with diagnostic claims only, drop H10 repair",
+      "pivot_to_tradeoff": "H6 not validated (precision@20 <= 0.05) -> pivot to cand_c (trade-off analysis)",
+      "strengthen_with_repair": "H6 validated AND H10 succeeds (recon error < 5%, parent firing +20%) -> add repair as secondary contribution"
+    }
+  }
+}

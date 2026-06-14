@@ -1,0 +1,88 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_f_v2",
+  "confidence": 0.82,
+  "candidate_scores": {
+    "cand_f_v2": {
+      "weighted_score": 4.15,
+      "verdict": "ADVANCE",
+      "pilot_signal_score": 4,
+      "hypothesis_survival_score": 4,
+      "path_to_result_score": 4,
+      "novelty_score": 5,
+      "resource_efficiency_score": 4
+    },
+    "cand_a": {
+      "weighted_score": null,
+      "verdict": "NOT_TESTED",
+      "note": "Backup diagnostic paper; not needed as main candidate is strong"
+    },
+    "cand_b": {
+      "weighted_score": null,
+      "verdict": "NOT_TESTED",
+      "note": "Backup theoretical paper; deferred"
+    },
+    "cand_e": {
+      "weighted_score": null,
+      "verdict": "NOT_TESTED",
+      "note": "Backup architecture proposal; deferred"
+    },
+    "cand_h": {
+      "weighted_score": null,
+      "verdict": "PARTIALLY_INCORPORATED",
+      "note": "TopK dose-response incorporated as Experiment 3 in main candidate"
+    }
+  },
+  "reasons": [
+    "TopK achieves 85.5% absorption reduction (0.2258 -> 0.0328), consistent with prior full-experiment 78.0% (d=5.51)",
+    "Absorption metric discriminates structure from randomness: random 0.452 >> baseline 0.226 >> topk 0.033",
+    "Both TopK and MultiScale achieve L0=50 with similar low absorption, supporting sparsity mediation hypothesis",
+    "MCC correctly identified as degenerate (~0.21-0.22 across all variants including Random), confirming prior decision to drop it",
+    "Dead latent crisis confirmed (TopK 83.2%, MultiScale 58.4%) - genuine pathology to report transparently",
+    "Prior full experiments (iter_005, 3 variants x 5 replicates) already demonstrated robust effect sizes",
+    "Clear path to publishable result: 5-seed full experiment + L0-matched controls + k-sweep + real-LLM validation"
+  ],
+  "next_actions": [
+    "Run full experiment with 5 seeds on SynthSAEBench-16k: Baseline, TopK, MultiScale, L0-matched controls",
+    "Run TopK dose-response curve (k in {10, 25, 50, 100, 200, 500})",
+    "Report dead_latents_pct prominently in all results",
+    "Consider alternative downstream metrics beyond MCC",
+    "Run real-LLM validation on Gemma Scope SAEs (Phase 2)"
+  ],
+  "dropped_candidates": [],
+  "pilot_evidence": {
+    "iteration": 10,
+    "dataset": "SynthSAEBench-1k",
+    "features": 1024,
+    "seed": 42,
+    "variants_tested": ["baseline", "topk", "multiscale", "random"],
+    "metrics": {
+      "baseline": {"absorption_rate": 0.2258, "mcc": 0.2161, "l0": 1047.5, "dead_latents_pct": 0.0},
+      "topk": {"absorption_rate": 0.0328, "mcc": 0.2146, "l0": 50.0, "dead_latents_pct": 83.2},
+      "multiscale": {"absorption_rate": 0.0416, "mcc": 0.2193, "l0": 50.0, "dead_latents_pct": 58.4},
+      "random": {"absorption_rate": 0.4519, "mcc": 0.2210, "l0": 1043.6, "dead_latents_pct": 0.0}
+    },
+    "sanity_checks": {
+      "absorption_discriminates": true,
+      "topk_low_absorption": true,
+      "convergence_ok": true,
+      "mcc_variation": false
+    }
+  },
+  "hypothesis_status": {
+    "H1_TopK_dominance": "SUPPORTED",
+    "H2_Sparsity_mediation": "PARTIALLY_SUPPORTED",
+    "H3_Orthogonality_null": "NOT_TESTED_THIS_ROUND",
+    "H4_Synthetic_to_real_transfer": "NOT_TESTED_THIS_ROUND",
+    "H5_TopK_dose_response": "NOT_TESTED_THIS_ROUND",
+    "H6_Dead_latent_crisis": "SUPPORTED",
+    "H7_Random_control": "SUPPORTED",
+    "H8_Component_interactions": "NOT_TESTED_THIS_ROUND",
+    "H9_Training_dynamics": "NOT_TESTED_THIS_ROUND"
+  },
+  "risks": [
+    "Single-seed pilot lacks statistical power - mitigated by planned 5-seed full experiment",
+    "MCC variation sanity check FAIL - metric is insensitive, but absorption rate is validated and discriminating",
+    "High dead latent rates in TopK/MultiScale may artifactually suppress absorption - mitigated by reporting dead_latents_pct and considering active-latent-only absorption"
+  ]
+}

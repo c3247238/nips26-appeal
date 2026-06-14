@@ -1,0 +1,125 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_stability_control",
+  "confidence": 0.82,
+  "iteration": 7,
+  "date": "2026-03-18",
+  "agent": "sibyl-idea-validation-decision",
+  "candidate_scores": {
+    "cand_stability_control": {
+      "weighted_score": 4.075,
+      "verdict": "ADVANCE",
+      "component_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 4.5, "evidence": "7/7 Theorem 1 predictions confirmed across 84 runs; VGG null 0.157% (4 methods); NoBN Cohen's d=9.14"},
+        "hypothesis_survival": {"weight": 0.25, "score": 4.0, "evidence": "H1 rho~0.5 confirmed; H2 binary masking cost confirmed 7/7; H5 VGG confirmed 4/7 methods; H6 directionally correct despite seed_42 anomaly"},
+        "path_to_full_result": {"weight": 0.20, "score": 3.5, "evidence": "Theorems 1+2 empirically grounded; rho_high failure blocks Gate 2 and Scenario A; paper viable at Scenario B (7.5-8.0) without rho_high"},
+        "novelty": {"weight": 0.15, "score": 4.5, "evidence": "Theorem 1: 9/10; Theorem 2: 8/10; Theorem 3/PMP-WD: 8/10 dual derivation; Proposition 1: 7/10; SPWD: 8/10"},
+        "resource_efficiency": {"weight": 0.10, "score": 3.5, "evidence": "Core CIFAR done; rho_high re-run + VGG 3 methods needed (~6-8 GPU-hours total)"}
+      }
+    },
+    "cand_spwd": {
+      "weighted_score": 2.725,
+      "verdict": "QUEUE",
+      "component_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1.5, "evidence": "No pilot run attempted — zero direct evidence"},
+        "hypothesis_survival": {"weight": 0.25, "score": 3.0, "evidence": "H10 not falsified (no data); novelty confirmed (8/10)"},
+        "path_to_full_result": {"weight": 0.20, "score": 3.0, "evidence": "Implementable in ~30 LOC; 18 GPU-hours pilot; deferred to P1-B"},
+        "novelty": {"weight": 0.15, "score": 4.5, "evidence": "8/10; first rank velocity WD; AlphaDecay differentiation clear"},
+        "resource_efficiency": {"weight": 0.10, "score": 2.5, "evidence": "Requires P0 completion first; 18 GPU-hours additional"}
+      }
+    }
+  },
+  "reasons": [
+    "Theorem 1 has 7/7 out-of-sample predictions confirmed across 84 independent runs — production-quality confirmation, not pilot evidence",
+    "VGG-16-BN Gate 1 null result confirmed for 4/7 methods with phi_spread=0.157%, far below 0.5% threshold",
+    "VGG constant: 92.050%, cwd_hard: 92.057%, half_lambda: 92.147%, cosine_schedule: 91.990% — all within 0.157% range",
+    "rho_high failure is a launch infrastructure issue (empty directory), not a training failure — must re-run",
+    "Matched-rho SGD seed_42 anomaly (76.12%) is almost certainly a divergence/misconfiguration; seeds 123/456 are consistent at ~90.9%",
+    "Paper viable at Scenario B (7.5-8.0) with current data; Scenario A (8.0-8.5) requires rho_high and PMP-WD pilot",
+    "SPWD has zero pilot evidence — backup status is correct and appropriate; no basis to displace front-runner"
+  ],
+  "evidence_state": {
+    "vgg16bn_cifar10": {
+      "status": "partially_complete",
+      "methods_done": ["constant", "cwd_hard", "half_lambda", "cosine_schedule"],
+      "methods_missing": ["swd", "no_wd", "random_mask"],
+      "phi_spread_4methods": 0.157,
+      "gate1_status": "CONDITIONALLY_CLEARED"
+    },
+    "rho_high": {
+      "status": "FAILED",
+      "issue": "Empty directory — run never started or exited immediately without output",
+      "action_required": "Re-launch with wd=5e-3, gradient clipping max_norm=5.0, ResNet-20/CIFAR-10/AdamW, 200 epochs, 4 methods x 3 seeds",
+      "gate2_status": "BLOCKED"
+    },
+    "rho_low": {
+      "status": "partial",
+      "constant_seeds_done": 2,
+      "phi_spread": null,
+      "note": "Only constant done; other methods needed for phi_spread"
+    },
+    "matched_rho_sgd": {
+      "status": "partial",
+      "anomaly": "seed_42 constant=76.12% (suspected divergence)",
+      "valid_seeds": "123=90.94%, 456=90.89%",
+      "cwd_hard_seed42": "in-progress at ep61",
+      "gate3_status": "INCOMPLETE"
+    },
+    "nobn": {
+      "status": "partial",
+      "constant_done": true,
+      "cwd_hard_nowd_done": false,
+      "phi_spread": null,
+      "bn_effect_cohens_d": 9.14
+    },
+    "pmp_wd_pilot": {
+      "status": "NOT_STARTED",
+      "gate": "Requires Gate 2 (rho_high completion)"
+    },
+    "spwd_pilot": {
+      "status": "NOT_STARTED",
+      "gate": "P1-B after P0 completion"
+    }
+  },
+  "next_actions": [
+    {
+      "priority": "P0",
+      "action": "Re-run rho_high (rho=5.0): wd=5e-3, ResNet-20/CIFAR-10/AdamW, 200 epochs, 4 methods x 3 seeds, gradient clipping max_norm=5.0. Fix the launch issue in full/rho_sweep/cifar10/rho_high/.",
+      "impact": "Unlocks Gate 2, enables PMP-WD pilot, enables Scenario A (8.0-8.5)"
+    },
+    {
+      "priority": "P0",
+      "action": "Launch missing VGG methods: swd (seeds 123,456), no_wd (all seeds), random_mask (all seeds). 9 runs on 3 GPUs in parallel.",
+      "impact": "Completes Gate 1 fully; provides full 7-method phi_spread for VGG"
+    },
+    {
+      "priority": "P0",
+      "action": "Investigate matched-rho SGD seed_42 anomaly (76.12%). Re-run constant/seed_42 to confirm. Launch cwd_hard/seeds_123_456 and no_wd/all_seeds.",
+      "impact": "Resolves H6; completes Gate 3"
+    },
+    {
+      "priority": "P1",
+      "action": "After Gate 2: implement PMP-WD (lambda*(t) = clip(kappa*(rho* - rho_hat_t)+, 0, lambda_max)) and pilot at rho=5.0, 3 seeds x 200 epochs.",
+      "impact": "Theorem 3 experimental validation; needed for Scenario A"
+    },
+    {
+      "priority": "P2",
+      "action": "Execute writing fixes W1-W10 (p-value annotations, figure regenerations, cross-reference consistency) in parallel with experiments.",
+      "impact": "Improves paper quality; not gated on experiment completion"
+    },
+    {
+      "priority": "P3",
+      "action": "SPWD pilot (P1-B): only after P0 completion and within compute budget. SGD CIFAR-10 ResNet-20 x 3 seeds x 200 epochs.",
+      "impact": "Optional: adds backup algorithm evidence; do not delay core experiments"
+    }
+  ],
+  "dropped_candidates": [
+    "cand_spwd is not dropped — it is queued at backup/P1 priority. No evidence warrants dropping it."
+  ],
+  "scenario_forecast": {
+    "current_scenario": "B_trending",
+    "scenario_b": "Current data (Theorems 1+2, VGG partial, NoBN, rho_low) supports 7.5-8.0 paper score",
+    "scenario_a_path": "rho_high re-run success + PMP-WD pilot showing benefit at rho=5.0 -> 8.0-8.5",
+    "scenario_c_risk": "rho_high shows null even at rho=5.0 -> reframe as 'structural BN invariance is robust across 100x rho range' -> still publishable 7.0-7.5"
+  }
+}

@@ -1,0 +1,12 @@
+## 成功模式 (继续保持)
+
+- STRATEGIC PIVOT: Iter_006 executed a major strategic pivot from epidemiological-methods-on-SAEBench (iter 4-5) to JumpReLU metric audit on Gemma 2 2B. This pivot was CORRECT: the universal control failure and hedging decomposition are genuinely novel findings the SAE community needs. Pivoting away from the failing GPT-2 Small cross-domain experiments was the right decision. (出现 3 次)
+- COMPREHENSIVE CONTROL SUITE: Four controls (random probe, shuffled labels, dense probe ceiling, untrained SAE) across five domains. Most thorough control suite in any absorption study. Universal failure across all domains is devastating and well-presented. (出现 3 次)
+- L0 PHASE TRANSITION (MOST ROBUST FINDING): 42.9% -> 0.8% across four L0 values with cross-layer stability (CV < 10%) and bootstrap CIs. Monotonic, cross-layer stable, directly actionable. No reviews questioned this finding. (出现 3 次)
+- CONFOUND DECOMPOSITION CONCEPTUAL INNOVATION: Cross-L0 persistence criterion for classifying hedging vs hierarchy-driven absorption is novel and intuitive, even if the permissive definition needs tightening. The 98.6%/1.4% split and the identification of 9 persistent core words are compelling. (出现 3 次)
+- HONEST NEGATIVE RESULTS (CONSECUTIVE 6 ITERATIONS): H2 falsified (96.9% pilot -> 1.4% full), H4 falsified (zero matching pairs), H6 underpowered, H7 falsified (both bimodal). All reported with specific expected vs. observed values and clear explanations. Consistently the paper's strongest aspect across ALL reviews. (出现 3 次)
+- ZERO EXPERIMENT FAILURES: 23/23 tasks completed successfully in iter_006. Infrastructure fully reliable for 3 consecutive iterations (iter 4: 13/13, iter 5: 14/14, iter 6: 23/23). (出现 3 次)
+- EXEMPLARY PER-LETTER TRACKING: Per-letter probe F1, per-letter absorption rate, per-letter CMI estimate. This granularity enables the probe quality confound identification (rho=-0.67), which is itself an important methodological observation. (出现 3 次)
+- CROSS-LAYER VALIDATION: L0=82 tested at layers 10, 12, 20 with CV < 10% confirms the L0 phase transition is not layer-specific. Clean experimental design. (出现 3 次)
+- Training-free methodology: all analyses from pretrained SAE weights without retraining. Good scientific practice. (出现 3 次)
+- Clear mathematical formalism: proof sketch and notation are sound and well-structured. (出现 3 次)

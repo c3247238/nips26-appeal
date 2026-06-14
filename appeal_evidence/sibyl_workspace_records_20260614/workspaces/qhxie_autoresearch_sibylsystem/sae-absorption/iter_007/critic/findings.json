@@ -1,0 +1,105 @@
+{
+  "summary": "Iteration 9 has achieved a step-change: all three blocking experiments (activation patching, tightened hedging, CMI replication) are now executed, validate_integration confirms 84/85 claims match source data, and the result debate converges on a 7.0 score. The paper has two strong empirical pillars (universal control failure, L0 phase transition) plus a new causal negative result (0/8 patching recovery). However, six issues remain: (1) the paper body still presents Section 6 as a positive CMI diagnostic despite the L0=22 replication yielding rho=+0.044 -- the narrative has not been updated from the positive framing to the negative-result framing; (2) the confound decomposition uses three incompatible vocabulary sizes creating traceability headaches; (3) the activation patching result, while strong, is confounded by JumpReLU hard thresholds and lacks a GPT-2/L1-ReLU control comparison; (4) hypotheses H1-H10 are never enumerated in the paper body; (5) the paper has no method diagram; (6) the strict vs permissive hedging decomposition introduces a new interpretive puzzle (93.8% show zero parent-latent firing at L0=176 yet are not FN there) that is under-discussed.",
+  "findings": [
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "ACTIVATION PATCHING CONFOUNDED BY JUMPRELU HARD THRESHOLD. The 0/8 recovery result (Table 5) is presented as 'ruling out competitive exclusion,' but the decode-reencode patching pipeline passes through JumpReLU thresholds theta_j. If the parent latent's pre-threshold activation is below theta_j by a small margin, zeroing the child raises the pre-threshold value slightly but not past the hard threshold -- yielding no recovery even if competitive exclusion is the true mechanism. The hard threshold acts as a digital quantization boundary that can mask analog changes in competition. L1-ReLU SAEs have no such threshold, which is precisely why Chanin et al. detected absorption there. The paper acknowledges this in the limitations section in one sentence but does not perform the obvious control: measure pre-threshold parent activation before and after child zeroing. If the pre-threshold activation increases substantially (e.g., by >50% of the gap to theta_j) but does not cross the threshold, this would be evidence FOR competitive exclusion masked by the JumpReLU nonlinearity.",
+      "suggestion": "Report pre-threshold parent activation magnitudes for all 8 patching experiments. If the pre-threshold value increases toward theta_j after child zeroing -- even without crossing it -- this provides partial evidence for competitive exclusion. Alternatively, replicate the patching experiment on GPT-2 Small with L1-ReLU SAEs (which have no hard threshold) as a positive control. Without this, the 0/8 result has a confound that undermines its interpretive value."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "93.8% NON-HEDGING CATEGORY IS UNEXPLAINED AND UNDER-DISCUSSED. Table 4 shows that 615/656 FN tokens at L0=22 have NONE of the 5 parent-associated latents firing at L0=176, yet these tokens are NOT false negatives at L0=176 (only 9 tokens remain FN at L0=176). This means 615 tokens resolve from FN to non-FN between L0=22 and L0=176, but the resolution happens through entirely different features -- not through any of the 5 parent-associated latents identified at L0=22. The paper does not explain this. The most natural interpretation is that the L0=176 SAE uses a completely different set of latents for first-letter classification than the L0=22 SAE -- the probe latents are L0-specific, not universal parent features. This would mean the confound decomposition framework is invalid: it assumes that 'parent features' are consistent across L0 values, but the evidence shows they are not. The paper's whole hedging/competitive-exclusion decomposition rests on the assumption that a persistent FN across L0 values reflects a property of the token-feature pair, not a property of the probe-SAE mismatch at each L0.",
+      "suggestion": "Add a paragraph in Section 4.4 or 7.1 explicitly discussing this finding. Compute whether the L0=176 probe identifies different parent latents than the L0=22 probe. If the top-5 latent overlap between L0=22 and L0=176 probes is low (e.g., Jaccard < 0.5), then the confound decomposition's cross-L0 persistence criterion is comparing apples to oranges. This is not necessarily fatal -- the paper can still argue that the metric's behavior is L0-dependent -- but the current silence on this issue is a gap a reviewer will exploit."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "CMI SECTION 6 NARRATIVE NOT YET UPDATED TO REFLECT L0=22 FALSIFICATION. The paper's Section 6 is titled 'Exploratory CMI-Absorption Association' and correctly reports the L0=22 null result (rho=+0.044, p=0.835). However, the Section 6.1 Motivation still states the successive refinement theorem 'predicts that features with low conditional mutual information should be more susceptible to absorption.' The word 'predicts' implies the theory has empirical traction when the replication failed entirely. The abstract and conclusion reference the CMI result correctly as a negative finding, but Section 6.1's framing creates an expectation of success that the reader must then unlearn. The result_debate verdict correctly downgrades H4 to 'falsified' and recommends rewriting Section 6 from 'diagnostic' to 'exploratory negative result,' but this revision has not been applied to the paper body.",
+      "suggestion": "Rewrite Section 6.1 opening to: 'We hypothesized that conditional mutual information (CMI) could predict absorption susceptibility, motivated by the successive refinement theorem. We report two experiments: a marginally significant correlation at L0=82 that does not survive probe quality controls, and a pre-registered replication at L0=22 that yields a null result.' This sets the reader's expectations correctly and avoids the up-then-down narrative structure that wastes reader attention."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "ACTIVATION PATCHING SAMPLE SIZE TOO SMALL FOR STRONG CAUSAL CLAIMS. The paper claims activation patching 'rules out competitive exclusion' based on 0/8 words. The 95% CI is [0%, 36.9%], meaning the data are consistent with a competitive exclusion rate up to 37% at the 95% confidence level. Five of the 8 words (other, often, offer, under, until) are high-frequency function-adjacent words with unusual encoding dynamics. This is a biased sample of the FN population. The paper acknowledges the small sample in Section 7.5 but the abstract and conclusion use strong language ('ruling out competitive exclusion') that overstates the evidential weight.",
+      "suggestion": "Soften the abstract and conclusion language to 'provides evidence against competitive exclusion for these tokens' rather than 'rules out.' Report the Clopper-Pearson CI explicitly. Discuss the word-frequency bias: 5/8 are function-adjacent words in the top 1000 most frequent English words, which may have fundamentally different SAE encoding dynamics than lower-frequency content words. The claim would be substantially stronger if extended to 50+ words from the 186 FNs at L0=82."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "THREE INCOMPATIBLE VOCABULARY SIZES CREATE TRACEABILITY PROBLEMS. The paper uses: (1) 1,204 words for first-letter replication (Section 3.2), (2) 1,196 words / 1,195 tested for confound decomposition (Section 3.4), (3) 125 words for CMI pilot at L0=22. The FN count at L0=22 is 657 in confound decomposition but 656 in tightened hedging due to the 1,196 vs 1,195 difference. The data_validation_report flags this as MEDIUM severity. While the paper has a footnote for the 1,204/1,196 difference (Section 3.2), the 656/657 discrepancy is not footnoted, and the 125-word CMI pilot vocabulary is never discussed as a potential concern for statistical power.",
+      "suggestion": "Add a footnote in Section 4.4 acknowledging the 656/657 discrepancy. More importantly, confirm that the CMI L0=22 replication used the full 1,196-word vocabulary (not the 125-word pilot). If only the 125-word pilot was run, the power to detect a moderate effect (rho=-0.4) at n=25 letters is marginal, and the null result may reflect underpowering rather than true absence of signal."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "HYPOTHESES H1-H10 NEVER ENUMERATED IN PAPER BODY. Section 7.4 and Section 8 reference 'four of seven pre-registered hypotheses' and the result debate references 'H1-H10,' but the paper body never lists these hypotheses with their pre-registered targets. A reviewer cannot verify the falsification claims without consulting the proposal.md, which is not part of the submission. The review.md also flags this as a Major issue.",
+      "suggestion": "Add a hypothesis table in Section 3 (Methodology) or expand Section 7.4 to list each hypothesis with: (a) the pre-registered prediction, (b) the observed outcome, (c) the status. This is both methodologically important (pre-registration transparency) and practically useful for reviewers."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "NO METHOD DIAGRAM. The paper describes a multi-step pipeline (SAE encoding -> probe training -> candidate identification -> FN classification -> four controls -> confound decomposition -> activation patching) entirely in text. A reviewer unfamiliar with the Chanin protocol will struggle to follow. The review.md flags this as a Major issue. The outline planned a schematic that was never realized.",
+      "suggestion": "Add a pipeline diagram in Section 3 showing the measurement protocol, four-control suite, and confound decomposition steps. This is especially important because the paper argues the metric is miscalibrated -- the reader needs to understand exactly where the calibration fails."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "STRICT HEDGING DOMINATED BY SINGLE LETTER (G). Letter G accounts for 19/41 (46%) of all strict-hedging cases with a rate of 90.5%, while 12 of 21 other tested letters show 0% strict hedging. Excluding G, the strict hedging rate drops from 6.2% to 3.5% -- barely above the shuffled control rate of 3.4%. This means the paper's claim that strict hedging is 'significantly above the shuffled control (z=3.51, p<0.001)' is almost entirely driven by one letter. The paper reports G as an outlier but does not compute the z-test without G.",
+      "suggestion": "Report the z-test and p-value for strict hedging excluding letter G. If p>0.05 without G, the strict hedging claim should be qualified as 'driven primarily by letter G' rather than presented as a general phenomenon. Investigate what is special about letter G (e.g., lower frequency, fewer words starting with G, or specific SAE latent properties) that produces this anomaly."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "CROSS-DOMAIN MEASUREMENTS ARE CLAIMED AS A CONTRIBUTION BUT ARE SCIENTIFICALLY VACUOUS. The paper claims 'first cross-domain absorption measurements' as contribution #4, but immediately acknowledges that 'all rates fall below their shuffled controls, so absolute rates cannot be interpreted as genuine absorption.' A measurement that cannot be interpreted is not a scientific contribution -- it is a null result in the measurement validation effort. The novelty claim should be reframed.",
+      "suggestion": "Reframe contribution #4 from 'first cross-domain absorption measurements' to 'demonstration that the control failure is universal across five hierarchy domains, including four not previously tested.' The contribution is the universality of the control failure, not the measurements themselves."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "CMI REPLICATION AT L0=22 MAY ONLY BE A PILOT (125 WORDS). The cmi_replication_l0_22.json in the pilots directory shows 'mode: PILOT' with 'total_words: 125' (5 per letter). The paper's Section 6.3 reports the L0=22 replication result (rho=+0.044) without specifying whether this is from the pilot or a full run. If the correlation was computed on CMI estimates from 125 words (5 per letter), the CMI estimation may be unreliable -- k-NN MI estimation with k=5 and only 5 positive examples per letter in a d'=10 subspace is at the estimator's reliability floor. The full L0=82 CMI analysis used 1,092 words.",
+      "suggestion": "Clarify whether the L0=22 CMI result in the paper comes from the 125-word pilot or a full run. If only the pilot was executed, either run the full version or clearly label the result as 'pilot (n=125 words)' and note the reduced statistical power. A reviewer who notices '125 words' vs '1,092 words' in the source data will question the comparison's validity."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "TABLE NUMBERING OUT OF SEQUENCE. Table 7 (L0 phase transition, Section 5.1) appears before Table 6 (CMI analysis, Section 6.2) in the text but has a higher number. Table 8 (cross-domain hierarchy suite) is in Section 3.7 but numbered after tables in Sections 4-6. The review.md flags this as Major.",
+      "suggestion": "Renumber all tables sequentially as they appear in the text. Minimal fix: swap Tables 6 and 7."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "ABSTRACT USES 'RULING OUT' FOR 0/8 RESULT. The abstract states activation patching '0/8 parent recovery after child zeroing, ruling out competitive exclusion.' With a 95% CI of [0%, 36.9%], 'ruling out' is overclaiming. The data are consistent with up to 37% competitive exclusion.",
+      "suggestion": "Replace 'ruling out competitive exclusion' with 'finding no evidence of competitive exclusion (0/8 recovery; 95% CI: [0%, 36.9%])' in the abstract."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "SECTION 7.2 TWO INTERPRETATIONS PARAGRAPH IS EXCELLENT BUT DOES NOT INCORPORATE PATCHING. The Two Interpretations section was written when activation patching was pending. Now that patching yields 0/8, the paragraph should note that patching favors Interpretation A (genuine low absorption) over Interpretation B (metric miscalibration) -- though both remain possible due to the JumpReLU threshold confound.",
+      "suggestion": "Update Section 7.2 to incorporate the patching result as evidence that partially distinguishes the interpretations, while noting the JumpReLU threshold caveat."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "PLACEHOLDER URL IN CONCLUSION. Section 8 ends with 'Code and data are released as an SAEBench extension at [URL].' The review.md flags this.",
+      "suggestion": "Replace with actual URL or 'Code and data will be released upon acceptance at [URL].'"
+    }
+  ],
+  "metric_gaming_risks": [
+    "The permissive hedging classification (98.6%) is near-tautological: since only 9/1195 tokens remain FN at L0=176, almost any token is 'hedging' under this definition. The metric gameable here is the hedging rate itself -- using a looser definition inflates the hedging fraction.",
+    "The activation patching result (0/8) has a JumpReLU hard-threshold confound. The binary 'recovery yes/no' criterion may miss sub-threshold changes that indicate partial competitive exclusion. Using a continuous recovery metric (pre-threshold activation change) would be more informative.",
+    "The control failure result (shuffled > measured in all 5 domains) is robust but the candidate explosion diagnosis relies on a specific mechanism (random vectors in R^2304 identifying 23% of decoder columns). An alternative explanation -- shuffled probes have lower F1, producing more FNs, which the metric counts as higher absorption -- is equally valid and does not require the geometric argument. Both explanations support the same conclusion, but the paper emphasizes the geometric one."
+  ],
+  "novelty_risks": [
+    "Chanin & Garriga-Alonso (2025) 'Sparse but Wrong' already establishes that incorrect L0 causes wrong features. The L0 phase transition result extends this but the conceptual foundation is not new.",
+    "The hedging-vs-competitive-exclusion decomposition is conceptually anticipated by Chanin et al. (2025) feature hedging paper. The quantitative contribution (98.6% permissive, 6.2% strict) is new, but the framework is not.",
+    "The control failure result is the most novel finding -- no prior work has run shuffled-label controls on absorption metrics. However, control checks are standard methodology; the novelty is in demonstrating that a widely-used metric fails them, not in the methodology itself."
+  ],
+  "reproducibility_gaps": [
+    "The CMI L0=22 replication may be a pilot with only 125 words (5 per letter). The paper does not specify which version was used. Source data shows 'mode: PILOT' in the cmi_replication_l0_22.json file.",
+    "The 8 persistent core words are identified by cross-referencing confound_decomposition_multi_l0.json across 4 L0 values. The 9th word ('wrong'/W) was reclassified from the confound decomposition count. The reconciliation between 8 vs 9 is only in the data_validation_report, not in the paper.",
+    "The activation patching experiment uses three methods (primary decode-reencode, residual, all-children) but only the primary method's protocol is fully specified. 'Residual patching: subtract the child feature's decoder contribution' is underspecified -- does the subtraction happen before or after the SAE encoding step?",
+    "The placeholder [URL] for code release means no reviewer can currently reproduce the experiments."
+  ]
+}

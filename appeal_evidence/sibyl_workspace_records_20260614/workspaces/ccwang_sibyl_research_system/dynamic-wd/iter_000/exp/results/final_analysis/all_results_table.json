@@ -1,0 +1,328 @@
+{
+  "meta": {
+    "generated": "2026-03-17",
+    "mode": "PILOT",
+    "arch_primary": "resnet20",
+    "dataset_primary": "cifar10",
+    "epochs_pilot": 20,
+    "note": "所有结果均为 20 epoch pilot，非最终 200 epoch 结果"
+  },
+  "tier0_alignment_proxy": {
+    "experiment": "tier0_diagnostic",
+    "description": "Alignment Proxy (minibatch EMA vs large-batch) 可靠性诊断",
+    "config": {
+      "arch": "resnet20",
+      "dataset": "cifar10",
+      "epochs": 20,
+      "beta": 0.99,
+      "num_mini_batches": 50,
+      "large_batch_size": 4096
+    },
+    "metrics": {
+      "pearson_r_mini_ema_vs_large": 0.848947,
+      "pearson_r_ema_vs_large": 0.604363,
+      "pearson_r_mini_vs_large": 0.64643,
+      "overall_delta_std": 0.000753,
+      "final_test_acc": 88.84,
+      "phase_structure": {
+        "early_mean_delta": 0.004491,
+        "mid_mean_delta": 0.003352,
+        "late_mean_delta": 0.002824
+      }
+    },
+    "verdict": "NO-GO (adjust beta)",
+    "verdict_detail": "Pearson r=0.8489 处于 [0.6, 0.85] PARTIAL FAIL 区间，未达 r>=0.85 阈值",
+    "action_taken": "Beta 从 0.99 提升至 0.999（已在 tier1_aadwd_variants 中生效）"
+  },
+  "tier1_fixed_wd_grid": {
+    "experiment": "tier1_fixed_wd_grid",
+    "description": "6 种固定 WD 值网格搜索对比",
+    "config": {
+      "arch": "resnet20",
+      "dataset": "cifar10",
+      "epochs": 20,
+      "batch_size": 128
+    },
+    "results": [
+      {
+        "method": "fixed_wd",
+        "wd": 0.0,
+        "label": "No-WD",
+        "best_test_acc": 87.44,
+        "final_test_acc": 87.39,
+        "final_train_acc": 91.847,
+        "gen_gap": 4.457,
+        "weight_norm": 57.7728,
+        "time_sec": 54.76
+      },
+      {
+        "method": "fixed_wd",
+        "wd": 0.0005,
+        "label": "Fixed-WD-5e-4 [BEST FIXED]",
+        "best_test_acc": 89.35,
+        "final_test_acc": 89.28,
+        "final_train_acc": 92.6262,
+        "gen_gap": 3.3462,
+        "weight_norm": 28.0636,
+        "time_sec": 53.96
+      },
+      {
+        "method": "fixed_wd",
+        "wd": 0.001,
+        "label": "Fixed-WD-1e-3",
+        "best_test_acc": 88.98,
+        "final_test_acc": 88.98,
+        "final_train_acc": 92.2075,
+        "gen_gap": 3.2275,
+        "weight_norm": 21.2229,
+        "time_sec": 53.05
+      },
+      {
+        "method": "fixed_wd",
+        "wd": 0.005,
+        "label": "Fixed-WD-5e-3",
+        "best_test_acc": 85.95,
+        "final_test_acc": 85.95,
+        "final_train_acc": 86.905,
+        "gen_gap": 0.955,
+        "weight_norm": 10.8335,
+        "time_sec": 54.8
+      },
+      {
+        "method": "fixed_wd",
+        "wd": 0.01,
+        "label": "Fixed-WD-1e-2",
+        "best_test_acc": 80.13,
+        "final_test_acc": 80.13,
+        "final_train_acc": 79.8417,
+        "gen_gap": -0.2883,
+        "weight_norm": 8.2335,
+        "time_sec": 55.35
+      },
+      {
+        "method": "fixed_wd",
+        "wd": 0.05,
+        "label": "Fixed-WD-5e-2 [DIVERGED]",
+        "best_test_acc": 22.1,
+        "final_test_acc": 19.65,
+        "final_train_acc": 19.6595,
+        "gen_gap": 0.0095,
+        "weight_norm": 2.0932,
+        "time_sec": 62.54
+      }
+    ]
+  },
+  "tier1_dynamic_baselines": {
+    "experiment": "tier1_stagewise_cwd",
+    "description": "Stagewise-WD 和 CWD（sign-based）动态基线",
+    "config": {
+      "arch": "resnet20",
+      "dataset": "cifar10",
+      "epochs": 20
+    },
+    "results": [
+      {
+        "method": "stagewise_wd",
+        "label": "Stagewise-WD",
+        "best_test_acc": 85.33,
+        "final_test_acc": 85.33,
+        "final_train_acc": 88.9022,
+        "gen_gap": 3.5722,
+        "weight_norm": 59.8544,
+        "time_sec": 99.7,
+        "note": "20 epoch pilot 中 milestones(30/60/90)未触发，仅展示 stage 1 效果"
+      },
+      {
+        "method": "cwd",
+        "label": "CWD (sign-based masking)",
+        "best_test_acc": 81.1,
+        "final_test_acc": 79.32,
+        "final_train_acc": 85.5028,
+        "gen_gap": 6.1828,
+        "weight_norm": 45.0578,
+        "time_sec": 698.0,
+        "note": "计算代价极高：12.9x 慢于 Fixed-WD，20 epoch 效果差"
+      }
+    ]
+  },
+  "tier1_aadwd_variants": {
+    "experiment": "tier1_aadwd_variants",
+    "description": "3 种 AADWD 变体（conservative/aggressive/square）",
+    "config": {
+      "arch": "resnet20",
+      "dataset": "cifar10",
+      "epochs": 20,
+      "beta": 0.999,
+      "c": 0.01,
+      "lambda_min": 1e-06,
+      "lambda_max": 0.01
+    },
+    "results": [
+      {
+        "method": "aadwd_aggressive",
+        "label": "AADWD-Aggressive [PILOT PASS]",
+        "best_test_acc": 85.09,
+        "final_test_acc": 83.86,
+        "final_train_acc": 88.8882,
+        "gen_gap": 5.0282,
+        "weight_norm": 70.3869,
+        "lambda_min_seen": 2.21e-06,
+        "lambda_max_seen": 0.00041471,
+        "lambda_variation": "大幅下降 (187x)：训练后期 WD 趋近最小值",
+        "pass_criteria": true,
+        "time_sec": 571.95
+      },
+      {
+        "method": "aadwd_square",
+        "label": "AADWD-Square",
+        "best_test_acc": 83.45,
+        "final_test_acc": 82.47,
+        "final_train_acc": 87.5401,
+        "gen_gap": 5.0701,
+        "weight_norm": 56.7218,
+        "lambda_min_seen": 5.853e-05,
+        "lambda_max_seen": 9.976e-05,
+        "lambda_variation": "平缓增大 (1.7x)：变化极小",
+        "pass_criteria": false,
+        "time_sec": 565.16
+      },
+      {
+        "method": "aadwd_conservative",
+        "label": "AADWD-Conservative [FAIL]",
+        "best_test_acc": 74.06,
+        "final_test_acc": 61.8,
+        "final_train_acc": 78.9363,
+        "gen_gap": 17.1363,
+        "weight_norm": 27.8663,
+        "lambda_min_seen": 0.00058526,
+        "lambda_max_seen": 0.00099581,
+        "lambda_variation": "增大 (1.7x)：lambda 趋向 max，过度正则化",
+        "pass_criteria": false,
+        "time_sec": 548.75
+      }
+    ]
+  },
+  "tier2_cross_arch": {
+    "experiment": "tier2_cross_arch",
+    "description": "跨架构泛化验证：VGG16-BN / CIFAR-100",
+    "config": {
+      "arch": "vgg16_bn",
+      "dataset": "cifar100",
+      "epochs": 20
+    },
+    "results": [
+      {
+        "method": "aadwd_aggressive",
+        "label": "AADWD-Aggressive (VGG16/CIFAR-100)",
+        "best_test_acc": 48.7,
+        "final_test_acc": 45.57,
+        "final_train_acc": 49.6214,
+        "gen_gap": 4.0514,
+        "weight_norm": 132.0536,
+        "time_sec": 404.14,
+        "note": "CIFAR-100 需要更长训练才能展示真实性能，48.7% 在 20 epoch 合理"
+      },
+      {
+        "method": "fixed_wd",
+        "label": "Fixed-WD (VGG16/CIFAR-100)",
+        "best_test_acc": 37.15,
+        "final_test_acc": 37.15,
+        "final_train_acc": 36.7188,
+        "gen_gap": -0.4312,
+        "weight_norm": 62.2105,
+        "time_sec": 75.73,
+        "note": "固定 WD 在 20 epoch 时欠拟合，gen_gap 为负说明训练不充分"
+      }
+    ],
+    "cross_arch_finding": "AADWD-Aggressive 在 VGG16/CIFAR-100 上 best_test_acc=48.7% 高于 Fixed-WD=37.15%，表现出跨架构泛化能力（差距 +11.55%）"
+  },
+  "tier2_ablations": {
+    "experiment": "tier2_ablations",
+    "description": "消融实验：random_dynamic_wd 和 norm_matched_wd",
+    "config": {
+      "arch": "resnet20",
+      "dataset": "cifar10",
+      "epochs": 20
+    },
+    "results": [
+      {
+        "method": "random_dynamic_wd",
+        "label": "Random-Dynamic-WD (对照组)",
+        "best_test_acc": 80.34,
+        "final_test_acc": 72.16,
+        "final_train_acc": 83.3233,
+        "gen_gap": 11.1633,
+        "weight_norm": 35.4932,
+        "time_sec": 359.48,
+        "note": "random WD 期待高方差，best=80.34% 但 final 仅 72.16%，不稳定"
+      },
+      {
+        "method": "norm_matched_wd",
+        "label": "Norm-Matched-WD (重要对照)",
+        "best_test_acc": 85.44,
+        "final_test_acc": 83.47,
+        "final_train_acc": 88.5076,
+        "gen_gap": 5.0376,
+        "weight_norm": 62.3475,
+        "time_sec": 591.76,
+        "note": "weight norm 匹配的动态 WD，性能与 AADWD-Aggressive 相近"
+      }
+    ],
+    "ablation_key_finding": "norm_matched_wd (85.44%) ≈ AADWD-Aggressive (85.09%)，表明 20 epoch pilot 尺度下 alignment-awareness 的边际增益有限。需 200 epoch full 实验验证。"
+  },
+  "tier2_hyperparam_sensitivity": {
+    "experiment": "tier2_hyperparam_sensitivity",
+    "description": "超参敏感性：c 值 5 档（0.001-0.1）和 beta 值 4 档（0.9-0.9999）",
+    "config": {
+      "arch": "resnet20",
+      "dataset": "cifar10",
+      "epochs": 20
+    },
+    "c_sweep": {
+      "fixed_beta": 0.999,
+      "results": [
+        {"c": 0.001, "best_test_acc": 85.27, "final_mean_lambda": 1e-06},
+        {"c": 0.005, "best_test_acc": 85.73, "final_mean_lambda": 1.07e-06},
+        {"c": 0.01,  "best_test_acc": 85.09, "final_mean_lambda": 2.21e-06},
+        {"c": 0.05,  "best_test_acc": 85.74, "final_mean_lambda": 1.225e-05},
+        {"c": 0.1,   "best_test_acc": 84.61, "final_mean_lambda": 2.705e-05}
+      ],
+      "finding": "c 在 [0.001, 0.05] 范围内 best_test_acc 集中在 85.1-85.7%，变化幅度仅 0.65%，表现出良好的鲁棒性"
+    },
+    "beta_sweep": {
+      "fixed_c": 0.01,
+      "results": [
+        {"beta": 0.9,    "best_test_acc": 85.98, "final_mean_lambda": 1.64e-06},
+        {"beta": 0.99,   "best_test_acc": 84.86, "final_mean_lambda": 1.67e-06},
+        {"beta": 0.999,  "best_test_acc": 85.09, "final_mean_lambda": 2.21e-06},
+        {"beta": 0.9999, "best_test_acc": 82.09, "final_mean_lambda": 2.35e-04}
+      ],
+      "finding": "beta 在 [0.9, 0.999] 范围内表现稳定（84.9-86.0%）；beta=0.9999 时性能明显下降（82.09%），因为 EMA 过于平滑导致 lambda 无法及时响应"
+    }
+  },
+  "overall_ranking": {
+    "description": "全方法 pilot 结果排名（ResNet20/CIFAR-10/20 epoch）",
+    "ranked_methods": [
+      {"rank": 1,  "method": "Fixed-WD (5e-4)",         "best_test_acc": 89.35, "gen_gap": 3.35,  "weight_norm": 28.1,  "note": "最佳固定 WD 基线"},
+      {"rank": 2,  "method": "Fixed-WD (1e-3)",         "best_test_acc": 88.98, "gen_gap": 3.23,  "weight_norm": 21.2,  "note": "第二固定 WD 基线"},
+      {"rank": 3,  "method": "No-WD",                   "best_test_acc": 87.44, "gen_gap": 4.46,  "weight_norm": 57.8,  "note": "无正则对照"},
+      {"rank": 4,  "method": "Fixed-WD (5e-3)",         "best_test_acc": 85.95, "gen_gap": 0.96,  "weight_norm": 10.8,  "note": "过正则边缘"},
+      {"rank": 5,  "method": "Stagewise-WD",             "best_test_acc": 85.33, "gen_gap": 3.57,  "weight_norm": 59.9,  "note": "stage schedule 未完全生效"},
+      {"rank": 6,  "method": "AADWD-Agg (beta=0.9)",    "best_test_acc": 85.98, "gen_gap": 5.21,  "weight_norm": 76.0,  "note": "最佳 AADWD 配置"},
+      {"rank": 7,  "method": "AADWD-Agg (c=0.05)",      "best_test_acc": 85.74, "gen_gap": 4.70,  "weight_norm": 62.0,  "note": "c sweep 最佳"},
+      {"rank": 8,  "method": "AADWD-Agg (c=0.005)",     "best_test_acc": 85.73, "gen_gap": 5.51,  "weight_norm": 72.6,  "note": ""},
+      {"rank": 9,  "method": "Norm-Matched-WD",          "best_test_acc": 85.44, "gen_gap": 5.04,  "weight_norm": 62.3,  "note": "重要消融对照"},
+      {"rank": 10, "method": "AADWD-Agg (c=0.001)",     "best_test_acc": 85.27, "gen_gap": 3.79,  "weight_norm": 75.0,  "note": ""},
+      {"rank": 11, "method": "AADWD-Aggressive (c0.01)", "best_test_acc": 85.09, "gen_gap": 5.03,  "weight_norm": 70.4,  "note": "Tier1 变体主实验"},
+      {"rank": 12, "method": "AADWD-Agg (beta=0.99)",   "best_test_acc": 84.86, "gen_gap": 4.47,  "weight_norm": 75.0,  "note": ""},
+      {"rank": 13, "method": "AADWD-Agg (c=0.1)",       "best_test_acc": 84.61, "gen_gap": 3.46,  "weight_norm": 56.6,  "note": ""},
+      {"rank": 14, "method": "AADWD-Square",             "best_test_acc": 83.45, "gen_gap": 5.07,  "weight_norm": 56.7,  "note": "lambda 变化太小"},
+      {"rank": 15, "method": "Fixed-WD (1e-2)",          "best_test_acc": 80.13, "gen_gap": -0.29, "weight_norm": 8.2,   "note": "过正则化"},
+      {"rank": 16, "method": "Random-Dynamic-WD",        "best_test_acc": 80.34, "gen_gap": 11.16, "weight_norm": 35.5,  "note": "不稳定，随机对照"},
+      {"rank": 17, "method": "AADWD-Agg (beta=0.9999)", "best_test_acc": 82.09, "gen_gap": 7.84,  "weight_norm": 43.3,  "note": "beta 过大，EMA 失响应"},
+      {"rank": 18, "method": "CWD (sign-based)",         "best_test_acc": 81.1,  "gen_gap": 6.18,  "weight_norm": 45.1,  "note": "计算 12.9x 慢，效果差"},
+      {"rank": 19, "method": "AADWD-Conservative",       "best_test_acc": 74.06, "gen_gap": 17.14, "weight_norm": 27.9,  "note": "严重欠拟合"},
+      {"rank": 20, "method": "Fixed-WD (5e-2)",          "best_test_acc": 22.1,  "gen_gap": 0.01,  "weight_norm": 2.1,   "note": "训练发散"}
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_seconds": 900,
+    "description": "Pilot experiments use 100 samples per feature with seed 42. Timeout 15 minutes per task."
+  },
+  "pilots": [
+    {
+      "task_id": "h9_cooccurrence_analysis",
+      "name": "H9 Pilot: Co-occurrence vs. Absorption",
+      "description": "Compute p_11 for 26 first-letter features at layer 8 (highest variance layer). Test correlation with absorption rate.",
+      "method": "For each feature: generate 100 child prompts, run forward pass, check parent latent activation, compute p_11 = fraction where parent fires. Correlate with absorption_rate.",
+      "pass_criteria": "Pearson r > 0.2 with p < 0.10 (directional signal). If r < 0.1, hypothesis is likely null.",
+      "falsification_criterion": "r < 0.2 or p > 0.05",
+      "estimated_minutes": 25,
+      "gpu_count": 1,
+      "expected_output": "exp/results/pilots/h9_cooccurrence_pilot.json"
+    },
+    {
+      "task_id": "h10_random_sae_baseline",
+      "name": "H10 Pilot: Random SAE Baseline",
+      "description": "Construct random SAE baseline and run absorption detection on 26 first-letter features at layer 8.",
+      "method": "Load pretrained SAE, replace decoder with normalized random matrix, freeze. Run Chanin absorption metric on same prompts.",
+      "pass_criteria": "Random SAE shows non-zero absorption (>1% mean). If zero, absorption may be purely learned.",
+      "falsification_criterion": "Mean absorption < 0.5% (indistinguishable from zero)",
+      "estimated_minutes": 20,
+      "gpu_count": 1,
+      "expected_output": "exp/results/pilots/h10_random_sae_pilot.json"
+    }
+  ],
+  "pilot_evaluation_criteria": {
+    "advance": "Both H9 and H10 show expected directional results (r > 0.2 for H9, non-zero absorption for H10)",
+    "refine": "One pilot shows weak signal but not definitive; consider larger sample size or alternative metric",
+    "pivot": "Both pilots null; fall back to cand_h (pure null-result paper without H9-H10)"
+  }
+}

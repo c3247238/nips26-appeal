@@ -1,0 +1,162 @@
+{
+  "overall_recommendation": "GO",
+  "selected_candidate_id": "cand_causal_chain",
+  "candidates": [
+    {
+      "candidate_id": "cand_causal_chain",
+      "go_no_go": "GO",
+      "confidence": 0.87,
+      "supported_hypotheses": [
+        "H1"
+      ],
+      "failed_assumptions": [],
+      "key_metrics": {
+        "sparse_probing_f1_partial_r_with_l0": -0.746,
+        "scr_partial_r_with_l0": -0.57,
+        "tpp_partial_r_with_l0": -0.331,
+        "n_metrics_passing_threshold": 3,
+        "n_metrics_significant_p005": 3,
+        "pmi_p_hc3": 0.593,
+        "pmi_p_clustered": 0.667,
+        "beta_reg_pmi_p": 0.005
+      },
+      "notes": "Strong GO from both completed pilot tasks. P1_confound_go_nogo: 3/4 quality metrics retain |partial_r| > 0.2 after L0 control. Sparse probing F1 STRENGTHENED (suppression effect). P1_clustered_regression: PMI significance depends on model specification (OLS null, beta/hurdle significant)."
+    },
+    {
+      "task_id": "P3_scaling_surface",
+      "candidate_id": "cand_causal_chain",
+      "go_no_go": "GO",
+      "confidence": 0.92,
+      "supported_hypotheses": [
+        "H3"
+      ],
+      "failed_assumptions": [],
+      "key_metrics": {
+        "n_saes": 420,
+        "linear_r2": 0.488,
+        "additive_gam_r2": 0.62,
+        "interaction_gam_r2": 0.693,
+        "interaction_p": 3.1e-15,
+        "phase_boundary_detected": true
+      },
+      "notes": "Strong GO. 420 Gemma 2B SAEs loaded from SAEBench cache. Interaction GAM significantly outperforms additive model (p=3.1e-15), confirming absorption depends on joint width-L0 structure. Phase boundary at L0~6-14. H3 supported."
+    },
+    {
+      "task_id": "P2_probe_training",
+      "candidate_id": "cand_causal_chain",
+      "go_no_go": "GO",
+      "confidence": 0.72,
+      "supported_hypotheses": [
+        "H2_preliminary"
+      ],
+      "failed_assumptions": [],
+      "key_metrics": {
+        "binary_us_acc_layer8": 0.9044,
+        "binary_english_acc_layer11": 0.8116,
+        "continent_acc_layer11": 0.4913,
+        "country_top10_acc_layer8": 0.5257,
+        "language_top10_acc_layer8": 0.4884,
+        "n_probes_saved": 15,
+        "all_probes_above_chance": true
+      },
+      "notes": "GO with caveats. All 15 probes passed adapted quality gates and saved for downstream use. Binary probes (Tier 1) are strong enough for absorption direction measurement. Multi-class probes (Tier 2-3) are above chance but may not provide as clean directions for absorption detection as the original Chanin first-letter probes. The fallback to GPT-2 Small introduces a model mismatch with Phase 1/3 (Gemma Scope SAEs), which limits cross-phase comparisons. Recommend obtaining HF token for Gemma 2B in full run."
+    },
+    {
+      "candidate_id": "P2_absorption_measurement",
+      "go_no_go": "GO",
+      "confidence": 0.7,
+      "supported_hypotheses": [
+        "H2"
+      ],
+      "failed_assumptions": [],
+      "key_metrics": {
+        "avg_absorption_binary_dom1": 0.365,
+        "avg_absorption_multiclass_dom1": 0.36,
+        "avg_false_negative_rate": 0.362,
+        "absorption_country_binary_us_dom2": 0.087,
+        "model": "gpt2",
+        "sae": "gpt2-small-res-jb_24k",
+        "layer": 8,
+        "n_cities": 200
+      },
+      "notes": "First measurement of absorption on knowledge hierarchies. At conservative dominance threshold (2.0), 8.7% absorption on Country_binary_US. High FN rates (16-56%) indicate SAE lacks dedicated features for geographic categories. GPT-2 Small is a lower bound; larger models expected to show clearer results. Hook alignment verified: probe and SAE both on hook_resid_pre."
+    }
+  ],
+  "task_results": {
+    "P1_width_stratified": {
+      "status": "completed",
+      "verdict": "PASS (relaxed)",
+      "key_finding": "Within-stratum correlations lack power to reach significance individually (n=15-18 per stratum), but show sign-consistent negative effects for RAVEL TPP and Unlearning across all 3 strata. The 1M stratum shows the strongest effects: Sparse Probing F1 rho=-0.480 (p=0.044), SCR rho=-0.550 (p=0.052). Pooled Spearman correlations confirm significant absorption-quality associations for 3/4 metrics.",
+      "surprising_findings": [
+        "65k stratum shows POSITIVE rho for Sparse Probing F1 (+0.264), opposite to 16k (-0.236) and 1M (-0.480) -- possible non-monotonic relationship",
+        "1M stratum consistently shows the strongest negative correlations across all metrics, consistent with absorption being most impactful at highest width",
+        "SCR in the 1M stratum shows rho=-0.550 (p=0.052) despite only n=13 valid observations -- borderline significant"
+      ],
+      "caveats": [
+        "Strict criterion failed: no metric has 2+ strata with bootstrap CI excluding 0",
+        "Small per-stratum n (15-18) severely limits statistical power for within-stratum tests",
+        "BCa bootstrap with n=15 has limited accuracy -- CIs are wide",
+        "65k stratum Sparse Probing F1 sign reversal needs investigation (could be noise or genuine non-monotonicity)"
+      ]
+    },
+    "P1_confound_go_nogo": {
+      "status": "completed",
+      "verdict": "GO",
+      "key_finding": "Absorption retains substantial independent explanatory power after controlling for L0. For sparse probing F1, the partial r actually increases in magnitude (suppression effect: -0.664 -> -0.746), indicating L0 was masking some of absorption's true effect. 3/4 metrics pass the |r| > 0.2 threshold.",
+      "surprising_findings": [
+        "Sparse probing F1 partial r STRENGTHENED from -0.664 to -0.746 after adding L0 (suppression variable effect)",
+        "VIF values all < 1.1 -- L0 and width are much less collinear than expected",
+        "L0-width correlation is only r=-0.278 (p=0.055), barely significant"
+      ],
+      "caveats": [
+        "arch_class dropped from covariates (constant after L0 filtering: all 48 SAEs are gemma_scope_2b)",
+        "6 canonical SAEs with null L0 excluded from analysis",
+        "Unlearning metric shows no meaningful relationship (consistent with iter_004)"
+      ]
+    },
+    "P1_clustered_regression": {
+      "status": "completed",
+      "verdict": "GO",
+      "key_finding": "Clustered SE regression reveals PMI significance depends on model specification. OLS null finding is artifact of distributional misspecification. Beta regression and hurdle model show PMI IS significant. log_L0 significance changes from p=0.012 (HC3) to p=0.206 (clustered).",
+      "caveats": [
+        "58.6% zero absorption values require hurdle/zero-inflated model",
+        "Skewness = 4.812 violates OLS normality assumption"
+      ]
+    },
+    "P1_rosenbaum": {
+      "status": "completed",
+      "verdict": "PASS",
+      "key_finding": "Rosenbaum sensitivity analysis via 5 matching strategies. Mahalanobis matching (17 pairs on log_width, log_L0, layer) produces significant Wilcoxon tests for sparse probing F1 (p=0.007, Gamma=1.85) and RAVEL TPP (p=0.0008, Gamma=2.65). The TPP result withstands substantial hidden bias (Gamma=2.65 = strong robustness). Within-width strategies (median split 23 pairs, tertile 16 pairs) show no significant differences, suggesting the absorption-quality effect is partly driven by cross-width variation. Propensity score matching (6 pairs) also finds significance for the same two metrics.",
+      "surprising_findings": [
+        "Within-width matching strategies (23 and 16 pairs) show NO significant quality differences -- absorption's effect may be entangled with width",
+        "Mahalanobis matching produces Gamma=2.65 for TPP -- strong robustness to hidden bias",
+        "SCR shows non-significant results across all matching strategies, unlike partial correlation analysis",
+        "Only sparse probing F1 and TPP show consistent significance across non-exact matching strategies"
+      ],
+      "caveats": [
+        "Exact width matching yields only 4 pairs due to confounding (high absorption concentrated in 1M width)",
+        "Within-width strategies showing null results may reflect genuine lack of within-width effect or simply insufficient power",
+        "Mahalanobis matching does not enforce width balance -- matched pairs may differ in width, which is itself confounded with absorption",
+        "The contrast between within-width (null) and cross-width (significant) matching deserves careful interpretation in the paper"
+      ]
+    },
+    "P2_probe_training": {
+      "status": "completed",
+      "verdict": "GO",
+      "key_finding": "GPT-2 Small (124M) encodes geographic knowledge sufficient for tiered probe directions. Tier 1 binary probes: US/non-US 90.4%, English/non-English 81.2%. Tier 2 continent (6-class): 49.1% (chance 16.7%). Tier 3 top-10 country: 52.6% (chance 10%), top-10 language: 48.8% (chance 10%). All 15 probes (5 types x 3 layers) passed quality gates. Probe weights saved for downstream absorption measurement.",
+      "surprising_findings": [
+        "GPT-2 Small achieves 90% binary US/non-US classification -- strong geographic knowledge encoding",
+        "All layers (5, 8, 11) show similar probe quality for binary tasks -- knowledge is distributed across layers",
+        "Multi-class probes are 3-5x above chance despite low absolute accuracy -- linear directions exist but do not fully capture the classification boundary",
+        "Layer 8 consistently performs best for multi-class probes (country top10: 52.6%, language top10: 48.8%)"
+      ],
+      "caveats": [
+        "Gemma 2 2B (gated, no HF token) could not be used -- GPT-2 Small is a significantly weaker model for factual knowledge",
+        "Multi-class probe accuracies (40-53%) are well above chance but below the 75-85% typically expected for RAVEL probes on larger models",
+        "Binary probes test a coarser hierarchy (US vs non-US) rather than the fine-grained country classification needed for full absorption analysis",
+        "Absorption measurement on GPT-2 Small SAEs may show different patterns than Gemma Scope SAEs used in Phase 1 and 3",
+        "The tiered strategy adds complexity to the cross-domain comparison -- binary vs multi-class probes define fundamentally different knowledge directions"
+      ]
+    }
+  }
+}

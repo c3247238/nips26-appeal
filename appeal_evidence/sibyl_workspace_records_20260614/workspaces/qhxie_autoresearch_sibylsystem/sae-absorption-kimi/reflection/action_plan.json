@@ -1,0 +1,198 @@
+{
+  "issues_classified": [
+    {
+      "description": "DATA COPYING BUG VERIFIED: Matryoshka and MultiScale share identical replicate data for 4 of 5 seeds (123, 456, 789, 1011). Only seed 42 differs (M=0.1011 vs MS=0.0440). All 9 key metrics are byte-identical for the 4 seeds. The 'antagonistic interaction' claim is entirely artifactual.",
+      "category": "experiment",
+      "severity": "critical",
+      "suggestion": "Re-run Full Matryoshka experiment with all 5 seeds independently. Add a data integrity check (cross-variant duplicate detection via MD5 hash of replicate metrics) to the experiment pipeline BEFORE any analysis. Withdraw the antagonism claim from the paper until genuine data is available. Estimated: 20 min re-run + 10 min pipeline fix.",
+      "status": "new",
+      "issue_key": "experiment:matryoshka-multiscale-data-copying-4of5-seeds:iter008"
+    },
+    {
+      "description": "FEATURE COUNT MISREPRESENTATION VERIFIED: run_full.py line 43 sets NUM_FEATURES=1024. All result JSON configs show num_features=1024. The paper claims 'SynthSAEBench-16k' with 16,384 features in title, abstract, Section 3.1, Figure 1, and throughout (16 occurrences).",
+      "category": "experiment",
+      "severity": "critical",
+      "suggestion": "Option A (preferred): Re-run all 7 variants on actual 16k dataset (estimated 60-90 min total). Option B: Honestly report 1k scale throughout---revise title, abstract, method, and all '16k' references. Remove novelty claim of 'first on 16k'. Add a num_features verification check to the experiment pipeline. Estimated: 30 min for Option B, 90 min for Option A.",
+      "status": "new",
+      "issue_key": "experiment:feature-count-misrepresentation-1k-vs-16k:iter008"
+    },
+    {
+      "description": "MISSING L0-MATCHED ABLATION VERIFIED: No result files exist for e2_l0_matched. The paper's central claim is 'absorption is a sparsity phenomenon.' The L0-matched ablation is the critical control. It was promised in proposal, described in methodology, marked 'completed' in gpu_progress.json, but never run.",
+      "category": "experiment",
+      "severity": "critical",
+      "suggestion": "Run L0-matched ablation immediately: train Baseline L1 SAEs with tuned lambda to achieve L0=50 and L0=550, measure absorption on 5 seeds each, compare with TopK and Orthogonality. Estimated 30-40 min. Without this control, the central claim must be reframed as a hypothesis. This is the highest-priority missing experiment.",
+      "status": "new",
+      "issue_key": "experiment:missing-l0-matched-ablation-central-control:iter008"
+    },
+    {
+      "description": "NEGATIVE EXPLAINED_VARIANCE VERIFIED: All trained variants show negative explained_variance (Baseline: -0.37, TopK: -0.30, MultiScale: -0.28, Orthogonality: -0.37, Gating: -0.36, Matryoshka: -0.28). Orthogonality has MSE~3e-5 but explained_variance=-0.37, mathematically inconsistent.",
+      "category": "experiment",
+      "severity": "critical",
+      "suggestion": "Investigate explained_variance computation immediately. Verify formula against sklearn.metrics.explained_variance_score. If correct, SAEs failed to learn and all claims are suspect. If incorrect, fix bug and recompute. Estimated: 15 min investigation.",
+      "status": "new",
+      "issue_key": "experiment:negative-explained-variance-all-variants:iter008"
+    },
+    {
+      "description": "COHEN'S d INCONSISTENCY VERIFIED: statistical_analysis.json reports TopK d=4.9271 (pooled std). full_summary.json reports TopK d=5.5087 (Baseline std alone). Paper Table 3 uses 4.93. proposal.md references 5.51. Paper does not state which formula it uses.",
+      "category": "analysis",
+      "severity": "critical",
+      "suggestion": "Standardize on pooled std (conventional choice). State formula explicitly in Method Section 3.5. Update ALL numbers across paper, proposal, full_summary.json, and statistical_analysis.json. Create a single source-of-truth script. Estimated: 15 min.",
+      "status": "recurring",
+      "issue_key": "analysis:cohens-d-inconsistency-pooled-vs-baseline-std:iter008"
+    },
+    {
+      "description": "full_summary.json ONLY CONTAINS 3 VARIANTS: Canonical summary only includes Baseline, TopK, Orthogonality. MultiScale, Gating, Matryoshka, and Random are absent.",
+      "category": "experiment",
+      "severity": "major",
+      "suggestion": "Regenerate full_summary.json to include all 7 variants with consistent aggregation through the same code path. Ensure statistical analysis pipeline processes all variants uniformly. Add validation check that summary files contain expected number of variants. Estimated: 15 min.",
+      "status": "new",
+      "issue_key": "experiment:full-summary-incomplete-3of7-variants:iter008"
+    },
+    {
+      "description": "L0-ABSORPTION CORRELATION IS STATISTICALLY FRAGILE: Computed across 7 variant means, not 35 individual replicates. With n=7, sensitive to Random outlier (L0=1029, A=0.534). Removing Random reduces r from 0.87 to ~0.75.",
+      "category": "analysis",
+      "severity": "major",
+      "suggestion": "Compute correlation across all 35 replicates (5 seeds x 7 variants). Report both analyses (means-based and replicate-based) and acknowledge limitation. Consider mixed-effects model with L0 as predictor and variant as random effect. Estimated: 15 min analysis + writing update.",
+      "status": "recurring",
+      "issue_key": "analysis:l0-absorption-correlation-fragile-n7-means:iter008"
+    },
+    {
+      "description": "DEAD LATENT CRISIS UNADDRESSED: TopK has 81.6% dead latents (1672/2048 mean). MultiScale 56.4% (1155/2048). This severe pathology undermines practical recommendation to use TopK.",
+      "category": "experiment",
+      "severity": "major",
+      "suggestion": "Add dedicated subsection on dead latents. Report rates for all 7 variants. Test whether absorption on active latents only differs from full-dictionary absorption. Discuss whether TopK recommendation is viable given 81.6% dead latents. Estimated: 20 min analysis + writing.",
+      "status": "recurring",
+      "issue_key": "experiment:dead-latent-crisis-unaddressed-topk-81pct:iter008"
+    },
+    {
+      "description": "NO MULTIPLE COMPARISON CORRECTION REPORTED: Method claims Holm-Bonferroni but no corrected p-values shown. With ~8 tests at alpha=0.05, ~0.4 false positives expected.",
+      "category": "methodology",
+      "severity": "major",
+      "suggestion": "Apply and report corrected p-values (Holm-Bonferroni or Benjamini-Hochberg) for all pairwise comparisons. Key results (TopK/MultiScale vs Baseline) will survive correction, strengthening claims. Update Method Section 3.4 and Results. Estimated: 15 min.",
+      "status": "new",
+      "issue_key": "methodology:no-multiple-comparison-correction-holm-bonferroni:iter008"
+    },
+    {
+      "description": "MISSING k-SWEEP AND REAL-LLM VALIDATION: Neither was run despite being promised in proposal. gpu_progress.json marks e3_ksweep complete but no result files exist.",
+      "category": "experiment",
+      "severity": "major",
+      "suggestion": "Run TopK k-sweep (k in {10, 25, 50, 100, 200, 500}) on 1-2 seeds. Estimated 15-20 min. Real-LLM validation can remain as future work but should be more prominently acknowledged as limitation.",
+      "status": "recurring",
+      "issue_key": "experiment:missing-k-sweep-real-llm-validation:iter008"
+    },
+    {
+      "description": "NO CONVERGENCE DIAGNOSTICS: Training times of 1-2 minutes for 2M samples raise convergence questions. No loss curves, validation MSE plateau, or final loss values.",
+      "category": "reproducibility",
+      "severity": "major",
+      "suggestion": "Add convergence diagnostics to experiment pipeline: log training loss per epoch, save final loss values, optionally plot loss curves. Address negative explained_variance values. Estimated: 10 min code change.",
+      "status": "recurring",
+      "issue_key": "reproducibility:no-convergence-diagnostics-loss-curves:iter008"
+    },
+    {
+      "description": "PLAN-EXECUTION GAP: Plan specified 16k features, L0-matched ablation, k-sweep, real-LLM validation. None executed as specified. gpu_progress.json marks tasks complete without output files.",
+      "category": "planning",
+      "severity": "major",
+      "suggestion": "Implement completion verification: before marking any task 'completed' in gpu_progress.json, verify that (a) result files exist, (b) file contents are non-empty, (c) key fields are present. Distinguish 'planned' from 'verified complete'. Estimated: 15 min system code change.",
+      "status": "recurring",
+      "requires_system_change": true,
+      "issue_key": "planning:plan-execution-gap-false-completion-markers:iter008"
+    },
+    {
+      "description": "NO DATA INTEGRITY PIPELINE: Matryoshka copying bug and 1k-vs-16k mismatch would have been caught by simple validation checks.",
+      "category": "pipeline",
+      "severity": "major",
+      "suggestion": "Add mandatory data integrity checks to experiment pipeline: (1) cross-variant duplicate detection (MD5 hash of replicate metrics), (2) num_features verification against plan specification, (3) all-promised-experiments-have-outputs check. Run these BEFORE analysis and writing stages. Estimated: 20 min system code change.",
+      "status": "recurring",
+      "requires_system_change": true,
+      "issue_key": "pipeline:no-data-integrity-pipeline-duplicate-detection:iter008"
+    },
+    {
+      "description": "NO NUMERICAL AUDIT STEP: Cohen's d, correlation values, and sample sizes appear differently in abstract, tables, discussion, and source files.",
+      "category": "pipeline",
+      "severity": "major",
+      "suggestion": "Add a numerical audit step before writing: extract all numerical claims from paper draft, compare against source data files, flag mismatches. This can be automated with a simple script. Estimated: 20 min system code change.",
+      "status": "recurring",
+      "requires_system_change": true,
+      "issue_key": "pipeline:no-numerical-audit-step-cross-section-inconsistency:iter008"
+    },
+    {
+      "description": "Section 4.10 title says 'An Antagonistic Interaction' but body uses 'suggestive of antagonism.' Given 4/5 replicates are copied, entire section should be withdrawn.",
+      "category": "writing",
+      "severity": "major",
+      "suggestion": "Withdraw Section 4.10 entirely until genuine Matryoshka data is available. Replace with note: 'Full Matryoshka results are pending re-run due to data integrity issue.' Estimated: 5 min.",
+      "status": "new",
+      "issue_key": "writing:section-4.10-antagonism-claim-copied-data:iter008"
+    },
+    {
+      "description": "MSE reporting convention in Table 3 is confusing ('x 10^-3' scaling). Random control at 649.1 is especially easy to misread.",
+      "category": "writing",
+      "severity": "minor",
+      "suggestion": "Add footnote: 'MSE values are multiplied by 10^-3 (e.g., 10.44 = MSE of 0.01044; 649.1 = MSE of 0.649).' Estimated: 2 min.",
+      "status": "recurring",
+      "issue_key": "writing:mse-reporting-confusion-table3:iter008"
+    },
+    {
+      "description": "NO CODE REPOSITORY URL: Paper mentions 'open-source replication materials' but provides no URL.",
+      "category": "reproducibility",
+      "severity": "minor",
+      "suggestion": "Include repository link in abstract or introduction. State 'Code and data will be released upon publication' if not yet public. Estimated: 2 min.",
+      "status": "recurring",
+      "issue_key": "reproducibility:no-code-repository-url:iter008"
+    }
+  ],
+  "issues_fixed": [
+    "Sign error in correlation fixed (now correctly positive r=0.865)",
+    "All 7 variants now have 5-replicate data (though Matryoshka has 4/5 copied)",
+    "Random control properly validates metric discrimination (A=0.534 vs trained range 0.055-0.261)",
+    "One-way ANOVA confirms significant differences across conditions (F=73.36, p=8.0e-16)",
+    "Abstract correlation updated to r=0.87, p=0.012, n=7 (from outdated n=4)",
+    "Writing quality improved to 8/10 (highest across all iterations)"
+  ],
+  "success_patterns": [
+    "Component-isolated design (varying one component at a time) is methodologically correct and enables causal attribution",
+    "Ground-truth absorption measurement from known parent-child relationships eliminates probe artifacts",
+    "Random control validates metric discrimination and provides meaningful baseline",
+    "Honest negative result reporting: orthogonality null result (d=0.13) contradicts OrtSAE's 65% claim without spin",
+    "Strong visual narrative: Figures 2-6 form coherent visual story supporting text",
+    "Clear practical recommendations in Section 5.4 are concrete and actionable",
+    "Writing quality score of 8/10 is the highest across all iterations"
+  ],
+  "systemic_patterns": [
+    "Data integrity checks are completely absent across all iterations---severity is escalating (sign error -> duplicate variant -> 4/5 copied replicates -> 1k-vs-16k misrepresentation)",
+    "gpu_progress.json 'completed' status is unreliable---tasks marked complete without verifying output files (e2_l0_matched, e3_ksweep, e4_dead_latent, e5_training_dynamics all marked complete but no files exist)",
+    "Numerical claims drift across sections (abstract, tables, discussion, source files) without cross-validation---Cohen's d inconsistency has persisted across 3+ iterations",
+    "Pilot-to-full narrative updates are incomplete---outdated pilot numbers persist in Discussion",
+    "Gap between plan ambition and execution reality is widening---critical controls promised but not run",
+    "Each pivot introduces new integrity failures while fixing old ones---system is not converging (scores: 7.0 -> 5.0 -> 5.5 -> 4.5)"
+  ],
+  "quality_trajectory": "declining",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 9,
+    "total_gpu_idle_minutes": 0,
+    "bottleneck_stages": [
+      "data_integrity_verification",
+      "statistical_analysis_pipeline",
+      "convergence_verification"
+    ],
+    "suggestions": [
+      "Add mandatory data validation step before analysis (duplicate detection, feature count verification)",
+      "Investigate why training takes only 1-2 min for 2M samples---add convergence diagnostics",
+      "Consolidate analysis scripts into single pipeline that processes all variants uniformly",
+      "Prioritize L0-matched ablation and k-sweep over writing---these are critical missing controls"
+    ]
+  },
+  "recommended_focus": [
+    "Re-run Matryoshka independently and withdraw antagonism claim",
+    "Honestly report 1k scale OR re-run all experiments on 16k",
+    "Run L0-matched ablation (highest-priority missing experiment)",
+    "Investigate negative explained_variance across all variants",
+    "Standardize Cohen's d formula and audit all numerical claims",
+    "Regenerate full_summary.json with all 7 variants",
+    "Add dead latent analysis subsection",
+    "Apply multiple comparison correction and report corrected p-values",
+    "Implement data integrity pipeline (duplicate detection, feature count verification, output file checks)",
+    "Implement completion verification for gpu_progress.json"
+  ],
+  "suggested_threshold_adjustment": 6.0,
+  "suggested_max_iterations": 20
+}

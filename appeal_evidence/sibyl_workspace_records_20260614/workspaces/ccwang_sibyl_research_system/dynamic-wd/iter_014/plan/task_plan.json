@@ -1,0 +1,510 @@
+{
+  "tasks": [
+    {
+      "id": "udwdc_v2_fix",
+      "name": "Implement UDWDC-v2 stability fix",
+      "description": "Pilot data reveals critical UDWDC instability: CSI=-2.41 (highly unstable), and Kp_only/PD_control variants had ZERO total WD budget in ablation. Root cause: when rho_t < rho*(t), the proportional controller drives lambda toward zero, effectively disabling WD. Fix: (1) EMA-smooth rho_t with beta=0.99 to reduce step-to-step noise, (2) add floor clipping lambda_t >= 0.1*lambda_base to prevent WD collapse, (3) add diagnostic assertion that total_WD_budget > 0 after every epoch. Create UDWDC-v2 variant alongside original UDWDC for comparison. Add unit test verifying WD budget > 0 over 100 steps.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/optimizers/udwdc_v2.py, exp/code/test_udwdc_v2.py",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "UDWDC-v2 unit tests pass; WD budget > 0 over 100 steps on random data; CSI_temporal > 0.5 over 10 epochs CIFAR-10; effective WD stays in [0.1*lambda_base, 10*lambda_base]"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "diagnostic_cifar10",
+      "name": "Phase 1: Full diagnostic on CIFAR-10/ResNet-20 (200 epochs, 3 seeds)",
+      "description": "Train ResNet-20 on CIFAR-10 for 200 epochs with all 8 methods (FixedWD, CWD, SWD, CPR, DefazioCorrective, NoWD, UDWDC, UDWDC-v2). Track per-layer rho_t, alpha_t, effective lambda_t trajectories across training. SGD+momentum=0.9, LR=0.1, cosine annealing, batch_size=128. Seeds: 42, 123, 456. Verify: (a) Defazio layer-balancing prediction, (b) methods show distinct rho*(t) trajectories, (c) UDWDC-v2 has CSI > 0.5. This feeds the H1 unification fitting.",
+      "type": "experiment",
+      "depends_on": [
+        "udwdc_v2_fix"
+      ],
+      "expected_output": "exp/results/full/phase1_diagnostic/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 8 methods complete 10 epochs without error; rho_t trajectories are non-trivial (std > 0.01); UDWDC-v2 total WD budget > 0"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Per-layer rho_t trajectories for all 8 methods",
+          "x": "epoch",
+          "y": "rho_t",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Aggregate mean rho_t for all methods overlaid",
+          "x": "epoch",
+          "y": "mean_rho_t",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h1_unification_fit",
+      "name": "H1 test: Fit UDWDC gains to approximate each method's lambda_t trajectory",
+      "description": "For each of the 5 dynamic methods (CWD, SWD, CPR, DefazioCorrective, NoWD), using full 200-epoch lambda_t trajectories from Phase 1, find UDWDC gain settings (K_p, K_i, K_d) that minimize ||lambda_t^UDWDC - lambda_t^method||_2. CRITICAL: Pilot showed CWD=25.6% error, SWD=40.7% error at 10 epochs. With full 200 epochs, re-evaluate. If >2 methods still exceed 20% error, group methods into families: (a) alignment-based (CWD, K_d-dominant), (b) scheduling-based (SWD, Defazio, K_p/K_i-dominant), (c) constraint-based (CPR). H1 falsified if >2 methods have >20% relative error even with family-level grouping.",
+      "type": "analysis",
+      "depends_on": [
+        "diagnostic_cifar10"
+      ],
+      "expected_output": "exp/results/full/h1_unification/fitting_results.json, exp/results/full/h1_unification/unifying_table.md",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Optimization converges for all 5 methods; at least 3 methods have relative error < 15%"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "lambda_t trajectories: original method vs best-fit UDWDC approximation",
+          "x": "step",
+          "y": "lambda_t",
+          "paper_section": "theory"
+        },
+        {
+          "type": "table",
+          "description": "Unified control law parameter mapping table",
+          "columns": [
+            "Method",
+            "K_p",
+            "K_i",
+            "K_d",
+            "rho*",
+            "Relative Error (%)",
+            "Family"
+          ],
+          "paper_section": "theory"
+        }
+      ]
+    },
+    {
+      "id": "ablation_cifar100",
+      "name": "Phase 2a: UDWDC gain ablation on CIFAR-100/VGG-16-BN (200 epochs)",
+      "description": "Train VGG-16-BN on CIFAR-100 for 200 epochs with UDWDC variants: (1) K_p-only, (2) K_i-only, (3) K_d-only, (4) PI control, (5) PD control, (6) Full PID, (7) FixedWD baseline, (8) UDWDC-v2 default. CRITICAL FIX: Pilot showed Kp_only and PD_control had ZERO WD budget. All UDWDC variants must use v2 floor clipping (0.1*lambda_base). Verify total WD budget > 0 for every variant. SGD momentum=0.9, LR=0.1, cosine annealing, batch_size=128. Seeds: 42, 123, 456.",
+      "type": "ablation",
+      "depends_on": [
+        "udwdc_v2_fix"
+      ],
+      "expected_output": "exp/results/full/phase2_ablation/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 8 variants complete 10 epochs; no NaN/Inf; all achieve >20% accuracy; ALL variants have total WD budget > 0"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Ablation results: variant x (accuracy, gen_gap, total_WD_budget, CSI)",
+          "columns": [
+            "Variant",
+            "K_p",
+            "K_i",
+            "K_d",
+            "Test Acc (%)",
+            "Gen Gap (%)",
+            "WD Budget",
+            "CSI"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Marginal contribution of each control term",
+          "x": "variant",
+          "y": "accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "batchsize_sweep",
+      "name": "Phase 2b: Batch-size sweep for H3 (binary vs continuous alignment)",
+      "description": "Train VGG-16-BN on CIFAR-100 for 200 epochs at batch sizes {64, 128, 256, 512, 1024} with 3 methods: FixedWD, CWD (binary), UDWDC-v2 (continuous). Track alignment SNR = E[alpha]^2/Var[alpha]. LR scaled linearly (LR_base=0.1 at bs=128). Seeds: 42, 123, 456. H3 falsified if continuous beats binary at batch_size=64. Pilot showed generally increasing SNR with batch size but with violations at bs=512/1024 for UDWDC — investigate with full training.",
+      "type": "experiment",
+      "depends_on": [
+        "udwdc_v2_fix"
+      ],
+      "expected_output": "exp/results/full/phase2_batchsize/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 15 configurations complete 5 epochs; SNR varies with batch size (rough trend acceptable)"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Alignment SNR vs batch size",
+          "x": "batch_size",
+          "y": "alignment_SNR",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Accuracy improvement over FixedWD vs batch size",
+          "x": "batch_size",
+          "y": "accuracy_delta",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h7_temporal_gate",
+      "name": "Phase 3a: Temporal predictability gate (H7)",
+      "description": "Using alignment trajectories from Phase 1 and Phase 2 (full 200-epoch runs), fit degree-4 polynomials to alpha_t as function of epoch for each layer/run. Compute R-squared. Pilot result: only 12.1% of layer-method combinations exceed R^2=0.85, so gate clearly PASSES. Full 200-epoch data should confirm this. If gate fails, use residual alignment for subsequent comparisons. Zero-GPU analysis.",
+      "type": "analysis",
+      "depends_on": [
+        "diagnostic_cifar10",
+        "ablation_cifar100"
+      ],
+      "expected_output": "exp/results/full/phase3_alignment/h7_gate_result.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Polynomial fitting completes; R^2 < 0.85 for >30% of layer-method combinations"
+      },
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "R^2 distribution across layers and runs",
+          "x": "R_squared",
+          "y": "count",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "alignment_informativeness",
+      "name": "Phase 3b: Alignment informativeness study (H6, 54 runs)",
+      "description": "Train ResNet-20 on CIFAR-100 with WD grid {1e-4, 3e-4, 5e-4, 1e-3, 3e-3, 5e-3} x LR grid {0.05, 0.1, 0.2} x 3 seeds = 54 runs. For each run compute alpha_bar and delta_max. LOO-CV R-squared comparison. H6 falsified if delta_max is a better predictor. Pilot (6 runs) showed alpha_bar LOO-CV R^2=-0.18 vs delta_max R^2=-1.66 (both negative but alpha_bar better) — full 54 runs should give meaningful R^2. Run 4 experiments in parallel across 4 GPUs.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/full/phase3_alignment/informativeness_results.json",
+      "gpu_count": 4,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 70,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "6 runs complete; alpha_bar and delta_max differ across WD values; generalization gap varies >2%"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "alpha_bar vs generalization gap",
+          "x": "alpha_bar",
+          "y": "gen_gap",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "LOO-CV R^2: alpha_bar vs delta_max",
+          "columns": [
+            "Metric",
+            "LOO-CV R^2",
+            "95% CI"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "imagenet_main",
+      "name": "Phase 4: Main ImageNet comparison — ResNet-50, 90 epochs, 8 methods, 5 seeds",
+      "description": "Train ResNet-50 on ImageNet-1K for 90 epochs (STANDARD regime) with 8 methods: FixedWD (lambda=1e-4), CWD, SWD, CPR, DefazioCorrective, NoWD, UDWDC, UDWDC-v2. SGD momentum=0.9, LR=0.1, cosine annealing, batch_size=256/GPU, DDP across 2 GPUs (~3h per run). Seeds: 42, 123, 456, 789, 2024 (5 seeds). Total: 8 methods x 5 seeds = 40 runs x ~3h = 120 GPU-hours, parallelized to 4 concurrent runs (2 GPUs each) = ~30h wall-clock. Log full per-layer diagnostics every epoch. CRITICAL CONTROLS: (1) Verify first-epoch outputs differ across methods (prevent data corruption), (2) Track total WD budget for every run, (3) UDWDC-v2 must have WD budget > 0.",
+      "type": "experiment",
+      "depends_on": [
+        "udwdc_v2_fix",
+        "diagnostic_cifar10"
+      ],
+      "expected_output": "exp/results/full/phase4_imagenet_main/",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 180,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 8 methods complete 2 epochs on ImageNet without OOM; validation accuracy > 5% at epoch 2; DDP sync correct; UDWDC-v2 WD budget > 0"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main ImageNet results table",
+          "columns": [
+            "Method",
+            "Top-1 Acc (%)",
+            "Top-5 Acc (%)",
+            "Gen Gap (%)",
+            "BEM",
+            "WD Budget"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Training loss curves on ImageNet",
+          "x": "epoch",
+          "y": "train_loss",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Validation accuracy curves on ImageNet",
+          "x": "epoch",
+          "y": "val_accuracy",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "imagenet_budget_matched",
+      "name": "Phase 4b: Budget-matched FixedWD controls on ImageNet",
+      "description": "Train ResNet-50 on ImageNet-1K for 90 epochs with FixedWD at lambda values {5e-4, 6e-4, 7e-4, 8e-4, 1e-3}. Same setup as imagenet_main. 3 seeds (42, 123, 456). This isolates whether alignment methods' improvements come from better-timed WD or simply more total WD. Compare total WD budget of each FixedWD-lambda against UDWDC-v2 and CWD budgets from Phase 4. H4 falsified if FixedWD at matched budget matches or exceeds UDWDC-v2. EVOLUTION LESSON: EqWD inflation confound is the #1 gap — this task directly addresses it.",
+      "type": "experiment",
+      "depends_on": [
+        "imagenet_main"
+      ],
+      "expected_output": "exp/results/full/phase4_budget_matched/",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 180,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "FixedWD at lambda=5e-4 and 1e-3 complete 2 epochs; total WD budgets differ by >2x"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Accuracy vs total WD budget",
+          "x": "total_WD_budget",
+          "y": "top1_accuracy",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Budget-matched comparison",
+          "columns": [
+            "Method/Lambda",
+            "Total WD Budget",
+            "Top-1 Acc (%)",
+            "BEM"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "imagenet_resnet101",
+      "name": "Phase 5a: Architecture generalization — ResNet-101/ImageNet",
+      "description": "Train ResNet-101 on ImageNet-1K for 90 epochs with top-3 methods from Phase 4 + FixedWD + UDWDC-v2. SGD momentum=0.9, LR=0.1, cosine annealing, batch_size=256/GPU, DDP. Seeds: 42, 123, 456. ~4h per run. Verify deeper architecture preserves Phase 4 ranking. NOTE: H5 Spearman rho was -0.28 for ResNet-101 in pilot (fails threshold); collect full data to confirm.",
+      "type": "experiment",
+      "depends_on": [
+        "imagenet_main"
+      ],
+      "expected_output": "exp/results/full/phase5_resnet101/",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 240,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "ResNet-101 with FixedWD completes 2 epochs without OOM on 2 GPUs"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ResNet-101 results vs ResNet-50 ranking",
+          "columns": [
+            "Method",
+            "ResNet-50 Acc (%)",
+            "ResNet-101 Acc (%)",
+            "Delta"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "imagenet_vit",
+      "name": "Phase 5b: Architecture generalization — ViT-S/16/ImageNet",
+      "description": "Train ViT-S/16 on ImageNet-1K for 90 epochs with top-3 methods + FixedWD + UDWDC-v2. AdamW, LR=1e-3, warmup 5 epochs + cosine decay, batch_size=256/GPU, DDP. RandAugment(2,9), CutMix(1.0), Mixup(0.8), RandomErasing(0.25). Seeds: 42, 123, 456. ~4-5h per run. Tests BN vs LayerNorm behavior. Pilot: SWD achieved 56% at 2 epochs (best), FixedWD 42%, CWD/UDWDC 34% — monitor whether this early-training ranking holds at 90 epochs. Compare CWD vs reported +0.61% from original paper.",
+      "type": "experiment",
+      "depends_on": [
+        "imagenet_main"
+      ],
+      "expected_output": "exp/results/full/phase5_vit/",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 300,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "ViT-S/16 completes 2 epochs without OOM; augmentation correct; diagnostics cover attention+MLP blocks"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ViT-S/16 results vs ResNet rankings",
+          "columns": [
+            "Method",
+            "ResNet-50 Acc (%)",
+            "ResNet-101 Acc (%)",
+            "ViT-S Acc (%)",
+            "Ranking Preserved?"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h5_layer_fixedpoint",
+      "name": "H5 test: Per-layer fixed-point differentiation (ResNet-50 only)",
+      "description": "Using per-layer diagnostic data from imagenet_main (FixedWD, UDWDC, UDWDC-v2), compute: (a) per-layer r*_l averaged over last 10 epochs, (b) per-layer delta*_l averaged over last 10 epochs, (c) CV(r*_l) under FixedWD (predicted < 0.15), (d) Spearman(r*_l, delta*_l) under UDWDC-v2. SCOPED: Pilot showed H5 holds for ResNet-50 (rho=-0.57) but fails for ResNet-101 (rho=-0.28) and ViT. Restrict H5 claim to ResNet-50/BN architectures. Report ResNet-101/ViT as negative evidence honestly.",
+      "type": "analysis",
+      "depends_on": [
+        "imagenet_main",
+        "imagenet_resnet101",
+        "imagenet_vit"
+      ],
+      "expected_output": "exp/results/full/h5_layer_analysis/",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "r*_l and delta*_l computable; Spearman correlation computable; at least 10 layers with non-degenerate values"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Per-layer r* vs delta* (ResNet-50, colored by depth)",
+          "x": "delta_star",
+          "y": "r_star",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Per-layer r* under FixedWD vs UDWDC-v2",
+          "x": "layer",
+          "y": "r_star",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "metrics_computation",
+      "name": "Compute BEM, CSI, AIS metrics across all full experiments",
+      "description": "Aggregate all experiment results from Phases 1-5 and compute: (a) BEM = accuracy_improvement / total_WD_budget, (b) CSI_temporal and CSI_spatial for WD stability, (c) AIS = alignment informativeness score. CRITICAL: Pilot showed UDWDC had CSI_combined=-2.41 (highly unstable). Compare original UDWDC vs UDWDC-v2 CSI to verify stability fix. Compare method rankings under BEM vs raw accuracy — identify budget confound cases. Include statistical significance tests for ranking claims.",
+      "type": "analysis",
+      "depends_on": [
+        "imagenet_main",
+        "imagenet_budget_matched",
+        "ablation_cifar100",
+        "alignment_informativeness"
+      ],
+      "expected_output": "exp/results/full/metrics/bem_csi_ais_results.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "BEM, CSI, AIS computable for all methods; UDWDC-v2 CSI > 0"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Full metrics comparison on ImageNet",
+          "columns": [
+            "Method",
+            "Top-1 Acc (%)",
+            "BEM",
+            "CSI_temporal",
+            "CSI_spatial",
+            "AIS"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Method ranking: raw accuracy vs BEM",
+          "x": "method",
+          "y": "rank",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "visualization_panels",
+      "name": "Phase 6: Generate all paper-ready visualizations",
+      "description": "Generate comprehensive visualization panels from full experiment data: (1) UDWDC control loop architecture diagram, (2) Per-layer rho_t trajectories on ImageNet/ResNet-50, (3) rho*(t) target vs actual, (4) Batch-size vs SNR (H3), (5) Budget efficiency curves (H4), (6) Per-layer r* vs delta* scatter (H5, ResNet-50 only), (7) R^2 temporal gate distribution (H7), (8) ImageNet training curves, (9) Effective lambda_t trajectories, (10) CSI comparison: UDWDC vs UDWDC-v2. All figures: 300 DPI PNG + PDF, publication-quality, colorblind-safe palette.",
+      "type": "analysis",
+      "depends_on": [
+        "diagnostic_cifar10",
+        "ablation_cifar100",
+        "batchsize_sweep",
+        "h7_temporal_gate",
+        "alignment_informativeness",
+        "imagenet_main",
+        "imagenet_budget_matched",
+        "h5_layer_fixedpoint",
+        "metrics_computation"
+      ],
+      "expected_output": "exp/results/full/figures/",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 5 figures generated; axes labeled; legend present; DPI >= 300"
+      },
+      "visualizations": [
+        {
+          "type": "multi_panel",
+          "description": "All 10+ paper figures as publication-quality PNG and PDF",
+          "paper_section": "all"
+        }
+      ]
+    }
+  ]
+}

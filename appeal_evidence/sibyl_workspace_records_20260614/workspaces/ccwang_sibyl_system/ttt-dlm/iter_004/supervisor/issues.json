@@ -1,0 +1,98 @@
+[
+  {
+    "stage": "experiments",
+    "severity": "critical",
+    "description": "Compute-fair pilot results (compute_fair_summary.md) show completely different accuracies from main pilot results (bsd_fullscale_summary.md, racfg_fullscale_summary.md): DMI 0% vs 12.5%, A-CFG 0% vs 12.5%, Vanilla 6.2% vs 0%. Different seeds or sample sets were used across evaluations. Paper Table 4 appears to mix data from these inconsistent runs.",
+    "suggestion": "Re-run all methods (including compute-fair vanilla variants) in a single evaluation pass with the same seed and same 16 samples. Document the pilot sample selection procedure explicitly."
+  },
+  {
+    "stage": "experiments",
+    "severity": "critical",
+    "description": "BSD and A-CFG — the paper's two headline contributions — have only been evaluated at n=16 pilot scale. All bootstrap 95% CIs include zero. The project's own history shows pilot-to-full-scale shrinkage of up to 24pp (entropy, tcr, anneal methods all collapsed). No meaningful statistical inference is possible at n=16.",
+    "suggestion": "Complete full-scale 3-seed validation on Countdown-500 (and ideally full GSM8K) for BSD and A-CFG before submission. Estimated cost: ~18 GPU-hours."
+  },
+  {
+    "stage": "writing",
+    "severity": "critical",
+    "description": "Abstract presents BSD (rho=-0.95, r=0.78) and A-CFG (+12.5pp) results without any qualification that these come from n=16 samples. Title gives A-CFG co-equal billing despite being a direct application of prior work (Arriaga et al., 2025).",
+    "suggestion": "Rewrite abstract to explicitly note pilot-scale evaluation. Reframe A-CFG as an empirical transfer experiment, not a proposed method. Consider title revision."
+  },
+  {
+    "stage": "experiments",
+    "severity": "major",
+    "description": "BSD underperforms its own special case (DMI) on all benchmarks: Countdown-16 6.2% vs 12.5%, GSM8K-16 18.8% vs 25.0% (worse than vanilla). The generalization performs strictly worse than the simpler version.",
+    "suggestion": "Honestly discuss why BSD fails to improve on DMI. Consider repositioning BSD as a theoretical analysis tool rather than a practical improvement method."
+  },
+  {
+    "stage": "experiments",
+    "severity": "major",
+    "description": "Entropy-accuracy correlation (r=0.784, p<0.001) at n=16 with only 1/16 correct samples is statistically suspect. The correlation is driven by a single data point's entropy value. The reported p-value needs methodological documentation.",
+    "suggestion": "Provide raw (entropy, correctness) data pairs. Specify the correlation method (point-biserial, permutation test). Acknowledge the extreme class imbalance (1 vs 15)."
+  },
+  {
+    "stage": "writing",
+    "severity": "major",
+    "description": "A-CFG is presented as a co-equal novel contribution but is acknowledged in Section 2.4 as introduced by Arriaga et al. (2025) for LLaDA-8B. Applying it to Dream-7B without modification is an empirical transfer, not a methodological contribution.",
+    "suggestion": "Reframe A-CFG in the paper as 'we apply A-CFG (Arriaga et al., 2025) to Dream-7B' rather than 'we propose A-CFG'. Adjust title accordingly."
+  },
+  {
+    "stage": "writing",
+    "severity": "major",
+    "description": "DMI — the only fully validated method (9.3% on Countdown-500, p<0.05) — is relegated to Appendix D, while unvalidated BSD gets the most detailed Section 3 treatment. This is structurally inverted.",
+    "suggestion": "Elevate DMI to a full section in the main text. Position it as the primary practical contribution."
+  },
+  {
+    "stage": "experiments",
+    "severity": "major",
+    "description": "A-CFG re-masking percentage m=10% is a critical hyperparameter but is never ablated. Only guidance weight w and temporal schedule are ablated.",
+    "suggestion": "Add m-parameter ablation (5%, 10%, 20%, 30%) to the ablation studies."
+  },
+  {
+    "stage": "experiments",
+    "severity": "major",
+    "description": "Single model evaluation (Dream-7B only). JSD stability degeneracy, temporal scheduling failure, and BSD+A-CFG non-composability could all be Dream-7B-specific. A-CFG was designed for LLaDA-8B where it achieved dramatically different results (GSM8K 73.5).",
+    "suggestion": "Evaluate at minimum Dream-7B + LLaDA-8B to determine model-specificity of findings."
+  },
+  {
+    "stage": "writing",
+    "severity": "major",
+    "description": "All six figures are text descriptions only. No rendered figures exist for review. The paper references fig1-fig6 as .pdf files that do not exist.",
+    "suggestion": "Generate all six figures before submission. Information-rich figures (especially Fig 1 teaser, Fig 4 ablation grid, Fig 6 failure diagnostics) are essential."
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "Entropy-accuracy correlation reported inconsistently: r=0.784 in Section 4.6 vs r=0.78 in abstract and Section 3.5.",
+    "suggestion": "Use consistent precision (r=0.78 or r=0.784) throughout."
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "DMI described as 'immediately deployable in any MDLM inference pipeline' but shows zero benefit on GSM8K-16.",
+    "suggestion": "Qualify as 'immediately deployable for structured reasoning tasks' or similar."
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "k_frac notation inconsistent: sometimes k_frac=0.75, sometimes k=3T/4.",
+    "suggestion": "Standardize notation throughout the paper."
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "BSD+A-CFG shows '---' for GSM8K-16 in Table 3 with no explanation for why this combination was not tested on GSM8K.",
+    "suggestion": "Either run the experiment or explain the omission."
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "Appendices C (DTA details) and D (DMI details) are referenced but not included in the paper draft.",
+    "suggestion": "Complete and include both appendices."
+  },
+  {
+    "stage": "writing",
+    "severity": "minor",
+    "description": "LLaDA 2.0, LLaDA 2.1 mentioned in Section 2.1 without proper citations or arXiv IDs.",
+    "suggestion": "Add proper citations or mark as 'forthcoming/concurrent' if no public reference exists."
+  }
+]

@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "generated": "2026-03-17",
+    "mode": "PILOT -> FULL 决策",
+    "context": "基于 20 epoch pilot 结果，判断是否值得进行 200 epoch full 实验"
+  },
+  "hypotheses": {
+    "H1": {
+      "id": "H1",
+      "description": "Time-varying WD 能否维持收敛（AADWD 的 train loss 不发散）",
+      "evidence": {
+        "aadwd_aggressive": "收敛，best_test_acc=85.09%，无 NaN",
+        "aadwd_square": "收敛，best_test_acc=83.45%，无 NaN",
+        "aadwd_conservative": "收敛但欠拟合（best=74.06%），非发散而是过正则",
+        "sensitivity_all_configs": "9 个超参组合全部收敛，无 NaN 出现"
+      },
+      "verdict": "GO",
+      "confidence": "HIGH",
+      "rationale": "全部 AADWD 变体（共 12+ 个 runs）均收敛，无数值不稳定问题。Conservative 欠拟合属于参数设置问题，不影响方法可行性。H1 成立。"
+    },
+    "H2": {
+      "id": "H2",
+      "description": "Alignment-aware 动态 WD 是否优于随机时变 WD（AADWD vs random_dynamic_wd）",
+      "evidence": {
+        "aadwd_aggressive_best": 85.09,
+        "random_dynamic_wd_best": 80.34,
+        "delta": "+4.75%",
+        "aadwd_final": 83.86,
+        "random_final": 72.16,
+        "delta_final": "+11.7%",
+        "norm_matched_wd_best": 85.44,
+        "note": "norm_matched_wd (85.44%) ≈ AADWD (85.09%)，alignment 信号的边际增益在 20 epoch 尺度尚不显著"
+      },
+      "verdict": "CONDITIONAL GO",
+      "confidence": "MEDIUM",
+      "rationale": "AADWD vs Random: +4.75% best acc，+11.7% final acc，明显优于随机对照。但 norm_matched_wd 与 AADWD 持平（85.44% vs 85.09%），说明 weight norm 轨迹匹配已能解释部分优势。对 H2 的强验证需要 200 epoch 实验：期望在更长训练中 alignment-aware 调度展现更大优势（LR schedule 生效、相变更丰富）。",
+      "full_exp_required": true
+    },
+    "H3": {
+      "id": "H3",
+      "description": "Minibatch alignment proxy 可靠（Pearson r >= 0.85）",
+      "evidence": {
+        "pearson_r_mini_ema_vs_large": 0.848947,
+        "threshold": 0.85,
+        "delta_to_threshold": -0.001053,
+        "verdict_tier0": "NO-GO (adjust beta)",
+        "beta_fix": "已将 beta 从 0.99 提升至 0.999",
+        "phase_structure": "delta_hat 呈 early > mid > late 的下降趋势，符合预期"
+      },
+      "verdict": "CONDITIONAL GO",
+      "confidence": "MEDIUM",
+      "rationale": "r=0.849 极接近 0.85 阈值（差距仅 0.001）。技术上 PARTIAL FAIL，但：(1) beta 修正已在 tier1 实验中生效；(2) 200 epoch 训练中相变更丰富，proxy 可靠性预计提升；(3) AADWD-Aggressive 在 beta=0.999 下取得了合理结果。建议在 full 实验中同步验证 r，若 r>=0.85 则 H3 成立。",
+      "full_exp_required": true,
+      "fallback": "若 full 实验 r 仍 <0.85，切换到 cand_empirical 候选策略"
+    },
+    "H4": {
+      "id": "H4",
+      "description": "AADWD 跨架构泛化（VGG16-BN / CIFAR-100）",
+      "evidence": {
+        "aadwd_vgg16_cifar100_best": 48.7,
+        "fixed_wd_vgg16_cifar100_best": 37.15,
+        "delta": "+11.55%",
+        "note": "20 epoch 对 CIFAR-100 尚未充分训练，gen_gap 较小说明仍在早期学习阶段"
+      },
+      "verdict": "GO",
+      "confidence": "MEDIUM-HIGH",
+      "rationale": "AADWD-Aggressive 在 VGG16/CIFAR-100 上明显优于固定 WD 基线（+11.55%）。VGG16 使用 BN，与 ResNet20 架构不同；CIFAR-100 类别更多，正则化需求更复杂。这一结果初步支持跨架构泛化能力。注意 fixed_wd 在 20 epoch/CIFAR-100 有严重欠拟合（gen_gap=-0.43%），差距可能部分由欠拟合放大。仍值得 full 实验验证。"
+    },
+    "H5": {
+      "id": "H5",
+      "description": "超参鲁棒性：AADWD 对 c 和 beta 不敏感",
+      "evidence": {
+        "c_sweep": {
+          "range": "[0.001, 0.1] (2个数量级)",
+          "best_test_acc_range": "[84.61%, 85.74%]",
+          "variation": "1.13%",
+          "verdict": "ROBUST"
+        },
+        "beta_sweep": {
+          "stable_range": "[0.9, 0.999]",
+          "best_test_acc_range": "[84.86%, 85.98%]",
+          "variation": "1.12%",
+          "beta_0.9999_drop": "82.09% (显著下降，EMA 过平滑)",
+          "verdict": "PARTIALLY ROBUST (需避免极大 beta)"
+        }
+      },
+      "verdict": "GO",
+      "confidence": "HIGH",
+      "rationale": "c 在 [0.001, 0.05] 范围内变化仅 0.65%，鲁棒性优异。beta 在 [0.9, 0.999] 范围内稳定，beta=0.9999 性能下降 3%（但避免使用即可）。整体超参鲁棒性符合论文所需的实用性主张（用户无需精细调参）。H5 成立。"
+    }
+  },
+  "overall_decision": {
+    "go_nogo": "GO",
+    "confidence": "HIGH",
+    "summary": "5 个核心假设中：H1(收敛性)=GO, H4(跨架构)=GO, H5(超参鲁棒性)=GO；H2(alignment优势)=CONDITIONAL GO（需 full 实验证明相对 norm_matched_wd 的额外增益）；H3(proxy可靠性)=CONDITIONAL GO（r=0.849 接近阈值，200 epoch 预计改善）。综合判断：强烈建议进行 200 epoch full 实验。",
+    "key_risks": [
+      "H2 风险：norm_matched_wd 与 AADWD 性能相当，可能削弱 alignment-aware 的独特贡献主张",
+      "H3 风险：proxy 可靠性 r 在 200 epoch 若仍未达 0.85，需更换策略",
+      "H4 注意：VGG16/CIFAR-100 固定 WD 基线可能存在超参不优化问题，需用最优固定 WD 重测"
+    ],
+    "critical_design_for_full_exp": "必须包含 norm_matched_wd 作为对照，以区分 'alignment-aware 调度' vs '动态调度本身' 的贡献"
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "tasks": [
+    {
+      "id": "pilot_baseline",
+      "name": "Pilot: Baseline ReLU SAE",
+      "description": "Train Baseline L1 SAE on synthetic data. 1024 features, seed 42. Verify convergence, compute absorption rate with corrected dead latent percentages and sanity checks.",
+      "type": "baseline",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/pilot_baseline_results.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Converges (loss plateau); dead_latents_pct computable; sanity checks pass; absorption rate computable"
+      }
+    },
+    {
+      "id": "pilot_random_control",
+      "name": "Pilot: Random SAE Control",
+      "description": "Create untrained random dictionary SAE as control. Compute absorption rate to validate metric discrimination.",
+      "type": "baseline",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/pilot_random_control_results.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate is computable; serves as upper bound reference; sanity checks pass"
+      }
+    },
+    {
+      "id": "pilot_analysis",
+      "name": "Pilot: Statistical Analysis and Sanity Checks",
+      "description": "Run statistical tests (Welch's t-test, Cohen's d) on pilot results. Verify cross-variant MCC variation. Generate pilot_summary.json.",
+      "type": "analysis",
+      "depends_on": [
+        "pilot_baseline",
+        "pilot_random_control"
+      ],
+      "expected_output": "exp/results/pilots/pilot_summary.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Statistical tests complete; MCC variation > 0.01 across variants; pilot_summary.json generated"
+      }
+    }
+  ]
+}

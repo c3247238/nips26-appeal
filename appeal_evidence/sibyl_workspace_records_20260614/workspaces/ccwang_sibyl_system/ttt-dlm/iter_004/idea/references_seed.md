@@ -1,0 +1,13 @@
+- ReMDM (arxiv 2503.00307): 原则性重遮蔽采样器
+- PRISM (arxiv 2510.01384): 学习的逐 token 质量分数
+- Soft-Masked Diffusion (arxiv 2510.17206): 软混合替代二值遮蔽
+- Self-Rewarding SMC (arxiv 2602.01849): 平行粒子轨迹与重采样
+- CoRe (arxiv 2602.04096): 上下文鲁棒重遮蔽
+- ProSeCo (arxiv 2602.11590): 渐进式自纠正训练
+- Dream 7B (arxiv 2508.15487): 最强开源 DLM
+- LLaDA: 8B 遮蔽扩散模型
+- MDLM (Sahoo et al., 2024): 吸收态离散扩散
+- Learning to (Learn at Test Time): RNNs with Expressive Hidden States
+- Test-Time Learning for Large Language Models
+- Test-Time Training with KV Binding Is Secretly Linear
+- Titans: Learning to Memorize at Test Time

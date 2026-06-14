@@ -1,0 +1,274 @@
+{
+  "iteration": 9,
+  "score": 7.0,
+  "verdict": "continue",
+  "quality_trajectory": "improving",
+  "issues_classified": [
+    {
+      "id": "SND001",
+      "description": "FABRICATED HEDGING NUMBER AT L0=82. Section 5.2 claims strict hedging rises to 12.3% at L0=82. Raw data (hedging_decomposition_full.json, L0_82_to_176) shows strict_hedging=0, strict_hedging_pct=0.0%. The 12.3% figure appears in NO source data file. Pilot phase0 data shows 3.66% at L0=82 (3/82 FNs), also not 12.3%. This is a writing-generation hallucination that undermines trust in all numerical claims.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Replace the L0=82 sentence with: 'At the more conservative base L0=82 with target L0=176 (2.1x multiplier), strict hedging is 0.0% (0/74 FNs), compensatory resolution is 78.4%, and persistent false negatives rise to 21.6%.' Ironically, 0.0% strict hedging STRENGTHENS the paper's argument that loose hedging is near-tautological. WHERE: writing/paper.md Section 5.2. EFFORT: 5 minutes. VERIFY: grep paper.md for '12.3' returns 0; new sentence matches hedging_decomposition_full.json exactly.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "soundness:fabricated-hedging-12.3-pct"
+    },
+    {
+      "id": "EXP001",
+      "description": "PROBE QUALITY CONFOUND UNRESOLVED -- DEGRADED-PROBE ABLATION NOT EXECUTED. The paper's cross-domain contribution (Kruskal-Wallis p=0.005) compares hierarchies at F1=0.97 (first-letter) vs F1=0.79-0.84 (RAVEL). Probe F1 correlates with FN rate at rho=-0.756. The confound is acknowledged (Section 4.3) but not experimentally resolved. The degraded-probe ablation (inject label noise into first-letter probes at F1={0.70, 0.80, 0.85, 0.90}, remeasure absorption) would definitively distinguish hierarchy effect from probe artifact. This is the single highest-impact missing experiment, identified by BOTH supervisor and critic as the top priority.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Inject calibrated label noise into first-letter probes to degrade F1 to target levels {0.70, 0.80, 0.85, 0.90}. Remeasure absorption rates at each level. If first-letter absorption drops to match RAVEL rates at matched F1, cross-domain variation is a probe artifact. If rates remain distinct, the hierarchy effect is genuine. WHERE: exp/code/degraded_probe_ablation.py (new). EFFORT: 1-2 GPU-hours. VERIFY: degraded-probe results table in paper Section 4 or appendix; cross-domain claim qualified based on result.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:degraded-probe-ablation"
+    },
+    {
+      "id": "EXP002",
+      "description": "ACTIVATION PATCHING LIMITED TO L12 (5.7% ABSORPTION), NOT TESTED AT L24 (34.5% ABSORPTION). The causal evidence (32.5% recovery, d=1.33) is strong but comes from the layer with LOWEST relevant absorption (5.7%). The headline finding -- 34.5% absorption at L24 -- has NO causal validation. The paper proves causation where absorption is mild and only claims correlation where absorption is severe. This disconnects the causal evidence from the main empirical contribution.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Extend activation patching to L24 with the high-quality first-letter probe (F1=0.97). Test on the same 25 words (or a subset of the highest-absorption words at L24). If recovery rates are comparable or higher at L24, the causal evidence is connected to the headline finding. If lower, document as an interesting divergence. WHERE: exp/code/activation_patching_L24.py (new). EFFORT: 1-2 GPU-hours. VERIFY: L24 patching results reported alongside L12 in Section 5.1 or supplementary table.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:activation-patching-L24"
+    },
+    {
+      "id": "SND002",
+      "description": "LETTER G DOMINATES STRICT HEDGING (37.5% OF ALL CASES) WITHOUT INVESTIGATION. In the L0=22 decomposition (304 FNs), letter G accounts for 9/24 strict hedging cases (37.5%), with a per-letter strict rate of 64.3%. Letter A: 7/24 (29.2%). Together, G and A are 16/24 = 66.7% of all strict hedging. Excluding both, the strict rate drops to ~2.9% (8/272). The paper reports G as notable but does not compute statistics without it or investigate the mechanism.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Three actions: (1) Compute strict hedging excluding G: expect ~5.3% (15/283). Compute excluding both G and A: expect ~2.9% (8/272). Report as robustness check. (2) Investigate G's anomaly: examine parent latent decoder direction, cosine similarity to child features, activation threshold. (3) If G is genuinely anomalous, note that the strict hedging finding (7.9%) is modestly letter-dependent. WHERE: analysis in exp/code, results in paper Section 5.2. EFFORT: 30 minutes, zero GPU. VERIFY: strict hedging with and without G reported; G mechanism discussed.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "soundness:letter-G-dominates-hedging"
+    },
+    {
+      "id": "WRI001",
+      "description": "TWO BROKEN CROSS-REFERENCES SIGNAL INCOMPLETE PREPARATION. (1) Section 8.2 cites 'Table 7 in Section 4.4 of the extended results' -- neither Table 7 nor Section 4.4 exists. (2) Section 3.5 references 'Section 8.6' for future patching work -- Future Directions is Section 8.5; no 8.6 exists. A reviewer encountering phantom table/section references will flag the manuscript as carelessly prepared.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Fix both immediately: (1) For Table 7 in Section 4.4: either add inline data from consolidation_summary.json (L24-16k: 50.0% absorbed; L6-16k: 100.0%) or remove the dangling reference. (2) Change 'Section 8.6' to 'Section 8.5'. WHERE: writing/paper.md Sections 8.2 and 3.5. EFFORT: 10 minutes. VERIFY: grep for 'Table 7', 'Section 4.4', 'Section 8.6' returns 0.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:broken-cross-references"
+    },
+    {
+      "id": "WRI002",
+      "description": "TWO MISSING FIGURES LEAVE SECTIONS 5.1 AND 5.2 WITHOUT VISUAL SUPPORT. The outline planned 6 figures; only 4 exist. Figure 5 (activation patching paired dot plot showing per-word child vs control recovery) and Figure 6 (hedging decomposition stacked bar: 7.9%/86.2%/5.9%) are completely absent. Sections 5.1 and 5.2 -- containing two of the paper's four contributions -- are entirely text-heavy. Both figures can be generated from existing JSON data at zero GPU cost.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Generate Figure 5: paired dot plot from phase0/activation_patching_full.json showing per-word recovery rates (child-zeroing vs control) with connecting lines. Generate Figure 6: stacked bar chart from hedging data showing 7.9% strict / 86.2% compensatory / 5.9% persistent. Also render Figure 2 (pipeline schematic) from the existing markdown description. WHERE: writing/figures/. EFFORT: 1-2 hours, zero GPU. VERIFY: Figures 5 and 6 referenced in paper.md Sections 5.1 and 5.2; image files present.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:missing-figures-5-6"
+    },
+    {
+      "id": "WRI003",
+      "description": "TITLE FEATURES A FAILED THEORETICAL FRAMEWORK. Title is 'The Absorption Tax: Layer-Dependent and Hierarchy-Dependent Feature Absorption Across Semantic Domains in Sparse Autoencoders.' The Absorption Tax is a theoretical framework that comprehensively FAILED (rho=-0.20, concordance 50%). It is relegated to Appendix D. Leading with 'The Absorption Tax' misleads the reader about the paper's actual contributions.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Adopt a title reflecting the actual contributions. Suggestions: 'Beyond First-Letter Spelling: Cross-Layer and Cross-Domain Characterization of SAE Feature Absorption' or 'Feature Absorption Varies 15-Fold Across Model Layers: A Cross-Domain Characterization of SAE Failure Modes.' WHERE: writing/paper.md title. EFFORT: 10 minutes. VERIFY: title does not reference 'Absorption Tax'.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:title-references-failed-framework"
+    },
+    {
+      "id": "EXP003",
+      "description": "ARCHITECTURE COMPARISON UNDERPOWERED AND DOUBLY CONFOUNDED. N=16 at L12, RAVEL probes at F1=0.52-0.69 (worst layer), width mismatch (Matryoshka 32k vs JumpReLU/BatchTopK 16k), L0 mismatch (BatchTopK L0=20 vs JumpReLU L0=75-87). The p=0.87 null result has no statistical power. The claim 'hierarchy type explains more variance than architecture choice' compares L12 architecture test to L24 hierarchy test -- different layers, different confounds. This comparison is invalid.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Two options: (a) Downgrade Section 6 to a subsection with explicit caveat that the result is inconclusive due to insufficient power, remove the 'hierarchy matters more than architecture' claim. (b) Test at L24 where probes are best and absorption is highest, with matched widths. Option (a) is zero-cost and recommended. WHERE: writing/paper.md Section 6 and Section 8.1. EFFORT: 30 minutes for (a). VERIFY: Section 6 labeled 'inconclusive'; the hierarchy-vs-architecture comparison claim removed.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:architecture-comparison-underpowered"
+    },
+    {
+      "id": "WRI004",
+      "description": "ABSTRACT OVERCLAIMS RELATIVE TO EVIDENCE. The abstract presents cross-domain significance (p=0.005) and the probe quality confound (rho=-0.756) sequentially, giving the impression the confound is a minor caveat rather than an alternative explanation. The unconfounded finding (15x layer variation) should lead. Cross-domain variation should be explicitly marked 'suggestive'. Abstract is ~250 words, exceeding the NeurIPS limit.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Restructure abstract: (1) Lead with unconfounded layer-dependence (15x variation). (2) Lead with causal evidence (d=1.33). (3) Present cross-domain variation as 'suggestive evidence, confounded by differential probe quality'. (4) Trim to <220 words by moving GAS/CMI/Tax rho values to the body. WHERE: writing/paper.md Abstract. EFFORT: 30 minutes. VERIFY: abstract <220 words; cross-domain claim explicitly qualified.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:abstract-overclaims"
+    },
+    {
+      "id": "SND003",
+      "description": "CROSS-DOMAIN FINDING IS L24-ONLY; LAYER-HIERARCHY INTERACTION UNCHARACTERIZED. RAVEL probes measured only at L24. Pilot at L12 suggested the OPPOSITE pattern (semantic > first-letter). This crossover interaction means the cross-domain finding is layer-specific, not general. The paper claims both layer dependence and hierarchy dependence but cannot characterize their interaction.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Be precise in abstract and claims: cross-domain finding is established at L24 only. Explicitly state the L12-to-L24 reversal (pilot: semantic > first-letter reversed at L24). Note this crossover cannot be resolved without better RAVEL probes at intermediate layers. WHERE: writing/paper.md Abstract, Section 4.2, Section 8.2. EFFORT: 30 minutes. VERIFY: abstract says 'at L24'; reversal discussed in Section 4.2 or 8.2.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "soundness:cross-domain-L24-only"
+    },
+    {
+      "id": "WRI005",
+      "description": "PROBE F1 DISCREPANCY BETWEEN METHOD AND RESULTS. Consolidation records probe_f1=0.883 for activation patching. Paper implies F1>=0.97 by saying 'ICL probe provides reliable ground truth.' Section critique found three-way mismatch: experiments use ICL probes at position -6 with F1=1.0, Method says sklearn probes were used, text claims F1>=0.97. This inconsistency erodes reviewer trust.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Audit which probe was actually used in each experiment. State the actual probe identity and F1 for each experiment in the Method section. If activation patching probe is F1=0.883, disclose prominently in Section 5.1. WHERE: writing/paper.md Sections 3.5 and 5.1. EFFORT: 30 minutes. VERIFY: each experiment's probe type and F1 stated explicitly.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:probe-f1-discrepancy"
+    },
+    {
+      "id": "WRI006",
+      "description": "CROSS-DOMAIN HEDGING COMPARISON IS INVALID. First-letter hedging uses multi-L0 analysis (L0=22 to 176) at L12 (BatchTopK). City-language hedging has N=3 false negatives at single L0 at L24. Comparing strict hedging rates (66.7% vs 7.9%) across incomparable conditions (layers, architectures, sample sizes) is misleading. N=3 is far too small.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Either remove the cross-domain hedging comparison or present it with a very large caveat about incomparable conditions and N=3 sample size. The first-letter hedging decomposition stands on its own merits. WHERE: writing/paper.md Section 5.2 or wherever cross-domain hedging is compared. EFFORT: 15 minutes. VERIFY: cross-domain hedging comparison either removed or caveat-heavy.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:cross-domain-hedging-invalid-comparison"
+    },
+    {
+      "id": "ANL001",
+      "description": "CITY-CONTINENT ABSORPTION IS STATISTICALLY INDISTINGUISHABLE FROM FIRST-LETTER. Two of six pairwise comparisons (city-continent at both widths) show p=0.83 and p=0.93. The narrative of 'cross-domain variation' conflates the significant city-country/city-language results with the non-significant city-continent result.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Report clearly that city-continent does NOT differ from first-letter (p=0.83, p=0.93). The claim is: first-letter and city-continent show comparable absorption (~26-36%), while city-country (13-19%) and city-language (~14%) show significantly lower rates. WHERE: writing/paper.md Section 4.2. EFFORT: 15 minutes. VERIFY: city-continent non-significance explicitly stated; narrative reflects nuanced pattern.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:city-continent-not-significant"
+    },
+    {
+      "id": "EXP004",
+      "description": "ACTIVATION PATCHING WORD SELECTION BIAS NOT PROMINENTLY STATED. Of 25 words, 18 were discovered via IG-guided search for tokens exhibiting large attribution gaps. This biases toward finding absorption. The restricted analysis (12 words, raw accuracy >= 0.50, recovery 38.2%) is buried. The 58.8% absorption rate and 32.5% recovery are conditional on a biased sample.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Promote the restricted analysis to main text with its own statistical summary. Report both full-sample and restricted-sample results side by side in Table 5. State prominently that the recovery rate is conditional on the biased sample and prevalence of absorption-amenable words in the full vocabulary is unknown. WHERE: writing/paper.md Section 5.1. EFFORT: 20 minutes. VERIFY: restricted analysis visible in main text; bias caveat prominent.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:patching-word-selection-bias"
+    },
+    {
+      "id": "WRI007",
+      "description": "APPENDIX REFERENCED BUT DOES NOT EXIST. Table 5 says 'full results in Appendix'. Paper promises appendix sections for GAS (B), CMI (C), Absorption Tax (D), and threshold sensitivity. None are written.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Either write appendix sections from existing JSON data (GAS, CMI, Tax, threshold sensitivity all have completed results) or remove all appendix references from main text. WHERE: writing/paper.md appendix section (new) or references cleaned. EFFORT: 2-3 hours to write; 15 minutes to remove references. VERIFY: either appendix exists with all 4 sections or no appendix references in main text.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:missing-appendix"
+    },
+    {
+      "id": "EXP005",
+      "description": "TIMING ANOMALY SUGGESTS CACHED RESULTS. Phase0 activation patching: planned 60 min, actual 2 min. Total wall clock: 5 min for 4 tasks planned at 105 min combined. Either cached results from prior iterations were reused (making 'full mode' label misleading) or the RTX PRO 6000 is implausibly fast.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Verify that activation_patching_full.json contains genuine per-word, per-context results for 200 contexts x 25 words. If cached results were loaded, document this in the consolidation and note in the paper's reproducibility section that results are from iteration N. WHERE: exp/results/phase0/activation_patching_full.json verification. EFFORT: 15 minutes. VERIFY: result file contains 5000 data points (200 contexts x 25 words) with unique values.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:timing-anomaly-cached-results"
+    },
+    {
+      "id": "SND004",
+      "description": "PILOT-TO-FULL FRAMING REVERSAL UNDEREXPLAINED. Pilot at L12: semantic > first-letter. Full at L24: first-letter is highest. The paper pivots from one claim to the opposite without adequate explanation. The reversal occurred because L12 probes were unreliable (F1=0.31 for first-letter, F1=0.62-0.79 for RAVEL), further demonstrating that probe quality drives apparent absorption differences.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Discuss the L12-to-L24 reversal explicitly as additional evidence for the probe quality confound. The fact that the cross-domain comparison direction reversed when better probes became available strengthens the case that probe quality is a primary driver. WHERE: writing/paper.md Section 4.3 or 8.2. EFFORT: 20 minutes. VERIFY: reversal discussed with connection to probe quality.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:pilot-to-full-reversal-underexplained"
+    },
+    {
+      "id": "WRI008",
+      "description": "HIERARCHY-VS-ARCHITECTURE CLAIM IS A STATISTICAL FALLACY. Comparing p-values from non-nested tests on different data at different layers (hierarchy p=0.005 at L24 vs architecture p=0.87 at L12) to claim 'hierarchy matters more than architecture' is invalid. This comparison appears in Discussion (Section 8.1) and Conclusion (Section 9).",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Remove all claims that hierarchy 'dominates' or 'explains more variance' than architecture. These are from incomparable tests. At most, state: 'We found significant cross-domain variation at L24 but no significant architecture effect at L12, though these comparisons are not directly comparable.' WHERE: writing/paper.md Sections 8.1 and 9. EFFORT: 15 minutes. VERIFY: no hierarchy-vs-architecture dominance claims in paper.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:hierarchy-vs-architecture-fallacy"
+    },
+    {
+      "id": "EXP006",
+      "description": "SINGLE MODEL FAMILY (Gemma 2 2B). All experiments use one model with one SAE family (Gemma Scope JumpReLU). The layer-dependent absorption pattern could reflect Gemma 2 2B's specific residual stream geometry. Even a single additional model would substantially strengthen generalizability.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Acknowledge prominently as the most important replication target. Add a brief discussion of what model properties might moderate the layer effect (e.g., in deeper models like Gemma 2 9B with 42 layers, does the spike appear at the penultimate layer?). This is a clear falsifiable prediction that costs nothing to state. WHERE: writing/paper.md Section 8.4. EFFORT: 15 minutes discussion; 4+ GPU-hours for actual replication (optional). VERIFY: limitation prominently stated; falsifiable prediction included.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:single-model-family"
+    },
+    {
+      "id": "DATA001",
+      "description": "validate_integration.py STILL NOT IMPLEMENTED (9th iteration recommending). The fabricated 12.3% hedging number discovered this iteration is EXACTLY the type of error this script would catch. This automated source-to-summary cross-check has been recommended every iteration since iter_001. Each iteration discovers NEW pipeline errors (this time, a complete hallucination). This is the project's oldest unresolved systemic issue.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "Implement validate_integration.py as the FIRST task of iteration 10. Script: (1) extract numerical claims from paper.md via regex, (2) load source JSONs, (3) cross-check with tolerance 1e-3, (4) report mismatches. The 12.3% hallucination proves the need is real and urgent. WHERE: exp/code/validate_integration.py (new). EFFORT: 1.5 hours, zero GPU. VERIFY: script catches the 12.3% error on current paper; run after every paper edit.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "pipeline:validate-integration-9-iterations"
+    },
+    {
+      "id": "EXP007",
+      "description": "INSTANCE-LEVEL ABSORPTION RATES NOT REPORTED. The absorption rate AR counts fraction of K classes with at least one absorbed FN. For city-country (K=80), a single false positive per class inflates AR substantially. No instance-level absorption rate (fraction of individual tokens) is reported as robustness check.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Compute and report instance-level absorption rates alongside class-level AR. If both tell the same story, this strengthens the finding. If they diverge, the divergence is informative. WHERE: analysis code + paper Section 3.4 or 4. EFFORT: 30 minutes, zero GPU. VERIFY: both metrics reported.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:instance-level-absorption-missing"
+    }
+  ],
+  "issues_fixed": [
+    "STAGNATION LOOP BROKEN: The 3-iteration stagnation (iter 6-7-8, all 6.5) is broken. Iter 9 executed experiments (activation patching, tightened hedging, CMI replication, threshold sensitivity) and produced a fully rewritten paper with new empirical content. Score rose from 6.5 to 7.0.",
+    "ACTIVATION PATCHING EXECUTED (EXP001 from iter_007 plan): 25 words tested, 19 with absorption, recovery 32.5% vs 1.5% (d=1.33, p=0.000218). Causal evidence for feature absorption established. 3 consecutive iterations of requesting this experiment finally executed.",
+    "TIGHTENED HEDGING EXECUTED (EXP002 from iter_007 plan): Multi-L0 analysis shows strict hedging 7.9%, compensatory 86.2%, persistent 5.9%. The near-tautological loose hedging critique resolved with concrete numbers. 3 consecutive iterations of requesting this experiment finally executed.",
+    "CMI REPLICATION AT L0=22 EXECUTED (EXP003 from iter_007 plan): rho=0.044, p=0.83. Definitive negative result. CMI correctly demoted to appendix. Resolves the overclaiming issue that persisted for 4 iterations.",
+    "THRESHOLD SENSITIVITY REPORTING EXECUTED (EXP004 from iter_007 plan): 5x4 grid analyzed, CV=0.077, FN constant at n=87. Absorption measurement confirmed threshold-robust. 3 consecutive iterations of requesting this finally completed.",
+    "CMI OVERCLAIMING RESOLVED: CMI demoted from main paper section to appendix with rho=0.044 definitive negative. The 4-iteration cycle of 'CMI predicts' overclaiming is broken by the definitive L0=22 negative result.",
+    "TWO-INTERPRETATION AMBIGUITY RESOLVED: Activation patching (d=1.33) confirms genuine competitive exclusion. The ambiguity between 'metric miscalibrated' and 'no absorption' is resolved in favor of real absorption."
+  ],
+  "success_patterns": [
+    "STAGNATION BREAK-OUT: After 3 iterations of zero progress (6.5 x3), iteration 9 executed 4 experiments and produced new empirical content. Score improved to 7.0 (+0.5). The experiment-first gate structure worked.",
+    "HONEST NEGATIVE RESULTS (CONSECUTIVE 9 ITERATIONS): GAS (rho=0.116), CMI (rho=0.044), Tax (rho=-0.20) all definitively negative and reported transparently. H2' refuted with specific reversal evidence. This remains the paper's most consistently praised quality across ALL reviews.",
+    "ACTIVATION PATCHING DESIGN: Well-controlled with magnitude-matched random latents, multiple statistical tests (Wilcoxon, Mann-Whitney, paired t, bootstrap), restricted analysis for robustness. d=1.33 is a large effect. This is the paper's strongest new contribution.",
+    "HEDGING DECOMPOSITION IS CLEAN AND ACTIONABLE: The three-way split (strict 7.9% / compensatory 86.2% / persistent 5.9%) with bootstrap CIs is genuinely useful for the community. Advances understanding beyond the loose 98% figure.",
+    "CROSS-LAYER ABSORPTION CHARACTERIZATION: 15-fold variation (2.2% to 34.5%), unconfounded by probe quality (F1>=0.97 everywhere), with bootstrap CIs. The paper's strongest single result, consistently cited as novel by all reviewers.",
+    "STATISTICAL RIGOR: Bootstrap CIs (10k resamples), permutation tests, Cohen's d, multiple comparison awareness, proper effect size reporting. The statistical methodology is sound throughout.",
+    "PROBE QUALITY CONFOUND TRANSPARENCY: Section 4.3 names three specific confound mechanisms with quantitative backing (rho=-0.756). Preempts the obvious reviewer objection. Establishes credibility.",
+    "ZERO EXPERIMENT FAILURES (CONSECUTIVE 5 ITERATIONS): All 4 tasks completed in this iteration without errors. Infrastructure fully reliable."
+  ],
+  "systemic_patterns": [
+    "CRITICAL RESOLVED: The experiment stagnation loop (iter 6-8: zero experiments, score stuck at 6.5) was broken in iter 9. The binding constraint was always experiments, not prose quality. When experiments executed, score improved immediately. Lesson: score improvements are driven exclusively by new evidence.",
+    "PERSISTENT PATTERN (9 ITERATIONS): validate_integration.py never implemented. The 12.3% hallucination in this iteration is exactly the error it would catch. Each iteration discovers new numerical errors. Priority inversion persists: visible writing takes precedence over invisible prevention infrastructure.",
+    "NEW PATTERN: Writing-generation hallucination. The 12.3% strict hedging figure appears in no source data file. This is a new failure mode -- previous data errors were pipeline mismatches (wrong JSON field accessed), not numbers fabricated from nothing. Writing agents need post-generation verification against source data.",
+    "PERSISTENT PATTERN: Theoretically ambitious elements fail (GAS, CMI, Absorption Tax all negative) while empirical measurement succeeds. The paper's actual contribution is purely empirical. Theoretical ambition is not a viable path for this project.",
+    "TIMING DISCREPANCY PATTERN: Planned 105 min, actual 5 min. Either the planning is systematically over-estimating by 20x, or results are being loaded from cache. If cached, the 'full mode' execution is partially misleading."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 40,
+    "total_gpu_idle_minutes": 3.0,
+    "total_actual_gpu_minutes": 2,
+    "total_actual_cpu_minutes": 3,
+    "total_planned_minutes": 105,
+    "bottleneck_stages": [
+      "writing_revision_with_fabricated_number_not_caught",
+      "missing_degraded_probe_ablation",
+      "missing_L24_activation_patching",
+      "missing_validate_integration_script"
+    ],
+    "suggestions": [
+      "Implement validate_integration.py before ANY writing revision. The 12.3% hallucination proves the need. Zero GPU cost.",
+      "Execute degraded-probe ablation as the highest-priority experiment in iter 10. This single experiment resolves the paper's central uncertainty.",
+      "Extend activation patching to L24 to connect causal evidence to the headline finding.",
+      "Generate missing figures (5, 6, and rendered Figure 2) before next review. Zero GPU cost, high visual communication impact.",
+      "Investigate timing anomaly: verify activation patching data is genuine or document cache usage.",
+      "If planning consistently overestimates by 20x, recalibrate time estimates based on actual RTX PRO 6000 throughput."
+    ]
+  },
+  "recommended_focus": [
+    "GATE 0 -- IMMEDIATE FIXES (zero GPU, 2 hours): (1) Fix fabricated 12.3% hedging number [5 min]. (2) Fix broken cross-references (Table 7/Section 4.4, Section 8.6) [10 min]. (3) Implement validate_integration.py and run on current paper [1.5 hours]. (4) Fix probe F1 discrepancy between Method and Results [15 min]. (5) Investigate letter G hedging dominance [30 min].",
+    "GATE 1 -- CRITICAL EXPERIMENTS (2-4 GPU-hours): (1) Degraded-probe ablation at F1={0.70, 0.80, 0.85, 0.90} [1-2 GPU-hours]. (2) Activation patching at L24 [1-2 GPU-hours]. These are the two experiments that will determine whether the score reaches 8.0.",
+    "GATE 2 -- FIGURES AND WRITING (zero GPU, 3-4 hours): (1) Generate Figures 5 and 6 from existing data [1 hour]. (2) Render Figure 2 pipeline schematic [30 min]. (3) Write appendix sections (GAS, CMI, Tax, threshold sensitivity) from existing JSON [2 hours]. (4) Restructure abstract (<220 words, lead with unconfounded findings) [30 min]. (5) Downgrade architecture comparison section [15 min]. (6) Remove hierarchy-vs-architecture dominance claim [10 min]. (7) Fix title [10 min]. (8) Promote restricted activation patching analysis [15 min]. (9) Qualify cross-domain claim as L24-only [15 min].",
+    "GATE 3 -- REVIEW after Gates 0-2 complete.",
+    "EXPECTED SCORE TRAJECTORY: Gate 0 alone -> 7.25 (eliminates fabrication, fixes broken refs). Gate 0+1 with positive degraded-probe result -> 7.5-8.0. Gate 0+1+2 -> 8.0 (Accept). If degraded-probe ablation shows probe quality explains cross-domain variation, reframe around layer-dependence + causal evidence + hedging decomposition -> still 7.5."
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

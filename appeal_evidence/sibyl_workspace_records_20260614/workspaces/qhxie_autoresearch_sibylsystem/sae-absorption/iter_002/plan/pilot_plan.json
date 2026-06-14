@@ -1,0 +1,113 @@
+{
+  "pilot_status": "MULTI_PILOT_COMPLETE",
+  "timestamp": "2026-04-14",
+  "overall_recommendation": "CONDITIONAL_GO — Revised to EDA-centric design based on pilot evidence",
+  "completed_pilots": {
+    "pilot_A_pipeline": {
+      "status": "DONE",
+      "output": "exp/results/pilots/pilot_A_pipeline.json",
+      "key_result": "EDA AUROC=0.681 (GO). ASI AUROC=0.476 (NO_GO). RD threshold AUROC=0.410 (NO_GO).",
+      "action": "EDA adopted as primary metric. ASI and RD threshold dropped as primary."
+    },
+    "pilot_B1_decoder_geometry": {
+      "status": "DONE",
+      "output": "exp/results/pilots/pilot_B1_decoder_geometry.json",
+      "key_result": "cos^2(theta) separation is significant but INVERSE to H1: letter features have LOWER decoder cosine with parents (Cohen's d=-0.48 at L6, p=9.7e-6). EDA works at L6 (AUROC=0.681) but fails at L10 (AUROC=0.337).",
+      "action": "H1 geometric prediction revised: encoder-decoder misalignment (EDA) is the absorption fingerprint, not decoder-decoder cosine."
+    },
+    "pilot_B2_scaling_curve": {
+      "status": "DONE",
+      "output": "exp/results/full/B2_scaling_curve.json",
+      "key_result": "11 SAE configs tested. Primary jb suite (5 configs): sigmoid fit beats linear (LRT p=0.027), L0_c~81. AJT SAEs show NEGATIVE EDA delta (inverse to jb). Spearman(1/L0, EDA)=0.191 across all 11 configs (weak/no overall correlation).",
+      "action": "Phase transition directionally supported for primary suite only. AJT architecture anomaly requires investigation in B.3."
+    },
+    "pilot_C1_probe_training": {
+      "status": "DONE",
+      "output": "exp/results/full/C1_probe_training.json",
+      "key_result": "4 hierarchies pass F1 >= 0.80: first_letter (F1=0.820), noun_proper (F1=0.987), animate_inanimate (F1=1.0). city_country_binary FAILED shuffle gate (excluded).",
+      "action": "Proceed with 3 hierarchies for C2-REDESIGN: first_letter, noun_proper, animate_inanimate."
+    },
+    "pilot_C2_cross_domain_v3": {
+      "status": "DONE",
+      "output": "exp/results/pilots/pilot_C2_cross_domain_absorption.json",
+      "key_result": "absorption_rate=0.0 for all clean hierarchies (first_letter, animate_inanimate, noun_proper). Concept latents ARE reliably active (mean_max_activation=16-22). Parent-latent-suppression measurement approach is incorrect.",
+      "action": "C.2 redesigned to child-feature-suppression. First_letter sanity check required."
+    }
+  },
+  "pilots_for_new_tasks": {
+    "task_B1_eda_decomposition": {
+      "pilot_config": {"samples": 100, "seed": 42, "timeout": 900},
+      "pass_criteria": "Paired t-test p < 0.05: letter feature encoder aligns more with letter probe than decoder does.",
+      "estimated_pilot_time_min": 5,
+      "note": "Extend from existing B1 pilot data. Should complete very quickly."
+    },
+    "task_B1_pairwise_eda": {
+      "pilot_config": {"samples": 100, "seed": 42, "timeout": 900},
+      "pass_criteria": "EDA AUROC >= 0.60 on exact Chanin labels. If < 0.60, investigate label source before full run.",
+      "estimated_pilot_time_min": 10,
+      "note": "Critical: first time using exact Chanin labels. Validate label loading before full run."
+    },
+    "task_C2_redesign": {
+      "pilot_config": {"samples": 100, "seed": 42, "timeout": 900},
+      "pass_criteria": "Ratio-to-null >= 1.5 for first_letter hierarchy (sanity check). absorption_rate > 0.0 for at least 1 hierarchy.",
+      "estimated_pilot_time_min": 15,
+      "note": "First test of redesigned child-suppression measurement. Must verify the pipeline produces non-zero signal for first_letter before committing to full run."
+    },
+    "task_D1_eda_validation": {
+      "pilot_config": {"samples": 100, "seed": 42, "timeout": 900},
+      "pass_criteria": "EDA AUROC >= 0.60 on exact labels. AUPRC computed successfully.",
+      "estimated_pilot_time_min": 10,
+      "note": "Depends on exact Chanin labels loaded successfully in B1_pairwise_eda."
+    },
+    "task_E1_phase_transition": {
+      "pilot_config": {"samples": 100, "seed": 42, "timeout": 900},
+      "pass_criteria": "True sae-spelling absorption rate measured for at least 3 configs. Non-trivial rate > 5% for at least 2 configs.",
+      "estimated_pilot_time_min": 20,
+      "note": "Key risk: true absorption_rate with sae-spelling metric may be near zero. Check against sae-spelling reference values."
+    },
+    "task_E2_hysteresis": {
+      "pilot_config": {"samples": 100, "seed": 42, "timeout": 900},
+      "pass_criteria": "SAE fine-tuning API accessible and completes 100 steps without OOM.",
+      "estimated_pilot_time_min": 10,
+      "note": "GPU: RTX PRO 6000 confirmed (from B2 pilot). GPT-2 Small + SAE should fit comfortably."
+    }
+  },
+  "critical_risks_identified": [
+    {
+      "risk": "Exact Chanin labels may not be directly loadable from sae-spelling repo in expected format",
+      "severity": "HIGH",
+      "mitigation": "Fall back to probe-alignment proxy labels (n_pos=71). Acknowledge in methods. Pilot B1_pairwise_eda tests this first."
+    },
+    {
+      "risk": "C2-REDESIGN child-suppression measurement may still find absorption_rate~0 even for first_letter",
+      "severity": "HIGH",
+      "mitigation": "If first_letter sanity check fails (ratio < 1.5), investigate pipeline bug. May need to use sae-spelling repo directly for first_letter measurement."
+    },
+    {
+      "risk": "Phase transition detection (E.1) needs true sae-spelling absorption rates, not EDA proxy",
+      "severity": "MEDIUM",
+      "mitigation": "Measure true sae-spelling absorption rate for all configs in E.1. If all < 5%, report phase transition as 'not detected at GPT-2 Small scale.'"
+    },
+    {
+      "risk": "EDA may not achieve AUROC >= 0.65 on exact Chanin labels (only 0.681 on proxy labels)",
+      "severity": "MEDIUM",
+      "mitigation": "Proxy-label result provides lower bound estimate. If exact labels give AUROC < 0.55, investigate label definition mismatch before reporting."
+    },
+    {
+      "risk": "H1 theory requires revision — original prediction falsified (direction of cos^2 effect was wrong)",
+      "severity": "HIGH",
+      "mitigation": "F.1 revised theory must be completed BEFORE paper writing. Demote to Proposition if algebraic derivation cannot be completed rigorously."
+    }
+  ],
+  "go_criteria_for_full_execution": {
+    "EDA_auroc_confirmed": "EDA AUROC >= 0.60 on exact Chanin labels (task_D1). Required for H3-revised.",
+    "C2_sanity_check_passed": "C2-REDESIGN first_letter ratio-to-null >= 1.5. Required for H2.",
+    "theory_complete": "F.1 theory document with complete derivation or explicit Proposition label. Required for theoretical contribution.",
+    "figure1_generated": "Figure 1 exists as a PDF (not text descriptor). Required for submission."
+  },
+  "sample_size_rationale": {
+    "n_pos_requirement": "Minimum 50 for reliable AUROC signal. Pilot confirmed n_pos=71 for proxy labels. Exact Chanin labels at L6 expected n_pos >= 67.",
+    "openwebtext_size": "10,000 tokens for full frequency estimation. 100 tokens per letter class minimum for absorption measurement (26 classes x 100 = 2,600 tokens minimum).",
+    "cross_domain_requirement": "50 concept tokens per parent category minimum for C2-REDESIGN. With 100 permutations for null control."
+  }
+}

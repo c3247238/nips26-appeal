@@ -1,0 +1,601 @@
+{
+  "project": "dlm-acceleration",
+  "candidate_id": "cand_a",
+  "created": "2026-04-15",
+  "iteration": 2,
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [
+      42
+    ],
+    "timeout": 900
+  },
+  "purpose": "Iteration 2: Fix foundation (metrics, benchmarks, M1 implementation), strengthen evidence (full-scale pairwise, 3 seeds), extend generalization (Dream-7B, batch sizes, AR comparison)",
+  "shared_resources": [
+    {
+      "type": "checkpoint",
+      "name": "LLaDA-8B-Instruct",
+      "path": "shared/checkpoints/llada-8b-instruct"
+    },
+    {
+      "type": "checkpoint",
+      "name": "Dream-7B-Instruct",
+      "path": "shared/checkpoints/dream-7b-instruct"
+    },
+    {
+      "type": "checkpoint",
+      "name": "Qwen2.5-0.5B",
+      "path": "shared/checkpoints/qwen2.5-0.5b"
+    },
+    {
+      "type": "checkpoint",
+      "name": "Qwen2.5-7B-Instruct",
+      "path": "shared/checkpoints/qwen2.5-7b-instruct"
+    },
+    {
+      "type": "library",
+      "name": "d2Cache",
+      "path": "iter_001/exp/code/d2Cache"
+    },
+    {
+      "type": "code",
+      "name": "LLaDA inference",
+      "path": "iter_001/exp/code/LLaDA"
+    },
+    {
+      "type": "code",
+      "name": "Inference wrapper",
+      "path": "iter_001/exp/code/inference_wrapper.py"
+    },
+    {
+      "type": "code",
+      "name": "IGSD implementation",
+      "path": "iter_001/exp/code/igsd.py"
+    },
+    {
+      "type": "results",
+      "name": "iter_001 full baseline",
+      "path": "iter_001/exp/results/full_baseline/llada_baseline_full.json"
+    },
+    {
+      "type": "results",
+      "name": "iter_001 M1 Pareto",
+      "path": "iter_001/exp/results/full_m1/m1_pareto_full.json"
+    },
+    {
+      "type": "results",
+      "name": "iter_001 IGSD Pareto",
+      "path": "iter_001/exp/results/full_igsd/igsd_pareto_full.json"
+    },
+    {
+      "type": "results",
+      "name": "iter_001 M3 Pareto",
+      "path": "iter_001/exp/results/full_m3/m3_pareto_full.json"
+    },
+    {
+      "type": "results",
+      "name": "iter_001 pairwise",
+      "path": "iter_001/exp/results/full_pairwise/full_pairwise_ortho.json"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "d2cache_integration_pilot",
+      "name": "d2Cache Kernel-Level KV Cache Integration Pilot",
+      "description": "Integrate d2Cache (dLLMCache) from iter_001/exp/code/d2Cache/src/cache/dllm_cache.py into LLaDA-8B-Instruct inference wrapper. Sweep entropy_threshold={0.5, 1.0, 2.0} with d2Cache params kp={0.25, 0.50}, kr={2, 4}, rou={0.1, 0.25}. Evaluate on 200 GSM8K + 100 MATH500, seed=42. Record actual TPS, accuracy, cache hit rate, VRAM. Decision: if TPS >= 1.5x at < 2% acc drop -> use kernel-level M1; elif 1.2-1.5x -> report both; else -> fall back to theoretical speedup. CRITICAL: d2Cache was designed for AR models; LLaDA's bidirectional attention may need adapter. Try direct integration first, then adapter pattern, then simplified sparse attention mask.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/results/d2cache_pilot/d2cache_integration.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "d2Cache loads without error AND at least one configuration achieves TPS > 1.2x baseline (31 TPS on GSM8K)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "d2Cache integration results: config x {TPS, speedup, accuracy, cache_hit_rate}",
+          "columns": [
+            "eta",
+            "kp",
+            "kr",
+            "rou",
+            "GSM8K_Acc",
+            "GSM8K_TPS",
+            "Speedup",
+            "CacheHitRate"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "m1_pareto_corrected",
+      "name": "M1 (KV Cache) Corrected Pareto Curve",
+      "description": "Re-run M1 Pareto sweep with d2Cache (if Phase 1 succeeds) or simplified implementation. Sweep entropy_threshold={0.5, 1.0, 2.0}. Evaluate on 200 GSM8K + 100 MATH500 + 50 HumanEval for pilot; 1319 GSM8K + 500 MATH500 + 164 HumanEval for full (3 seeds). Use corrected QAS formula (NO 0.5x penalty). Combined metric = 0.7*GSM8K + 0.3*MATH500 weighted accuracy retention. HumanEval reported separately. REUSE iter_001 baseline data (llada_baseline_full.json) as reference.",
+      "type": "experiment",
+      "depends_on": [
+        "d2cache_integration_pilot"
+      ],
+      "expected_output": "exp/results/m1_pareto/m1_pareto_corrected.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least one threshold achieves QAS > 0.8 on GSM8K AND all 3 thresholds produce valid TPS measurements"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "M1 Pareto curve: speedup vs accuracy retention across entropy thresholds",
+          "x": "speedup",
+          "y": "accuracy_retention",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "igsd_pareto_corrected",
+      "name": "IGSD Corrected Pareto Curve with Conservative T_draft",
+      "description": "Re-run IGSD Pareto sweep with EXTENDED T_draft range: tau={0.7, 0.85, 0.9}, T_draft={16, 32, 48}. Iteration 1 only tested T_draft=4,8,16; adding 32 and 48 to test whether conservative drafting significantly improves accuracy retention. Use corrected QAS (no penalty). Combined metric = 0.7*GSM8K + 0.3*MATH500. Pilot: 200 GSM8K + 100 MATH500, seed=42. Full: 1319 GSM8K + 500 MATH500, seeds=[42, 123, 456]. Key question: does T_draft=32-48 push accuracy retention above 60% while maintaining >= 2x speedup?",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/igsd_pareto/igsd_pareto_corrected.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least one (tau, T_draft) config achieves accuracy_retention > 0.50 AND speedup > 1.5x on GSM8K"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "IGSD Pareto: tau x T_draft x {speedup, acc_ret, QAS, accept_rate}",
+          "columns": [
+            "tau",
+            "T_draft",
+            "GSM8K_Acc",
+            "GSM8K_Speedup",
+            "AccRet",
+            "QAS",
+            "AcceptRate"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "IGSD speedup vs accuracy retention across T_draft values",
+          "x": "speedup",
+          "y": "accuracy_retention",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "m3_pareto_corrected",
+      "name": "M3 (AR-Guided) Corrected Pareto Curve",
+      "description": "Re-run M3 Pareto sweep with corrected QAS (no penalty) and combined metric. Sweep guidance_weight={0.3, 0.5, 0.7}. Drop gw=1.0 (iter_001 showed diminishing returns). Pilot: 200 GSM8K + 100 MATH500 + 50 HumanEval, seed=42. Full: 1319 GSM8K + 500 MATH500 + 164 HumanEval, seeds=[42, 123, 456]. M3 uses Qwen2.5-0.5B as guide model (same as iter_001). REUSE iter_001 baseline data.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/m3_pareto/m3_pareto_corrected.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least one gw achieves accuracy_retention >= 0.95 on GSM8K AND speedup > 1.0x"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "M3 Pareto: speedup vs accuracy retention across guidance weights",
+          "x": "speedup",
+          "y": "accuracy_retention",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_m1_igsd_full",
+      "name": "M1+IGSD Full-Scale Pairwise Composition",
+      "description": "Full-scale validation of M1+IGSD composition (iter_001 Ortho=1.385 on 200 GSM8K, 2 seeds). Use best operating points from Phase 2 corrected Pareto curves. Run on FULL 1319 GSM8K + 500 MATH500, seeds=[42, 123, 456]. Report per-seed Ortho breakdown. Use corrected QAS formula. Combined metric = 0.7*GSM8K + 0.3*MATH500. This is the headline result: does M1+IGSD synergy hold at full scale with 3 seeds?",
+      "type": "experiment",
+      "depends_on": [
+        "m1_pareto_corrected",
+        "igsd_pareto_corrected"
+      ],
+      "expected_output": "exp/results/pairwise/m1_igsd_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Combined Ortho > 1.0 (synergy confirmed) AND per-benchmark Ortho values computed without error"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "M1+IGSD pairwise: per-seed and per-benchmark Ortho breakdown",
+          "columns": [
+            "Seed",
+            "Benchmark",
+            "Speedup",
+            "AccRet",
+            "QAS",
+            "Ortho"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_m1_m3_full",
+      "name": "M1+M3 Full-Scale Pairwise Composition (Discrepancy Investigation)",
+      "description": "Resolve the M1+M3 discrepancy: pilot (100 GSM8K, seed 42) showed Ortho=1.339 (2.25x speedup, 99.7% AccRet) but full pairwise (200 GSM8K+164 HumanEval, seeds 42+123) showed Ortho=0.301. Root cause hypothesis: HumanEval 0% pass@1 dragging down combined AccRet. FIX: compute Ortho on GSM8K-only AND on 0.7*GSM8K+0.3*MATH500 combined metric separately. Run on FULL 1319 GSM8K + 500 MATH500, seeds=[42, 123, 456]. Use best operating points from corrected Pareto. This directly tests whether M1+M3 is a viable 'quality-first' recipe (H2).",
+      "type": "experiment",
+      "depends_on": [
+        "m1_pareto_corrected",
+        "m3_pareto_corrected"
+      ],
+      "expected_output": "exp/results/pairwise/m1_m3_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "GSM8K-only AccRet > 0.90 (quality preservation confirmed) AND combined metric Ortho computed without error"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "M1+M3 pairwise with separate GSM8K-only and combined Ortho",
+          "columns": [
+            "Seed",
+            "Metric",
+            "Speedup",
+            "AccRet",
+            "QAS",
+            "Ortho"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_m3_igsd_full",
+      "name": "M3+IGSD Full-Scale Pairwise Composition",
+      "description": "Full-scale validation of M3+IGSD composition (iter_001 Ortho=0.493 -- interference). Run on 1319 GSM8K + 500 MATH500, seeds=[42, 123, 456]. Use corrected QAS. Purpose: confirm interference and quantify the degradation mechanism. Expected: M3's guidance overhead per step + IGSD's reduced steps = conflicting objectives. The AR guide model (Qwen2.5-0.5B) may provide poor guidance on IGSD's aggressively compressed denoising trajectory.",
+      "type": "experiment",
+      "depends_on": [
+        "igsd_pareto_corrected",
+        "m3_pareto_corrected"
+      ],
+      "expected_output": "exp/results/pairwise/m3_igsd_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Ortho values computed for both benchmarks without error (interference is an expected valid finding)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "M3+IGSD pairwise results with interference analysis",
+          "columns": [
+            "Seed",
+            "Benchmark",
+            "Speedup",
+            "AccRet",
+            "QAS",
+            "Ortho"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "threeway_pareto_pilot",
+      "name": "Three-Way Composition (M1+IGSD+M3) Pareto Pilot",
+      "description": "Sweep the three-way composition design space: M1_eta={best, best+1step_aggressive} x IGSD_tau={0.85, 0.9} x IGSD_T_draft={32, 48} x M3_gw={0.0, 0.3, 0.7} = 2x2x2x3 = 24 configs. Run each on 200 GSM8K + 100 MATH500, seed=42. Identify Pareto frontier: max-speed, balanced, quality-first operating points. Use corrected QAS combined metric. Top 5 configs promoted to full validation.",
+      "type": "experiment",
+      "depends_on": [
+        "m1_pareto_corrected",
+        "igsd_pareto_corrected",
+        "m3_pareto_corrected"
+      ],
+      "expected_output": "exp/results/threeway/threeway_pareto_pilot.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 20 of 24 configs complete without error AND Pareto frontier contains >= 3 distinct operating points"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Three-way Pareto frontier: speedup vs accuracy retention",
+          "x": "speedup",
+          "y": "accuracy_retention",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "threeway_pareto_full",
+      "name": "Three-Way Composition Top-5 Full Validation",
+      "description": "Full-scale validation of top 5 configurations from threeway_pareto_pilot. Run on 1319 GSM8K + 500 MATH500, seeds=[42, 123, 456]. Report per-seed stability and final Pareto operating points. These become the 'acceleration recipes' recommended in the paper.",
+      "type": "experiment",
+      "depends_on": [
+        "threeway_pareto_pilot"
+      ],
+      "expected_output": "exp/results/threeway/threeway_pareto_full.json",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 5 configs complete on 3 seeds AND per-seed QAS std < 30% of mean (reasonable stability)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Final acceleration recipes: config x {speedup, acc_ret, QAS} with confidence intervals",
+          "columns": [
+            "Recipe",
+            "Config",
+            "Speedup_mean",
+            "Speedup_std",
+            "AccRet_mean",
+            "AccRet_std",
+            "QAS_mean"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Final Pareto frontier with error bars from 3 seeds",
+          "x": "speedup_mean",
+          "y": "accuracy_retention_mean",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "dream7b_baseline",
+      "name": "Dream-7B-Instruct Baseline + Download",
+      "description": "Download Dream-7B-Instruct (hkunlp/dream-7b-instruct) and run baseline evaluation. iter_001 download failed -- retry with: (1) direct HuggingFace Hub download, (2) huggingface-cli with resume, (3) modelscope mirror if HF CDN fails. Run 64-step baseline on 200 GSM8K + 100 MATH500, seed=42. Establish reference TPS and accuracy for cross-model comparison. FALLBACK: if Dream-7B download fails again, use LLaDA with different sequence lengths (128, 256, 512 output tokens) as generalization test instead.",
+      "type": "baseline",
+      "depends_on": [],
+      "expected_output": "exp/results/dream7b/dream7b_baseline.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Model downloaded and loaded successfully AND baseline GSM8K accuracy > 0.30 (model is functional)"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Dream-7B baseline vs LLaDA-8B baseline comparison",
+          "columns": [
+            "Model",
+            "Benchmark",
+            "Accuracy",
+            "TPS",
+            "Steps"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "dream7b_top5_validation",
+      "name": "Dream-7B Cross-Model Validation (Top 5 Configs)",
+      "description": "Run top 5 configurations from threeway_pareto_full on Dream-7B-Instruct. Evaluate on 200 GSM8K + 100 MATH500, seed=42. Compare Ortho scores between LLaDA and Dream to assess hyperparameter transferability. Key question: do composition patterns (synergy vs interference) hold across different DLM architectures? If Dream-7B unavailable, run LLaDA with output lengths {128, 256, 512} as alternative.",
+      "type": "experiment",
+      "depends_on": [
+        "dream7b_baseline",
+        "threeway_pareto_full"
+      ],
+      "expected_output": "exp/results/dream7b/dream7b_top5.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 3 of 5 configs complete AND Ortho values computed for Dream-7B"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Cross-model Ortho comparison: LLaDA vs Dream for each configuration",
+          "columns": [
+            "Config",
+            "LLaDA_Ortho",
+            "Dream_Ortho",
+            "Transfer_Ratio"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ar_baseline_comparison",
+      "name": "AR Baseline Honest Comparison (Qwen2.5-7B + vLLM)",
+      "description": "Benchmark against properly optimized AR inference. Use Qwen2.5-7B-Instruct with vLLM serving + speculative decoding (Qwen2.5-0.5B draft). Batch sizes 1 and 8. Evaluate on 200 GSM8K + 100 MATH500, seed=42. Report TPS, accuracy, and quality-adjusted throughput (QAS). This provides the honest AR comparison missing from iter_001. NOTE: Install vllm if not present. Qwen2.5-7B chosen as closest size match to LLaDA-8B.",
+      "type": "baseline",
+      "depends_on": [],
+      "expected_output": "exp/results/ar_comparison/ar_baseline.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "vLLM inference completes AND TPS measurements recorded for both batch sizes"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "DLM vs AR comparison at batch=1 and batch=8",
+          "columns": [
+            "System",
+            "BatchSize",
+            "GSM8K_Acc",
+            "TPS",
+            "Speedup_vs_LLaDA",
+            "QAS"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "igsd_ablation_refined",
+      "name": "IGSD Ablation Study (T_draft + tau + KL Profile)",
+      "description": "Three-part IGSD ablation: (1) T_draft sweep: T_draft={16, 32, 48} at fixed tau=0.9 to isolate draft length effect on accuracy. (2) tau sweep: tau={0.7, 0.85, 0.9} at fixed T_draft=32 to isolate threshold sensitivity. (3) Confidence partitioning: tau=0.0 vs tau=0.9 at T_draft=32 -- does the gate add value over naive step reduction? (4) Per-step KL divergence profile: record KL(p_t || p_{t-1}) at every step for 100 GSM8K samples to validate H6 inverted-U hypothesis. Pilot: 200 GSM8K + 100 MATH500, seed=42. Full for tau=0.0 vs tau=0.9: 1319 GSM8K, seeds=[42, 123, 456]. Use corrected QAS (no penalty).",
+      "type": "ablation",
+      "depends_on": [
+        "igsd_pareto_corrected"
+      ],
+      "expected_output": "exp/results/ablation/igsd_ablation_refined.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 ablation parts complete AND KL profile data recorded for >= 80 samples AND per-step KL has visible non-monotonic pattern"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "IGSD T_draft ablation: QAS vs T_draft at fixed tau=0.9",
+          "x": "T_draft",
+          "y": "QAS",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Per-step KL divergence profile (H6 validation)",
+          "x": "step",
+          "y": "kl_divergence",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Confidence partitioning ablation: tau=0.0 vs tau=0.9 comparison",
+          "x": "config",
+          "y": "QAS",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "batch_sensitivity",
+      "name": "Batch Size Sensitivity Analysis",
+      "description": "Address batch_size=1-only limitation from iter_001. For M1+IGSD (best pairwise) and M1+IGSD+M3 (best three-way at balanced operating point): sweep batch_size={1, 4, 8}. Evaluate on 200 GSM8K, seed=42. Record TPS, accuracy, per-sample latency, GPU utilization. Hypothesis: at higher batch sizes, mixed confidence profiles reduce cache hit rates and accept rates, potentially changing Ortho values. This tests whether composition patterns hold in production serving settings.",
+      "type": "analysis",
+      "depends_on": [
+        "pairwise_m1_igsd_full",
+        "threeway_pareto_full"
+      ],
+      "expected_output": "exp/results/batch_sensitivity/batch_sensitivity.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All batch sizes produce valid TPS measurements AND accuracy does not drop > 5% from batch=1 to batch=8"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Batch size sensitivity: TPS and accuracy vs batch size",
+          "x": "batch_size",
+          "y": [
+            "TPS",
+            "accuracy"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "chr_refine_measurement",
+      "name": "CHR_refine Direct Measurement (Evidence Gap Fix)",
+      "description": "The iter_001 paper claims CHR_refine=94% as 'measured' but no raw data exists. This task directly measures the KV-cache hit rate during IGSD's refine phase. Protocol: for 100 GSM8K samples (seed=42), run IGSD(tau=0.9, T_draft=16) and log per-step cache hit rate at each refine step. Record: (1) CHR during draft phase, (2) CHR during refine phase, (3) CHR breakdown by frozen vs non-frozen tokens. Compare against the analytical prediction (alpha=0.52 frozen tokens -> CHR_refine ~ 94% for eta=2.0). The output must include raw per-sample, per-step data to support the claim.",
+      "type": "experiment",
+      "depends_on": [
+        "d2cache_integration_pilot"
+      ],
+      "expected_output": "exp/results/chr_refine/chr_refine_measurement.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Per-step CHR data recorded for >= 80 samples AND refine-phase CHR reported with mean and std"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Cache hit rate across denoising phases (draft vs refine)",
+          "x": "step",
+          "y": "cache_hit_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

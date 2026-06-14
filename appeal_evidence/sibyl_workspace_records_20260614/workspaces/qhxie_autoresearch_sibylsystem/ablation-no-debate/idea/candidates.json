@@ -1,0 +1,138 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_p1",
+      "title": "Encoder-Driven Feature Absorption: Mechanism and Safety Implications",
+      "status": "front_runner",
+      "summary": "Feature absorption in SAEs is driven by the encoder's learned alignment with hierarchical structure, not decoder geometry. The 2x2 factorial confirms encoder sufficiency (B≈D) and decoder irrelevance (C≈A), but with B>D anomaly -- decoder acts as implicit regularizer. Front-runner now incorporates H_Downstream test from contrarian.",
+      "hypotheses": [
+        "H1: Trained SAEs show higher multi-child proportional absorption than random baselines (PASSED)",
+        "H_Mech: Absorption is driven by encoder alignment, not decoder geometry (PASSED with B>D anomaly)",
+        "H3: Steering absorbed features improves sensitivity (PASSED - 1.62x ratio)",
+        "H_Comp: Absorption increases monotonically with hierarchy strength (PASSED pilot)",
+        "H_Downstream: Absorbed features show degraded downstream utility (NOT TESTED - NEW)"
+      ],
+      "pilot_focus": "H_Downstream (Priority 0), H_Mech 5-seed stochastic validation, H_Safe on validated features",
+      "key_papers": [
+        "Chanin et al. 2024",
+        "Korznikov et al. 2026",
+        "Tang et al. 2512.05534",
+        "Basu et al. 2603.18353"
+      ],
+      "merge_contributions": {
+        "pragmatist": "Multi-child proportional ablation fixes measurement saturation",
+        "innovator": "Safety-critical absorption as highest-novelty sub-hypothesis (9/10)",
+        "theoretical": "Information-theoretic collision framework for mechanism",
+        "interdisciplinary": "Critical branching phase transition for absorption threshold",
+        "contrarian": "H_Downstream: does absorption actually matter for downstream utility?",
+        "empiricist": "Strict 2x2 factorial design; SynthSAEBench validation required"
+      },
+      "novelty_flag": "none",
+      "estimated_runtime_hours": 4,
+      "drop_trigger": "If H_Downstream shows absorption doesn't matter (field optimizing wrong metric)"
+    },
+    {
+      "candidate_id": "cand_safe",
+      "title": "Safety-Critical Features Are Disproportionately Absorbed",
+      "status": "front_runner (priority component)",
+      "summary": "SAEs may systematically fail to represent rare, safety-critical features due to absorption. NO prior work examines this. Prior placeholder pilot using arbitrary indices is INVALID -- must use Neuronpedia-validated features only.",
+      "hypotheses": [
+        "H_Safe: Safety-critical features have higher absorption rates than matched non-safety features (Mann-Whitney p < 0.05)"
+      ],
+      "pilot_focus": "Gemma Scope SAE (gemma-2b, layer 12), 20 validated safety + 20 matched non-safety features from Neuronpedia",
+      "key_papers": [
+        "Basu et al. 2603.18353",
+        "Chanin et al. 2024",
+        "Bhargav & Zhu 2511.00029"
+      ],
+      "novelty_flag": "novel_application",
+      "novelty_note": "No prior work examines whether safety-critical features are systematically more absorbed. Genuinely novel (9/10).",
+      "estimated_runtime_hours": 1,
+      "drop_trigger": "If safety-relevant features do not show elevated absorption rates on real SAEs (p > 0.3)"
+    },
+    {
+      "candidate_id": "cand_encreg",
+      "title": "Encoder Regularization to Reduce Absorption",
+      "status": "backup",
+      "summary": "Based on B>D anomaly, encoder-only regularization may reduce absorption by leveraging decoder's implicit regularizing effect. OrtSAE modifies both encoder+decoder; our approach targets encoder only as cleaner intervention.",
+      "hypotheses": [
+        "H_EncReg: Encoder regularization penalizing parent-child activation correlation reduces absorption >30% with <5% reconstruction degradation"
+      ],
+      "pilot_focus": "Implement encoder-only orthogonality penalty; compare vs OrtSAE",
+      "key_papers": [
+        "Korznikov et al. 2025 (OrtSAE)",
+        "Tang et al. 2512.05534"
+      ],
+      "novelty_flag": "novel_methodology",
+      "novelty_note": "First encoder-targeted intervention for absorption reduction (prior work modifies both encoder and decoder).",
+      "estimated_runtime_hours": 1.5,
+      "drop_trigger": "If regularization degrades reconstruction >10% or reduces absorption <10%"
+    },
+    {
+      "candidate_id": "cand_proxy",
+      "title": "Training-Free Absorption Proxy Validation",
+      "status": "backup",
+      "summary": "Validate encoder-decoder asymmetry as training-free absorption predictor against SynthSAEBench ground truth. The field needs training-free detection for deep layers where ablation fails.",
+      "hypotheses": [
+        "H_Proxy: Encoder-decoder asymmetry predicts absorption with AUC > 0.75 against ablation ground truth"
+      ],
+      "pilot_focus": "Compute asymmetry metrics on SynthSAEBench; evaluate AUC-ROC",
+      "key_papers": [
+        "Hu et al. 2025 (sensitivity)",
+        "Chanin et al. 2026 (SynthSAEBench)"
+      ],
+      "novelty_flag": "methodology_validation",
+      "novelty_note": "First systematic validation of training-free proxy metrics against ground truth.",
+      "estimated_runtime_hours": 1,
+      "drop_trigger": "If no proxy achieves AUC > 0.70 against ground truth"
+    },
+    {
+      "candidate_id": "cand_ens",
+      "title": "Multi-Resolution SAE Ensemble for Hierarchical Feature Recovery",
+      "status": "deferred",
+      "summary": "Train ensemble of SAEs with varying L0 targets (16, 64, 256) to collectively recover hierarchical features. WEAK BACKUP due to overlap with Gadgil et al. and high cost.",
+      "hypotheses": [
+        "H_Ens: High-L0 SAE captures child features that low-L0 SAE has absorbed"
+      ],
+      "pilot_focus": "DEFERRED -- requires clear differentiation from Gadgil et al.",
+      "key_papers": [
+        "Gadgil et al. 2025",
+        "Muchane et al. 2025"
+      ],
+      "novelty_flag": "partial_overlap",
+      "novelty_note": "Overlaps with Gadgil et al. on ensemble concept. L0 diversity mechanism is differentiator but novelty only 5/10.",
+      "estimated_runtime_hours": 2,
+      "drop_trigger": "If ensemble recovery rate < 20%"
+    }
+  ],
+  "pool_status": {
+    "front_runner": "cand_p1",
+    "priority_components": ["cand_safe"],
+    "backups": ["cand_encreg", "cand_proxy"],
+    "deferred": ["cand_ens"],
+    "dropped": ["cand_geom", "cand_eco"],
+    "pivot_priority": ["cand_encreg", "cand_proxy"],
+    "dropped_notes": "cand_geom dropped because H_Mech shows decoder geometry contributes nothing (original proposal was decoder-based). cand_eco dropped as reframing only (Barlow 1961 is classical)."
+  },
+  "novelty_assessment": {
+    "cand_safe": "9/10 - No prior work on safety-critical feature absorption",
+    "cand_p1": "7/10 - Novel factorial decomposition methodology + B>D anomaly",
+    "cand_encreg": "7/10 - Novel encoder-only intervention (vs both in OrtSAE)",
+    "cand_proxy": "7/10 - First systematic proxy validation",
+    "cand_ens": "5/10 - Partial overlap with Gadgil et al.",
+    "cand_eco": "2/10 - Reframing, Barlow 1961 classical"
+  },
+  "critical_findings_from_prior": [
+    "H_Mech: encoder-driven, not decoder (B≈D, C≈A)",
+    "B>D ANOMALY: trained encoder + random decoder produces MORE absorption than both trained",
+    "H1: trained SAE absorption significantly higher than random (delta=0.353)",
+    "H3: absorbed features MORE sensitive to steering (1.62x ratio)",
+    "H2: positive frequency correlation (rho=+0.171) contradicts competitive exclusion, supports efficient coding"
+  ],
+  "lessons_incorporated": [
+    "Remove placeholder safety features (arbitrary indices) -- use Neuronpedia validation only",
+    "Fix sensitivity formula bug before H_Pareto claims",
+    "H_Downstream added to directly test contrarian's core challenge",
+    "B>D anomaly now central finding, not footnote"
+  ]
+}

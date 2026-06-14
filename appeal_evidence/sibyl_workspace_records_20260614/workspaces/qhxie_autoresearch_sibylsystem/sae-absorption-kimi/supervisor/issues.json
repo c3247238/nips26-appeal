@@ -1,0 +1,86 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "MATRYOSHKA/MULTISCALE DATA COPYING BUG REMAINS UNADDRESSED: Independent verification confirms 4 of 5 Matryoshka replicates (seeds 123, 456, 789, 1011) are byte-identical to MultiScale replicates across all key metrics (absorption_rate, feature_recovery_mcc, reconstruction_mse, explained_variance, l0_sparsity, dead_latents, shrinkage, uniqueness, hedging_score). Only seed 42 differs (Matryoshka A=0.1011 vs MultiScale A=0.0440). The Matryoshka mean (0.066 +/- 0.029) is computed from one genuine replicate plus four copied MultiScale replicates. This was identified in iter_008 and remains unaddressed in iter_009. The paper still reports Matryoshka statistics in Table 1 and makes an antagonistic interaction claim in Section 4.4.",
+    "suggestion": "Immediately withdraw all Matryoshka claims and statistics from the paper. Re-run Full Matryoshka with all 5 seeds independently, OR remove Matryoshka entirely from Table 1 and report only seed-42 with an explicit caveat. Do not report aggregated statistics based on 80% copied data."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "NEGATIVE EXPLAINED_VARIANCE ON 5/6 TRAINED VARIANTS INDICATES TRAINING FAILURE: Baseline (mean=-0.884), TopK (-0.385), MultiScale (-0.281), Gating (-0.481), and Matryoshka (-0.279) all show negative explained_variance. Only Orthogonality is positive (0.994). Negative EV means the SAE reconstruction is WORSE than predicting the mean. The paper mentions this in Section 5.4 Limitation 4 but does not integrate it into the main analysis or conclusions. Combined with 1-2 minute training times for 2M samples, this strongly suggests either a computation bug or that most variants failed to learn. If the SAEs failed to learn, ALL absorption claims are suspect---the systematic absorption differences may reflect random structure rather than learned features.",
+    "suggestion": "Debug explained_variance computation immediately. Verify formula against sklearn.metrics.explained_variance_score. Check whether the reference mean is computed per-batch rather than globally. If the formula is correct, the SAEs failed to learn and all claims must be reconsidered. Add convergence diagnostics (loss curves, final loss values) to verify training completed."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "DOSE-RESPONSE CAUSAL CLAIM IS UNDERMINED BY FAILED MANIPULATION: The paper claims the dose-response 'falsifies the causal link between absorption rate and downstream interpretability.' However, the lambda sweep (5e-5 to 2e-3) created NO meaningful L0 gradient: all lambda levels produce L0 ~800-1130 (mean ~980), with no systematic trend. Per-lambda absorption means show only weak upward trend (0.199 -> 0.207 -> 0.221 -> 0.235 -> 0.255) with enormous within-lambda variance. Variance decomposition reveals ~75% of absorption variance is seed-related, only ~17% lambda-related. The 'dose-response' is misnamed---there is no dose (sparsity) variation. The flat MCC reflects the flat L0, not a null causal effect.",
+    "suggestion": "Withdraw or severely soften the causal falsification claim. Acknowledge that the lambda sweep failed to create a meaningful sparsity gradient. Report the variance decomposition honestly (75% seed, 17% lambda). Consider this a failed manipulation rather than evidence against causation. Redesign using TopK with varying k values, which DOES control L0 explicitly."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "L0-MATCHED ABLATION WAS NEVER ACTUALLY EXECUTED: The paper's central claim that 'absorption is a sparsity phenomenon' depends on showing that L1-SAE tuned to L0=50 achieves comparable absorption to TopK. gpu_progress.json marks 'e2_l0_matched' as completed but NO result files exist. The paper's claim that 'Baseline L1 cannot match the low L0 values of TopK/Matryoshka' is inferred from the dose-response data (where L0 only decreased from ~1082 to ~995) rather than from a dedicated L0-matching attempt. The lambda range tested (5e-5 to 2e-3) may not be wide enough.",
+    "suggestion": "Execute a genuine L0-matched ablation with a wider lambda sweep (up to 0.01 or 0.1) to definitively establish whether L1 can reach L0=50. If L1 truly cannot reach L0=50, this is itself a valuable methodological finding. If it can, the sparsity-mediation hypothesis is directly tested. This is the highest-priority missing experiment."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "AGGREGATION BIAS IN L0-ABSORPTION CORRELATION: The reported correlation (r=0.865, p=0.012 in statistical_analysis.json; r=0.943, p=0.016 in analysis_statistics_results.json) uses only 7 variant MEANS, not 35 individual replicates. With n=7, the correlation has extremely low power and is vulnerable to outlier influence. The Random control (L0=1029, A=0.534) is an obvious outlier that drives much of the correlation. The two source files report DIFFERENT correlation values (0.865 vs 0.943), indicating the analysis pipeline is inconsistent.",
+    "suggestion": "Recompute correlation using all 35 replicates (5 per variant x 7 variants). Report both the aggregated and disaggregated correlations. Resolve the inconsistency between statistical_analysis.json and analysis_statistics_results.json. If the disaggregated correlation is weaker, report it honestly. Consider a mixed-effects model with L0 as predictor and variant as random effect."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "DEAD LATENT CRISIS UNDERMINES PRACTICAL CONCLUSIONS: TopK has 81.7% dead latents (1672/2048). MultiScale has 56.4% (1155/2048). Full Matryoshka has 56.7% (1162/2048). A 60-80% dead latent rate is a severe pathology that makes the SAE largely non-functional for interpretability. The paper mentions this in Table 1 and Section 5.4 but does not integrate it into the abstract or conclusions. A practitioner reading 'TopK reduces absorption' would not realize this creates a dictionary where 81.7% of latents never fire.",
+    "suggestion": "Add dead latent rates to the abstract. Add a dedicated subsection discussing whether the TopK recommendation is practically viable given 81.7% dead latents. Test whether absorption measured on active latents only differs from full-dictionary absorption."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "SUSPICIOUSLY SHORT TRAINING TIMES COMBINED WITH NEGATIVE EV: All full experiments completed in 1-2 minutes (e.g., full_baseline: 79 seconds for 2M samples). The orthogonality variant achieves near-perfect reconstruction (MSE ~3e-5, positive EV) in 52 seconds, while baseline takes 79 seconds for MSE ~0.01 (negative EV). No loss curves, validation MSE plateau, or final loss values are provided. The negative EV combined with short training times strongly suggests training did not converge for most variants.",
+    "suggestion": "Add convergence diagnostics: final training loss values, loss curves, and validation loss. Verify that 2M samples is sufficient for convergence. Consider extending training or adjusting hyperparameters. Do not draw strong conclusions about downstream interpretability until reconstruction quality is positive."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "ANTAGONISTIC INTERACTION CLAIM USES INVALID ADDITIVE MODEL AND COPIED DATA: The additive expectation for Full Matryoshka is baseline - topk_reduction - multiscale_reduction = 0.252 - 0.196 - 0.197 = -0.142, which is below the physical bound of zero for an absorption rate. For a bounded metric [0,1], additive models are inappropriate. A relative risk or multiplicative framework should be used. Moreover, this claim is based on 80% copied data (Matryoshka replicates 2-5 are byte-identical to MultiScale).",
+    "suggestion": "Withdraw the antagonism claim entirely until genuine Matryoshka data is available. If reinstated, use a multiplicative framework: expected = baseline * (1 - reduction_topk) * (1 - reduction_multiscale). Conduct a formal 2x2 factorial interaction test."
+  },
+  {
+    "stage": "review",
+    "category": "methodology",
+    "severity": "major",
+    "description": "NO FORMAL INTERACTION TEST FOR ANTAGONISM: The paper claims Full Matryoshka shows 'antagonistic interaction' but admits no formal interaction test was conducted. Even with genuine data, the difference between Full Matryoshka (0.066) and MultiScale (0.055) is small (~0.011) and may not be statistically significant with 5 replicates per condition. The claim is further undermined by the copied data.",
+    "suggestion": "Withdraw the antagonism claim. If reinstated with genuine data, conduct a formal interaction test (2x2 factorial ANOVA with TopK x MultiScale factors) or report a t-test comparing Full Matryoshka vs. the better of TopK/MultiScale."
+  },
+  {
+    "stage": "review",
+    "category": "methodology",
+    "severity": "major",
+    "description": "NO MULTIPLE COMPARISON CORRECTION REPORTED DESPITE METHOD CLAIMING HOLM-BONFERRONI: The Method section (3.1) promises Holm-Bonferroni correction but no corrected p-values appear in the Results or statistical_analysis.json. With 6 pairwise comparisons, uncorrected p-values inflate Type I error. The key results (TopK/MultiScale vs Baseline) would survive correction, so reporting corrected p-values would strengthen rather than weaken claims.",
+    "suggestion": "Apply and report corrected p-values (Holm-Bonferroni or Benjamini-Hochberg) for all pairwise comparisons. Update Method section to reflect actual practice."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "NOVELTY CLAIM IS MODEST AND ERODING: The core insight (sparsity drives absorption) is arguably implicit in Chanin et al.'s analytical proof. The specific findings (TopK dominance, orthogonality null) are genuinely surprising IF the data is genuine. However, the data integrity issues (copied replicates, negative EV, failed dose-response manipulation) cast doubt on all findings. The novelty claim has eroded from 'first on SynthSAEBench-16k' (withdrawn) to 'first component-isolated study' (defensible but modest).",
+    "suggestion": "Frame novelty around the specific empirical findings that survive scrutiny: (1) TopK dominance (d=4.93) dwarfs all other components, (2) orthogonality has negligible effect (d=0.13, contradicting OrtSAE's 65% claim). These are genuinely novel if data is clean."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "SYNTHETIC-TO-REAL TRANSFER UNTESTED: The paper acknowledges this as a limitation (Section 5.4) but provides no validation. The GPT-2 validation is mentioned as 'ongoing' but no results are shown. Given the entire motivation for synthetic data was real-LLM metric confounds, the absence of even minimal validation weakens practical relevance.",
+    "suggestion": "Add even a minimal real-LLM validation result if available, or more prominently acknowledge this as a major limitation that limits generalizability."
+  }
+]

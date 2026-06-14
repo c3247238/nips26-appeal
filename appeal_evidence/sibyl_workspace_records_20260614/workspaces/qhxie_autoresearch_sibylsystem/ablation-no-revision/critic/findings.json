@@ -1,0 +1,54 @@
+{
+  "summary": "The paper provides a well-structured negative-result study of feature absorption in SAEs, with strong reporting discipline on falsified hypotheses. However, three critical issues undermine its scientific credibility: (1) five figure files are missing from the writing directory — all figure references in the text will render as broken links; (2) the H1 layer discrepancy (0.19% at layer 8 vs 49.3% at layer 4) is not adequately explained — the paper claims falsification at layer 8 but does not clarify why layer 4, which exceeds the >20% threshold, does not also falsify H1 under the collective pre-registered criterion; (3) Section 5.5 contains inappropriate self-critique of the authors' own prior decision not to run H2 — a manuscript should not editorialize about its own process as if reviewing itself. The H4 uninformative result is correctly reported but the design flaw explanation in the text (Section 5.3) is inconsistent with Section 5.5's claim that H2 was not run due to 'layer 8 only' when layer 4 had 260x more absorbed latents.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Five figure files (gen_pipeline.pdf, fig1_layer_absorption.pdf, fig2_dict_size.pdf, fig4_layer4_histogram.pdf, fig3_faithfulness.pdf) are referenced in text and appendix but do not exist in the writing directory. The LaTeX syntax `![Figure 1...](figures/gen_pipeline.pdf)` will render as broken image links in any PDF build.",
+      "suggestion": "Generate all five figures before submission. Ensure they are placed in writing/figures/ directory. Confirm that LaTeX build can locate them (check paths). Source data for each figure is available in iter_002/exp/results/ (h1_pilot.json, h3_pilot.json, h4_pilot.json, pilots/h5_pilot.json)."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "H1 falsification criterion was '<10% prevalence across layers 4–10'. The paper reports 49.3% at layer 4 (not falsified) and 0.19% at layer 8 (falsified). The paper does not explain why layer 4's 49.3% does not falsify H1 under the collective criterion. A reader could reasonably interpret this as H1 being 'partially confirmed' or 'layer-dependent' rather than falsified. The abstract's phrasing ('falsifying the hypothesis at that layer') is accurate but the discussion in Section 5.1 should more explicitly address this apparent contradiction.",
+      "suggestion": "Either: (a) Clarify that layer 8 was pre-registered as the primary test layer with a <10% threshold, treating layer 4 as exploratory — making the falsification claim clean; or (b) Acknowledge that H1 is 'partially confirmed at layer 4 but falsified at layer 8' and explain that the pre-registered collective criterion spans layers 4–10 but layer 8 was the primary test layer under that criterion. The discrepancy between layers is itself a finding (inverted-U pattern) consistent with H3, but this should be stated explicitly, not left for the reader to infer."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Section 5.5 contains self-undermining editorializing: 'the decision to not run H2 was not data-driven. A principled decision framework requires either running H2 at layer 4... or formally retiring H2 with explicit justification.' This reads as peer review criticism of the authors' own prior decisions rather than scientific reporting.",
+      "suggestion": "Remove the editorializing. Restructure as: 'H2 was not tested due to insufficient absorption variance at layer 8 (46 of 24,576 latents with $A_f > 0.5$). However, layer 4 has 49.3% absorption (~12,000 latents) — 260x more data than layer 8. A redesigned H2 experiment should use layer 4 as the primary test layer, where absorption variance is sufficient for correlation analysis.' Frame the limitation directly without characterizing the prior decision as wrong."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The H4 experiment design is internally inconsistent between Sections 5.3 and 5.5. Section 5.3 explains the H4 failure as a design flaw (task-agnostic latent selection) but Section 5.5 uses 'insufficient absorption variance at layer 8' as the reason H2 was not run — yet layer 4 has 260x more absorbed latents. If H4's failure was truly due to task-agnostic selection (not absorption variance), then H2 at layer 4 should have been run. The current framing suggests the authors are rationalizing post-hoc why H2 was skipped.",
+      "suggestion": "Clarify the actual decision process: was H2 skipped due to (a) insufficient absorption variance at the chosen layer (which would imply layer 8 was the pre-registered layer for H2, not layer 4), or (b) early termination after H1/H3/H4 failures? The Section 5.5 text suggests the latter (early termination) but the insufficient-variance rationale appears inconsistent. Align the justification."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "Sections 5.6 and 5.7 are redundant: Table 1 in Section 5.6 already summarizes all hypotheses with falsification status. Section 5.7 then repeats the layer-by-layer breakdown in Table 2. This adds length without new information.",
+      "suggestion": "Integrate Table 2 into Section 5.6 as a second table, or move Section 5.7 to the Appendix and keep only the summary table in Section 5.6."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "Figure captions describe content but do not specify file format, generation method, or data source. For reproducibility and copy-editing clarity, captions should note how the figure was generated and from which data file.",
+      "suggestion": "Add 'Generated via matplotlib from iter_002/exp/results/[source_file].' to each figure caption. For example: 'Generated via matplotlib from iter_002/exp/results/h3_pilot.json.'"
+    }
+  ],
+  "metric_gaming_risks": [
+    "The absorption score $A_f > 0.5$ binary threshold is sensitive to the 80% RVE cutoff. The sensitivity analysis (Table C1) shows monotonic relationships across thresholds, confirming stability, but the practical significance of $A_f > 0.5$ vs $A_f > 0.1$ should be discussed: even at the most lenient threshold (0.01), only 0.63% of latents exceed it at layer 8. The conclusion (absorption is rare) is robust across thresholds.",
+    "The 8 perfect-score latents ($A_f = 1.0$, each firing on exactly 100 tokens) may be position-embedding artifacts rather than genuine absorption. This is flagged in Section 6.5 as an open question. The paper correctly does not draw strong conclusions from these 8 cases."
+  ],
+  "novelty_risks": [
+    "The paper's contribution is framed as 'first systematic quantification of feature absorption.' The absorption metric design (top-5 co-firers, 80% RVE threshold) is a reasonable operationalization but is not compared against prior metrics in the literature. It is unclear whether any prior work proposed related metrics (e.g., variance decomposition approaches in other dictionary learning contexts). The absence of a related work section comparing the metric to prior approaches is a gap.",
+    "The negative result framing (falsification study) is rhetorically effective but the paper does not cite prior negative results in interpretability that use similar framing (e.g., higher-than-expected independence in feature dictionaries). This would strengthen the contribution's positioning."
+  ],
+  "reproducibility_gaps": [
+    "Code is not referenced or attached. The methodology section describes the absorption score computation precisely, but reproducing the results requires the experimental code. The paper should reference or attach the code for the absorption score computation and the H1-H5 pilot experiments.",
+    "Figure generation code is not included. The figures are described but the code to generate them from the JSON result files is not provided. This blocks reproducibility of the visual elements.",
+    "The cumulative subsampling method for H5 (simulating dictionary sizes 2K and 8K from the full 24K SAE) is described in the methodology but the paper does not address whether results would differ for independently trained SAEs of different dictionary sizes. This is a known limitation but should be stated more explicitly."
+  ]
+}

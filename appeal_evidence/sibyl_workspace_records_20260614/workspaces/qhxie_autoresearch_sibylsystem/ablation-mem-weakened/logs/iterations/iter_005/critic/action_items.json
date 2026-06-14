@@ -1,0 +1,114 @@
+[
+  {
+    "priority": 1,
+    "id": "AI-1",
+    "category": "writing",
+    "severity": "critical",
+    "description": "Reconcile proposal.md and writing/paper.md into a single coherent paper with consistent title, framing, and narrative. The two documents currently describe incompatible papers with different primary claims.",
+    "action": "Decide on the single primary narrative (either 'metric validation' or 'LCA/competitive suppression'), align all sections to that narrative, and ensure every claim in proposal.md is consistent with paper.md."
+  },
+  {
+    "priority": 2,
+    "id": "AI-2",
+    "category": "writing",
+    "severity": "critical",
+    "description": "Resolve H1b contradictory status: the same hypothesis is described as both 'SUPPORTED (null hypothesis)' in proposal.md Table and 'evidence of real effect' in paper.md Section 4.2. Clarify whether delta-corrected L8 r=-0.431 is a real effect or a null result.",
+    "action": "Pick one interpretation and apply it consistently across all documents. If it is a real effect at uncorrected alpha=0.05, say so explicitly and note it does not survive multiple comparison correction. If it is a null result, do not present it as 'the strongest signal in the dataset.'"
+  },
+  {
+    "priority": 3,
+    "id": "AI-3",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Remove homeostatic rebalancing from contributions list (Section 1.4 of paper.md), abstract, and any claims until it is executed. The experiment was explicitly deferred (Section 4.7) and cannot be claimed as a contribution.",
+    "action": "Edit paper.md Section 1.4 to remove Contribution #4. Edit abstract to remove any implication that homeostatic rebalancing was validated. Do not reference it as a contribution."
+  },
+  {
+    "priority": 4,
+    "id": "AI-4",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Fix steering success metric: top-5 token criterion is too coarse and masks absorption effects that reduce steering magnitude without eliminating target from top-5.",
+    "action": "Add finer-grained steering metrics: (a) probability mass on target letter, (b) rank position of target letter, (c) relative probability lift. Re-analyze H1 with these metrics to determine whether fine-grained analysis changes conclusions."
+  },
+  {
+    "priority": 5,
+    "id": "AI-5",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Fix H7 random SAE baseline: the comparison between trained SAE and random SAE with orthonormal decoder is confounded by the orthonormal constraint. The orthonormal decoder cannot represent the same correlation structure as a learned decoder, so the 8x difference cannot be attributed to training.",
+    "action": "Redesign the control: use a random SAE with the same architecture (untied weights, same dict size) and random initialization -- no orthonormal constraint. Or compare pretrained decoder + random encoder vs. pretrained decoder + trained encoder to isolate encoder training effects."
+  },
+  {
+    "priority": 6,
+    "id": "AI-6",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Address precision-recall probe ceiling effect: precision=1.0 at k>=5 indicates probe saturation, not genuine absorption insensitivity.",
+    "action": "Add analysis at k=1 (where precision is not saturated, std=0.195) to determine whether precision invariance holds in the non-saturated regime. Compute per-feature activation frequency to contextualize whether k=5 is above or below the number of features each letter feature activates on average."
+  },
+  {
+    "priority": 7,
+    "id": "AI-7",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Test steering on all high-absorption features (H, S, U, V at L8, all >14%) rather than only Feature U (n=1). RQ4 cannot be answered with n=1.",
+    "action": "Run steering experiments on all four high-absorption features at L8. Report success for each. If all succeed, RQ4 is supported. If any fail, the claim that high-absorption features retain steering capability is nuanced."
+  },
+  {
+    "priority": 8,
+    "id": "AI-8",
+    "category": "writing",
+    "severity": "major",
+    "description": "Add prominent cross-model limitation statement in abstract and introduction. The LCA/competitive suppression framework is presented as general but has only GPT-2 Small validation.",
+    "action": "Add a sentence to the abstract: 'Validation is on GPT-2 Small only; cross-model experiments on Pythia-70M were inconclusive.' Acknowledge this as a scope limitation prominently, not buried in a risk table."
+  },
+  {
+    "priority": 9,
+    "id": "AI-9",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Specify delta-correction protocol fully: how many random features, what distribution, how computed. The delta-corrected L8 result is the paper's strongest signal but is not reproducible from the methodology description.",
+    "action": "Add a subsection to methodology.md describing the delta-correction protocol in detail. Specify the number of random features, how they were selected, and the exact subtraction formula."
+  },
+  {
+    "priority": 10,
+    "id": "AI-10",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Clarify EC50 analysis: methodology claims Hill equation fitting but results use linear interpolation. Report fitted parameters (S_max, n, EC50) per feature.",
+    "action": "Either (a) perform actual Hill equation fitting and report parameters, or (b) rename the analysis to 'dose-response analysis via linear interpolation' and acknowledge the difference from the methodology description."
+  },
+  {
+    "priority": 11,
+    "id": "AI-11",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Fix table referencing errors in proposal.md: Tables 1 and 2 are referenced but not present. The first table in proposal.md is the 'Evidence-Driven Revisions' table, not the hypothesis testing summary.",
+    "action": "Remove table references that point to non-existent tables, or add the missing tables."
+  },
+  {
+    "priority": 12,
+    "id": "AI-12",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Save all per-feature raw data to machine-readable JSON files in exp/results/ so any claim can be traced back to evidence.",
+    "action": "Save to exp/results/: absorption_rates.json (per-feature per-layer), steering_results.json (per-feature per-strength), probe_f1.json (per-feature per-k), precision_recall.json (per-feature per-k)."
+  },
+  {
+    "priority": 13,
+    "id": "AI-13",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "Produce the 5 figures and 2 tables listed in methodology.md Expected Visualizations section, or remove the references to them from the paper.",
+    "action": "Generate figures from the experimental data, or remove all figure/table references in the paper text that point to non-existent outputs."
+  },
+  {
+    "priority": 14,
+    "id": "AI-14",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "The LCA framing was not pre-specified as an alternative (alternatives.md has 6 alternatives, none are the LCA connection). H6 (the main empirical test of LCA) was falsified. The paper's primary novelty claim rests on a falsified prediction.",
+    "action": "Either (a) add the LCA framing to alternatives.md with explicit discussion of why it was chosen over Alternative A (Metric Validation Study), or (b) acknowledge that H6 falsification weakens the LCA contribution claim and refocus on the precision-recall asymmetry (H7) as the primary empirical contribution."
+  }
+]

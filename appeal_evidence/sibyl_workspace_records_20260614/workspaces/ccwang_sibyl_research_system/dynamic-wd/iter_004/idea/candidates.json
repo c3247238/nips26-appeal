@@ -1,0 +1,138 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_rho_trichotomy",
+      "title": "Phi Invariance Trichotomy via ρ = λ/η Order Parameter",
+      "status": "front_runner",
+      "summary": "The normalized weight decay ratio ρ = λ/η determines a three-regime phase diagram for dynamic WD utility. Regime I (ρ ≈ 0.5, standard AdamW): all budget-equivalent schedules are equivalent (0.25% CIFAR-10 spread, CONFIRMED). Regime II (ρ ~ 5): alignment-aware scheduling provides O(ρ) improvement. Regime III (ρ >> 1): WD dominates. The 18.3× SGD/AdamW effect ratio is explained by SGD lacking AdamW's ℓ∞ implicit constraint. Formal Trichotomy Conjecture (T1) with proof sketch via Xie & Li (2024) + Defazio (2025) + Kuzborskij (2025).",
+      "hypotheses": [
+        "H1: All budget-equivalent WD strategies produce accuracy within ±0.5% under standard AdamW (ρ = 0.5) — CONFIRMED, n=3",
+        "H2: SGD constant WD outperforms no_wd by ≥0.5% (confirmed: Δ=0.913%, d=12.17, p=0.0022, Holm-sig) — CONFIRMED",
+        "H3: SGD/AdamW ratio ≥ 10× (confirmed: 18.3× from verified disk data) — CONFIRMED",
+        "H4: Accuracy spread increases to 1-3% at λ=5e-3 (ρ=5, entering Regime II) — UNTESTED, P1-1",
+        "H6: BN ablation determines mechanism attribution (Path A vs Path B) — GATE 1"
+      ],
+      "pilot_focus": "Gate 1: BN ablation (mandatory before writing) + Gate 2: VGG-16-BN (architecture replication) + P1-1: λ regime sweep (central falsification)",
+      "evidence": {
+        "adamw_cifar10_spread": "0.25% (7 methods, n=3, all BH p > 0.09)",
+        "sgd_cifar10_gap": "0.913% (constant vs no_wd, p=0.0022, d=12.17, Holm-sig)",
+        "ratio": "18.3× (SGD/AdamW, verified from disk)",
+        "weight_norm_ratio": "81× (SGD spread 97% vs AdamW spread 1.2%)",
+        "swd_corrected": "90.710% ± 0.193% (n=3, seed_456=90.93% verified), Holm p=0.071 NOT significant",
+        "verified_from_disk": true
+      },
+      "key_differentiators": "More formal than Wang & Aitchison (2024) EMA heuristic; more dynamic than D'Angelo (2024) BN scale-invariance; explicit falsifiable boundary conditions; explains 18.3× ratio via mechanism (no ℓ∞ constraint in SGD)",
+      "risks": [
+        "BN confound: invariance may require BN, not just AdamW (Gate 1 decides, Path A vs Path B)",
+        "Theorem provability: Adam saturation assumption A3 may not hold (Gate 0 check)",
+        "18.3× ratio CI may be wide (Bootstrap CI required in P0-1)",
+        "VGG-16-BN pilot hints no_wd > constant under AdamW — must confirm at n=3"
+      ],
+      "next_action": "Gate 0: theorem provability check (CPU); Gate 1: BN ablation (1 GPU hour); Gate 2: VGG-16-BN (6-8 GPU hours) — all before paper writing"
+    },
+    {
+      "candidate_id": "cand_rho_controller",
+      "title": "ρ-Controller: Feedback-Stabilized WD via Gradient-to-Weight Ratio P-Control",
+      "status": "backup",
+      "summary": "First formulation of WD selection as a closed-loop P-controller targeting ρ_t = ‖g_t‖/‖w_t‖ steady-state ρ*. λ_t = λ₀ × (ρ_t/ρ*)^{-α}. Computationally free. Lyapunov-backed faster convergence to ρ*. Only effective in Regime II/III (ρ>ρ₁); collapses in Regime I (standard AdamW). Primary secondary contribution replacing Super-Twisting SMC. Conditional on P1-1 confirming Regime II exists.",
+      "hypotheses": [
+        "H5: ρ-Controller converges ρ_t to ρ* faster than constant WD by epoch 30 [UNTESTED - P1-2]",
+        "H5b: ρ-Controller achieves ≥0.3% improvement at λ=5e-3 (Regime II) [UNTESTED - P1-2]"
+      ],
+      "pilot_focus": "P1-2 (conditional on H4 confirmed by P1-1): ResNet-20 CIFAR-10, λ=5e-3, 3 seeds, constant vs rho-Controller α∈{0.25, 0.5, 1.0}",
+      "evidence": "No pilot data. Literature confirms ρ_t dynamics (Defazio 2025). Innovator confirms no prior paper formulates WD as feedback controller targeting ρ*. Novelty: 8/10.",
+      "key_differentiators": "Computationally free. Formal Lyapunov basis. One-line implementation. Does not require BN ablation results to be motivated. Formally novel (Innovator search confirmed).",
+      "risks": [
+        "P1-1 may show Regime II does not exist (λ sweep flat)",
+        "ρ* estimation accuracy from Wang & Aitchison formula",
+        "May not exceed SWD in practice if rho* estimation is noisy"
+      ],
+      "next_action": "Conditional on H4 (P1-1 confirms Regime II exists at ρ=5)"
+    },
+    {
+      "candidate_id": "cand_super_twisting",
+      "title": "Super-Twisting Sliding Mode WD as Chattering-Free Alignment Control",
+      "status": "backup",
+      "summary": "CWD (ICLR 2026) is formally a relay sliding mode controller on the alignment surface. Binary switching amplifies noise when alignment hovers near zero. Super-twisting SMC provides a continuous control law with theoretical convergence guarantees without chattering. Conditioned on H7 (alignment signal informative in NoBN architectures). Demoted from primary secondary to conditional backup.",
+      "hypotheses": [
+        "H7: Alignment signal is informative in NoBN architectures (std(δ̂_t) > 0.05 per layer) [UNTESTED - Gate 1 diagnostic]",
+        "H8: Super-twisting WD achieves ≥30% lower λ_t variance than binary CWD on NoBN ResNet-20 [UNTESTED]"
+      ],
+      "pilot_focus": "Gate 1 NoBN ablation first (verify alignment signal exists); then 15-min pilot of super-twisting vs CWD on NoBN ResNet-20 CIFAR-10",
+      "evidence": "CWD paper shows random mask significantly degrades performance (loss 2.82 vs 2.56), suggesting alignment structure is real. AIS identical for CWD and random_mask in BN architectures (D1 confirmed). Contrarian's BN suppression concern validated by D1.",
+      "key_differentiators": "First SMC-theoretic formalization of CWD; chattering-free alignment-aware WD; direct extension of ICLR 2026 paper",
+      "risks": [
+        "Alignment signal may be structurally suppressed in BN architectures (AIS=0.416 for CWD = random_mask, D1 confirmed)",
+        "Stochastic discrete-time extension of super-twisting convergence guarantee needs verification",
+        "May perform similarly to CWD even in NoBN if chattering is not the bottleneck"
+      ],
+      "next_action": "Conditional on H7 being confirmed at Gate 1; otherwise demote to Appendix mention only"
+    },
+    {
+      "candidate_id": "cand_gradient_weight_ratio",
+      "title": "Gradient-to-Weight Ratio as Unifying WD Lens with Factorial Benchmark",
+      "status": "backup",
+      "summary": "Merged into front-runner as mechanistic content for Regime I. r_t = ‖g_t‖/‖w_t‖ steady-state convergence (Defazio 2025) explains Phi Invariance. The 2×2×2 factorial design (BN/NoBN × AdamW/SGD × CIFAR/ImageNet) is retained as the empirical backbone. This candidate's independent novelty is superseded by Defazio (2025).",
+      "hypotheses": [
+        "r_t trajectories for all 7 WD methods converge to same steady state under AdamW+BN (mechanistic explanation of H1)",
+        "r_t trajectories diverge under SGD (explains H2 WD-presence effect)"
+      ],
+      "pilot_focus": "Add r_t logging to existing training runs; plot trajectories (zero GPU cost)",
+      "evidence": "Defazio (2025) establishes r_t steady-state convergence for normalized layers. Weight norm data confirms: AdamW 1.2% spread vs SGD 97% spread (T4, 81× ratio). Steady-state R_* = ρ connects Xie & Li and Defazio.",
+      "key_differentiators": "Extends Defazio (2025) from LLMs to vision with factorial experimental design",
+      "risks": [
+        "r_t steady-state convergence is Defazio's result; must credit properly",
+        "Overlap with front-runner — merge as mechanistic explanation for Regime I"
+      ],
+      "next_action": "Merge into front-runner mechanistic section. Retain factorial experimental design as empirical backbone."
+    },
+    {
+      "candidate_id": "cand_spectral_rank_feedback",
+      "title": "Spectral Rank Feedback WD via Stable Rank Controller",
+      "status": "dropped",
+      "summary": "Dropped. In Regime I (standard AdamW), rank feedback provides no benefit. Only useful in Regime III where WD strategy already matters. Computational cost of SVD is prohibitive at scale. Demoted to Appendix mention only.",
+      "hypotheses": [],
+      "pilot_focus": "N/A — dropped",
+      "evidence": "AlphaDecay (2025) covers the static per-epoch version. Closed-loop aspect retains 6/10 novelty but insufficient standalone contribution.",
+      "key_differentiators": "N/A",
+      "risks": [],
+      "next_action": "Dropped. Mention in Appendix if time allows."
+    }
+  ],
+  "synthesis_notes": {
+    "consensus": "All 6 agents converge on ρ = λ/η as the unifying quantity. Iteration 7 is a data-verified consolidation of Iteration 6. No new ideas needed — execute experimental gates.",
+    "critical_gating_experiments": [
+      "Gate 0: Theorem provability check (CPU, 2-3 hours)",
+      "Gate 1: BN ablation (1 GPU hour, 18 runs) — highest priority",
+      "Gate 2: VGG-16-BN full experiment (6-8 GPU hours) — architecture generalization",
+      "Gate 3: CIFAR-100 SGD no_wd seed_123 (20 min, 1 run) — complete n=3",
+      "P1-1: λ regime sweep (3 GPU hours, 36 runs) — central falsification"
+    ],
+    "weighting_rationale": "Theoretical and Innovator weighted most heavily (formal structure + ρ-Controller novelty); Empiricist shapes experimental design and provides verified data; Contrarian's BN concern elevated to Gate 1; Interdisciplinary's Maxwell relations retained as Section 2.5 physical interpretation; Pragmatist's factorial design adopted as empirical backbone.",
+    "iteration": 7,
+    "date": "2026-03-18",
+    "critical_updates_iter7": [
+      "SWD seed_456 = 90.93% verified directly from disk (iter_003/exp/results/sgd_baseline/cifar10/resnet20/swd/seed_456/summary.json)",
+      "Full Holm-Bonferroni table recomputed from verified disk data — only constant vs no_wd significant",
+      "cosine_schedule, half_lambda, random_mask, no_wd seeds 123/456 all confirmed present on disk",
+      "No new ideas generated — Iteration 7 is final data consolidation before gate experiments",
+      "Synthesis verdict: EXECUTE GATES, no further synthesis iterations needed"
+    ],
+    "verified_sgd_cifar10_stats": {
+      "constant": {"values": [91.30, 91.18, 91.17], "mean": 91.217, "std": 0.072},
+      "cosine_schedule": {"values": [91.11, 91.34, 91.15], "mean": 91.200, "std": 0.123, "delta": -0.017, "raw_p": 0.884, "holm_sig": false},
+      "cwd_hard": {"values": [91.20, 91.02, 90.38], "mean": 90.867, "std": 0.431, "delta": -0.350, "raw_p": 0.254, "holm_sig": false},
+      "half_lambda": {"values": [90.65, 90.88, 91.00], "mean": 90.843, "std": 0.178, "delta": -0.373, "raw_p": 0.121, "holm_sig": false},
+      "random_mask": {"values": [90.46, 90.57, 91.29], "mean": 90.773, "std": 0.451, "delta": -0.443, "raw_p": 0.265, "holm_sig": false},
+      "swd": {"values": [90.57, 90.63, 90.93], "mean": 90.710, "std": 0.193, "delta": -0.507, "raw_p": 0.071, "holm_thresh": 0.010, "holm_sig": false, "seed_456_verified": true},
+      "no_wd": {"values": [90.39, 90.19, 90.33], "mean": 90.303, "std": 0.103, "delta": -0.913, "raw_p": 0.0022, "holm_thresh": 0.0083, "holm_sig": true, "cohens_d_paired": -12.17}
+    },
+    "ratio_sgd_adamw": {
+      "sgd_delta": 0.913,
+      "adamw_delta": 0.050,
+      "ratio": 18.3,
+      "bootstrap_ci_required": true,
+      "expected_ci": "[11x, 28x]"
+    }
+  }
+}

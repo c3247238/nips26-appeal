@@ -1,0 +1,75 @@
+{
+  "project": "dlm-acceleration",
+  "iteration": 3,
+  "created": "2026-04-15",
+  "pilot_config": {
+    "samples": 200,
+    "seeds": [42],
+    "timeout": 900,
+    "benchmark": "GSM8K"
+  },
+  "purpose": "Pilot experiments for iteration 3: validate Fast-dLLM and JoT integration, establish canonical baseline, gate decisions for full-scale experiments",
+  "pilots": [
+    {
+      "task_id": "baseline_standardization",
+      "name": "Canonical Baseline TPS",
+      "samples": 200,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "TPS measurement consistent across last 150 samples (CV < 10%) AND batch=1,4,8 all produce valid measurements",
+      "gate": true,
+      "gate_type": "hard",
+      "gate_description": "All downstream speedup calculations reference this baseline. Must complete before any other experiment.",
+      "estimated_minutes": 20,
+      "priority": 1
+    },
+    {
+      "task_id": "fastdllm_integration",
+      "name": "Fast-dLLM Integration Pilot",
+      "samples": 200,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "Fast-dLLM loads on LLaDA-8B AND at least one config achieves TPS > 2x canonical baseline",
+      "gate": true,
+      "gate_type": "soft",
+      "gate_description": "Determines whether Fast-dLLM replaces M1. If fails: (a) try EntropyCache unified benchmark, (b) if that fails, proceed with 3-method study {IGSD, M3, JoT}.",
+      "fallback": "Use EntropyCache unified benchmark code OR proceed without proper KV cache axis",
+      "estimated_minutes": 45,
+      "priority": 1
+    },
+    {
+      "task_id": "jot_integration",
+      "name": "JoT Integration Pilot",
+      "samples": 200,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "JoT produces valid outputs on LLaDA-8B AND at least one threshold achieves speedup > 2x at AccRet > 90%",
+      "gate": true,
+      "gate_type": "soft",
+      "gate_description": "Determines whether JoT enters the composition study. If repo fails, re-implement core logic (50 lines).",
+      "fallback": "Re-implement JoT core logic: per-position confidence tracking, early commit when confidence > threshold for N consecutive steps",
+      "estimated_minutes": 30,
+      "priority": 1
+    },
+    {
+      "task_id": "pairwise_fastdllm_jot",
+      "name": "Fast-dLLM + JoT Composition Pilot",
+      "samples": 200,
+      "seed": 42,
+      "timeout": 900,
+      "pass_criteria": "Combined method produces valid outputs AND combined TPS > max(individual TPS) AND Ortho > 0.5",
+      "gate": false,
+      "gate_type": "informational",
+      "gate_description": "Quick check of the headline composition before committing to full-scale 6-pair matrix.",
+      "estimated_minutes": 20,
+      "priority": 2
+    }
+  ],
+  "decision_protocol": {
+    "all_gates_pass": "Proceed with full 4-method, 6-pair composition study as planned",
+    "fastdllm_fails": "Proceed with 3-method study {IGSD, M3, JoT}. Report M1/KV-cache as engineering gap. 3 pairwise compositions instead of 6.",
+    "jot_fails": "Proceed with 3-method study {Fast-dLLM, IGSD, M3}. Same as iter_002 but with proper Fast-dLLM. 3 pairwise compositions.",
+    "both_fail": "Focus on full-scale replication of iter_002 3-pair study with honest reframing. Major scope reduction.",
+    "baseline_fails": "Debug LLaDA-8B loading. This should not fail given iter_001/002 success."
+  }
+}

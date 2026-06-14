@@ -1,0 +1,470 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "description": "Install sae-lens, transformer-lens, and dependencies. Verify GPU availability and package versions.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "plan/setup_verified.log",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "shared_resources": [],
+      "visualizations": [],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "setup_data",
+      "name": "Dataset and Token Frequency Preparation",
+      "description": "Download/cache 1,024 sequences of 128 tokens from monology/pile-uncopyrighted. Compute token log-frequencies over the corpus.",
+      "type": "setup",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "shared/pile_1k_128.pt, shared/token_freqs.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "pile_1k_128",
+          "path": "shared/pile_1k_128.pt"
+        },
+        {
+          "type": "dataset",
+          "name": "token_freqs",
+          "path": "shared/token_freqs.json"
+        }
+      ],
+      "visualizations": [],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "baseline_random",
+      "name": "Random Dictionary Controls",
+      "description": "Generate random Gaussian decoder matrices (normalized per column) for dictionary sizes 2K, 4K, 8K, 16K matching GPT-2 d_model=768.",
+      "type": "baseline",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "shared/random_decoders_2k.pt, shared/random_decoders_4k.pt, shared/random_decoders_8k.pt, shared/random_decoders_16k.pt",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "random_decoder_2k",
+          "path": "shared/random_decoders_2k.pt"
+        },
+        {
+          "type": "checkpoint",
+          "name": "random_decoder_4k",
+          "path": "shared/random_decoders_4k.pt"
+        },
+        {
+          "type": "checkpoint",
+          "name": "random_decoder_8k",
+          "path": "shared/random_decoders_8k.pt"
+        },
+        {
+          "type": "checkpoint",
+          "name": "random_decoder_16k",
+          "path": "shared/random_decoders_16k.pt"
+        }
+      ],
+      "visualizations": [],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h1_pilot",
+      "name": "H1 Prevalence Pilot",
+      "description": "Pilot absorption prevalence on 100 sequences, layer 8, 8K dict. Compute absorption score for all latents and report % with score >0.5.",
+      "type": "pilot",
+      "depends_on": [
+        "setup_data",
+        "baseline_random"
+      ],
+      "expected_output": "exp/results/h1_pilot.json",
+      "candidate_id": "cand_absorption_metric",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 5% of latents show absorption score >0.5 (signal detectable); random control shows <2%"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate per layer (pilot: layer 8 only)",
+          "x": "layer",
+          "y": "absorption_rate_pct",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h1_full",
+      "name": "H1 Prevalence Full Experiment",
+      "description": "Full prevalence audit: layers 0,2,4,6,8,10 with 8K dict on 1,024 sequences. Compare against random control.",
+      "type": "experiment",
+      "depends_on": [
+        "h1_pilot"
+      ],
+      "expected_output": "exp/results/h1_full.json",
+      "candidate_id": "cand_absorption_metric",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate (% latents with score >0.5) per layer",
+          "x": "layer",
+          "y": "absorption_rate_pct",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "histogram",
+          "description": "Distribution of absorption scores across all latents (layer 8)",
+          "x": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h2_pilot",
+      "name": "H2 Frequency Correlation Pilot",
+      "description": "Pilot frequency-absorption correlation on 100 sequences, layer 8. Bin latents by token-frequency quartile and compare absorption scores.",
+      "type": "pilot",
+      "depends_on": [
+        "h1_pilot"
+      ],
+      "expected_output": "exp/results/h2_pilot.json",
+      "candidate_id": "cand_frequency_analysis",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Spearman correlation between log-frequency and absorption score is negative (r < -0.1) and lowest-frequency bin mean > highest-frequency bin mean"
+      },
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Absorption score by token-frequency quartile (pilot)",
+          "x": "frequency_quartile",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h2_full",
+      "name": "H2 Frequency Correlation Full Experiment",
+      "description": "Full frequency analysis: layers 0-10, 1,024 sequences. Compute Spearman correlation and quartile comparison. Include permutation baseline.",
+      "type": "experiment",
+      "depends_on": [
+        "h2_pilot"
+      ],
+      "expected_output": "exp/results/h2_full.json",
+      "candidate_id": "cand_frequency_analysis",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Absorption score distribution by token-frequency quartile",
+          "x": "frequency_quartile",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter_plot",
+          "description": "Log token frequency vs. absorption score per latent",
+          "x": "log_token_frequency",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h3_pilot",
+      "name": "H3 Sparsity Trade-off Pilot",
+      "description": "Pilot sparsity-absorption relationship: layer 8, proxy via L0 correlation across available SAELens checkpoints. If no lambda sweep exists, train 3 mini-SAEs with L1=[4e-5,8e-5,1.6e-4] on 10M tokens.",
+      "type": "pilot",
+      "depends_on": [
+        "h1_pilot"
+      ],
+      "expected_output": "exp/results/h3_pilot.json",
+      "candidate_id": "cand_absorption_metric",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Monotonic trend detectable: higher L0 (sparser) SAEs show higher absorption rate; or trained mini-SAEs show ordered absorption rates matching L1 ordering"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Mean L0 vs. mean absorption rate (pilot checkpoints)",
+          "x": "mean_l0",
+          "y": "mean_absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h3_full",
+      "name": "H3 Sparsity Trade-off Full Experiment",
+      "description": "Full sparsity analysis: either multi-layer L0 proxy or trained SAE sweep (L1=[4e-5,8e-5,1.6e-4], 10M tokens each). Report absorption rate vs. L0 and L1 coefficient.",
+      "type": "experiment",
+      "depends_on": [
+        "h3_pilot"
+      ],
+      "expected_output": "exp/results/h3_full.json",
+      "candidate_id": "cand_absorption_metric",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate vs. L1 coefficient / mean L0",
+          "x": "l1_coefficient",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h4_pilot",
+      "name": "H4 Circuit Faithfulness Pilot",
+      "description": "Pilot activation patching on one factual recall task (France/Paris vs. Germany/Berlin) at layer 8. Compare raw residual, low-absorption SAE, high-absorption SAE patching faithfulness.",
+      "type": "pilot",
+      "depends_on": [
+        "h1_pilot"
+      ],
+      "expected_output": "exp/results/h4_pilot.json",
+      "candidate_id": "cand_downstream_impact",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 1,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Faithfulness score is computable and >0 for raw residual patching; SAE patching scores are within 20 pp of raw"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Faithfulness score (layer x position) for raw residual patching (pilot)",
+          "x": "position",
+          "y": "layer",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h4_full",
+      "name": "H4 Circuit Faithfulness Full Experiment",
+      "description": "Full circuit faithfulness: 3 factual recall tasks, layers 4-10. Systematic activation patching via SAE latents vs. raw residual. Compute faithfulness difference between high- and low-absorption layers.",
+      "type": "experiment",
+      "depends_on": [
+        "h4_pilot"
+      ],
+      "expected_output": "exp/results/h4_full.json",
+      "candidate_id": "cand_downstream_impact",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Faithfulness score (layer x position) for raw vs. SAE patching",
+          "x": "position",
+          "y": "layer",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Mean faithfulness: raw residual vs. low-absorption SAE vs. high-absorption SAE",
+          "x": "patching_method",
+          "y": "mean_faithfulness",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h5_pilot",
+      "name": "H5 Dictionary Size Pilot",
+      "description": "Pilot dictionary size effect: layer 8, compare 2K and 8K dict sizes on 100 sequences. Compute mean absorption rate per dict size.",
+      "type": "pilot",
+      "depends_on": [
+        "h1_pilot"
+      ],
+      "expected_output": "exp/results/h5_pilot.json",
+      "candidate_id": "cand_absorption_metric",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "8K dict shows lower mean absorption than 2K dict; random controls scale appropriately"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Mean absorption rate by dictionary size (pilot: 2K vs 8K)",
+          "x": "dict_size",
+          "y": "mean_absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "h5_full",
+      "name": "H5 Dictionary Size Full Experiment",
+      "description": "Full dictionary size sweep: layer 8, 2K/4K/8K/16K on 1,024 sequences. Fit log-linear trend and compare to random controls.",
+      "type": "experiment",
+      "depends_on": [
+        "h5_pilot"
+      ],
+      "expected_output": "exp/results/h5_full.json",
+      "candidate_id": "cand_absorption_metric",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Mean absorption rate vs. dictionary size (log scale)",
+          "x": "log_dict_size",
+          "y": "mean_absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    },
+    {
+      "id": "analysis",
+      "name": "Results Aggregation and Visualization",
+      "description": "Aggregate all experiment outputs, compute summary statistics, generate figures and Table 1. Flag any suspicious improvements >30%.",
+      "type": "analysis",
+      "depends_on": [
+        "h1_full",
+        "h2_full",
+        "h3_full",
+        "h4_full",
+        "h5_full"
+      ],
+      "expected_output": "exp/results/summary.json, exp/figures/",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Summary Table 1: hypothesis, metric, result, falsification status",
+          "columns": [
+            "Hypothesis",
+            "Metric",
+            "Result",
+            "Falsified"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "result": null,
+      "error": null
+    }
+  ]
+}

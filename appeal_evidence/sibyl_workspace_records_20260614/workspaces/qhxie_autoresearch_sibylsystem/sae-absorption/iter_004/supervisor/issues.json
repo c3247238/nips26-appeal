@@ -1,0 +1,65 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The matched RAVEL/SCR comparison (C3B) conflates absorption with width. All 5 high-absorption SAEs are width=1M (L0 range 16-58); all 5 low-absorption SAEs are width=16k or 65k (L0 range 137-297). The Cohen's d=2.13 and p=0.006 are real but may largely reflect the well-known finding that wider SAEs with lower L0 have worse downstream scores. The partial correlations controlling for log(width), layer, and arch_class attempt to address this, but (a) controlling for continuous log(width) does not adequately capture the qualitative shift from 65k to 1M-width SAEs, (b) L0 is NOT included as a covariate in the partial correlations despite varying by 15x across the sample (range 9-445), and (c) the SCR partial r inflation from -0.431 to -0.677 is suspiciously large and could indicate suppressor variable artifacts.",
+    "suggestion": "Three analyses are needed: (1) Add L0 as a covariate in partial correlations. (2) Compute within-width-class correlations at 16k, 65k, and 1M separately. (3) Plot absorption vs. L0 colored by width. These are zero-GPU analysis tasks."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "The Type II taxonomy rate of 88.5% is driven by a systematic measurement artifact: n_comparison_tokens=0 for almost all letters forces fallback to global statistics biased upward. The paper correctly flags this but then headlines '92.3% comprehensive absorption rate' in abstract, introduction, and conclusion.",
+    "suggestion": "Demote 92.3% to 'upper bound estimate' throughout. Lead with validated rate (Type I: 3.8%, Type III: 0%). Alternatively, rerun taxonomy with sae-spelling ground-truth parent IDs."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The LV detector pre-filter (decoder cosine > 0.15) captures only 34% of absorbed pairs, capping maximum recall at 0.34 and making the F1 > 0.35 success criterion unachievable by design.",
+    "suggestion": "Compute F1 and AUROC restricted to the filtered candidate set to test alpha_ij discrimination power within the favorable regime."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The safety probe (C3C, Table 6) is underpowered (n=3 SAEs) and confounded (different layers, widths, hooks). The non-monotone pattern undermines the H3 narrative.",
+    "suggestion": "Move to supplementary or limitations section. State it is uninformative due to confounded design."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "Cross-model gap: H1/H2/H4/taxonomy use GPT-2 Small; H3 uses Gemma Scope. The paper presents them as a unified study but no hypothesis is tested on both models.",
+    "suggestion": "Frame the cross-model gap as a central limitation in abstract/conclusion, or compute at minimum alpha_ij statistics for one Gemma Scope SAE."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "H4 DAS results show high per-letter variance with no confidence intervals or significance tests comparing means across widths.",
+    "suggestion": "Add bootstrap CIs on mean DAS. Apply Wilcoxon signed-rank test on DAS(k=3) at 24k vs. 98k across 26 letters."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "PMI regression uses HC3 but does not cluster at letter level (26 repeated measurements per letter). L0 significance (p=0.012) is marginal and likely non-significant under clustering.",
+    "suggestion": "Rerun regression with letter-level clustered SEs. Report both HC3 and clustered results."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Per-letter sample sizes vary dramatically (Q: n=1, E: n=2, U: n=0). Letters with n_total < 3 distort aggregate statistics.",
+    "suggestion": "Exclude letters with n_total < 3 from aggregate rate calculations and report per-letter sample sizes."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Cross-architecture comparison (C1C) confounds architecture with hook point (resid_pre vs. resid_post) and layer (8 vs. 9 for alpha_ij collection).",
+    "suggestion": "Note explicitly that the comparison confounds architecture with hook point and layer."
+  }
+]

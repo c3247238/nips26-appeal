@@ -1,0 +1,65 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Figure 5 (diagnostic heatmap) shows half_lambda BEM = 0.000 while Table 6 in the paper text reports BEM = 0.500. This is a direct visual contradiction between a figure and a table. The scatter plot (Figure 4) correctly places half_lambda at BEM ~0.5, proving the table value is correct and the heatmap data is stale. This is the SAME class of bug flagged in iter_007/008/009 for Figure 4 -- it was fixed in the scatter plot but not propagated to the heatmap.",
+    "suggestion": "Regenerate Figure 5 (fig4_diagnostic_heatmap.png) from the same data source as Table 6. Verify half_lambda BEM = 0.500 in the heatmap. This is a 10-minute fix."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "No ImageNet experiments. Project constraints mandate ImageNet. Every comparable paper at top venues includes ImageNet or larger-scale validation. The Phi Invariance Conjecture makes claims about 'sufficiently overparameterized problems' but evidence is confined to CIFAR-10/100 with ResNet-20 (270K params) and VGG-16-BN (15M params). Section 6.4 acknowledges this limitation but acknowledgment does not substitute for missing experiments. This has been flagged for 5+ iterations without resolution.",
+    "suggestion": "Diagnose why previous ImageNet attempts failed (check data path, OOM, data loader). Run ImageNet-100 (100-class subset) with 3 methods (constant, CWD, no_wd) x 3 seeds x ResNet-50 = 9 runs. Even partial ImageNet results would raise the experiments score by 1 full point."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Statistical power remains insufficient for a null-result paper. N=3 seeds gives ~15-20% power to detect delta=0.5% effects. TOST confirms equivalence in only 6/12 comparisons at the lenient delta=1.0% margin. The paper claims 'all methods are statistically equivalent' but the evidence is 'we failed to reject the null at low power' for half the comparisons.",
+    "suggestion": "Add 2 seeds (N=5 total) for the 4 key AdamW CIFAR-10 comparisons: constant, CWD, cosine, no_wd. Cost: 8 runs, ~2 GPU-hours."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "NoBN ablation data from iter_005 (constant: 87.74+/-0.21, CWD: 87.62+/-0.13) exists but is not in the paper. Section 6.2 discusses 'The Role of Batch Normalization' and hypothesizes that BN enables Phi Invariance under SGD. The NoBN data would directly test this at zero compute cost.",
+    "suggestion": "Integrate the NoBN data into Section 6.2 or as a supplementary table."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "CSI has arbitrary component weights (0.4, 0.3, 0.3) and does not predict accuracy (rho < 0.3, p > 0.3). Listing CSI as a contribution (Section 1.3, item 2) overstates its utility.",
+    "suggestion": "Demote CSI from 'contribution' to 'exploratory diagnostic' in Section 1.3."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Section 5.7 (Cumulative Alignment Analysis) shows rho=-0.379 (p=0.121) and rho=0.045 (p=0.858). Both non-significant with N=18. Directional claim from two non-significant results is statistically inappropriate.",
+    "suggestion": "Frame as explicit negative result. Remove directional claim about cumulative vs worst-case. Consider moving to appendix."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Abstract implies full factorial design (168 runs) but actual design is non-factorial (84 ResNet-20 + 21 VGG-16-BN = 105).",
+    "suggestion": "Decompose in abstract: '84 on ResNet-20 (full matrix) and 21 on VGG-16-BN (SGD, CIFAR-10 only).'"
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Title uses 'Why' (causal claim) but paper only shows correlation/observation, not causal mechanism.",
+    "suggestion": "Change to 'When' or remove 'Why.'"
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Proposition 1 (composition closure) is trivially obvious and inflates theoretical contribution appearance.",
+    "suggestion": "Downgrade to inline remark."
+  }
+]

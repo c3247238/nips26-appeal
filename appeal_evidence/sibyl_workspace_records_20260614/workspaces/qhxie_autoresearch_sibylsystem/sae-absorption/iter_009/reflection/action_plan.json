@@ -1,0 +1,233 @@
+{
+  "iteration": 10,
+  "score": 6.5,
+  "prev_score": 7.0,
+  "verdict": "continue",
+  "quality_trajectory": "declining",
+  "issues_classified": [
+    {
+      "id": "SND001",
+      "description": "CRITICAL: Section 5.2 presents buggy pilot cross-domain patching data (city-continent d=-0.91, recovery=0.05%) when corrected FULL-mode data shows d=1.50, recovery=61.9% (p<1e-20) and city-language d=0.75, recovery=34.2% (p<1e-18). The 'concentrated vs. distributed absorption' mechanistic dichotomy in abstract, Section 5.2, Section 7.2, and Table 4 is based entirely on incorrect data. The corrected data makes the paper STRONGER (universal mechanism), not weaker.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Replace Section 5.2 with corrected FULL-mode cross-domain patching results. Update: (1) abstract -- replace 'mechanism fails cross-domain' with 'mechanism confirmed cross-domain d=0.75-1.50'; (2) Section 1 anchoring findings -- update second finding to universal mechanism; (3) Table 4 -- change H7-crossdomain from FAILED to SUPPORTED; (4) Section 5.2 -- new narrative: patching confirms competitive exclusion across ALL hierarchy types; (5) Sections 7.1/7.2 -- remove concentrated vs. distributed dichotomy or reframe as corrected pilot artifact. WHERE: writing/paper.md (7+ sections). EFFORT: 2-3 hours, zero GPU. VERIFY: grep for 'd=-0.91' and '0.05% recovery' returns 0; all cross-domain patching numbers match activation_patching_crossdomain_full.json.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "soundness:stale-buggy-section-5.2"
+    },
+    {
+      "id": "SND002",
+      "description": "CRITICAL: Benign/pathological diagnostic has fundamental circularity. Ablating the parent direction from the child decoder measures absorption magnitude, not computational independence. The child decoder is known to carry parent information (that IS absorption). Removing it will always produce large logit changes. The 3.98 nats result establishes magnitude, not pathology in the computational-redundancy sense.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Reframe the benign/pathological claim in 4 locations: (1) Abstract: 'absorption carries large-magnitude parent information in the decoder' instead of 'absorption is always pathological'; (2) Section 5.3: add paragraph acknowledging circularity -- the test measures 'whether the child decoder carries significant parent-direction information that contributes to model output', not 'whether the model independently needs the parent feature'; (3) Section 5.3: describe what a genuine computational-redundancy test would require (ablate parent feature activation z_parent=0, or path patching through separate circuits); (4) Discussion: honest limitation. WHERE: writing/paper.md (4 locations). EFFORT: 30-45 min, zero GPU. VERIFY: 'always pathological' and '100% pathological' removed from headline positions; circularity acknowledged.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "soundness:benign-pathological-circularity"
+    },
+    {
+      "id": "EXP001",
+      "description": "HIGHEST-PRIORITY MISSING EXPERIMENT: Probe degradation ablation. Inject label noise into first-letter probes to degrade to F1={0.70, 0.80, 0.85, 0.90}, re-measure absorption. This resolves the core uncertainty: is cross-domain variation a probe artifact? Both outcomes are publishable. If degraded first-letter rates match RAVEL, cross-domain variation is probe-driven. If rates stay different, hierarchy effect is genuine.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Write exp/code/probe_degradation_ablation.py: (1) load trained first-letter probes; (2) inject label noise to degrade test-set F1 to 0.70/0.80/0.85/0.90; (3) re-run absorption measurement pipeline at L24 with 16k SAE; (4) plot absorption rate vs. probe F1. Report in a new Section 4.6 or as an appendix. WHERE: exp/code/probe_degradation_ablation.py (new). EFFORT: 2 GPU-hours. VERIFY: 4-point curve of absorption rate vs. probe F1 reported in paper; conclusion about probe artifact vs. genuine hierarchy effect stated explicitly.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:probe-degradation-ablation"
+    },
+    {
+      "id": "EXP002",
+      "description": "Benign/pathological diagnostic tested only on city-continent at L24 with 16k SAE. The '100% pathological' headline claim extrapolates from one hierarchy to all absorption. First-letter (F1=1.0, concentrated mechanism) is untested and might yield different results.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Replicate benign/pathological diagnostic on first-letter at L24: (1) identify parent-child pairs from absorption_firstletter.json; (2) run same ablation protocol (ablate parent direction from child decoder, measure logit change); (3) compare benign/pathological ratio with city-continent result. WHERE: exp/code/benign_pathological_firstletter.py (new). EFFORT: 0.5 GPU-hours. VERIFY: benign/pathological ratio for first-letter reported alongside city-continent result.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:benign-pathological-firstletter"
+    },
+    {
+      "id": "WRI001",
+      "description": "Three figure PDFs missing: fig4_patching_comparison.pdf, fig5_pathological_histogram.pdf, fig6_architecture_comparison.pdf. These correspond to three of five main contributions. Compilation blocker. Has been missing for 2+ iterations.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Generate all three figures from existing JSON data files: (1) fig4 from activation_patching results -- paired dot plot of recovery rates (treatment vs. control) for each hierarchy; (2) fig5 from benign_pathological.json -- histogram of |logit change| for pathological instances with control overlay; (3) fig6 from architecture_comparison.json -- grouped bar chart or heatmap of absorption rates by architecture x hierarchy. Use matplotlib with consistent style. WHERE: exp/code/generate_figures.py (new). EFFORT: 1-2 hours, zero GPU. VERIFY: all 3 PDFs exist and are referenced correctly in paper.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:missing-figures-4-5-6"
+    },
+    {
+      "id": "DATA001",
+      "description": "Data provenance confusion persists. First-letter weighted F1: 0.97 (paper) vs 1.0 (full-mode data file). Benign instances: 1,471 (paper) vs 1,464 (consolidation). First-letter L24_16k absorption: 27.1% (paper, per-unique-word) vs 34.5% (consolidation, per-instance). Consolidation still reports H7-crossdomain as FAILED based on buggy pilot. No authoritative data manifest.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Create a single authoritative data manifest (exp/results/data_manifest.json) mapping every numerical claim in the paper to: data_file, field_path, value, paper_section. Resolve: (a) F1 should be 1.0 per full-mode data file or explain the 0.97 source; (b) benign count should be verified from full-mode benign_pathological file; (c) document per-unique-word aggregation in Section 3.3; (d) update consolidation_summary.json to reflect corrected FULL results. WHERE: exp/results/data_manifest.json (new), exp/results/consolidation_summary.json (update). EFFORT: 1 hour, zero GPU. VERIFY: data_manifest.json covers all numerical claims; no discrepancy between paper and manifest.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "data:provenance-manifest"
+    },
+    {
+      "id": "ANL001",
+      "description": "The '4x range' headline (11.6% to 45.1%) includes city-country at F1=0.73. After Bonferroni correction of pairwise tests against first-letter, only city-language (p_Bonf=0.003 at 16k) differs significantly. City-continent (p_Bonf=1.0) and city-country (p_Bonf=1.0) do NOT differ from first-letter. The Kruskal-Wallis p=7.4e-66 tests only within-RAVEL variation (3 hierarchies), not 4.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Separate descriptive from inferential claims: (1) descriptive: 'rates range from 11.6% to 45.1%'; (2) inferential: 'within RAVEL, all 3 pairwise comparisons survive Bonferroni; against first-letter, only city-language reaches significance.' Reframe headline around within-RAVEL variation (strong) rather than full 4-hierarchy range (mostly non-significant pairwise). WHERE: writing/paper.md abstract, Section 4, Table 4. EFFORT: 30 min. VERIFY: paper distinguishes descriptive range from inferential claim; Kruskal-Wallis scope (3 RAVEL hierarchies) stated in abstract.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:kruskal-wallis-scope-and-bonferroni"
+    },
+    {
+      "id": "ANL002",
+      "description": "Probe quality confound is acknowledged but unquantified. RAVEL probes achieve F1=0.73-0.87. Absorption rates are stated as upper bounds but bias magnitude is never estimated. Probe-only FN baseline (control 3 from Section 3.3) is never reported numerically. City-country (F1=0.73, rate=45.1%) is most vulnerable.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Two actions: (1) Report probe-only FN baseline numerically for each hierarchy -- what fraction of probe-correct instances on raw activations become probe-incorrect on repeated measurement? (2) Compute a crude probe-quality-adjusted absorption estimate: subtract expected probe-induced FN from measured FN count, report adjusted rates alongside raw rates. If city-language (F1=0.82, rate=11.6%) still differs from first-letter (F1=1.0, rate=27.1%) after adjustment, the cross-domain finding is robust. WHERE: writing/paper.md Section 3.3 or Section 4.1. EFFORT: 30-60 min analysis, zero GPU. VERIFY: probe-only baseline reported for each hierarchy; adjusted rates in supplementary table.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:probe-quality-unquantified"
+    },
+    {
+      "id": "SND003",
+      "description": "Three headline claims overstate evidence: (1) 'absorption is 100% pathological' tested on 1 hierarchy only; (2) '4x range' not inferentially supported for most hierarchy pairs; (3) 'architecture has no significant effect' from underpowered 12-observation test.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Reframe each: (1) '100% pathological across all 1,471 tested instances from city-continent at L24' with caveat that first-letter is untested; (2) 'rates range from 11.6% to 45.1% (descriptive); within-RAVEL variation statistically significant (p=7.4e-66)'; (3) 'we could not detect an architecture effect, though the test had limited power' with effect sizes reported. WHERE: writing/paper.md abstract, Section 1, Sections 4-6. EFFORT: 30 min. VERIFY: no unqualified universality claims for pathological; no unqualified '4x'; no unqualified 'no architecture effect'.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "soundness:headline-overclaiming"
+    },
+    {
+      "id": "PIPE001",
+      "description": "validate_integration.py STILL NOT IMPLEMENTED (10th iteration recommending). The 12.3% hallucinated number from iter 9 and the current F1=0.97 vs 1.0 discrepancy both demonstrate the need. Every iteration discovers new data integrity errors. This is the project's oldest unresolved systemic issue.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "Implement validate_integration.py: (1) extract all numerical claims from paper.md via regex (numbers with surrounding context); (2) map each to source JSON file and field; (3) compare with tolerance 1e-3; (4) report discrepancies. Run after every paper revision. Build on the data_manifest.json from DATA001. WHERE: exp/code/validate_integration.py (new). EFFORT: 1.5 hours, zero GPU. VERIFY: script catches known discrepancies (F1=0.97 vs 1.0, benign count, absorption rate aggregation); zero discrepancies after fix.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "pipeline:validate-integration-10-iterations"
+    },
+    {
+      "id": "WRI002",
+      "description": "Aggregation method for absorption rates undocumented. Paper reports 27.1% (per-unique-word) without explanation. Per-instance rate is 34.5%. Consolidation uses 34.5%. 28% discrepancy between methods never mentioned.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Add sentence to Section 3.3: 'Absorption rates are computed per unique entity (word or city), averaging across prompt contexts, to prevent entities with more prompt templates from dominating the rate. Per-instance rates are reported in Appendix X for comparison.' WHERE: writing/paper.md Section 3.3. EFFORT: 15 min. VERIFY: aggregation method documented; both rates available.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:aggregation-undocumented"
+    },
+    {
+      "id": "WRI003",
+      "description": "Table 3 is inline markdown while all other tables are PDF figures. Format inconsistency will break LaTeX compilation.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Convert Table 3 to the same PDF figure format as other tables, or convert all tables to inline LaTeX. Consistent format throughout. WHERE: writing/paper.md Table 3. EFFORT: 30 min. VERIFY: all tables use consistent format.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:table-3-format"
+    },
+    {
+      "id": "WRI004",
+      "description": "Referenced appendix sections (GAS, CMI, Absorption Tax, threshold sensitivity) do not exist. All are cited in the paper body.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Either write the appendix sections (recommended -- data exists for all four) or remove the citations. GAS: summarize rho=0.116, AUROC=0.571 null result. CMI: summarize L0=22 rho=0.044 null. Absorption Tax: summarize rho=-0.20, concordance 50%. Threshold sensitivity: summarize CV=0.077 with 20/20 cells. WHERE: writing/paper.md appendix sections. EFFORT: 2 hours. VERIFY: all referenced appendix sections exist.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:missing-appendix-sections"
+    },
+    {
+      "id": "EXP003",
+      "description": "Token position asymmetry: first-letter at position -6 (sae-spelling), RAVEL at position -2. Different positions may differ in how much SAE encoding disrupts probed information, independent of absorption.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Acknowledge in Section 7.3 as a limitation. If feasible (~0.5 GPU-hours), test first-letter probes at position -2 to check if position affects absorption rates. WHERE: writing/paper.md Section 7.3. EFFORT: 10 min writing (or 30 min + 0.5 GPU-hours for experiment). VERIFY: position asymmetry acknowledged.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:token-position-asymmetry"
+    },
+    {
+      "id": "EXP004",
+      "description": "Architecture comparison underpowered: 12 observations at L24, 3 architectures x 4 hierarchies, with Matryoshka 32k vs JumpReLU 16k/65k width confound. Non-significant p-value is absence of evidence.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Reframe from 'architecture has no effect' to 'we could not detect an architecture effect with the available data, though the test had limited statistical power.' Report effect sizes even if non-significant. WHERE: writing/paper.md Section 6. EFFORT: 15 min. VERIFY: no 'no effect' claims; effect sizes reported.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:architecture-underpowered"
+    },
+    {
+      "id": "WRI005",
+      "description": "Single-model limitation (Gemma 2 2B only). Chanin et al. tested multiple models but always on first-letter. This paper tests multiple hierarchies but only one model.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Acknowledge single-model limitation prominently in Section 7.3. State that cross-model replication (e.g., Llama 3.2 1B or Pythia) is the highest-priority future work. WHERE: writing/paper.md Section 7.3. EFFORT: 10 min. VERIFY: limitation acknowledged.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:single-model-limitation"
+    }
+  ],
+  "issues_fixed": [
+    "ITER7-EXP001 (activation patching): EXECUTED. d=1.33 first-letter, p=0.000218. First interventional causal evidence for competitive exclusion in SAEs. Was recurring for 2 iterations.",
+    "ITER7-EXP002 (tightened hedging): EXECUTED. Strict hedging 0%-22.6% vs prior 98.6% loose. Hedging three-way decomposition (strict/compensatory/persistent) is a clean methodological contribution.",
+    "ITER7-EXP003 (CMI replication L0=22): EXECUTED. rho=0.044, p=0.83. Definitive null result. CMI approach correctly abandoned.",
+    "ITER7-EXP004 (threshold sensitivity reporting): EXECUTED. CV=0.077. Structural robustness confirmed.",
+    "ITER7-SND001 (hedging tautological definition): FIXED. Strict hedging definition implemented and applied cross-domain.",
+    "ITER7-SND003 (two-interpretation ambiguity): RESOLVED. Activation patching confirms genuine competitive exclusion for first-letter (d=1.33).",
+    "ITER7-ANL001 (probe quality confound in CMI): MOOT. CMI abandoned after L0=22 null.",
+    "ITER7-PIPE001 (zero experiments executed): FIXED. 13 tasks completed this iteration.",
+    "ITER7-SND002 (theoretical overclaiming 'CMI predicts'): FIXED. CMI reframed as exploratory/null after L0=22 replication failure.",
+    "ITER7-WRI001 (title misleading): FIXED. Title now reflects cross-domain characterization contribution.",
+    "ITER7-WRI002 (cross-domain novelty contradiction): FIXED. Cross-domain variation is now genuine (p=7.4e-66 within RAVEL)."
+  ],
+  "success_patterns": [
+    "EXPERIMENT-FIRST STRATEGY VALIDATED (2nd confirmation): After 3 iterations of stagnation at 6.5, executing critical experiments in iter 9 broke the stagnation and raised the score to 7.0. Score improvements correlate perfectly with experiment execution; writing-only iterations never improve the score.",
+    "FULL-MODE EXECUTION REVERSES PILOT ARTIFACTS: FULL cross-domain patching (d=1.50) reversed pilot (d=-0.91). FULL confound decomposition (1.4%) reversed pilot (96.9%). Running at full scale is not optional -- it produces qualitatively different conclusions.",
+    "HONEST NEGATIVE RESULTS (CONSECUTIVE 10 ITERATIONS): 9 negative results transparently reported. This is the paper's most praised aspect across all 10 review cycles. GAS/CMI/rate-distortion/absorption-tax all clearly failed and are documented with specific metrics.",
+    "ZERO EXPERIMENT FAILURES (CONSECUTIVE 5 ITERATIONS): 13/13 this iteration. Infrastructure fully reliable. Not a single experiment has failed in 5 iterations.",
+    "STATISTICAL RIGOR THROUGHOUT: Bootstrap CIs (10k, seed=42), Bonferroni correction, Cohen's d, Wilcoxon tests, Mann-Whitney U, Kruskal-Wallis consistently applied. Methods section is bulletproof.",
+    "CORRECTED DATA STRENGTHENS PAPER: The FULL-mode cross-domain patching results (d=1.50 universal mechanism) are a stronger finding than the pilot's domain-specific failure (d=-0.91). Data corrections are opportunities, not setbacks.",
+    "HEDGING THREE-WAY DECOMPOSITION: Strict 0%-22.6% / Compensatory / Persistent decomposition with bootstrap CIs is a clean, reusable methodological contribution.",
+    "LAYER-DEPENDENT ABSORPTION CONFOUND-FREE: 15x variation (0.7% to 27.1-42.9%), F1>=0.96 at all layers. Survives every review without challenge. The cleanest finding in the paper."
+  ],
+  "systemic_patterns": [
+    "CRITICAL (10 ITERATIONS): Data provenance errors in every iteration. System generates correct experimental data but fails to propagate cleanly to paper. Root cause: no authoritative manifest, multiple data sources, no automated cross-check. validate_integration.py recommended for 10 iterations, never implemented.",
+    "CRITICAL (6 ITERATIONS): Headline overclaiming follows whack-a-mole pattern. Each iteration correctly fixes the PREVIOUS overclaim but introduces a new one. Iter 4-5: causal overclaiming. Iter 6-7: 'CMI predicts'. Iter 8-9: '100% pathological' extrapolation. Iter 10: 'concentrated vs. distributed' from buggy data. The system's incentive toward publishable headlines systematically biases beyond evidence.",
+    "IMPROVING: Experiment execution quality is consistently high. 5 consecutive iterations with zero failures. The system's experimental infrastructure is its most reliable component.",
+    "RESOLVED AND HELD: PILOT mode (fixed iter 4), LV framework (abandoned iter 4), GPT-2 fallback (eliminated iter 6), CMI overclaiming (resolved iter 9), hedging tautology (resolved iter 9). All remain fixed.",
+    "NEW PATTERN: Score regression (7.0 -> 6.5) caused by stale data in paper. The paper text was not updated to reflect corrected FULL-mode data. This is a new failure mode: the system ran the correct experiment but failed to propagate the results to the paper."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 85,
+    "total_gpu_idle_minutes": 15.0,
+    "total_actual_gpu_minutes": 196,
+    "total_planned_gpu_minutes": 370,
+    "bottleneck_stages": [
+      "paper_update_stale_data",
+      "figure_generation_missing",
+      "probe_degradation_ablation_not_executed"
+    ],
+    "suggestions": [
+      "IMMEDIATE: Update paper Section 5.2 with corrected FULL-mode data. Zero GPU, 2-3 hours. This alone likely restores the score to 7.0+.",
+      "BLOCKING EXPERIMENT: Probe degradation ablation (2 GPU-hours). Resolves core uncertainty about cross-domain variation.",
+      "BLOCKING INFRASTRUCTURE: Implement validate_integration.py + data_manifest.json. Zero GPU, 2 hours. Eliminates 10-iteration systemic weakness.",
+      "Generate missing figures 4-6. Zero GPU, 1-2 hours. Compilation blocker.",
+      "Reframe benign/pathological circularity. Zero GPU, 30 min.",
+      "Replicate benign/pathological on first-letter. 0.5 GPU-hours.",
+      "Total estimated investment for 8.0 (Accept): 2.5 GPU-hours + 8-10 CPU-hours."
+    ]
+  },
+  "recommended_focus": [
+    "P0 (BLOCKING, ZERO GPU, 2-3 hours): Replace Section 5.2 with corrected FULL-mode cross-domain patching results. Update abstract, Section 1, Table 4, Sections 7.1-7.2. This is the single highest-impact fix -- the corrected data makes the paper stronger.",
+    "P0 (BLOCKING, ZERO GPU, 30-45 min): Reframe benign/pathological claim -- acknowledge circularity, scope to city-continent, describe what a genuine computational-redundancy test would require.",
+    "P0 (BLOCKING, ZERO GPU, 2 hours): Implement validate_integration.py + create data_manifest.json. Fix F1=0.97 vs 1.0 discrepancy. Fix benign count 1,471 vs 1,464. Document aggregation method.",
+    "P0 (BLOCKING, ZERO GPU, 1-2 hours): Generate missing figures 4-6 from existing JSON data.",
+    "P1 (HIGH-VALUE EXPERIMENT, 2 GPU-hours): Probe degradation ablation F1={0.70, 0.80, 0.85, 0.90}. Resolves core cross-domain uncertainty.",
+    "P1 (HIGH-VALUE EXPERIMENT, 0.5 GPU-hours): Replicate benign/pathological on first-letter. Confirms or challenges universality.",
+    "P2 (WRITING, ZERO GPU, 30 min): Reframe headline claims -- scope '4x range', '100% pathological', 'no architecture effect' to evidence-supported versions.",
+    "P2 (WRITING, ZERO GPU, 30 min): Separate descriptive from inferential claims for Kruskal-Wallis scope. Clarify 3 vs 4 hierarchies.",
+    "P2 (WRITING, ZERO GPU, 2 hours): Write appendix sections (GAS, CMI, Absorption Tax, threshold sensitivity).",
+    "P2 (WRITING, ZERO GPU, 15 min): Document per-unique-word aggregation in Section 3.3."
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

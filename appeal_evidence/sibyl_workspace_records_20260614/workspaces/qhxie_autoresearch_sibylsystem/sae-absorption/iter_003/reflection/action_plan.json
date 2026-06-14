@@ -1,0 +1,234 @@
+{
+  "iteration": 3,
+  "score": 5.5,
+  "verdict": "continue",
+  "quality_trajectory": "stagnant",
+  "issues_classified": [
+    {
+      "id": "EXP001",
+      "description": "OMP experiment (C2) never escalated from pilot to full scale. C2 ran 3 letters x 30 tokens (90 total observations) at 97.8% baseline absorption rate — near-zero statistical power. The falsification criterion 'OMP >= 80% of FF rate' is trivially satisfied at 1.000 regardless of true effect. Bootstrap SE ≈ 0.037 per letter; a 2-3% true reduction is undetectable. The paper's 'decisively falsifies' and 'unambiguous' language is scientifically indefensible.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run C2 at full specification: all 26 letters, minimum 500 tokens per letter (power analysis: to detect 5pp reduction at 80% power, n=317 required). Report 95% bootstrap CI on (AR_OMP - AR_FF) per letter. Add power analysis section. Also test at L2 (baseline ratio=0.877) which has headroom to detect differences. Estimated effort: 45-60 minutes GPU time. Verify: all 26 letters show OMP absorption rate within CI of feedforward rate.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-absorption-and-at-at-baseline-bootstrap-c2:78670c835900"
+    },
+    {
+      "id": "EXP002",
+      "description": "All core experiments remain in PILOT mode at 10-100x smaller scale than the methodology specifies. Files A1, A2, A3, B2, C2, D2 all carry mode='PILOT' in result JSON. C2 targeted 10,000 tokens/26 letters, got 90 tokens/3 letters. B1 targeted 200,000 tokens for co-occurrence, got 10,000 (5%). This is a systematic failure of the pilot-to-full escalation pipeline — the go/no-go gates passed but the full-scale triggers were never fired.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "Architect an explicit pilot-to-full escalation stage in the task plan. After each pilot gate passes, automatically generate a full-scale task with the originally specified token counts. Gate paper-writing on mode='FULL' in all core result files. Minimum effort: add 3 tasks for C2-full (26 letters, 1000+ tokens), B1-full (200k tokens), A1-full (10k tokens). Verify: all result JSONs carry mode='FULL' before writing begins.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "pipeline:a-a1-a2-a3-all-all-at-b1:99c7bd27a085"
+    },
+    {
+      "id": "EXP003",
+      "description": "Cross-architecture 'replication' AUROC=0.837 uses proxy labels (decoder cosine >= 0.30 to letter probes, n_pos=77) that E1 and A3 confirm are NOT absorbed features — IG measurement shows 0% absorption in TopK-32k SAE. The paper presents this as cross-architecture replication in the abstract and Table 1, which is factually wrong. AUROC=0.757 at n_pos=18 gold IG labels is the only valid absorption detection claim.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Reframe TopK-32k row in Table 1 as 'EncNorm predicts decoder-letter-probe alignment (proxy labels, n_pos=77)' with a footnote clarifying 0% IG absorption in TopK-32k. Remove 'cross-architecture replication' language from abstract and introduction. Investigate why IG absorption = 0% in TopK-32k (threshold calibration, genuine absence, or measurement gap). Effort: writing fix only — 2 hours. Full investigation: 1 GPU-hour. Verify: abstract no longer presents TopK AUROC=0.837 as absorption detection replication.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "system:32k-a3-absorbed-absorption-absorption-abstract-and-and:e70cf82849ed"
+    },
+    {
+      "id": "EXP004",
+      "description": "EncNorm mechanistic narrative contradicted by own layer data. Paper claims gradient competition inflates ||w_enc,j||_2. A2 shows absorbed/non-absorbed ratio = 0.877 at L2, 1.055 at L4, 1.267 at L6, 0.891 at L8, 0.933 at L10. Signal inverts at 3 of 5 layers. Paper reports 'peaks at L6' as positive finding without addressing the inversions.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Remove the mechanistic derivation from Section 3.1 or relegate to a 'speculative note.' Replace with: 'EncNorm is an empirically discovered heuristic for L6 SAEs on GPT-2 Small; its mechanistic basis is unclear, as the effect direction inverts at L2, L8, and L10.' Add a practitioners warning: EncNorm direction must be verified on labeled samples before applying to any layer other than L6. Effort: writing revision only, 2-3 hours. Verify: Section 3.1 no longer presents the gradient competition argument as established theory.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:_2-a2-absorbed-absorbed-addressing-as-at-at:2a6e9750a28f"
+    },
+    {
+      "id": "EXP005",
+      "description": "H3 cross-hierarchy experiment is invalid and absent. D2 shows entity-type absorption = 0.0% while negative control = 0.05%, direction opposite to H3. The D2 notes acknowledge 'Used entity-type probe on control sentences for comparison' — the negative control was measured with the wrong probe. The experiment cannot support any conclusion.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Remove all cross-hierarchy claims from contribution list and future work framing. Restate contributions as: (1) OMP oracle mechanistic null result, (2) EncNorm + O_jaccard weight-only detection at L6, (3) Width recovery analysis (with hook-confound caveat). Do not mention H3 generalization as a future direction without acknowledging the probe failure. Effort: writing revision, 1-2 hours. Verify: contribution list no longer includes H3.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:absent-absorption-acknowledge-and-any-cannot-comparison-conclusion:984c23e43500"
+    },
+    {
+      "id": "EXP006",
+      "description": "F1 width recovery (67%) is confounded by different hook points: Standard-24k uses resid_pre, TopK-32k uses resid_post. These are different activation spaces. Two absorbed features (2406, 11270) share best_matching_32k_idx=16435; two others (24154, 7371) share 29309 — possible false matches. The 67% figure is uninterpretable without a hook-confound baseline.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Compute average cosine similarity between GPT-2 L6 resid_pre and resid_post activations on a 500-token sample. This establishes expected cross-hook geometric similarity (baseline). Present 67% relative to baseline: if random features achieve X% recovery at cos>0.80, the 67% figures has bounded interpretability. Investigate duplicate best_matching indices. Effort: 30-minute GPU experiment. Verify: F1 result includes a computed baseline for expected cross-hook cosine similarity.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:24k-32k-a-absorbed-activation-are-baseline-best_matching_32k_idx:979290cac0ac"
+    },
+    {
+      "id": "EXP007",
+      "description": "EncNorm independence from EDA not established. Spearman r(EncNorm, EDA) = 0.712, sharing 51% variance. AUROC improvement 0.757 vs 0.650 could reflect EncNorm's distributional shape being more favorable for severe class imbalance (18/24576) rather than independent information. No partial analysis was performed.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Run partial logistic regression: (1) fit LR with EDA alone, compute AUROC; (2) fit LR with EDA + EncNorm, compute AUROC; (3) DeLong test on models (1) vs (2). If the combined model is not significantly better than EDA alone, EncNorm's marginal contribution is not established. Effort: 30-minute analysis task. Verify: B2 or new task reports DeLong test on combined vs. EDA-alone scores.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:analysis-auroc-being-class-could-distributional-eda-eda:33f96192cd28"
+    },
+    {
+      "id": "EXP008",
+      "description": "All results from GPT-2 Small (117M, 2019). Gemma Scope returned 401 Unauthorized. NeurIPS 2026 main track expects cross-model validation; interpretability literature centers on Gemma Scope, Llama-3. Single-model results with a 2019 model are a substantial weakness for main track submission.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Accept the Gemma Scope HuggingFace gated license (one-time manual action at huggingface.co/google/gemma-scope). Alternatively, obtain Pythia SAEs from EleutherAI (fully open access). Run EncNorm AUROC on at least one additional model. If AUROC generalizes (>0.65), strengthens the claim. If not, report as scope limitation. Effort: license acceptance (human action) + 1-2 GPU hours. Verify: Table 1 includes at least one row from a model other than GPT-2 Small.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:117m-a-a-all-are-centers-cross-expects:cf50f640f4e6"
+    },
+    {
+      "id": "EXP009",
+      "description": "O_jaccard AUROC=0.721 conflates features O_jaccard can detect (9 of 18, in letter set) with features where O_jaccard=0 by construction (other 9, not in letter set). Effective AUROC within the detectable subset is not reported. The B2 notes acknowledge this structural coverage limitation.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Compute O_jaccard AUROC decomposed into: (a) 9 absorbed features WITH letter-set membership (expected higher AUROC), (b) 9 absorbed features WITHOUT letter-set membership (expected AUROC ~0.5). Report both. Estimate: 30 minutes of analysis, no GPU needed. Verify: B2 or new analysis task contains AUROC values for both subsets.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:acknowledge-auroc-auroc-b2-by-can-conflates-construction:77cdcb75fa95"
+    },
+    {
+      "id": "WRI001",
+      "description": "All 6 required figures (fig_teaser, fig_enc_norm_hist, fig_omp_design, fig_roc_curves, fig_ablation, fig_omp_results) are missing. LaTeX figures directory contains 5 PDFs from an older iteration (fig1_eda_method.pdf through fig5_phase_stability.pdf). The paper references non-existent figure files. This is a pre-submission blocker.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Generate all 6 figures from experiment result JSONs: (1) fig_teaser: feedforward vs OMP absorption rates + ROC curves composite; (2) fig_enc_norm_hist: absorbed vs non-absorbed EncNorm histogram from A3 data (means 3.263 vs 2.576); (3) fig_omp_design: architecture diagram; (4) fig_roc_curves: two-panel ROC curves for all detectors; (5) fig_ablation: horizontal bar chart of AUROC per formulation from B2; (6) fig_omp_results: per-letter absorption rates FF vs OMP from C2. Use academic-plotting skill. Effort: 2-3 hours. Verify: all 6 PDFs exist in writing/latex/figures/ with correct names.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:a-all-an-are-blocker-contains-directory-existent:5ad2435670b9"
+    },
+    {
+      "id": "WRI002",
+      "description": "Language mismatch between claimed certainty and statistical evidence. 'Decisively falsifies,' 'unambiguous,' 'decisive,' 'The result is decisive' appear in abstract, introduction, and Section 4.3. These are inconsistent with an experiment at near-zero power.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Replace all instances of 'decisively falsifies' with 'provides evidence against'; replace 'unambiguous' with a CI statement such as 'The observed rates under feedforward and OMP are indistinguishable within measurement precision [95% bootstrap CI on difference: -, +]'; replace 'decisive' with 'consistent with.' Add a power analysis footnote. Effort: 2-hour writing pass. Verify: no instance of 'decisive' or 'unambiguous' describes the OMP null result without qualification.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:abstract-an-and-and-appear-are-at-between:6b4b6cc32e2b"
+    },
+    {
+      "id": "WRI003",
+      "description": "Section 4.1 duplicates Section 3.4 verbatim. This wastes 120+ words of paper budget in a workshop format. Identified by both review.md and critique_writing.md.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Delete Section 4.1 entirely. Replace first sentence of Section 4.2 with: 'Setup follows Section~\\ref{sec:setup}; Standard/L1 SAE uses n_pos=18 gold IG labels, TopK-32k uses n_pos=77 proxy labels at GPT-2 L6.' Effort: 30 minutes. Verify: Section 4.1 no longer exists.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-and-both-budget-by-critique_writing-duplicates-format:f981cbde61a9"
+    },
+    {
+      "id": "WRI004",
+      "description": "MP-SAE (Costa et al., arXiv:2506.03093) not discussed. Paper's Section 5.1 guidance 'Do not expect iterative encoders to help' conflates post-hoc OMP with fixed decoder (tested) with joint training of iterative encoder+decoder (not tested, MP-SAE approach).",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Add one paragraph to Section 5.1 distinguishing: (a) inference-time OMP with fixed decoder — tested, null result; (b) joint training with iterative encoder+decoder as in MP-SAE — not tested, may reduce absorption. Cite Costa et al. and state that the strong amortization gap hypothesis (jointly trained iterative encoder reduces absorption) remains untested. Effort: 1-2 hours. Verify: Section 5.1 distinguishes weak (post-hoc) from strong (training-time) amortization gap hypothesis.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:al-approach-arxiv-conflates-costa-decoder-decoder-discussed:1a3ce80a1887"
+    },
+    {
+      "id": "WRI005",
+      "description": "Jaccard definition inconsistency: Section 3.2 uses f_k > f_j (any higher-frequency feature); notation.md and B2 results use f_i > 3*f_j. Experimental implementation used 3x threshold (confirmed by B2 A_cooccur bounded at 0.333). Parent/child terminology confusion in Introduction: 'a child SAE latent fails to activate because a more specific child latent absorbs the activation budget' uses 'child' for both roles.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Update Section 3.2 to use f_k > 3*f_j consistently. Fix Introduction: change first 'child SAE latent' to 'parent SAE latent.' Fix 'absorption rate ratio' to use reduction formulation (AR_FF - AR_OMP)/AR_FF consistently; remove ratio column from Table 2. Effort: 1 hour. Verify: single consistent Jaccard definition across paper.md and notation.md.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-a-a_cooccur-absorbs-activate-activation-and-any:168cd7260075"
+    },
+    {
+      "id": "PLAN001",
+      "description": "Pilot-to-full escalation logic is missing from the task plan. Three consecutive iterations have failed to run experiments at the specified full scale. The go/no-go gates pass but no automated mechanism triggers the full-scale run. This is a systemic pipeline failure.",
+      "category": "planning",
+      "severity": "high",
+      "suggestion": "In iter_004 task_plan.json, add an explicit 'full_scale_required' flag on all tasks with target_scale_tokens. Add a pre-writing validation step that verifies mode='FULL' in all core result JSONs. If mode='PILOT' is found, fail the gate and generate the full-scale task automatically. Effort: planning stage revision, 30 minutes. Verify: task_plan.json contains explicit full-scale verification gate before writing phase.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "planning:a-at-automated-but-consecutive-escalation-experiments-failed:c51346f673aa"
+    },
+    {
+      "id": "PLAN002",
+      "description": "In-sample optimization risk: same n_pos=18 label set (iter_001 R4) used across iterations 1, 2, and 3 for hypothesis generation AND validation. EncNorm was discovered on these 18 labels in iter_002 and 'validated' on the same 18 in iter_003. This is circular evaluation.",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "Generate new absorption labels on held-out letters (e.g., b, c, d, f, g) using sae_spelling FeatureAbsorptionCalculator at GPT-2 L6. Use iter_001 R4 labels as discovery set; new labels as validation set. If EncNorm AUROC holds on new labels, the finding is genuinely validated. Effort: 30-minute label generation task. Verify: iter_004 plan contains a held-out label generation task before final AUROC evaluation.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "planning:across-and-and-and-circular-discovered-encnorm-evaluation:896a852ca05b"
+    },
+    {
+      "id": "IDEA001",
+      "description": "The weak vs. strong amortization gap hypothesis distinction is scientifically critical but absent from the paper. The OMP experiment tests only the weak hypothesis (inference-time encoder fix with frozen decoder). O'Neill et al.'s original amortization gap argument and MP-SAE both concern the strong hypothesis (jointly trained iterative encoder). The paper conflates these, making its theoretical contribution narrower than claimed.",
+      "category": "ideation",
+      "severity": "medium",
+      "suggestion": "Formalize the distinction in Section 2.2: define H_weak (inference-time encoder cannot reduce absorption with frozen dictionary) and H_strong (jointly trained iterative encoder cannot reduce absorption). The OMP experiment falsifies H_weak. The paper correctly notes this in Section 5.2 but should elevate it to the main hypothesis framing. Effort: 2-hour writing revision. Verify: H_weak and H_strong are explicitly defined and distinguished in Section 2.2.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "ideation:absent-al-amortization-amortization-and-argument-both-but:1ea8541c4b8a"
+    },
+    {
+      "id": "EFF001",
+      "description": "GPU scheduling operated correctly (2 parallel GPUs, all 10 tasks completed in approximately 2 hours). However, all tasks ran in PILOT mode, making the GPU time effectively wasted for submission purposes. The scheduling efficiency was good; the scale planning was wrong.",
+      "category": "efficiency",
+      "severity": "low",
+      "suggestion": "Maintain 2-GPU parallel scheduling. For iter_004, allocate GPU-hours proportionally: C2-full (26 letters, 1k tokens) = 35 min; B1-full (200k tokens) = 20 min; A1-full replication = 20 min; EncNorm independence analysis = 20 min; hook-confound baseline = 15 min; held-out label generation = 30 min. Total estimate: 3-4 GPU-hours. Verify: GPU utilization dashboard shows no PILOT-mode tasks reaching the writing phase.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "efficiency:all-all-approximately-completed-correctly-effectively-efficiency-for:5a8902c0dfd9"
+    }
+  ],
+  "issues_fixed": [
+    "Statistical toolkit correctly applied (bootstrap CIs, DeLong tests, Cohen's d, Mann-Whitney — all correctly implemented throughout iter_003 experiments)",
+    "Negative result reporting remains exemplary — D2 probe failure, D1 probe artifact, F1 hook-confound all reported honestly with specific numbers",
+    "Claim-evidence integrity improved: paper.md values cross-verified against source JSONs; all 12 spot-checked numerical claims are consistent with source data (DeLong z, AUROC CIs, Cohen's d, F1 recovery count)",
+    "Writing avoids banned patterns — no 'In recent years,' 'groundbreaking,' 'to the best of our knowledge'",
+    "Pre-committed falsification criterion is stated before reporting result — this methodological strength is maintained",
+    "Iter-002 lesson on EDA_norm vs EDA_base priority was partially addressed (EncNorm promoted as primary detector over raw EDA)"
+  ],
+  "success_patterns": [
+    "Exemplary negative result reporting: H2 null result, D2 probe failure, E1 Gemma access failure all documented with specific numbers and root-cause analysis",
+    "Pre-committed falsification criterion methodology is a genuine differentiator — should be emphasized as a methodological contribution in the paper",
+    "Statistical toolkit (bootstrap 10k, DeLong, Cohen's d, Mann-Whitney) correctly applied without exception",
+    "GPT-2 Small gold IG labels (n_pos=18) provide the cleanest, most reproducible evidence in the paper — the AUROC=0.757 result at this anchor is credible",
+    "Dual-GPU parallel scheduling worked well: 10 tasks completed in ~2 hours with zero failures",
+    "F1 hook-confound proactively disclosed in abstract, methods, results, and discussion — model scientific writing practice"
+  ],
+  "systemic_patterns": [
+    "RECURRING BLOCKER (3 iterations): Full-scale experiments are never run. Pilot-to-full escalation logic is absent from the pipeline. This is the single most important systemic failure to fix.",
+    "RECURRING BLOCKER (3 iterations): The same n_pos=18 label set has been used for discovery AND validation across all three iterations, creating in-sample optimization risk.",
+    "NEW PATTERN: Cross-architecture validation has now failed twice (iter_002 B3 hook confound, iter_003 E1 Gemma 401 + A3 proxy labels). A systematic plan for cross-model validation is needed.",
+    "NEW PATTERN: Mechanistic narratives are being proposed post-hoc and then contradicted by empirical data from the same iteration (EncNorm gradient story vs A2 layer data). Mechanism proposals should be deferred until empirical basis is established.",
+    "IMPROVING: Writing quality and claim-evidence integrity have improved substantially from iter_001. The paper's honest reporting of negative results is now a genuine strength."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 85,
+    "total_gpu_idle_minutes": 15.0,
+    "bottleneck_stages": [
+      "pilot_to_full_escalation",
+      "writing_figure_generation"
+    ],
+    "suggestions": [
+      "Add full-scale run trigger immediately after pilot gate pass — eliminates the fundamental scaling failure",
+      "Pre-generate all 6 required figures as a dedicated non-GPU task in parallel with full-scale experiment runs",
+      "Schedule held-out label generation as the first task of each iteration to enable independent validation"
+    ]
+  },
+  "recommended_focus": [
+    "PRIORITY 1: Run C2 at full scale (26 letters, 1000+ tokens) to establish interpretable OMP null result with bootstrap CIs — this is the paper's headline claim and must be defended statistically",
+    "PRIORITY 2: Fix TopK-32k AUROC framing to 'decoder-letter-probe alignment' — this is a factual misrepresentation that will cause rejection if reviewers detect it",
+    "PRIORITY 3: Generate all 6 required figures — paper cannot be evaluated without them",
+    "PRIORITY 4: Accept Gemma Scope license and run EncNorm on at least one additional model — single-model scope is a NeurIPS main track weakness",
+    "PRIORITY 5: Add held-out label generation to establish independent validation of EncNorm AUROC",
+    "PRIORITY 6: Fix writing issues (decisiveness language, Section 4.1 redundancy, Jaccard inconsistency)"
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

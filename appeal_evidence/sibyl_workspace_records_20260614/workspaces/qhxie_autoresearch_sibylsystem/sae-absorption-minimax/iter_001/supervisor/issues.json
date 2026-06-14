@@ -1,0 +1,86 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "H2 pilot and full-scale results use incompatible absorption metrics. Pilot H2 uses Chanin first-letter probe (vanilla=0.2253, TopK=0.066 = 70.9% reduction). Full H2 uses Gini absorption (vanilla=0.015, TopK=0.068 = TopK INCREASES absorption 4.5x). The paper presents both without distinguishing which metric produced which numbers. Every mitigation variant (TopK, JumpReLU, OrtSAE, ATM) has HIGHER absorption than vanilla in full-scale, directly contradicting the pilot claim.",
+    "suggestion": "Completely separate pilot and full-scale reporting. Use consistent absorption metric throughout. Either remove H2 pilot numbers or clearly label them as using a different metric. The full-scale results should be the canonical numbers for the paper."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "H5 'marginal fail' framing uses a non-existent 5% threshold. The actual pass criterion was >8% (computed from pilot). Achieved: 2.51% causal delta. This is a 5.49pp shortfall, not a 'marginal miss at 5%'. The paper creates a 5% threshold post-hoc that does not exist in the experimental design.",
+    "suggestion": "Report H5 as FAILED. Causal task delta was 2.51% vs required >8%. Do not use 'marginal fail' framing with a threshold that was retroactively created."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Null controls use alpha=5 only while main H3 aggregates across [1,3,5,10,20]. pilot_h3_null.json shows high-absorption=0.7485 and low-absorption=0.7543 are statistically identical (p=0.94) at alpha=5. Yet main H3 shows 18% difference. The paper claims the effect is 'driven primarily by high-alpha conditions' without pre-registering this explanation. This is post-hoc rationalization for an internal contradiction.",
+    "suggestion": "Either (a) rerun null controls with full alpha range [1,3,5,10,20] to match main experiment; (b) explain why alpha=5 was selected as the only null control condition; (c) acknowledge that the null control does not replicate the main finding's alpha-dependence and this is a methodological limitation."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Feature selection threshold documented incorrectly. Paper states '50 high-absorption (UAS > 1.0)'. The actual high-absorption features from full_h3.json have mean UAS ~0.57, well below 1.0. The threshold does not match the actual selected features.",
+    "suggestion": "Verify and document the actual feature selection threshold used. Update the paper to reflect what was actually implemented."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "H1 layer-wise pattern is inconsistent across experimental runs. Pilot: layer 4=0.0363, layer 8=0.0402 (+10.6%, layer 8 higher). Full H1 GPT-2 atlas: layer 2=0.307, layer 4=0.267, layer 6=0.215, layer 8=0.200, layer 10=0.167 (monotonic DECREASE, peak at layer 2). These are contradictory orderings. The paper should not claim any layer-wise absorption pattern is established.",
+    "suggestion": "Report the contradictory results transparently. Do not claim H1 as evidence for any layer-wise pattern. Consider whether this instability itself is a finding worth discussing."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Full H4 was run in PILOT mode (3 pairs) yet presented as 'full' results. The r declined from pilot (0.8147) to full-pilot (0.587-0.706). The paper does not acknowledge this regression or explain why the full experiment remained in pilot mode.",
+    "suggestion": "Label the H4 results clearly as pilot-mode (3 pairs). Acknowledge the r declined in larger-scale validation. Explain why full-scale H4 was not completed."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "The 'entanglement hypothesis' is presented as a named contribution without empirical support beyond the H3 correlation. A Spearman r=+0.35 correlation does not establish a causal mechanism. The 'hub feature' analogy (network centrality) is introduced without any network analysis.",
+    "suggestion": "Either (a) remove the named hypothesis and present it as a speculative interpretation; (b) add empirical support (e.g., activation frequency correlation with steering sensitivity, decoder direction centrality analysis); (c) explicitly label it as a hypothesis requiring future validation."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Effect size inconsistency: Section 4.2 says '~15% higher' but correct calculation from 0.1035/0.0874 is 18.4%. The abstract correctly says '18%'.",
+    "suggestion": "Use '18%' consistently throughout the paper."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Abstract says absorption 'may indicate features at high leverage points' while Section 5 says 'absorption indicates computational importance' and Section 6 says absorbed features 'are deeply integrated.' The abstract's causal mechanism claim ('causally important') overstates the evidence. Steering sensitivity does not directly measure causal importance.",
+    "suggestion": "Replace 'causally important' with 'highly steerable' or 'computationally central.' Causal importance requires causal ablation studies."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Title and abstract promise multi-model scope (GPT-2 + Gemma-2B) and multi-layer atlas, but Gemma-2B experiments were skipped (authentication issues) and H1 layer-wise pattern is unresolved. The paper covers only GPT-2 Small layer 8.",
+    "suggestion": "Update title to specify GPT-2 Small layer 8, or add explicit scope statement. Remove or clearly label Gemma-2B and layer-wise atlas claims as future work."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "The paper cannot be reproduced because key quantitative claims mix pilot and full-scale numbers using different metrics. A reader attempting to reproduce the 70.9% absorption reduction claim would use the full-scale Gini metric and get the opposite result.",
+    "suggestion": "Provide a single canonical experimental protocol with one absorption metric. All comparisons should be apples-to-apples within the same experimental framework."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "H5 AUC differences (7.45%, 2.51%) are not individually statistically significant (p > 0.05) but the paper frames them as evidence of a consistent degradation pattern. Statistical power analysis would clarify whether these effects are detectable.",
+    "suggestion": "Report statistical power analysis or minimum detectable effect size. The consistent direction is suggestive but not conclusive."
+  }
+]

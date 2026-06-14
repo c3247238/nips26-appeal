@@ -1,0 +1,213 @@
+{
+  "candidate_id": "cand_crossdomain_causal_tax",
+  "version": "5.1",
+  "round": 5,
+  "seed": 42,
+  "notes": "Iteration 11 revised plan. Phase 0 (data integrity) and Phase 1.1 (patching spot-check) COMPLETED. Remaining: Phase 1.2 (city-country patching), Phase 1.3 (first-letter L24 patching), Phase 2 (writing revisions), Phase 2.7 (final validation), Phase 3 (optional). Total remaining: ~1-3 GPU-hours, ~9 wall-clock hours.",
+  "completed_tasks": [
+    "phase0_validate_integration",
+    "phase0_aggregation_unify",
+    "phase0_contribution_restructure",
+    "phase1_patching_spotcheck"
+  ],
+  "tasks": [
+    {
+      "id": "phase1_city_country_patching",
+      "name": "Phase 1.2: City-Country Activation Patching (with Probe Quality Caveat)",
+      "description": "Run activation patching for city-country hierarchy at L24 despite low probe quality (F1=0.73). This addresses the gap where the highest-absorption hierarchy (45.1%) was excluded from causal testing without explanation. (1) Load city-country probes and identify parent-child feature pairs from Gemma Scope L24 16k. (2) For each city-country entity where absorption is detected: zero child feature, measure parent probe recovery. (3) Run same control condition (zero random non-child feature). (4) Report Cohen's d and p-value with explicit caveat: 'Probe quality (F1=0.73) falls below the relaxed gate; false negatives in the probe confound the recovery measurement.' (5) Interpret: if d > 0.3, competitive exclusion likely present but measurement is noisy; if d < 0.3, cannot distinguish from noise given probe quality. FALLBACK: If patching fails due to insufficient absorbed pairs at L24, write documented exclusion paragraph for Section 5.2 instead.",
+      "type": "experiment",
+      "candidate_id": "cand_crossdomain_causal_tax",
+      "depends_on": ["phase0_contribution_restructure"],
+      "expected_output": "exp/results/phase1/city_country_patching.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "model", "name": "gemma-2-2b", "path": "google/gemma-2-2b"},
+        {"type": "sae", "name": "gemma-scope-l24-16k", "path": "gemma-scope-2b-pt-res/layer_24/width_16k/average_l0_71"},
+        {"type": "dataset", "name": "ravel", "path": "hij/ravel"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Patching completes successfully. Result reported with probe quality caveat. If d > 0.3: strengthens universal claim. If d < 0.3: documented as consequence of probe quality."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "City-country patching results with probe quality context",
+          "columns": ["Metric", "Child-Zeroed", "Control", "Cohen_d", "p_value"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "phase1_firstletter_l24_patching",
+      "name": "Phase 1.3: First-Letter Activation Patching at L24",
+      "description": "Re-run first-letter activation patching at L24 to fix Figure 4 layer mismatch (currently first-letter at L12, RAVEL at L24). (1) Load Gemma 2 2B + Gemma Scope L24 16k SAE. (2) Identify first-letter parent-child feature pairs using sae-spelling methodology at L24. (3) For each first-letter absorbed pair: zero child feature, measure parent probe recovery. (4) Run control condition (zero random non-child feature). (5) Compute Cohen's d and p-value. (6) Generate updated Figure 4 with all three panels at L24 (first-letter, city-continent, city-language). Use matplotlib, publication-quality (300 DPI, tight layout, seaborn palette). Output: exp/results/phase1/firstletter_l24_patching.json + exp/results/figures/fig4_patching_l24.pdf.",
+      "type": "experiment",
+      "candidate_id": "cand_crossdomain_causal_tax",
+      "depends_on": ["phase0_contribution_restructure"],
+      "expected_output": "exp/results/phase1/firstletter_l24_patching.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 40,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "model", "name": "gemma-2-2b", "path": "google/gemma-2-2b"},
+        {"type": "sae", "name": "gemma-scope-l24-16k", "path": "gemma-scope-2b-pt-res/layer_24/width_16k/average_l0_71"},
+        {"type": "library", "name": "sae-spelling", "path": "pip:sae-spelling"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Patching completes at L24. Recovery qualitatively consistent with L12 result (positive recovery, d > 0.5). Figure 4 generated with all three panels at L24."
+      },
+      "visualizations": [
+        {
+          "type": "paired_dot_plot",
+          "description": "Figure 4: Three-panel activation patching comparison at L24",
+          "x": "condition",
+          "y": "recovery_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "phase2_writing_revisions",
+      "name": "Phase 2.1-2.6: Comprehensive Writing Revisions",
+      "description": "All writing revisions combined into one task, executed AFTER Phase 0 data integrity and Phase 1 verification. (2.1) Reframe probe degradation: linear fit primary, quadratic exploratory; emphasize monotonicity (rho=-1.0) over R^2; note binary-to-multiclass extrapolation limitation; reframe as 'directional evidence' not 'quantitative decomposition'. (2.2) Section 7.2 repetition: remove all re-presented numbers, keep implications only, reference Section 5. Section 8: one-sentence summary. (2.3) Figure 5: render both distributions visible (different colors, alpha transparency, or separate panels); reconcile N=1471 vs N=1464. Figure 6: reconcile p=0.063 (figure) vs p=0.041 (text) by checking statistical test used. (2.4) Abstract: reduce to 5-7 key numbers; move remainder to introduction. (2.5) Style fixes: 'dominant'->'widely adopted'; 'amplify'->'are relevant to'; add SAEBench dual-inclusion acknowledgment in Related Work; add code availability statement; pin library versions (SAELens v6, TransformerLens, sae-spelling). (2.6) Update proposal.md to match per-token canonical numbers from Phase 0. Use data_manifest.json as the authoritative cross-check. Output: updated paper.md + proposal.md.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": ["phase0_contribution_restructure", "phase1_patching_spotcheck", "phase1_city_country_patching", "phase1_firstletter_l24_patching"],
+      "expected_output": "writing/paper.md",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 120,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {"type": "result", "name": "per_token_rates", "path": "exp/results/phase0/per_token_rates.json"},
+        {"type": "result", "name": "corrections_log", "path": "exp/results/phase0/corrections_log.json"},
+        {"type": "result", "name": "data_manifest", "path": "exp/results/phase0/data_manifest.json"},
+        {"type": "result", "name": "patching_spotcheck", "path": "exp/results/phase1/patching_spotcheck.json"},
+        {"type": "result", "name": "city_country_patching", "path": "exp/results/phase1/city_country_patching.json"},
+        {"type": "result", "name": "firstletter_l24", "path": "exp/results/phase1/firstletter_l24_patching.json"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "validate_integration.py passes on final paper.md. No CI inversions. No aggregation contradictions. No stale headline numbers. Section 7.2 contains zero re-presented numbers. Abstract has <= 7 numerical claims."
+      },
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "Figure 5 (fixed): dual-distribution decoder entanglement",
+          "x": "logit_change_nats",
+          "y": "frequency",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Figure 6 (fixed): architecture comparison with reconciled p-value",
+          "x": "architecture",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "phase2_final_validation",
+      "name": "Phase 2.7: Final Validation Pass",
+      "description": "Run validate_integration.py on the final paper.md after all corrections from Phase 0-2. This is the quality gate before declaring the iteration complete. (1) Run validate_integration.py. (2) If any mismatches remain, fix them. (3) Generate final validation_report.json documenting: total claims checked, claims passing, claims fixed this iteration, remaining known limitations. (4) Run a manual spot-check of 5 randomly selected claims from data_manifest.json, tracing each to source JSON. Output: exp/results/phase2/final_validation_report.json.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": ["phase2_writing_revisions"],
+      "expected_output": "exp/results/phase2/final_validation_report.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {"type": "script", "name": "validate_integration", "path": "exp/code/validate_integration.py"},
+        {"type": "result", "name": "data_manifest", "path": "exp/results/phase0/data_manifest.json"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "validate_integration.py exits 0. Zero CI inversions. Zero aggregation contradictions. All 5 spot-checked claims trace correctly to source."
+      },
+      "visualizations": []
+    },
+    {
+      "id": "phase3_city_continent_probe_degradation",
+      "name": "Phase 3.1: City-Continent Probe Degradation (Optional)",
+      "description": "OPTIONAL: Validate cross-domain transferability of probe degradation curve. Currently, the curve is built from first-letter binary probes only, then extrapolated to multi-class RAVEL probes. (1) Train city-continent multi-class probe at L24 (if not already cached). (2) Degrade probe to 4 F1 levels (0.95, 0.85, 0.75, 0.65) using Gaussian noise injection with calibrated epsilon. (3) At each degraded F1 level, measure city-continent absorption rate using the degraded probe. (4) Plot absorption vs F1 and compute slope. (5) Compare slope with first-letter degradation curve slope. If within 2x: extrapolation validated. If >2x different: reframe Section 4.6 as domain-specific. Output: exp/results/phase3/city_continent_probe_degradation.json. NOTE: This task exceeds 60 minutes because multi-class probe degradation requires more calibration points than binary probes.",
+      "type": "experiment",
+      "candidate_id": "cand_crossdomain_causal_tax",
+      "depends_on": ["phase2_final_validation"],
+      "expected_output": "exp/results/phase3/city_continent_probe_degradation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "model", "name": "gemma-2-2b", "path": "google/gemma-2-2b"},
+        {"type": "sae", "name": "gemma-scope-l24-16k", "path": "gemma-scope-2b-pt-res/layer_24/width_16k/average_l0_71"},
+        {"type": "dataset", "name": "ravel", "path": "hij/ravel"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Probe degradation at >= 3 F1 levels completed. Absorption rate monotonically increases as F1 decreases. Slope comparison with first-letter documented."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Probe degradation: absorption vs F1 (city-continent vs first-letter overlay)",
+          "x": "probe_f1",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "phase3_rate_distortion_validation",
+      "name": "Phase 3.2: Rate-Distortion Three-Factor Predictor Validation (Optional)",
+      "description": "OPTIONAL: Test H9 -- per-pair absorption probability predicted by cos_sim(decoder_parent, decoder_child) x P(child|parent) / R(parent). (1) For each hierarchy, compute per-pair features: (a) cos_sim between parent and child decoder vectors, (b) co-occurrence P(child|parent) from training data statistics, (c) reconstruction importance R(parent) = MSE contribution. (2) Fit three-factor model on pooled data from all hierarchies. (3) Evaluate: Spearman rho on held-out pairs (leave-one-hierarchy-out cross-validation). (4) If rho > 0.5: genuine predictive power. If rho < 0.3: document as additional negative result alongside H4 and H5. Output: exp/results/phase3/rate_distortion_validation.json.",
+      "type": "experiment",
+      "candidate_id": "cand_crossdomain_causal_tax",
+      "depends_on": ["phase2_final_validation"],
+      "expected_output": "exp/results/phase3/rate_distortion_validation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "model", "name": "gemma-2-2b", "path": "google/gemma-2-2b"},
+        {"type": "sae", "name": "gemma-scope-l24-16k", "path": "gemma-scope-2b-pt-res/layer_24/width_16k/average_l0_71"},
+        {"type": "result", "name": "iter010_rate_distortion", "path": "iter_010/exp/results/phase2/rate_distortion_pooled.json"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Three-factor model fit completed. Spearman rho and p-value computed. If rho > 0.5: H9 supported. If rho < 0.3: negative result documented."
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Predicted vs. observed per-pair absorption probability",
+          "x": "predicted_absorption",
+          "y": "observed_absorption",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

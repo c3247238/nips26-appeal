@@ -1,0 +1,392 @@
+{
+  "tasks": [
+    {
+      "id": "pilot_h3_null",
+      "name": "Pilot H3: Replication with null controls",
+      "description": "Confirm H3 REVERSED finding with proper null controls. Use same 100 features from full_h3. Add: (1) shuffled feature directions (null baseline), (2) random unit vectors. Test alpha in {3, 10}. Verify: (1) null controls have near-zero effect, (2) high-absorption features still show higher sensitivity than low-absorption. Addresses evolution lesson about hedging classification bias.",
+      "type": "experiment",
+      "status": "pending",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/h3_null_control.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Null controls mean effect < 0.05 AND high-absorption effect > low-absorption effect at alpha in {3, 10}"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Steering effect by condition: high-absorption, low-absorption, shuffled, random",
+          "x": "Condition",
+          "y": "Mean Steering Effect",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter",
+          "description": "UAS vs steering sensitivity with null baseline (pilot)",
+          "x": "UAS",
+          "y": "Steering Sensitivity",
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gpt2-small",
+          "path": "pre-trained via HookedTransformer.from_pretrained"
+        },
+        {
+          "type": "sae",
+          "name": "gpt2-small-res-jb",
+          "path": "pre-trained via SAE.from_pretrained (SAELens)"
+        },
+        {
+          "type": "feature_set",
+          "name": "full_h3_100_features",
+          "path": "reuse feature indices from exp/results/full/full_h3.json"
+        }
+      ],
+      "notes": "Critical for validating H3 is not a measurement artifact. Addresses evolution lesson: hedging classification bias. Pilot target ~10 min."
+    },
+    {
+      "id": "full_h3_null",
+      "name": "Full H3: Null-controlled steering replication",
+      "description": "Full-scale replication of H3 reversal with proper null controls. Use same 100 features from full_h3. Test alpha in {1, 3, 5, 10, 20}. Include: shuffled directions, random unit vectors, and also test with alpha=5 specifically to replicate the original full_h3 result. Compute Spearman r for all conditions. Report 95% confidence intervals.",
+      "type": "experiment",
+      "status": "pending",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "pilot_h3_null"
+      ],
+      "expected_output": "exp/results/full/h3_null_control_full.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Null controls near-zero effect AND r > 0.2 between UAS and steering sensitivity"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "UAS vs steering sensitivity: full null-controlled replication",
+          "x": "UAS",
+          "y": "Steering Sensitivity",
+          "paper_section": "experiments",
+          "include_null_baseline": true
+        },
+        {
+          "type": "table",
+          "description": "Effect sizes by condition and alpha",
+          "columns": [
+            "Condition",
+            "alpha=3",
+            "alpha=5",
+            "alpha=10"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gpt2-small",
+          "path": "pre-trained via HookedTransformer.from_pretrained"
+        },
+        {
+          "type": "sae",
+          "name": "gpt2-small-res-jb",
+          "path": "pre-trained via SAE.from_pretrained (SAELens)"
+        },
+        {
+          "type": "feature_set",
+          "name": "full_h3_100_features",
+          "path": "reuse feature indices from exp/results/full/full_h3.json"
+        }
+      ],
+      "notes": "~45 min estimated due to multiple alpha values and null conditions. Addresses evolution lesson: hedging classification bias and H3 falsifiability."
+    },
+    {
+      "id": "full_h5_counterfact",
+      "name": "Full H5: CounterFact/TruthfulQA downstream evaluation",
+      "description": "Replace synthetic counterfactual pairs with CounterFact or TruthfulQA for causal task evaluation. Use 100 features (low/mid/high absorption). Evaluate on: (1) gender detection from names (simple), (2) TruthfulQA (causal reasoning). Compare absorption effect on both task types. Addresses evolution lesson: H5 pilot uses non-existent threshold and weak causal task.",
+      "type": "experiment",
+      "status": "pending",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/results/full/h5_counterfact_evaluation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Causal task AUC > 0.55 for at least one absorption bin AND task-dependence delta > 5%"
+      },
+      "visualizations": [
+        {
+          "type": "grouped_bar",
+          "description": "Downstream accuracy by absorption bin and task type (CounterFact/TruthfulQA)",
+          "x": "Absorption Bin",
+          "y": "AUC",
+          "groups": [
+            "Gender Detection",
+            "TruthfulQA"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gpt2-small",
+          "path": "pre-trained via HookedTransformer.from_pretrained"
+        },
+        {
+          "type": "sae",
+          "name": "gpt2-small-res-jb",
+          "path": "pre-trained via SAE.from_pretrained (SAELens)"
+        },
+        {
+          "type": "dataset",
+          "name": "TruthfulQA",
+          "path": "truthful_qa (HuggingFace)"
+        },
+        {
+          "type": "dataset",
+          "name": "CounterFact",
+          "path": "neelnanda/counterfactuals (HuggingFace)"
+        }
+      ],
+      "notes": "Addresses evolution lesson: H5 pilot causal task has near-random discriminability (AUC ~0.5). TruthfulQA is a real causal reasoning benchmark."
+    },
+    {
+      "id": "pilot_h1_gemma",
+      "name": "Pilot H1: Gemma-2B absorption atlas",
+      "description": "Attempt to load Gemma-2B SAEs from gemma-2b-res release. If HuggingFace gated, use Pythia-2B as fallback. Compute absorption scores at layers [4, 8, 12, 16, 20]. Quick check for layer-wise pattern.",
+      "type": "experiment",
+      "status": "completed",
+      "candidate_id": "cand_a",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/h1_gemma_pilot.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "SAE loads successfully AND absorption computed for at least 3 layers"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption score vs. layer for Gemma-2B",
+          "x": "Layer",
+          "y": "Absorption Score",
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b-it",
+          "path": "pre-trained via HookedTransformer.from_pretrained (may require HF token)"
+        },
+        {
+          "type": "sae",
+          "name": "gemma-2b-res",
+          "path": "pre-trained via SAE.from_pretrained (SAELens)"
+        }
+      ],
+      "notes": "Previous full_h1_gemma actually ran on GPT-2 due to Gemma gating. Need to confirm Gemma-2B availability or use Pythia-2B."
+    },
+    {
+      "id": "full_h3_gemma",
+      "name": "Full H3: Cross-model replication on Gemma-2B",
+      "description": "Replicate H3 REVERSED finding on Gemma-2B layer 12. Use same protocol as full_h3: 100 features (50 high UAS, 50 low UAS), multiple alpha values. Confirm that the positive correlation between UAS and steering sensitivity holds across model families.",
+      "type": "experiment",
+      "status": "pending",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "pilot_h1_gemma"
+      ],
+      "expected_output": "exp/results/full/h3_gemma_replication.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Spearman r > 0.2 between UAS and steering sensitivity on Gemma-2B"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "UAS vs steering sensitivity on Gemma-2B",
+          "x": "UAS",
+          "y": "Steering Sensitivity",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "multi_scatter",
+          "description": "GPT-2 vs Gemma-2B steering sensitivity comparison",
+          "x": "UAS",
+          "y": "Steering Sensitivity",
+          "groups": [
+            "GPT-2 Small",
+            "Gemma-2B"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b-it",
+          "path": "pre-trained via HookedTransformer.from_pretrained"
+        },
+        {
+          "type": "sae",
+          "name": "gemma-2b-res",
+          "path": "pre-trained via SAE.from_pretrained (SAELens)"
+        }
+      ],
+      "notes": "Addresses evolution lesson: H3 should be replicated across model families. Gemma-2B confirmation strengthens the central finding."
+    },
+    {
+      "id": "ablation_hub_interpretation",
+      "name": "Ablation: Hub feature interpretation for H3",
+      "description": "Investigate WHY high-absorption features are more steerable. Compute activation frequency, decoder norm, and cosine similarity with top-5 similar features for each of the 100 features in full_h3. Test hypothesis: absorbed features are hub-like (high activation frequency, high similarity with many others). Regression analysis: steering effect ~ activation_frequency + decoder_norm + cos_sim_variance.",
+      "type": "ablation",
+      "status": "pending",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "full_h3_null"
+      ],
+      "expected_output": "exp/results/full/hub_interpretation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Feature properties: activation frequency vs decoder norm vs steering effect",
+          "x": "Activation Frequency",
+          "y": "Decoder Norm",
+          "color": "Steering Effect",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "regression_table",
+          "description": "Regression: steering effect ~ hub features",
+          "columns": [
+            "Predictor",
+            "Coefficient",
+            "Std Error",
+            "p-value"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gpt2-small",
+          "path": "pre-trained via HookedTransformer.from_pretrained"
+        },
+        {
+          "type": "sae",
+          "name": "gpt2-small-res-jb",
+          "path": "pre-trained via SAE.from_pretrained (SAELens)"
+        },
+        {
+          "type": "feature_set",
+          "name": "full_h3_100_features",
+          "path": "reuse feature indices from exp/results/full/full_h3.json"
+        }
+      ],
+      "notes": "Addresses evolution lesson: paper claims absorbed features are hub-like but mechanism is proposed, not validated. This ablation tests the hub interpretation directly."
+    },
+    {
+      "id": "synthesis_results",
+      "name": "Synthesis: Compile results for paper writing",
+      "description": "Compile all experimental results into a unified results summary. Create: (1) main results table, (2) figure generation scripts, (3) statistical significance summaries, (4) effect size comparisons. Generate paper-ready figures and tables.",
+      "type": "analysis",
+      "status": "pending",
+      "candidate_id": "cand_a",
+      "depends_on": [
+        "full_h3_null",
+        "full_h5_counterfact",
+        "full_h3_gemma",
+        "ablation_hub_interpretation"
+      ],
+      "expected_output": "exp/results/synthesis/results_summary.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "none",
+      "estimated_minutes": 20,
+      "visualizations": [
+        {
+          "type": "composite_figure",
+          "description": "All main results in paper-ready format",
+          "panels": [
+            "Figure 1: H1 atlas",
+            "Figure 2: H2 mitigation",
+            "Figure 3: H3 steering",
+            "Figure 4: H4 UAS",
+            "Figure 5: H5 downstream"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "notes": "This is the final data compilation step before writing. Should produce all figures and tables needed for the paper."
+    }
+  ],
+  "shared_resources": [
+    {
+      "type": "model",
+      "name": "gpt2-small",
+      "path": "pre-trained via HookedTransformer.from_pretrained('gpt2-small')"
+    },
+    {
+      "type": "model",
+      "name": "gemma-2-2b-it",
+      "path": "pre-trained via HookedTransformer.from_pretrained('gemma-2-2b-it')"
+    },
+    {
+      "type": "sae",
+      "name": "gpt2-small-res-jb",
+      "path": "pre-trained via SAE.from_pretrained(release='gpt2-small-res-jb', sae_id='blocks.{layer}.hook_resid_pre')"
+    },
+    {
+      "type": "sae",
+      "name": "gemma-2b-res",
+      "path": "pre-trained via SAE.from_pretrained(release='gemma-2b-res', sae_id='blocks.{layer}.hook_resid_pre')"
+    },
+    {
+      "type": "dataset",
+      "name": "pile-uncopyrighted",
+      "path": "monology/pile-uncopyrighted (HuggingFace)"
+    },
+    {
+      "type": "dataset",
+      "name": "TruthfulQA",
+      "path": "truthful_qa (HuggingFace)"
+    },
+    {
+      "type": "dataset",
+      "name": "CounterFact",
+      "path": "neelnanda/counterfactuals (HuggingFace)"
+    }
+  ],
+  "notes": "Next iteration focus: (1) H3 null control replication to validate central finding, (2) H5 with real causal QA (TruthfulQA), (3) Gemma-2B cross-model replication, (4) hub mechanism ablation. Total estimated: ~3 GPU-hours. Key finding: H3 REVERSED \u2014 high-absorption features show HIGHER steering sensitivity (r=+0.35). Previous completed experiments: pilot_h1_h4, full_h1_gpt2, full_h2, full_h3, h4_uas_dev, full_h4, ablation_ortho_lambda, ablation_l1_sparsity, full_h5 (pending review)."
+}

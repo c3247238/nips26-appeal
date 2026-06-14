@@ -1,0 +1,138 @@
+{
+  "tasks": [
+    {
+      "id": "e1_fano_factor_control",
+      "name": "Fano Factor Control for CV Mechanism Validation",
+      "description": "Verify CV is not purely a magnitude proxy. Compute Fano factor (CV^2/mean) per feature and test whether CV remains predictive of steering after controlling for activation magnitude. This tests the rate-distortion theory mechanism.",
+      "type": "experiment",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [],
+      "expected_output": "exp/results/e1_fano_factor_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "CV vs steering effect colored by Fano factor",
+          "columns": ["cv", "steering_effect", "fano_factor"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Regression results: CV and Fano factor predict steering",
+          "columns": ["predictor", "coefficient", "p_value", "significant"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "CV remains significant predictor after Fano factor control (p < 0.01)"
+      }
+    },
+    {
+      "id": "e2_non_absorbed_baseline",
+      "name": "Non-Absorbed Baseline Comparison",
+      "description": "Compare steering effects between absorbed high-CV features and non-absorbed features. Contextualizes absolute steering magnitude and determines if 'robust absorbed' is comparable to non-absorbed or still degraded.",
+      "type": "experiment",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [],
+      "expected_output": "exp/results/e2_non_absorbed_baseline_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Steering effects: high-CV absorbed vs low-CV absorbed vs non-absorbed",
+          "columns": ["feature_group", "mean_effect", "std"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorbed high-CV steering effect > 50% of non-absorbed effect"
+      }
+    },
+    {
+      "id": "e3_cross_architecture_gemma",
+      "name": "Cross-Architecture Validation on Gemma-2-2B",
+      "description": "Test whether CV-steering correlation generalizes across architectures. Use Gemma-2-2B JumpReLU SAE with architecture-specific median CV split. Replicates E1-E2 protocol on different architecture.",
+      "type": "experiment",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [],
+      "expected_output": "exp/results/e3_cross_architecture_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Cross-architecture comparison: GPT-2 vs Gemma-2 steering effects",
+          "columns": ["architecture", "high_cv_effect", "low_cv_effect", "ratio", "p_value"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Effect ratio comparison across architectures",
+          "columns": ["architecture", "effect_ratio", "p_value"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "CV effect replicates on Gemma-2 with p < 0.05"
+      }
+    },
+    {
+      "id": "e4_held_out_activation_patching",
+      "name": "Held-Out Activation Patching Validation",
+      "description": "Validate activation patching results on held-out words (not the 9 core words from pilot). Tests whether the 67.3% mean recovery is specific to the chosen words or a general property.",
+      "type": "experiment",
+      "candidate_id": "cand_cv_actionability",
+      "depends_on": [],
+      "expected_output": "exp/results/e4_held_out_patching_results.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Recovery rates: pilot core words vs held-out words",
+          "columns": ["word_set", "mean_recovery", "std", "n_words"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Mean recovery > 30% on held-out words"
+      }
+    }
+  ],
+  "summary": {
+    "total_tasks": 4,
+    "total_estimated_minutes": 120,
+    "total_gpu_hours": 2.0,
+    "validation_focus": "CV-steering correlation mechanism validation and cross-architecture generalization",
+    "key_questions": [
+      "Is CV predictive after controlling for magnitude (Fano factor)?",
+      "How do absorbed features compare to non-absorbed baseline?",
+      "Does CV effect generalize to Gemma-2 JumpReLU SAEs?",
+      "Are activation patching results generalizable beyond pilot words?"
+    ]
+  },
+  "candidate_id": "cand_cv_actionability",
+  "planning_detail": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_seconds": 900
+  }
+}

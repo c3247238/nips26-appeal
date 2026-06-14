@@ -1,0 +1,22 @@
+# 1. Introduction
+
+Sparse Autoencoders (SAEs) decompose the activations of large language models into sparse, interpretable features, enabling mechanistic interpretability at scale \citep{bricken2023monosemanticity,cunningham2023sparse}. A key failure mode of this approach is **feature absorption**: a child feature $c$ absorbs the activation budget of a semantically related parent feature $p$, causing $p$ to fail to fire on inputs where it should activate \citep{chanin2024absorption}. Absorption compromises downstream analyses that rely on SAE features to localize model computations: if the parent feature is silenced by an absorbing child, any circuit-level analysis that traces information flow through $p$ will be systematically wrong.
+
+Two mechanistic accounts offer competing explanations for why absorption occurs, with opposite implications for practitioners:
+
+\textbf{Amortization gap hypothesis} \citep{oneill2024amortization}: The feedforward encoder is a compressed approximation of optimal sparse inference. Because SAE encoders share weights across all latents, absorbed features are those where the amortized approximation diverges most from the optimal per-token sparse code. Under this account, replacing the feedforward encoder with an iterative solver (e.g., Orthogonal Matching Pursuit) at the same sparsity level should significantly reduce absorption. The fix is \emph{inference-time}: better encoders.
+
+\textbf{Sparsity landscape hypothesis} \citep{tang2025partial}: Absorption arises from stable partial minima of the biconvex sparse dictionary learning (SDL) loss. When a child feature $c$ fires frequently in contexts that also activate $p$, the sparsity gradient from $c$'s activations persistently pushes $p$'s encoder direction away from its decoder direction. This creates a training-time attractor that no amount of improved inference-time encoding can escape. The fix is \emph{training-time}: different objectives or dictionary structure.
+
+Choosing between these accounts is not merely academic. Under the amortization gap account, absorption can be mitigated by deploying iterative solvers during inference — computationally expensive but tractable. Under the sparsity landscape account, iterative solvers are irrelevant; only changes to training objectives, dictionary design, or model architecture can help.
+
+\textbf{This paper reports a controlled experiment that resolves this debate.} We fix a pre-trained SAE decoder and vary the encoding method, comparing feedforward encoding against an OMP oracle at matched sparsity ($K = 53$). If the amortization gap is the dominant cause of absorption, OMP should substantially reduce the absorption rate; if the sparsity landscape is dominant, OMP and feedforward should produce indistinguishable absorption rates. Our result is decisive: OMP achieves a $0\%$ absorption reduction relative to feedforward encoding across all tested features (absorption rate ratio $= 1.000$), falsifying the amortization gap hypothesis.
+
+As a byproduct of this investigation, we introduce the \textbf{encoder weight norm} ($\|\mathbf{w}_{e,j}\|_2$) as a weight-only absorption indicator, achieving AUROC $= 0.757$ on GPT-2-small at layer 6 with exact Chanin et al.~labels (DeLong test vs.\ EDA: $p = 0.0012$). Encoder weight norm does not require activation data or probe directions; it can screen an entire 65k-width SAE in under one second. We also show that co-occurrence Jaccard overlap ($O_\text{Jaccard}$, AUROC $= 0.721$) provides a near-uncorrelated complementary signal ($\rho = 0.044$), enabling a two-signal audit approach. Finally, a successive-refinement analysis (F1) shows that 67\% of absorbed features have corresponding directions in a wider (32k) SAE, but 33\% do not, confirming that width expansion partially but incompletely remediates absorption.
+
+Our contributions are:
+\begin{enumerate}
+    \item \textbf{Mechanistic}: The first controlled experiment adjudicating amortization gap vs.\ sparsity landscape as dominant absorption cause. OMP oracle falsifies the amortization gap hypothesis; sparsity landscape (Tang et al.) is supported.
+    \item \textbf{Methodological}: Encoder weight norm, a weight-only absorption heuristic (AUROC $= 0.757$--$0.837$) that outperforms EDA (AUROC $= 0.650$) and requires no activation data.
+    \item \textbf{Practical}: Evidence that 33\% of absorbed features require training-time interventions; wider dictionaries alone do not resolve absorption.
+\end{enumerate}

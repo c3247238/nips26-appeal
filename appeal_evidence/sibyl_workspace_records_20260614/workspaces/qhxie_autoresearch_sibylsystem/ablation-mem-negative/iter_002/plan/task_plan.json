@@ -1,0 +1,274 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "description": "Install SAELens, TransformerLens, and verify GPU access. Verify pre-trained SAE loading for GPT-2 Small.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "current/exp/logs/setup_complete.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [],
+      "visualizations": []
+    },
+    {
+      "id": "e1_uad_random_baseline",
+      "name": "E1: UAD with Random Baseline",
+      "description": "Run UAD on GPT-2 Small layer 8 and compute random baseline F1. Randomly select N pairs (where N = same-cluster pairs found by UAD) 100 times. Report UAD F1 vs random baseline F1, delta, and permutation test p-value. Target: UAD F1 - Random F1 >= 0.3.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "current/exp/results/full/e1_uad_random_baseline_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "UAD F1 vs Random Baseline F1",
+          "x": "method",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e2_uad_ablations",
+      "name": "E2: UAD Ablation Studies",
+      "description": "Test 5 UAD ablations: (A1) no clustering - pure co-occurrence thresholding, (A2) no phi coefficient - raw co-occurrence counts, (A3) no dead feature filter - include all features, (A4) single-link clustering, (A5) K-means clustering. Compare F1, precision, recall per variant. Target: Full UAD F1 >= 0.6, each ablation shows measurable degradation.",
+      "type": "ablation",
+      "depends_on": ["e1_uad_random_baseline"],
+      "expected_output": "current/exp/results/full/e2_uad_ablations_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "UAD ablation results: F1 per variant",
+          "x": "ablation_variant",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e3_cross_layer",
+      "name": "E3: UAD Cross-Layer Validation",
+      "description": "Run UAD on GPT-2 Small layers 4, 8, 10 individually. Report F1 per layer separately (no averaging). Analyze feature activity and supervised label counts per layer. Target: layer 8 F1 >= 0.6, layer 10 F1 >= 0.5. Layer 4 may be lower - report honestly.",
+      "type": "experiment",
+      "depends_on": ["e1_uad_random_baseline"],
+      "expected_output": "current/exp/results/full/e3_cross_layer_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Cross-layer F1 per layer (individual bars)",
+          "x": "layer",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e4_false_positive_analysis",
+      "name": "E4: False Positive Analysis",
+      "description": "Analyze false positive pairs from UAD on layer 8. Classify each FP into categories: topical co-occurrence, shared super-absorber, random. Report phi coefficients and marginal frequencies. Suggest post-hoc filters. Target: identify dominant FP pattern and propose filter.",
+      "type": "analysis",
+      "depends_on": ["e1_uad_random_baseline"],
+      "expected_output": "current/exp/results/full/e4_false_positive_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "stacked_bar_chart",
+          "description": "False positive categorization breakdown",
+          "x": "category",
+          "y": "count",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e5_statistical_testing",
+      "name": "E5: Statistical Significance Testing",
+      "description": "Add statistical rigor to UAD F1 claim. Bootstrap CI: resample examples with replacement 1000 times, compute F1 distribution. Permutation test: shuffle cluster assignments, compute null F1 distribution. Report 95% CI and p-value. Target: 95% CI lower bound >= 0.5, p < 0.05.",
+      "type": "analysis",
+      "depends_on": ["e1_uad_random_baseline"],
+      "expected_output": "current/exp/results/full/e5_statistical_testing_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "Bootstrap F1 distribution with 95% CI marked",
+          "x": "f1_score",
+          "y": "frequency",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e6_dfda_parent_positive",
+      "name": "E6: DFDA with Parent-Positive Evaluation",
+      "description": "Rebuild DFDA evaluation using parent-positive protocol. For each absorbed pair, collect examples where parent SHOULD activate (based on ground truth). Train MLP to predict parent from child. Evaluate on parent-positive examples. Baselines: no-compensation, random residual, mean-prediction. Target: parent-positive MSE improvement > 20%. If < 5%, drop DFDA from paper.",
+      "type": "experiment",
+      "depends_on": ["e1_uad_random_baseline"],
+      "expected_output": "current/exp/results/full/e6_dfda_parent_positive_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "DFDA parent-positive recovery per pair with baselines",
+          "x": "pair_id",
+          "y": "mse_improvement_pct",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "DFDA per-pair parent-positive results",
+          "columns": ["pair", "baseline_mse", "compensated_mse", "improvement_pct", "n_params"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e7_correlation_metrics",
+      "name": "E7: UAD with Alternative Correlation Metrics",
+      "description": "Test UAD with alternative correlation metrics: Pearson correlation, mutual information (discretized), Jaccard similarity, pointwise mutual information (PMI). Compare F1, precision, recall across metrics. Target: phi coefficient achieves highest or near-highest F1.",
+      "type": "ablation",
+      "depends_on": ["e2_uad_ablations"],
+      "expected_output": "current/exp/results/full/e7_correlation_metrics_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "openwebtext_10k",
+          "path": "shared/datasets/openwebtext_10k"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "UAD F1 across correlation metrics",
+          "x": "correlation_metric",
+          "y": "f1_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "baseline_random",
+      "name": "Baseline: Random Pair Selection",
+      "description": "Compute F1 of random feature pair selection as null model for UAD. Run 100 random selections, report mean F1, precision, recall. This is the core baseline for E1.",
+      "type": "baseline",
+      "depends_on": ["setup_env"],
+      "expected_output": "current/exp/results/baselines/random_pair_results.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": []
+    },
+    {
+      "id": "baseline_random_residual",
+      "name": "Baseline: Random Residual Injection",
+      "description": "Inject random residuals (instead of MLP-predicted) into parent features. Measure parent-positive MSE change as control for DFDA.",
+      "type": "baseline",
+      "depends_on": ["e6_dfda_parent_positive"],
+      "expected_output": "current/exp/results/baselines/random_residual_results.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": []
+    },
+    {
+      "id": "analysis_main",
+      "name": "Main Results Analysis",
+      "description": "Aggregate all UAD results (E1-E5, E7), random baseline, and ablations. Generate main result tables and figures. Compute effect sizes and summarize contributions.",
+      "type": "analysis",
+      "depends_on": ["e1_uad_random_baseline", "e2_uad_ablations", "e3_cross_layer", "e4_false_positive_analysis", "e5_statistical_testing", "e7_correlation_metrics"],
+      "expected_output": "current/exp/results/analysis/main_analysis.json",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main results comparison table",
+          "columns": ["Experiment", "F1", "Precision", "Recall", "Notes"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "analysis_dfda",
+      "name": "DFDA Results Analysis",
+      "description": "Aggregate DFDA parent-positive results (E6) and baselines. Determine whether DFDA meets threshold for inclusion in paper. Generate DFDA figures.",
+      "type": "analysis",
+      "depends_on": ["e6_dfda_parent_positive", "baseline_random_residual"],
+      "expected_output": "current/exp/results/analysis/dfda_analysis.json",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "DFDA parent-positive summary",
+          "columns": ["Pair", "Baseline_MSE", "Compensated_MSE", "Improvement_Pct", "Included"],
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

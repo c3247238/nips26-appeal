@@ -1,0 +1,121 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Table 3 confidence intervals are mathematically impossible. In 5 of 7 rows, the 95% CI lower bound exceeds the point estimate (e.g., F1=0.70: absorption=36.1%, CI=[37.9%, 42.1%]). The source JSON confirms the mismatch: absorption_rate=0.3614 but ci_lower=0.3789. The point estimate uses per-token aggregation while the bootstrap CI appears to use per-word aggregation. This is never documented or reconciled. A confidence interval that does not contain its point estimate is a fundamental statistical error that would trigger immediate rejection.",
+    "suggestion": "Recompute all CIs using the same aggregation method as the point estimates (per-token). If per-word CIs are intentional, present matching per-word point estimates alongside per-token values and document the methodological choice. This is a zero-GPU fix that must be completed before any submission."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Cross-domain activation patching data provenance is unverified. The sign reversal from d=-0.91 (iter_009 pilot, classified as FAILED) to d=+1.50 (iter_009 corrected FULL) is the paper's single biggest vulnerability. The phase0_data_integrity check was explicitly 'skipped for speed.' No independent spot-check has been performed. The paper's entire 'universal mechanism' claim (contribution #2) rests on this corrected data. A reviewer who discovers the sign reversal history will question reliability.",
+    "suggestion": "Run a 20-entity spot-check: re-execute city-continent activation patching on 20 randomly selected entities and verify recovery rate is consistent with the claimed 61.9%. Document the spot-check and the bug fix. Budget: 0.5 GPU-hours. This is the single highest-ROI verification task remaining."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Probe degradation curve extrapolation from first-letter to RAVEL is methodologically questionable. The curve is constructed by injecting Gaussian noise into first-letter binary (one-vs-rest) probe weights, then extrapolated to predict absorption for RAVEL multi-class probes with fundamentally different failure modes (6-77 classes, imbalanced distributions, compound labels, genuine class confusion). The claim that city-continent 'matches the curve within 0.6 pp' assumes domain-transferable probe degradation dynamics. No cross-domain probe degradation validation was performed.",
+    "suggestion": "Either (a) run city-continent probe degradation (degrade city-continent probes to 3-4 F1 levels, measure absorption -- 1 GPU-hour) to validate domain-transferability, or (b) reframe Section 4.6 claims from 'quantitative decomposition of cross-domain variation' to 'directional evidence that probe quality is a major confound.' Option (b) is zero-cost and sufficient for the paper's narrative."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "critical",
+    "description": "Three different first-letter L24 16k absorption rates coexist in the workspace: 27.1% (iter_009, per-word), 21.6% (iter_010 probe degradation F1=1.0 control, per-token), and 34.5% (per-unique-word from earlier). The paper uses 27.1% as canonical in Table 2 but 21.6% in the probe degradation section (Table 3). The 21.6% control falls BELOW Table 2's CI [26.3%, 34.7%]. No single authoritative aggregation method is defined.",
+    "suggestion": "Choose per-token as the canonical aggregation method (each token is an independent observation). Recompute ALL absorption rates across ALL hierarchies using this single method. Document the choice prominently in Section 3.2. Report per-word sensitivity analysis in an appendix."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "critical",
+    "description": "The paper's stated primary contribution -- cross-domain absorption characterization -- is substantially undermined by its own probe degradation result. H10 shows that 2 of 3 RAVEL hierarchies' absorption rates are explained by probe quality confounds. Yet the abstract, introduction, and conclusion still frame cross-domain characterization as contribution #1, and the '4.1x range' remains the headline figure.",
+    "suggestion": "Restructure contributions: (1) probe degradation methodology, (2) universal causal mechanism, (3) cross-domain characterization as context. Replace '4.1x' with '2.7x' quality-gated range."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "City-country (highest-absorption hierarchy at 45.1%) excluded from activation patching without explanation.",
+    "suggestion": "Run city-country patching (0.5 GPU-hours) or add explicit exclusion rationale citing probe quality below gate."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Figure 4 layer mismatch: Panel 1 (first-letter) at L12, Panels 2-3 (city-continent, city-language) at L24. Unexplained in caption.",
+    "suggestion": "Re-run first-letter patching at L24 for the figure, or add prominent caption note explaining the difference."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Layer multiplier inconsistency: Section 4.2 says '26x', Discussion 7.4 says '15x', proposal says '15x (0.7% to 42.9%)'. Three different multipliers for the same phenomenon.",
+    "suggestion": "Compute from authoritative source data. Use one consistent number throughout."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Probe degradation R^2=0.777 on 7 points with 2 parameters; quadratic R^2=0.942 on 7 points with 3 parameters. High overfitting risk for quantitative extrapolation.",
+    "suggestion": "Present linear fit as primary, quadratic as exploratory. Emphasize perfect monotonicity (rho=-1.0) over R^2."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "Activation patching results appear in full numerical detail in four locations: Sections 5.1, 5.2, 7.2, and 8.",
+    "suggestion": "Full detail in Section 5 only. Summary references in Sections 7 and 8."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Figure 5 caption-figure mismatch and N count discrepancy (1471 vs 1464).",
+    "suggestion": "Re-render with both distributions visible. Reconcile N counts."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "The '4.1x' headline is stale: 45.1/11.6 = 3.89x, not 4.1x. Appears in 5+ locations.",
+    "suggestion": "Recalculate and use 3.9x or 2.7x (quality-gated)."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "validate_integration.py recommended for 10 iterations, never implemented. At least 5 numerical inconsistencies would have been caught.",
+    "suggestion": "Implement automated cross-check script. Estimated: 2 hours CPU."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "minor",
+    "description": "Figure 6 p-value (p=0.063) disagrees with text (p=0.041).",
+    "suggestion": "Reconcile figure annotation with ANOVA result."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "SAEBench contains both absorption and RAVEL metrics. Conceptual leap to combine them is relatively small.",
+    "suggestion": "Acknowledge dual inclusion in Related Work. Execute submission promptly."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Abstract packs ~15 quantitative results into ~290 words.",
+    "suggestion": "Reduce to 5-7 key numbers."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "Code availability not mentioned.",
+    "suggestion": "Add code availability statement."
+  }
+]

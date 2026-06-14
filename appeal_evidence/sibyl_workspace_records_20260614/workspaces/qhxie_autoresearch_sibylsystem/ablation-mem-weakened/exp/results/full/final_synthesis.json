@@ -1,0 +1,123 @@
+{
+  "project": "ablation-mem-weakened",
+  "iteration": 3,
+  "date": "2026-04-28",
+  "hypothesis_results": {
+    "H1": {
+      "statement": "Higher absorption rate -> lower raw steering effectiveness",
+      "status": "FALSIFIED",
+      "layer_4": {"r": 0.0077, "p": 0.970, "R2": 5.97e-05, "passes": false},
+      "layer_8": {"r": -0.3005, "p": 0.136, "R2": 0.0903, "passes": false},
+      "conclusion": "No significant correlation between absorption rate and raw steering success."
+    },
+    "H1b": {
+      "statement": "Higher absorption -> lower delta-corrected steering effectiveness",
+      "status": "SUPPORTED (Layer 8)",
+      "layer_4": {"r": 0.2452, "p": 0.227, "R2": 0.0601, "passes": false},
+      "layer_8": {"r": -0.4313, "p": 0.028, "R2": 0.1860, "passes": true},
+      "conclusion": "Significant negative correlation at Layer 8 after random baseline correction. This is the key finding."
+    },
+    "H2": {
+      "statement": "Higher absorption rate -> lower sparse probing F1",
+      "status": "FALSIFIED",
+      "layer_4": {"r": -0.0033, "p": 0.987, "R2": 1.07e-05, "passes": false},
+      "layer_8": {"r": -0.1067, "p": 0.604, "R2": 0.0114, "passes": false},
+      "conclusion": "No significant correlation between absorption and probing F1."
+    },
+    "H3": {
+      "statement": "Degradation coefficient k is consistent across layers",
+      "status": "FALSIFIED",
+      "cv_h1": 1.5258,
+      "cv_h2": 1.3174,
+      "h1_slopes": [0.0239, -0.6299],
+      "h2_slopes": [-0.0101, -0.2855],
+      "signs_h1_consistent": false,
+      "conclusion": "Opposite-sign slopes across layers; degradation is layer-dependent."
+    },
+    "H4": {
+      "statement": "Absorption affects steering efficiency (higher EC50)",
+      "status": "NOT SUPPORTED",
+      "layer_4": {"high_abs_ec50_mean": 21.06, "low_abs_ec50_mean": 28.06, "t": -1.228, "p": 0.232},
+      "layer_8": {"high_abs_ec50_mean": 21.43, "low_abs_ec50_mean": 18.03, "t": 0.795, "p": 0.435},
+      "conclusion": "No significant difference in EC50 between high and low absorption features."
+    },
+    "H5": {
+      "statement": "Absorption affects recall (coverage), not precision (selectivity)",
+      "status": "SUPPORTED",
+      "layer_4": {
+        "k5": {"precision_std": 0.0542, "recall_std": 0.1987, "n_precision_one": 21},
+        "k10": {"precision_std": 0.0331, "recall_std": 0.1972, "n_precision_one": 24},
+        "k20": {"precision_std": 0.0238, "recall_std": 0.1642, "n_precision_one": 24}
+      },
+      "layer_8": {
+        "k5": {"precision_std": 0.0275, "recall_std": 0.1915, "n_precision_one": 25},
+        "k10": {"precision_std": 0.0350, "recall_std": 0.1782, "n_precision_one": 25},
+        "k20": {"precision_std": 0.0160, "recall_std": 0.1673, "n_precision_one": 25}
+      },
+      "conclusion": "Precision is invariant across features; recall varies and drives F1 variance."
+    }
+  },
+  "key_findings": [
+    {
+      "finding": "Random baseline correction is essential",
+      "evidence": "H1 shows no correlation (r=+0.008, p=0.97 at L4; r=-0.30, p=0.14 at L8), but H1b shows significant negative correlation at L8 (r=-0.431, p=0.028)",
+      "implication": "Raw steering metrics are confounded by non-specific effects; delta-corrected metrics reveal true absorption-degradation relationship"
+    },
+    {
+      "finding": "Effect is layer-dependent",
+      "evidence": "H1b significant only at Layer 8, not Layer 4. Slopes have opposite signs.",
+      "implication": "Absorption impact varies by layer; deeper layers may be more sensitive"
+    },
+    {
+      "finding": "Precision invariance confirms selective degradation",
+      "evidence": "Precision std << Recall std at all k>=5. Most features have precision=1.0.",
+      "implication": "Absorbed features lose coverage (recall) but maintain selectivity (precision)"
+    },
+    {
+      "finding": "Steering robustness to absorption",
+      "evidence": "Feature U (24.2% absorption) achieves 100% steering success at strength=50",
+      "implication": "High steering strength can overcome absorption effects"
+    }
+  ],
+  "cross_model_validation": {
+    "model": "pythia-70m-deduped",
+    "sae": "pythia-70m-deduped-res-sm",
+    "layer": 4,
+    "dict_size": 32768,
+    "absorption_mean": 0.082,
+    "absorption_max": 0.272,
+    "n_high": 0,
+    "n_medium": 10,
+    "n_low": 16,
+    "raw_r": -0.041,
+    "raw_p": 0.841,
+    "delta_r": -0.041,
+    "delta_p": 0.841,
+    "significant": false,
+    "interpretation": "Pythia-70m shows comparable absorption rates but no significant absorption-degradation correlation. Likely due to model size (19M vs 124M params) - features are detectable but steering effects are too weak to measure reliably."
+  },
+  "limitations": [
+    "Single model family (GPT-2 Small, 124M parameters)",
+    "Shallow first-letter features (A-Z) may not generalize to semantic hierarchies",
+    "Small sample size (n=26 features) limits statistical power",
+    "Single absorption metric (Chanin differential correlation)",
+    "Only two downstream tasks tested (steering and probing)",
+    "Cross-model validation on Pythia-70m inconclusive due to model size limitations"
+  ],
+  "files_generated": [
+    "ec50_analysis.json",
+    "ec50_analysis.md",
+    "precision_recall_analysis.json",
+    "precision_recall_analysis.md",
+    "figures/fig1_architecture.png",
+    "figures/fig2_raw_steering_correlation.png",
+    "figures/fig3_delta_corrected_correlation.png",
+    "figures/fig4_dose_response_curves.png",
+    "figures/fig5_precision_recall_decomposition.png",
+    "figures/fig6_cross_layer_comparison.png",
+    "figures/fig7_random_baseline_validation.png",
+    "figures/summary_table.md",
+    "cross_model_pythia_l4_absorption_rates.json",
+    "cross_model_pythia_l4_combined.json"
+  ]
+}

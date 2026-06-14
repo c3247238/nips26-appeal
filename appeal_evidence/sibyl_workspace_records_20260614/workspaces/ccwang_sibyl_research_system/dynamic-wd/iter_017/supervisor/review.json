@@ -1,0 +1,126 @@
+{
+  "score": 7.0,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 6.5,
+    "soundness": 7,
+    "experiments": 7,
+    "reproducibility": 7
+  },
+  "summary": "Iter_017 applies targeted fixes to the iter_016 paper: the LR schedule description is corrected from 'cosine annealing' to 'step decay (10x reduction at epoch 30),' the lambda value is consistently stated as 1e-4 throughout, the future work numbering skip ('Fifth' with no 'Fourth') is fixed, and the cross-dataset figure now explicitly labels '45 epochs.' These are genuine improvements over iter_016. However, none of the iter_016 critical or major issues that would raise the score have been addressed: the effective WD inflation confound remains uncontrolled (no budget-matched FixedWD experiment), no AdamW experiments exist, the 45-epoch ImageNet regime still does not state the epoch count in the Experimental Setup section (only visible in the figure subtitle and a passing mention in Section 5.3 about CWD), EqWD is still missing from the CIFAR-10 table, Proposition 2 has been improved (downgraded to 'Empirical Observation') but the AIS validation remains CIFAR-only, the beta=5.0 single-seed claim is not multi-seed validated, and the ratio trajectory figure still contradicts the 'layer heterogeneity' narrative. The paper's quality ceiling at 7.0 is fundamentally experimental, not editorial: it requires new experiments (budget-matched FixedWD, AdamW, CIFAR-10 EqWD, multi-seed beta=5.0) to break through.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "EFFECTIVE WD INFLATION CONFOUND STILL UNCONTROLLED (RECURRING FROM ITER_016): EqWD's phi_l(t) >= 1 means it systematically applies more total weight decay than FixedWD with the same lambda_base. The +0.38% ImageNet improvement could be entirely explained by higher effective regularization, not adaptive modulation. The paper acknowledges this in Section 5.6 (Limitations) and lists it as future work in the Conclusion, but the control experiment has never been run. This was flagged as critical in iter_016 and in the reflection's 'Must Improve' P0 list. The experiment costs ~9 GPU-hours and determines whether the paper's central claim ('adaptive per-layer modulation improves generalization') is valid or whether the real mechanism is simply 'more weight decay is better.' This confound makes the paper's core contribution unfalsifiable.",
+      "suggestion": "Measure the average effective lambda over EqWD training (from logged ratio trajectories or by re-running with logging). Run FixedWD at that average effective lambda with 3 seeds on ImageNet. If FixedWD at higher lambda matches EqWD (72.27%), the narrative must shift to 'EqWD automatically discovers optimal WD strength.' If EqWD still wins, the adaptive modulation claim is validated. Cost: ~9 GPU-hours. Priority: P0 -- do this before any other work."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "45-EPOCH IMAGENET NOT STATED IN EXPERIMENTAL SETUP (PARTIALLY FIXED FROM ITER_016): The cross-dataset figure now correctly labels '45 epochs' in its subtitle, and Section 5.3 mentions 'our 45-epoch training regime' in passing (line 989). However, the Experimental Setup section (Section 4.1) -- where readers look for training configuration -- still says only 'adopting an efficient training regime' without stating the epoch count. The Appendix also omits it. A reviewer reading Section 4.1 and the Appendix will not know the epoch count. Standard ImageNet ResNet-50 training uses 90 epochs reaching ~76%; the paper's 72.27% in 45 epochs needs explicit disclosure to avoid misleading readers about absolute performance levels.",
+      "suggestion": "Add '(45 epochs total)' to the ImageNet training description in Section 4.1, immediately after 'step decay (10x reduction at epoch 30)'. Also add it to the Appendix training configuration. This is a zero-cost fix."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "NO ADAMW EXPERIMENTS (RECURRING FROM ITER_016): The paper uses SGDW exclusively. In 2026, AdamW is the dominant optimizer for virtually all transformer and many CNN pipelines. The Limitations section acknowledges this, but a NeurIPS reviewer will demand at least preliminary evidence. The ratio r_t = ||g_t|| / ||w_t|| is well-defined for AdamW, and the EMA tracking mechanism is optimizer-agnostic, so there is no theoretical barrier to testing.",
+      "suggestion": "Run one AdamW + EqWD experiment on CIFAR-100/ResNet-20 (3 seeds, ~30 min). If EqWD works with AdamW, this dramatically strengthens practical relevance. If it fails, that is equally informative and should be reported honestly."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "CIFAR-10 TABLE STILL MISSING EqWD (RECURRING FROM ITER_016): Table 7 (CIFAR-10 diagnostic, Section 5.7) lists CPR, FixedWD, DefazioCorrective, SWD, CWD, NoWD but does NOT include EqWD or CAWD. The paper's proposed method is absent from one of its three benchmark tables. Additionally, 'DefazioCorrective' appears only in this table and is not defined in the baselines or method sections, making it an inconsistent relic from the previous paper framing.",
+      "suggestion": "Run EqWD and CAWD on CIFAR-10 (3 seeds, 200 epochs, ~0.5 GPU-hours each). Add them to Table 7. Either replace DefazioCorrective with a properly defined baseline or add a footnote defining it. Cost: ~1 GPU-hour total."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "BETA=5.0 SINGLE-SEED CLAIM STILL UNVALIDATED (RECURRING FROM ITER_016): The paper reports beta=5.0 achieving 66.07% on CIFAR-100 (single seed) and uses this to argue 'substantial headroom for task-specific tuning.' The multi-seed EqWD default (beta=1.0) achieves 65.05%. A 1.02% gap between single-seed and multi-seed results is suspicious and could easily be variance. The paper explicitly notes 'multi-seed validation of beta=5.0 on CIFAR-100 is needed' but has not done it. The reflection identified this as an easy win (~30 min) but it remains undone.",
+      "suggestion": "Run beta=5.0 with 3 seeds on CIFAR-100. If the mean holds above 65.5%, promote it. If it drops to ~65%, remove the '66.07%' claim or heavily caveat it. Cost: ~30 min."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "RATIO SUFFICIENCY (AIS) VALIDATED ONLY ON CIFAR, NOT IMAGENET (RECURRING FROM ITER_016): The paper claims ratio sufficiency based on AIS measured on 'CIFAR-100/ResNet-20 and VGG-16-BN' (Section 3.3). But EqWD's primary advantage is on ImageNet, not CIFAR-100. Validating norm-sufficiency on the benchmark where EqWD does NOT decisively win does not support the sufficiency claim where it matters. The paper now correctly labels this as an 'Empirical Observation' (improved from 'Proposition 2' in previous framing), but the evidence gap remains.",
+      "suggestion": "Run the AIS diagnostic on ImageNet/ResNet-50 (at least a representative subset of layers, possibly from a single seed). If AIS is near zero on ImageNet, Contribution 3 is substantially strengthened. Cost: ~3 GPU-hours."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "WD HEATMAP LAMBDA VALUES INCONSISTENT WITH STATED LAMBDA_BASE: The WD heatmap (Figure 5) shows effective per-layer weight decay lambda_t in the range 0.00052-0.00062 (5.2e-4 to 6.2e-4). With lambda_base = 1e-4 (as stated in the paper), the modulation factor phi_l(t) would need to be 5.2-6.2x, which is a very large modulation. This is inconsistent with the paper's claim that 'the modulation factor phi_l(t) rarely exceeds 1.1' on CIFAR-100 (Section 5.1). Either (a) lambda_base is actually 5e-4 (not 1e-4), in which case the paper text is wrong, or (b) the heatmap colorbar label is wrong, or (c) the heatmap shows lambda_t * gamma (the effective WD in the update rule), not lambda_t alone. This discrepancy needs resolution.",
+      "suggestion": "Verify what quantity the heatmap displays. If it is lambda_t * gamma (where gamma=0.1), then the effective WD modulation range is ~5.2e-4 to 6.2e-4, corresponding to lambda_t = 5.2e-3 to 6.2e-3, which would be phi_l(t) = 52-62x -- clearly wrong. The most likely explanation is lambda_base = 5e-4 or the heatmap axis label is misleading. Correct the paper text or the figure to be consistent."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "RATIO TRAJECTORY FIGURE CONTRADICTS LAYER HETEROGENEITY NARRATIVE (RECURRING FROM ITER_016): Figure 4 (ratio trajectories, CIFAR-100/ResNet-20) shows that after the initial transient (~first 20 steps), ALL layers converge to nearly identical r_t values in the 0.01-0.02 range with minimal visible differentiation. The paper text states 'later layers show larger ratios with higher variance' -- this is not visually supported by the figure. If layers have similar steady-state ratios, the per-layer modulation design choice provides minimal benefit over global modulation on CIFAR-100.",
+      "suggestion": "Show the ImageNet/ResNet-50 ratio trajectories where layer heterogeneity is presumably more pronounced (the paper claims ImageNet has richer dynamics and 'four residual stages with different channel dimensions'). This directly supports the narrative and demonstrates EqWD on its primary benchmark. Alternatively, revise the 'layer heterogeneity' text to accurately state that heterogeneity is primarily during transients on CIFAR-100."
+    },
+    {
+      "stage": "review",
+      "category": "novelty",
+      "severity": "major",
+      "description": "LIMITED NOVELTY BEYOND DEFAZIO'S EQUILIBRIUM INSIGHT (RECURRING FROM ITER_016): EqWD applies EMA-tracked deviation of r_t = ||g_t||/||w_t|| as a WD modulation signal. Given Defazio's result that WD drives r_t toward lambda/gamma, using deviation from equilibrium as a control signal is the natural next step. The additive form 1 + beta * |dev| is the simplest possible proportional controller. The paper does not show that alternative formulations (multiplicative, threshold-based, asymmetric, higher-order) are inferior, which would strengthen the case for this specific design. The CAWD negative result partially serves this purpose but needs a deeper mechanistic explanation.",
+      "suggestion": "Add a brief ablation comparing the additive form against at least one alternative (e.g., multiplicative: phi = (1 + |dev|/r*)^beta, or asymmetric: different beta for r_t > r* vs r_t < r*). If the additive form is best, this validates the design. If alternatives are competitive, it shows the insight (use ratio deviation) matters more than the specific functional form. Also differentiate more explicitly from Defazio's corrective term, which is conceptually similar."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "VGG-16-BN RESULTS (62.81%) STILL ABNORMALLY LOW WITH NO BASELINES: Table 5 reports EqWD on VGG-16-BN at 62.81% +/- 1.31% on CIFAR-100. Typical CIFAR-100/VGG-16-BN achieves 73-74% with standard training. The 10%+ gap suggests a training configuration issue, not an EqWD issue. Without FixedWD and NoWD baselines on VGG-16-BN, a reader cannot tell whether this low accuracy is due to EqWD's modulation or the training setup.",
+      "suggestion": "Add FixedWD and NoWD baselines on CIFAR-100/VGG-16-BN to contextualize the 62.81% result. If FixedWD also achieves ~63%, the low accuracy is a property of the training regime and EqWD is not at fault. If FixedWD achieves ~73%, EqWD is broken on VGG."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "90-EPOCH IMAGENET COMPARISON MISSING: The 45-epoch regime produces 72.27%, approximately 4% below the canonical 76% at 90 epochs. While the controlled comparison (all methods under identical conditions) is valid for relative ranking, the low absolute accuracy limits comparability with published results. Running a 90-epoch comparison would validate that EqWD's advantage transfers to standard training length.",
+      "suggestion": "Run EqWD + FixedWD + SWD at 90 epochs on ImageNet (3 seeds each). Cost: ~18 GPU-hours. This would provide numbers directly comparable to the literature."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "BAYESIAN OPTIMIZATION DETAILS UNREPORTED: The paper states baselines are tuned with 50 BO trials but does not report which hyperparameters were searched, what ranges were used, or what final values were selected. Without this information, a reader cannot assess whether the baselines were fairly tuned. Additionally, 50 BO trials over a multi-dimensional space may be insufficient for convergence.",
+      "suggestion": "Add a table in the appendix listing, for each baseline: hyperparameters searched, search ranges, and selected values. This is a zero-cost addition that substantially improves reproducibility."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "NO CODE RELEASE MENTIONED: The paper does not include a code availability statement. For a practical method paper proposing EqWD as a plug-in optimizer wrapper, code release is expected at NeurIPS/ICML/ICLR.",
+      "suggestion": "Add a 'Code Availability' statement, either with a GitHub link or a note that code will be released upon acceptance."
+    }
+  ],
+  "risks": [
+    "Effective WD inflation confound (phi_l(t) >= 1) means the core 'adaptive modulation' claim is unfalsifiable without a budget-matched control experiment -- this has been flagged for 2+ iterations without resolution",
+    "WD heatmap lambda values (5.2e-4 to 6.2e-4) are inconsistent with stated lambda_base=1e-4 -- potential data integrity issue that needs immediate investigation",
+    "45-epoch ImageNet results occupy a low-accuracy regime (72%) that may not generalize to the standard 90-epoch regime where literature comparisons are made",
+    "No AdamW validation limits practical impact since AdamW dominates modern training practice",
+    "Single-seed beta=5.0 result (66.07%) may be noise -- highlighted as evidence of 'headroom' without multi-seed validation",
+    "Ratio trajectory figure (CIFAR-100) shows minimal layer heterogeneity after transient, undermining the per-layer modulation narrative"
+  ],
+  "evidence_gaps": [
+    "FixedWD at EqWD's average effective lambda on ImageNet (budget-matched control, ~9 GPU-hours)",
+    "At least one AdamW experiment (CIFAR-100/ResNet-20, ~30 min)",
+    "EqWD + CAWD results on CIFAR-10 (~1 GPU-hour)",
+    "Multi-seed validation of beta=5.0 on CIFAR-100 (~30 min)",
+    "AIS diagnostic on ImageNet (~3 GPU-hours)",
+    "ImageNet ratio trajectory and WD heatmap figures",
+    "VGG-16-BN baseline comparison (FixedWD, NoWD)",
+    "WD heatmap lambda value discrepancy resolution",
+    "90-epoch ImageNet comparison (~18 GPU-hours)",
+    "BO hyperparameter details for baselines",
+    "Explicit epoch count in Section 4.1 and Appendix"
+  ],
+  "what_would_raise_score": "To reach 7.5: (1) Run the budget-matched FixedWD control experiment on ImageNet -- this is the single most impactful action, resolving the paper's fundamental confound; (2) add EqWD to the CIFAR-10 table and fix DefazioCorrective inconsistency; (3) multi-seed validate beta=5.0; (4) state the 45-epoch count in Section 4.1; (5) resolve the WD heatmap lambda discrepancy. To reach 8.0: additionally (6) run at least one AdamW experiment; (7) run AIS on ImageNet; (8) show ImageNet ratio trajectories to support layer heterogeneity narrative; (9) add VGG baselines; (10) differentiate more explicitly from Defazio's corrective term. The paper's honest statistical reporting, negative CAWD result, and clean writing are genuine strengths that position it well for improvement once the experimental gaps are filled."
+}

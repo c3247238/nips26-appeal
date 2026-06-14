@@ -1,0 +1,169 @@
+{
+  "metadata": {
+    "iteration": 7,
+    "candidate_id": "cand_cross_domain_ratedistortion",
+    "date": "2026-04-14",
+    "total_estimated_minutes": 390,
+    "total_estimated_hours": 6.5,
+    "model": "Gemma 2 2B",
+    "sae_source": "Gemma Scope (pre-trained, HuggingFace)",
+    "training_required": false,
+    "revision_note": "STAGNATION BREAKER. Three critical experiments blocked for 3 consecutive reviews. Zero-GPU analyses undone for 3+ reviews. Gated execution model: Gate 0 (zero-GPU) -> Gate 1 (3 GPU experiments) -> Gate 2 (writing) -> Gate 3 (review). NO WRITING BEFORE GATE 1 COMPLETES.",
+    "key_lesson_from_reflection": "Every score improvement was driven by experiments. Writing-only iterations produce +0.0. The paper is evidence-bound, not prose-bound. 3 GPU-hours will advance score from 6.5 to 7.5-8.0."
+  },
+  "tasks": [
+    {
+      "id": "validate_integration",
+      "name": "Data Integrity Validator (validate_integration.py)",
+      "description": "GATE 0A. Implement the validate_integration.py script that has been recommended for 8 consecutive iterations. Cross-check ALL numbers in paper.md against source JSON files in exp/results/full/. Flag mismatches: vocabulary sizes (1092/1196/1204), absorption rates (14.39% vs 15.96% at L0=82), CMI rho values, cross-domain rates. Output a machine-readable validation report. Also identify all 9 persistent core words from confound_decomposition_multi_l0.json raw token data (currently only 5 named: eight/E, lower/L, liked/L, offer/O, often/O).",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "exp/results/full/data_validation_report.json",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 90,
+      "comment_on_time": "Pure Python script: read JSON files, parse paper.md, compare numbers. No GPU needed. 90 min includes script development + running.",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 3600,
+        "pass_criteria": "All source JSON files read; all paper numbers extracted; mismatch report generated; all 9 persistent core words identified by name"
+      },
+      "visualizations": []
+    }
+  ],
+  "decision_gates": [
+    {
+      "after_task": "validate_integration",
+      "condition": "More than 5 number mismatches between paper.md and source JSON",
+      "action": "Fix ALL mismatches before proceeding. This is non-negotiable data integrity."
+    },
+    {
+      "after_task": "activation_patching_core_words",
+      "condition": "Parent recovers for 0/9 words after child zeroing",
+      "action": "Strengthen the 'all-hedging / metric miscalibrated' narrative. The 9 core words are persistent FN due to reconstruction failure, not competitive exclusion. This is an equally strong publishable finding."
+    },
+    {
+      "after_task": "activation_patching_core_words",
+      "condition": "Parent recovers for >=5/9 words",
+      "action": "Confirm competitive exclusion exists at small scale. Revise paper to include causal evidence. This is the strongest possible result."
+    },
+    {
+      "after_task": "tightened_hedging",
+      "condition": "Strict hedging rate < 50% (vs permissive 98.6%)",
+      "action": "MAJOR NARRATIVE REVISION NEEDED. The 98.6% headline must be presented as permissive upper bound. Strict rate becomes the primary reported number. Discuss discrepancy transparently."
+    },
+    {
+      "after_task": "tightened_hedging",
+      "condition": "Strict hedging rate > 80%",
+      "action": "Headline 98.6% validated by strict check. Minor revision: add strict rate as confirmation."
+    },
+    {
+      "after_task": "cmi_replication_l0_22",
+      "condition": "Pre-registered d'=10 Spearman rho non-significant (Bonferroni p > 0.05)",
+      "action": "Downgrade Section 6 to 'Exploratory CMI-Absorption Association.' Remove 'predicts' language from abstract, intro, conclusion. Paper stands on two empirical pillars: control failure + L0 phase transition."
+    },
+    {
+      "after_task": "cmi_replication_l0_22",
+      "condition": "Pre-registered d'=10 Spearman rho significant (Bonferroni p < 0.05)",
+      "action": "Theoretical pillar secured. Keep Section 6 title but add Bonferroni p. The rate-distortion framing is supported with clean evidence."
+    },
+    {
+      "overall_scoring": "Gate 0 + Gate 1 all pass = expected score 7.5-8.0. Gate 0 pass + partial Gate 1 (2/3 experiments) = expected 7.0-7.5. Gate 0 only = expected 6.5-7.0 (marginal improvement from analysis depth). Writing-only (no experiments) = 6.5 again (4th consecutive stagnation). CRITICAL: Do NOT skip Gate 1."
+    }
+  ],
+  "execution_order": [
+    {
+      "phase": "Gate 0: Zero-GPU Data Integrity & Analysis",
+      "tasks": [
+        "validate_integration",
+        "partial_correlation_cmi",
+        "leave_one_out_cmi",
+        "threshold_sensitivity_report",
+        "control_failure_diagnosis"
+      ],
+      "parallel": true,
+      "note": "ALL zero-GPU tasks. Can run in parallel. BLOCKING for Gate 1 only for validate_integration (need 9 word identities for activation patching). Other Gate 0 tasks can overlap with Gate 1.",
+      "estimated_minutes": 90
+    },
+    {
+      "phase": "Gate 1: Three Critical Experiments",
+      "tasks": [
+        "activation_patching_core_words",
+        "tightened_hedging",
+        "cmi_replication_l0_22"
+      ],
+      "parallel": true,
+      "note": "ALL GPU tasks. Can run in parallel on 3 separate GPUs (max_gpus=4 available). activation_patching depends on validate_integration (for word identities). tightened_hedging and cmi_replication can start immediately. BLOCKING for writing.",
+      "estimated_minutes": 60
+    },
+    {
+      "phase": "Gate 2: Writing Revision",
+      "tasks": [
+        "writing_revision"
+      ],
+      "parallel": false,
+      "note": "ONLY after ALL Gate 0 and Gate 1 tasks complete. Must incorporate all new results.",
+      "estimated_minutes": 180
+    }
+  ],
+  "hard_constraints": [
+    {
+      "constraint": "NO_WRITING_BEFORE_EXPERIMENTS",
+      "description": "The writing_revision task MUST NOT start until all 3 Gate 1 experiments complete. This is the project's most critical process constraint, designed to prevent the writing-loop-without-evidence pattern that caused 3 consecutive stagnation reviews.",
+      "enforcement": "writing_revision depends_on includes all Gate 0 and Gate 1 tasks."
+    },
+    {
+      "constraint": "EXPERIMENT_FIRST_PRIORITY",
+      "description": "If compute resources are limited, prioritize Gate 1 experiments over Gate 0 analyses. Gate 1 provides the highest information gain per hour invested.",
+      "priority_order": "1A (activation patching) > 1B (tightened hedging) > 1C (CMI L0=22) > 0A (validate) > 0B-0E (analyses)"
+    },
+    {
+      "constraint": "ALL_RESULTS_MUST_BE_REPORTED",
+      "description": "Every experiment and analysis in this plan MUST be reported in the paper, including negative results. The threshold sensitivity data (computed in iter_006, never reported) exemplifies the anti-pattern to avoid."
+    }
+  ],
+  "reusable_from_iter_006": [
+    {
+      "resource": "Conda environment with sae-lens, transformer-lens, torch, scipy, pygam",
+      "path": "Remote: /home/qhxie/sibyl_system/sae-absorption/conda_env or local conda env",
+      "status": "Ready"
+    },
+    {
+      "resource": "Gemma 2 2B model + Gemma Scope SAEs (L12-16k at L0=22,42,82,176; L12-65k; L10/L20-16k)",
+      "path": "Cached from iter_006 setup_env",
+      "status": "Ready"
+    },
+    {
+      "resource": "First-letter improved results (absorption rates, probe data)",
+      "path": "iter_006/exp/results/full/first_letter_improved.json",
+      "status": "Ready"
+    },
+    {
+      "resource": "Confound decomposition multi-L0 (657 FN at L0=22, 9 core words)",
+      "path": "iter_006/exp/results/full/confound_decomposition_multi_l0.json",
+      "status": "Ready"
+    },
+    {
+      "resource": "CMI estimation (25 letters, d'={10,20,30,50})",
+      "path": "iter_006/exp/results/full/cmi_estimation.json",
+      "status": "Ready (for comparison with L0=22 replication)"
+    },
+    {
+      "resource": "Threshold sensitivity (5x4 grid, 141KB)",
+      "path": "iter_006/exp/results/full/ablation_threshold_sensitivity.json",
+      "status": "Ready (UNREPORTED -- must include in paper)"
+    },
+    {
+      "resource": "All cross-domain results (city-country, city-continent, city-language, animal-class)",
+      "path": "iter_006/exp/results/full/cross_domain_*.json",
+      "status": "Ready"
+    },
+    {
+      "resource": "Experiment code (26 scripts)",
+      "path": "iter_006/exp/code/*.py",
+      "status": "Ready -- adapt for new experiments"
+    }
+  ]
+}

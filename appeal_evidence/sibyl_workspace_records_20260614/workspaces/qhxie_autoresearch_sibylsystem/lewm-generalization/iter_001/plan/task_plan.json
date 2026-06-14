@@ -1,0 +1,551 @@
+{
+  "version": "1.0",
+  "candidate_id": "cand_a",
+  "planning_date": "2026-04-14",
+  "total_estimated_gpu_hours": 115,
+  "notes": "Experiments designed for local GPU cluster (8x RTX PRO 6000 Blackwell, 96GB VRAM). LeWM is 15M params — fits comfortably on a single GPU. max_gpus=2 per config. Phase 0 (setup) must complete before any experiment tasks. Pilot tasks establish framework validity before full runs.",
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment and Dependency Setup",
+      "description": "Install le-wm (GitHub: lucas-maes/le-wm), stable-world-model, dm-control, mujoco 3.x, peft, necessary-compositionality, and scikit-learn. Create conda env sibyl_lewm-generalization. Verify Walker environment renders correctly with custom physics parameters (gravity, friction, density). Verify le-wm training script runs for 1 step without error.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/setup_verification.txt",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [],
+      "pilot": null,
+      "visualizations": []
+    },
+    {
+      "id": "data_collection",
+      "name": "Collect ComPhys-LeWM Benchmark Data (27 Factor Combinations)",
+      "description": "Generate 200 trajectories per factor combination using scripted random-walk policy in DMControl Walker-walk. Factor space: gravity {0.5g, 1.0g, 2.0g} x friction {0.5x, 1.0x, 2.0x} x body_density {0.5x, 1.0x, 2.0x} = 27 combos. Store as HDF5 with: 64x64 RGB frames, joint angles (DoF), CoM velocity, contact forces, physics parameter labels. Output: 27 HDF5 files in exp/data/comphys_lewm/. Also generate the 3 CoGenT-style training/holdout splits (18/27 train, 9/27 holdout each) and save as exp/data/splits.json.",
+      "type": "setup",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "exp/data/comphys_lewm/",
+      "candidate_id": "shared",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "Collect 100 trajectories for 3 friction combos (0.5x, 1.0x, 2.0x) only (gravity=1.0g, mass=1.0x). Verify HDF5 format, data shape, and labels are correct.",
+        "pass_criteria": "HDF5 files readable; frame shape (100, T, 64, 64, 3); physics labels stored correctly; no NaN frames"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "pilot_framework_validation",
+      "name": "Pilot P1: Framework Validation (Friction Holdout, 1 Seed)",
+      "description": "Train LeWM-SIGReg on friction levels {0.5x, 2.0x} in Walker (gravity=1.0g, mass=1.0x fixed). Use exactly 100 trajectories per training combo (pilot constraint). Probe with linear regression on: (a) friction=1.0x (interpolation), (b) friction=3.0x (extrapolation, generate 100 additional trajectories). Report linear probing R² for in-distribution vs. interpolation vs. extrapolation. Decision rule: if R² drops <5% relative on interpolation → use more extreme holdout in full study; if >15% drop → single-factor generalization is already challenging; if >40% drop → reduce factor range. Also run pilot P2: apply LoRA-r4 to predictor Q/V; fine-tune on 50 trajectories from friction=1.0x holdout; measure R² recovery.",
+      "type": "baseline",
+      "depends_on": [
+        "data_collection"
+      ],
+      "expected_output": "exp/results/pilots/pilot_framework_validation.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "Train LeWM on 2 friction levels x 100 trajectories each; probe on 100 interpolation + 100 extrapolation trajectories; LoRA-r4 fine-tune on 50 trajectories",
+        "pass_criteria": "Training loss converges (final < 0.1 initial); linear probe R² > 0.1 in-distribution (sanity check); framework computes without error"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Probing R2 comparison: in-distribution vs. interpolation vs. extrapolation",
+          "x": "eval_split",
+          "y": "R2",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "train_lewm_sigreg_primary",
+      "name": "Train LeWM-SIGReg Primary Model (7 Seeds, 18/27 Training Combos)",
+      "description": "Train LeWM with SIGReg regularizer on the primary 18/27 CoGenT training split (seed_split_0). 7 random training seeds {42, 7, 13, 21, 99, 137, 256}. Hyperparameters: 200 epochs, batch_size=64, AdamW lr=1e-4, SIGReg λ=0.1 (default). Save all 7 checkpoints to exp/results/full/lewm_sigreg_primary/. NOTE: 7 sequential training runs of ~4h each = ~28h total; break into 2 parallel batches of 3-4 seeds each to use 2 GPUs concurrently (within max_gpus=2 budget).",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_framework_validation"
+      ],
+      "expected_output": "exp/results/full/lewm_sigreg_primary/",
+      "candidate_id": "cand_a",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 840,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "comphys_lewm_split0",
+          "path": "exp/data/comphys_lewm/"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "1-seed 5-epoch training on 100-trajectory subset; verify loss curves stable",
+        "pass_criteria": "Training loss decreasing; no NaN; checkpoint saves correctly"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Training loss curves across 7 seeds",
+          "x": "epoch",
+          "y": "loss",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "train_lewm_vicreg",
+      "name": "Train LeWM-VICReg (3 Seeds, Same Split)",
+      "description": "Train LeWM with VICReg regularizer (replace SIGReg with VICReg invariance-variance-covariance loss) on the same primary 18/27 training split. 3 seeds {42, 7, 13}. Same 200-epoch regime. Save checkpoints to exp/results/full/lewm_vicreg/. Tests H2: does SIGReg promote more orthogonal factorization than VICReg?",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_framework_validation"
+      ],
+      "expected_output": "exp/results/full/lewm_vicreg/",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 360,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "comphys_lewm_split0",
+          "path": "exp/data/comphys_lewm/"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "1-seed 5-epoch training with VICReg on 100-trajectory subset",
+        "pass_criteria": "VICReg loss converges (3 terms: invariance, variance, covariance all decreasing); no collapse"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "train_lewm_noreg",
+      "name": "Train LeWM-NoReg (3 Seeds, Collapse Control)",
+      "description": "Train LeWM without any regularizer (remove SIGReg and VICReg). Expected to potentially collapse (degenerate solutions). 3 seeds {42, 7, 13}. 200 epochs. Save checkpoints to exp/results/full/lewm_noreg/. Used as control: if no-reg also shows low holdout drop, the regularizer is necessary for generalization; if no-reg collapses, confirms SIGReg/VICReg necessity.",
+      "type": "experiment",
+      "depends_on": [
+        "pilot_framework_validation"
+      ],
+      "expected_output": "exp/results/full/lewm_noreg/",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 240,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "comphys_lewm_split0",
+          "path": "exp/data/comphys_lewm/"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "1-seed 5-epoch no-regularizer training; monitor embedding variance collapse",
+        "pass_criteria": "Training proceeds without crash; log embedding variance at epoch 1 and 5 for collapse detection"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "train_oracle_baseline",
+      "name": "Train Oracle (All 27 Combos) and Matched-Volume Control",
+      "description": "Two baseline training runs: (A) Oracle: LeWM-SIGReg trained on all 27 factor combinations (ceiling performance, no holdout). (B) Matched-volume control: LeWM-SIGReg trained on 18 randomly-selected combos (no holdout structure, same data volume as primary). Both with 3 seeds {42, 7, 13}. Outputs to exp/results/full/lewm_oracle/ and exp/results/full/lewm_matched_vol/.",
+      "type": "baseline",
+      "depends_on": [
+        "pilot_framework_validation"
+      ],
+      "expected_output": "exp/results/full/lewm_oracle/",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 480,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "comphys_lewm_all27",
+          "path": "exp/data/comphys_lewm/"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "1-seed 5-epoch oracle training on all 27 combos, 100-traj subset",
+        "pass_criteria": "Training loss lower than primary at same epoch (sanity check for more training data)"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "train_dino_wm",
+      "name": "Train DINO-WM (3 Seeds, Same Split)",
+      "description": "Train DINO-WM (frozen DINOv2-s encoder + learned transformer predictor) on the same primary 18/27 split. 3 seeds. Evaluation on holdout combos. Architecture comparison: does DINO-WM show same generalization failure pattern as LeWM (suggesting the issue is in the predictor / data, not the specific encoder)?",
+      "type": "baseline",
+      "depends_on": [
+        "pilot_framework_validation"
+      ],
+      "expected_output": "exp/results/full/dino_wm/",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 360,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "comphys_lewm_split0",
+          "path": "exp/data/comphys_lewm/"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "1-seed 5-epoch DINO-WM training; verify DINOv2 encoder frozen and predictor trains correctly",
+        "pass_criteria": "DINOv2 encoder frozen (no grad update on encoder params); predictor loss decreases; model runs forward pass on held-out combo without error"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "eval_probing_h1",
+      "name": "Probing Evaluation: H1 Compositional Generalization Gap",
+      "description": "Run Level 1 probing evaluation on all trained models. For each model checkpoint (7 seeds for LeWM-SIGReg, 3 seeds for others): (1) extract frozen encoder embeddings on ALL 27 combos; (2) train linear regression probe (sklearn Ridge, alpha=1e-3) to predict: joint angles, CoM velocity, gravity label, friction label, mass label; (3) evaluate R² on in-distribution combos and holdout combos separately; (4) compute relative R² drop = (R²_in_dist - R²_holdout) / R²_in_dist. Primary metrics: mean R² drop across holdout combos, per-factor-label R² drop. Statistical tests: paired t-test (in-dist vs. holdout) across 7 seeds; bootstrap 95% CI; Cohen's d. Save results to exp/results/full/probing_h1_results.json.",
+      "type": "analysis",
+      "depends_on": [
+        "train_lewm_sigreg_primary",
+        "train_lewm_vicreg",
+        "train_lewm_noreg",
+        "train_oracle_baseline",
+        "train_dino_wm"
+      ],
+      "expected_output": "exp/results/full/probing_h1_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "Probe on pilot_framework_validation checkpoint; verify R² scores are non-trivial and output JSON schema is correct",
+        "pass_criteria": "R² in-distribution > 0.3 for at least one target; JSON output contains fields: model, seed, in_dist_r2, holdout_r2, relative_drop for each target"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Table 1: Main results — probing R2 and CEM success rate (in-distribution vs. holdout) for all model variants",
+          "columns": [
+            "Model",
+            "In-Dist R2",
+            "Holdout R2",
+            "Relative Drop (%)",
+            "Cohen's d"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Figure 1: Heatmap of compositional generalization gap across 9 holdout combinations (factor grid)",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "eval_geometric_h2_h4",
+      "name": "Geometric Analysis: H2 (SIGReg vs. VICReg Orthogonality) and H4 (Displacement Consistency)",
+      "description": "Run Level 2 geometric analysis on LeWM-SIGReg vs. LeWM-VICReg checkpoints (3 seeds each): (1) Per-factor latent subspace PCA: extract top-8 PCs from embeddings grouped by each factor level; (2) Principal angle analysis using necessary-compositionality codebase: compute principal angles between per-factor subspaces; report mean cosine similarity; (3) Displacement vector consistency (parallelogram test): compute centroid delta-vectors at ≥3 reference points per factor; compute cosine consistency score; (4) CKA between factor-grouped representations as secondary metric. Regression analysis for H4: OLS with holdout R² as outcome; compare R² with principal angles alone vs. principal angles + displacement consistency (incremental R² test). Save to exp/results/full/geometric_h2_h4_results.json.",
+      "type": "analysis",
+      "depends_on": [
+        "train_lewm_sigreg_primary",
+        "train_lewm_vicreg"
+      ],
+      "expected_output": "exp/results/full/geometric_h2_h4_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "Run principal angle analysis on pilot checkpoint; verify necessary-compositionality runs; output principal angle matrix for 3 factors",
+        "pass_criteria": "Principal angle matrix (3x3) computed; mean cosine similarity in [0, 1]; no import errors from necessary-compositionality"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Figure 2a: Principal angle matrix SIGReg vs. VICReg (3x3 factor pairs, cosine similarity)",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter",
+          "description": "Figure 2b: Displacement vector consistency vs. holdout R2 scatter (H4)",
+          "x": "displacement_consistency",
+          "y": "holdout_r2",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "eval_iis_h3",
+      "name": "Interventional Independence Score (IIS): H3 Predictor Bottleneck and H2b",
+      "description": "Run Level 3 interventional probing on LeWM-SIGReg primary model (3 seeds). For each test trajectory and each physical concept pair (C, D): (1) Encode trajectory to latent sequence; (2) Identify concept-C direction from linear probe; (3) Gram-Schmidt orthogonalize probe directions to avoid correlation confounds; (4) Shift latents by δ along concept-C direction (corresponding to 1-step factor change); (5) Roll out through predictor; (6) Compute IIS(C,D) = 1 - |corr(intervention_on_C, change_in_D_prediction)|. Compute full 3x3 IIS matrix for (gravity, friction, mass). Baseline: repeat with random shift direction. Compute: Pearson r(IIS, principal_angles), Pearson r(IIS, holdout R²), Pearson r(IIS, CEM success rate). Save to exp/results/full/iis_h3_results.json.",
+      "type": "experiment",
+      "depends_on": [
+        "train_lewm_sigreg_primary",
+        "eval_probing_h1"
+      ],
+      "expected_output": "exp/results/full/iis_h3_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "Compute IIS for gravity-friction pair on 100 pilot trajectories; verify random-direction baseline yields IIS ~0.5",
+        "pass_criteria": "IIS(gravity, friction) computed; random baseline IIS in [0.4, 0.6]; no numerical overflow/underflow"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Table 2: IIS matrix (3x3 concept pairs) with random-direction baseline comparison",
+          "columns": [
+            "Concept Pair",
+            "IIS (LeWM-SIGReg)",
+            "IIS (Random Baseline)"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "eval_lora_adaptation",
+      "name": "LoRA Adaptation Diagnostic: H3, H3a (Encoder vs. Predictor Bottleneck)",
+      "description": "Run LoRA adaptation experiments on held-out combos (9 combos from primary split), starting from LeWM-SIGReg best checkpoint (seed 42). Adaptation targets: (a) encoder Q/V only, (b) predictor Q/V only, (c) both encoder+predictor. LoRA ranks: {2, 4, 8, 16}. Adaptation data sizes: {10, 25, 50, 100, 200} trajectories from target domain. Metrics: probing R² recovery (relative to in-distribution), CEM success rate, samples-to-90%-recovery. Baselines: (0) zero-shot, (1) head-only fine-tuning, (2) full fine-tuning (ceiling), (3) random untrained LoRA. In-distribution LoRA control: same adaptation on one in-distribution combo (verify it doesn't trivially help). If LoRA underperforms (rank ≤16 insufficient), extend ranks to {32, 64}. Save all results to exp/results/full/lora_adaptation_results.json.",
+      "type": "experiment",
+      "depends_on": [
+        "train_lewm_sigreg_primary",
+        "eval_probing_h1"
+      ],
+      "expected_output": "exp/results/full/lora_adaptation_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 120,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "LoRA-r4 predictor-only; 50 trajectories from single held-out combo; measure R² recovery. This is pilot P2 from hypotheses.md.",
+        "pass_criteria": "LoRA adapter inserts without error; fine-tuning converges (loss decreases over 20 steps); R² recovery computed and reported"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Figure 3: LoRA adaptation curves — R2 recovery vs. trajectories (encoder / predictor / both) by LoRA rank",
+          "x": "n_trajectories",
+          "y": "r2_recovery",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "eval_planning_cem",
+      "name": "CEM Planning Evaluation: Behavioral Generalization (Level 4)",
+      "description": "Run CEM (Cross-Entropy Method) planning in latent space on LeWM-SIGReg (7 seeds) for in-distribution and holdout combos. Task: Walker-walk reach target joint configuration. 50 trajectories per holdout combo per seed. Metrics: success rate (%), latent prediction MSE. Compute: relative CEM success rate drop (in-dist vs. holdout). Compare with DINO-WM CEM success rate on same split. Note: CEM planning is purely in latent space; no additional environment rollout needed. Save to exp/results/full/cem_planning_results.json.",
+      "type": "experiment",
+      "depends_on": [
+        "train_lewm_sigreg_primary",
+        "train_dino_wm"
+      ],
+      "expected_output": "exp/results/full/cem_planning_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 90,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "CEM planning on pilot checkpoint; 10 trajectories on 1 in-distribution and 1 holdout combo; verify success rate computation",
+        "pass_criteria": "CEM planning runs without error; success rate in [0, 1]; in-distribution SR >= 0.0 (even if low on small pilot)"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "eval_physical_regime_h5",
+      "name": "Physical Regime Analysis: H5 (Physical Coupling Predicts Regime-Dependent Failure)",
+      "description": "CPU-based analysis of physical coupling between factors. (1) From trajectory data, compute summary statistics S per combination: velocity variance, contact frequency, energy dissipation proxy (e.g., ||joint_velocity||^2 change per step). (2) Estimate coupling strength for each factor pair (f_i, f_j) using finite-difference mixed partial derivative: c(i,j) = |S(hi,hj) - S(hi,lj) - S(li,hj) + S(li,lj)| / (Δfi * Δfj). (3) Classify each holdout combo as weakly/strongly coupled using threshold c* = median coupling strength. (4) Test: does coupling strength predict holdout probing R² drop (from eval_probing_h1) better than Grassmannian distance? Partial regression. (5) Check concordance: do strongly-coupled failures persist across LeWM-SIGReg, LeWM-VICReg, DINO-WM? Save to exp/results/full/regime_analysis_h5_results.json.",
+      "type": "analysis",
+      "depends_on": [
+        "eval_probing_h1",
+        "data_collection"
+      ],
+      "expected_output": "exp/results/full/regime_analysis_h5_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "Compute coupling strength for friction-gravity pair from pilot data (100 trajectories per combo); verify finite-difference computation is numerically stable",
+        "pass_criteria": "Coupling strength matrix (3x3 factor pairs) computed; values non-negative; no NaN; output JSON has correct schema"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Figure 4: Coupling strength vs. holdout failure rate with regression line; multi-model concordance panel",
+          "x": "coupling_strength",
+          "y": "r2_drop",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_sigreg_lambda",
+      "name": "SIGReg Lambda Sweep (H2a): In-Distribution vs. Holdout Optima",
+      "description": "Train LeWM-SIGReg with 4 lambda values: {0.01, 0.05, 0.1, 0.2}. 3 seeds each. Primary split (18/27). Measure in-distribution probing R² and holdout probing R² for each lambda. Plot dual-axis: in-dist vs. holdout performance as a function of lambda. Expected: optimal lambda for holdout > optimal lambda for in-dist. Save to exp/results/full/sigreg_lambda_sweep_results.json.",
+      "type": "ablation",
+      "depends_on": [
+        "pilot_framework_validation"
+      ],
+      "expected_output": "exp/results/full/sigreg_lambda_sweep_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 480,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "comphys_lewm_split0",
+          "path": "exp/data/comphys_lewm/"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "Train 2 lambda values (0.01 and 0.2) for 5 epochs on 100-trajectory subset; verify lambda affects training loss differently",
+        "pass_criteria": "Lambda sweep runs for both values; training loss at epoch 5 differs between lambda=0.01 and lambda=0.2 by >5%"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "H2a: In-distribution vs. holdout R2 as function of SIGReg lambda",
+          "x": "lambda",
+          "y": "R2",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "eval_split_sensitivity",
+      "name": "Split Sensitivity Analysis (3 CoGenT Splits)",
+      "description": "Evaluate the sensitivity of H1 results to the choice of CoGenT training/holdout split. Re-run eval_probing_h1 on LeWM-SIGReg checkpoints trained on splits 1 and 2 (3 seeds each), using the data already collected. Measure variance in relative R² drop across splits. This validates that the compositional generalization gap is robust to split choice, not an artifact of one particular holdout selection.",
+      "type": "analysis",
+      "depends_on": [
+        "eval_probing_h1"
+      ],
+      "expected_output": "exp/results/full/split_sensitivity_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 360,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "comphys_lewm_all_splits",
+          "path": "exp/data/comphys_lewm/"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "description": "Train 1 seed on split 1 (100-trajectory subset) and run probing; verify different holdout R² than split 0",
+        "pass_criteria": "Training and probing completes for split 1; R² values saved correctly with split label"
+      },
+      "visualizations": [
+        {
+          "type": "error_bar",
+          "description": "H1 relative R2 drop across 3 splits (mean ± std)",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "analysis_results_synthesis",
+      "name": "Results Synthesis and Paper-Ready Tables/Figures",
+      "description": "Aggregate all experiment results into paper-ready artifacts. (1) Generate Table 1 (main probing results), Table 2 (IIS matrix). (2) Generate Figures 1-4 using matplotlib (consistent color scheme, appropriate axis labels, statistical significance annotations). (3) Compute all correlations (H4: displacement consistency vs. holdout R²; H5: coupling vs. failure). (4) Write pilot_summary.md with decision outcomes (P1: framework validation result; P2: LoRA feasibility result). (5) Write brief text of key findings: confirmed/falsified hypotheses, effect sizes, negative results. Save all figures to exp/results/full/figures/ and all tables to exp/results/full/tables/.",
+      "type": "analysis",
+      "depends_on": [
+        "eval_probing_h1",
+        "eval_geometric_h2_h4",
+        "eval_iis_h3",
+        "eval_lora_adaptation",
+        "eval_planning_cem",
+        "eval_physical_regime_h5",
+        "ablation_sigreg_lambda",
+        "eval_split_sensitivity"
+      ],
+      "expected_output": "exp/results/full/figures/",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "shared_resources": [],
+      "pilot": null,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Table 1: Main results — probing R2 and CEM across all models and splits",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "figure_set",
+          "description": "Figures 1-4 as described in methodology.md",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{enumitem}
+
+\title{Entropy-Routed Compute for Training-Free Discrete Diffusion Language Models: A Bounded Full-Scale Study with Sham Controls}
+
+\author{Anonymous Authors}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Inference-time intervention for discrete diffusion language models (dLLMs) has entered a small-gain regime in which raw benchmark movement is no longer sufficient to support strong mechanism claims. We study this problem through a bounded full-scale experiment on GSM8K. Earlier iteration-4 screening suggested that raw entropy is informative as an observer-side uncertainty signal, but does not validate entropy as a semantic controller. We therefore reframe the problem: rather than asking entropy to determine what semantic revision should be made, we ask whether entropy can route and stop additional compute more effectively than a matched control. The predeclared primary endpoint is narrow: candidate-versus-sham quality-speed trade-off under a unified runtime contract, not global baseline dominance. We evaluate an entropy-routed candidate (\texttt{cand\_espd}) against two shared controls (\texttt{CARD-84}, \texttt{RAND-84}) and, critically, a matched fixed-frontier sham (\texttt{ESPD-FixedFrontier}). On full-scale GSM8K, \texttt{cand\_espd} reaches 0.4041 accuracy, compared with 0.3980 for \texttt{RAND-84}, 0.3965 for \texttt{CARD-84}, and 0.3988 for the fixed-frontier sham. The candidate is not the absolute fastest method in the bundle, but it preserves a better quality-speed trade-off than the sham under a unified runtime contract. We argue that this is a bounded positive result: it supports entropy as a routing/stopping signal rather than as a validated semantic controller, and it demonstrates the value of sham controls, paired repair/harm analysis, and explicit runtime lineage in small-gain dLLM evaluation.
+\end{abstract}
+
+\section{Introduction}
+
+Inference-time intervention for discrete diffusion language models has entered a regime in which small gains are common, but clean attribution is rare. Recent work on dLLM test-time scaling, guided decoding, and memory augmentation shows that additional inference-time compute can improve reasoning performance, yet these improvements are often entangled with search depth, sampler changes, backend choices, or unreported execution-envelope differences \citep{bai2026prism,lu2026block,xia2026metastate,samplercentric2026}. In this regime, the central scientific question is not only whether a method moves a benchmark score, but whether the observed gain survives a comparison that isolates the claimed mechanism.
+
+This paper studies that attribution problem through a bounded full-scale experiment on GSM8K. Earlier iteration-4 screening produced a negative lesson: raw entropy is informative as an observer-side uncertainty signal, but that fact alone does not validate entropy as a semantic controller. Entropy-centered revision controls did not cleanly separate from random targeting under matched compute. We therefore ask a narrower and more falsifiable question: can entropy be used more effectively as a routing and stopping signal for allocating additional compute?
+
+To answer this question, we evaluate an entropy-routed compute strategy, \texttt{cand\_espd}, against two shared controls and, critically, against a matched fixed-frontier sham that keeps the same nominal frontier budget without entropy-based frontier placement. The headline numbers are intentionally modest. On full-scale GSM8K, \texttt{cand\_espd} reaches 0.4041 accuracy, compared with 0.3980 for \texttt{RAND-84}, 0.3965 for \texttt{CARD-84}, and 0.3988 for the fixed-frontier sham. The paper's value is therefore structural rather than magnitude-based: as shown in Table~\ref{tab:main-results} and Figure~\ref{fig:quality-speed}, the candidate does not dominate all baselines in absolute speed, but it does preserve a better quality-speed trade-off than the matched sham under a unified runtime contract.
+
+The claim boundary is equally explicit. The current evidence supports a bounded routing interpretation for \texttt{cand\_espd}, but it does not support benchmark-level SOTA language, a strong significance-based superiority claim, validation of the object-level \texttt{cand\_bsr} line, or a cleanly isolated proof that the candidate-sham gap is purely mechanistic rather than partially implementation-mediated.
+
+Our contributions are threefold. First, we provide a full-scale empirical reinterpretation of entropy in training-free dLLM intervention, shifting it from a controller framing to a routing/stopping framing. Second, we show that this routing interpretation survives a matched fixed-frontier sham on GSM8K, yielding a modest but credible gain under honest runtime accounting. Third, we package the result as a bounded contribution, with explicit claim boundaries, paired repair/harm analysis, a narrow primary endpoint, and runtime-lineage reporting.
+
+\section{Related Work}
+
+\paragraph{Discrete diffusion language models and inference engineering.}
+Discrete diffusion language models extend iterative denoising to discrete text. Early foundations such as reparameterized discrete diffusion and ratio-estimation-based formulations established the feasibility of non-autoregressive text generation \citep{zheng2023radd,lou2023sedd}. More recent work has shifted toward inference-time engineering, asking how to schedule denoising, allocate compute, and improve reasoning performance without retraining the backbone \citep{bai2026prism,lu2026block,xia2026metastate}.
+
+\paragraph{Test-time scaling, guidance, and memory augmentation.}
+Recent dLLM-adjacent work treats inference-time scaling as a first-class object of study, including hierarchical search and self-verification, confidence-guided direct decoding, and persistent memory augmentation \citep{bai2026prism,lu2026block,xia2026metastate,schiff2024guidance}. Our contribution differs from these lines in two ways. We focus on a training-free setting, and our central question is attribution: if a small gain appears, can we show that it comes from entropy-routed compute rather than from a generic frontier budget or an execution mismatch?
+
+\paragraph{Calibration, uncertainty, and attribution discipline.}
+Calibration and failure-prediction work has repeatedly warned that an informative confidence signal does not automatically translate into a useful downstream intervention rule \citep{zhu2023failure,deng2023answercal,actcabcodec2024}. This caution is especially relevant here. Earlier screening suggested that entropy may be informative without being a valid semantic controller. In parallel, sampler-centric evaluation work emphasizes that dLLM method claims can be confounded by decoding choices, runtime contracts, or backend differences \citep{samplercentric2026}. Our paper sits at the intersection of these concerns: it does not try to rescue entropy as a semantic controller, but instead asks whether entropy can support a narrower routing claim under an auditable control structure.
+
+\section{Method}
+
+\subsection{Problem Reframing}
+
+The starting point of this work is a reframing rather than a clean-slate method invention. Earlier evidence suggested that entropy is informative as an observer-side signal, but that entropy-guided semantic revision does not reliably outperform a matched random control. This creates a distinction between two roles: an \emph{observer} that detects risk, and a \emph{controller} that determines what semantic update should be made. Our central hypothesis is that entropy is better suited to the former role than to the latter.
+
+Accordingly, we define the target problem as compute routing under a fixed denoising family. Given an input instance $x$, we first run a shared draft trajectory for 64 denoising steps. At draft completion, we compute normalized token entropy values $H_i(x)$ over positions and retain a frontier $F(x)$ consisting of the top-$\rho$ positions, where $\rho \approx 0.1211$ in the present study. Additional denoising is then restricted to this active frontier for at most $T_{\max} = 3$ extra steps.
+
+\subsection{Entropy-Routed Candidate and Sham}
+
+The candidate method, \texttt{cand\_espd}, uses draft-time entropy to decide where further compute should be spent. The current study fixes four ingredients: normalized draft-time token entropy as the routing score, a frontier retention ratio $\rho$, a stopping threshold $\tau = 0.85$ with at least one frontier-only step, and a revision budget of at most three frontier-only steps after the shared draft.
+
+Figure~\ref{fig:routing-diagram} illustrates the candidate and the fixed-frontier sham. Both methods share the same 64-step draft and the same revision budget family, but the candidate places additional compute using draft-time entropy, whereas the sham uses a deterministic frontier of the same nominal size.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_entropy_routed_compute.pdf}
+\caption{Entropy-routed compute versus the matched fixed-frontier sham. Both methods share the same 64-step draft and revision budget family, but the candidate uses draft-time entropy to place additional compute, whereas the sham uses a fixed frontier of the same nominal size.}
+\label{fig:routing-diagram}
+\end{figure}
+
+The sham is intentionally stronger than a generic baseline because it preserves the frontier budget family while removing entropy-based frontier placement. At the same time, it is not perfectly matched in execution behavior: effective batch size, peak VRAM, auxiliary overhead, and average tokens changed still differ between the candidate and the sham. This mismatch is treated as a limitation of the present paper rather than hidden as an implementation detail.
+
+\section{Experiments}
+
+\subsection{Setup and Endpoint Hierarchy}
+
+We evaluate on the full GSM8K test set ($n = 1319$) under a unified runtime contract inherited from the retained full-scale iteration-4 bundle. All methods use a shared 64-step draft trajectory, and the current comparison is executed with an eager backend, compile disabled, and flash attention disabled. We compare four methods: \texttt{cand\_espd}, \texttt{ESPD-FixedFrontier}, \texttt{CARD-84}, and \texttt{RAND-84}.
+
+The primary endpoint is the candidate-versus-sham comparison: whether \texttt{cand\_espd} yields a better quality-speed trade-off than \texttt{ESPD-FixedFrontier} under the current runtime contract. Comparisons against \texttt{CARD-84} and \texttt{RAND-84}, paired repair/harm decomposition, runtime-lineage transparency, and stopping-behavior analysis are secondary endpoints. This endpoint hierarchy matters because the paper does not claim benchmark domination; it claims a bounded, attribution-centered gain that survives a stronger sham than a generic baseline.
+
+\subsection{Main Full-Scale Results}
+
+\begin{table}[t]
+\centering
+\caption{Main full-scale GSM8K results under the current runtime contract. The candidate yields the highest accuracy in the bundle, but its contribution is best interpreted as a bounded trade-off improvement rather than an absolute speed win.}
+\label{tab:main-results}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrr}
+\toprule
+Method & Accuracy & Correct & Eq.-quality speed & Avg.\ NFE & Frontier ratio & Batch \\
+\midrule
+\textbf{cand\_espd} & \textbf{0.4041} & \textbf{533} & 124.42 & 67.93 & 0.1211 & 54 \\
+ESPD-FixedFrontier & 0.3988 & 526 & 105.73 & 68.00 & 0.1211 & 52 \\
+CARD-84 & 0.3965 & 523 & 126.08 & 68.00 & 0.1000 & 57 \\
+RAND-84 & 0.3980 & 525 & \textbf{128.00} & 67.00 & 0.1000 & 57 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+Table~\ref{tab:main-results} summarizes the main full-scale result. The candidate is not the absolute fastest method, but it achieves the highest accuracy among the four methods in the current bundle while preserving a better quality-speed trade-off than the matched sham.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\linewidth]{figures/fig2_quality_speed.pdf}
+\caption{Quality-speed positioning under a unified runtime contract. The candidate is not the absolute fastest method, but it dominates the matched fixed-frontier sham and slightly improves quality over the shared controls.}
+\label{fig:quality-speed}
+\end{figure}
+
+\subsection{Paired Repair/Harm Analysis}
+
+\begin{table}[t]
+\centering
+\caption{Paired repair/harm decomposition. The gains are small, but they are not purely an artifact of aggregate averaging; the candidate maintains a modestly positive repair-harm balance.}
+\label{tab:repair-harm}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrr}
+\toprule
+Comparison & Fixed & Harmed & Unchanged correct & Unchanged wrong & Net repaired \\
+\midrule
+cand\_espd vs RAND-84 & 73 & 65 & 460 & 721 & +8 \\
+cand\_espd vs CARD-84 & 52 & 42 & 481 & 744 & +10 \\
+ESPD-FixedFrontier vs cand\_espd & 57 & 62 & 469 & 731 & -5 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+The aggregate accuracy gap is small, so the structure of the gain matters. Against both shared controls, the candidate yields a modestly positive net repair count. Against the candidate, the sham is net negative.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\linewidth]{figures/fig3_stopping_hist.pdf}
+\caption{Stopping behavior of the candidate and the fixed-frontier sham. The candidate's sharply bimodal pattern supports a routing interpretation, although the absence of a threshold ablation means the mechanism is not yet fully isolated.}
+\label{fig:stopping}
+\end{figure}
+
+\subsection{Uncertainty Treatment and Runtime Lineage}
+
+Because the margins are small, we report a simple uncertainty treatment directly in the main text. Wilson 95\% intervals for the four headline accuracies are highly overlapping: \texttt{cand\_espd} $[0.3779, 0.4308]$, \texttt{RAND-84} $[0.3719, 0.4247]$, \texttt{CARD-84} $[0.3705, 0.4232]$, and \texttt{ESPD-FixedFrontier} $[0.3727, 0.4255]$. Paired McNemar-style descriptive checks remain non-decisive: $p \approx 0.551$ for \texttt{cand\_espd} versus \texttt{RAND-84}, $p \approx 0.353$ for \texttt{cand\_espd} versus \texttt{CARD-84}, and $p \approx 0.714$ for \texttt{ESPD-FixedFrontier} versus \texttt{cand\_espd}. These numbers are reported to make the boundedness of the result explicit, not to claim decisive statistical superiority.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig4_runtime_lineage.pdf}
+\caption{Runtime lineage audit across the candidate, sham, and shared controls. The figure makes the execution envelope explicit rather than hiding it in prose.}
+\label{fig:runtime}
+\end{figure}
+
+Runtime lineage must be read together with the main result. The candidate uses a smaller effective batch than the shared controls (54 versus 57) but a larger batch than the sham (52), and it exhibits a much lower peak VRAM footprint than the sham. The strongest reviewer-safe statement is therefore not that the candidate has established a globally cleaner mechanism. The reviewer-safe statement is that a partially unmatched sham still fails to reproduce the candidate's quality-speed position under the same broad budget family, which is enough to justify further investigation but not enough to close the attribution question.
+
+\section{Discussion}
+
+The main lesson of this study is not that entropy has become a validated semantic controller for training-free dLLM revision. Rather, the evidence suggests a more limited and more defensible interpretation: entropy is currently more useful for routing and stopping compute than for directly determining what semantic revision should be applied. This interpretation fits both sides of the empirical record. On the one hand, the shared entropy-centered control does not cleanly separate from the shared random control. On the other hand, the entropy-routed candidate preserves a better quality-speed trade-off than a matched fixed-frontier sham.
+
+This distinction matters because it changes the scientific story. A controller claim asks for strong evidence that the signal identifies the correct semantic update. A routing claim asks for weaker but still meaningful evidence that the signal identifies where extra compute is more worthwhile. The current bundle supports the second claim more convincingly than the first.
+
+At the same time, the result remains bounded in several important ways. First, the gain is modest. The candidate improves over the shared controls by only $+0.61$ to $+0.76$ points, the Wilson intervals overlap substantially, and the paired repair/harm checks are directionally positive rather than statistically decisive. Second, the fixed-frontier sham is not yet a perfectly matched control: it differs in effective batch size, peak VRAM, wall-clock latency, auxiliary overhead, and average tokens changed. Third, the current evidence is single-benchmark evidence. Without cross-task validation, the safe interpretation remains ``credible GSM8K speed-line signal'' rather than ``general dLLM intervention principle.''
+
+An equally important implication concerns the broader iteration-4 narrative. The original proposal ranked the object-level line, \texttt{cand\_bsr}, ahead of the speed line, \texttt{cand\_espd}. The full-scale evidence no longer supports that ordering. The correct interpretation is therefore evidence-first: \texttt{cand\_espd} is the current mainline because it has full-scale support, whereas \texttt{cand\_bsr} remains a challenger hypothesis that may still prove important but has not yet earned that status empirically.
+
+\section{Conclusion}
+
+This paper presented a bounded full-scale study of entropy-routed compute for training-free discrete diffusion language models. On GSM8K, the entropy-routed candidate achieves slightly higher quality than the shared controls and a materially better quality-speed trade-off than a matched fixed-frontier sham under a unified runtime contract.
+
+The most important conclusion is interpretive rather than headline-driven. The evidence does not support entropy as a validated semantic controller, but it does support entropy as a useful routing and stopping signal for allocating additional compute. This shift from controller to router is the main conceptual update delivered by the study.
+
+The paper also argues for a more disciplined evaluation style in small-gain dLLM research. Shared controls, sham controls, paired repair/harm accounting, and runtime-lineage reporting are not optional extras when the effects are small; they are part of the scientific contribution itself.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

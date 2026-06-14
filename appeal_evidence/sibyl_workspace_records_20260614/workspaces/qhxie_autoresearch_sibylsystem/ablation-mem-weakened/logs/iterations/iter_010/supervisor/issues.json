@@ -1,0 +1,72 @@
+[
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "critical",
+    "description": "Title claims 'Feature Absorption as Optimal Compression' but the optimal compression mechanism (local inhibition graph) is falsified with precision@20=0.0 (H6: p=1.0). The title implies the LCA mechanism is empirically validated, but the predictive tool failed completely. This is a title-content mismatch.",
+    "suggestion": "Retitle to reflect actual contribution: 'Feature Absorption Does Not Degrade SAE Interpretability: Null Results from Controlled Experiments' or 'Competitive Suppression as a Mechanistic Hypothesis for SAE Feature Absorption: Falsified Prediction, Supported Mechanism.'"
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "The central mechanistic claim (decoder correlations cause absorption via competitive suppression) is not independently validated. H6 falsified the graph-based prediction tool. H7 (precision=1.0, recall varies) is merely descriptive -- it shows the pattern consistent with the mechanism but does not test the causal claim. The paper offers 'inhibition explains precision-recall asymmetry' as if it were demonstrated; it is post-hoc interpretation of an observed pattern.",
+    "suggestion": "Either (a) remove the causal mechanistic claim entirely and frame the contribution as null-result reporting plus metric validation, or (b) design an experiment that actually tests whether decoder correlations cause absorption (e.g., artificially perturb G_ij and measure absorption change)."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "critical",
+    "description": "Section 4.5 (p.16 of paper) still states 'layer 8 exhibits the strongest absorption-steering correlation (r=-0.431, p=0.028 for delta-corrected steering, H1b)' as if it supports the mechanism. This raw p-value does NOT survive Bonferroni correction (corrected p=0.334, BH-FDR q=0.167). The correlation_report_full.json confirms: bonferroni_rejected=false for H1b_L8_Pearson. The paper must not cite uncorrected p=0.028 as evidence of effect.",
+    "suggestion": "Remove H1b as supporting evidence. Add explicit statement in the relevant section: 'The strongest uncorrected signal (r=-0.431, p=0.028 at L8) does not survive multiple comparison correction (Bonferroni alpha=0.00417, corrected p=0.334).'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "n=26 features is underpowered for the primary claims. With 12 tests and Bonferroni alpha=0.00417, the study has very low power to detect anything but large effects. The absorption rates are low (mean 0.034, max 0.242 at L8), meaning there is little variance to explain. The paper should acknowledge this as a fundamental limitation: the study cannot distinguish between 'absorption is truly benign' and 'the study is underpowered to detect absorption effects'.",
+    "suggestion": "Add explicit power analysis discussion. State: 'With n=26 features and absorption rates near 0.03, the study has insufficient variance to detect medium-effect correlations. Power to detect r=0.3 at alpha=0.05 is approximately 20%. The null results may reflect insufficient statistical power, not the absence of effect.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The H7 finding (precision=1.0 universally, recall varies) is described as 'strongly supported' but it is not a hypothesis test -- it is a descriptive observation. The paper frames this as confirming the mechanism, but no statistical test establishes that the mechanism causes this pattern. The comparison is to the null pattern (no asymmetry), and no formal test of asymmetry is presented.",
+    "suggestion": "Report H7 as a descriptive pattern, not as a 'supported hypothesis.' Add a formal test: e.g., compare precision std to recall std using a variance ratio test, or compare to a null hypothesis of equal variance."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The metric validation insight (trained SAE absorption 0.034 vs random SAE 0.278) is potentially circular: the Chanin metric may detect dictionary structure artifacts that training reduces, not absorption per se. The paper acknowledges this concern but does not resolve it. If the metric is structure-sensitive, then the 'training reduces absorption' finding is meaningless -- it simply confirms that random dictionaries have more structure than learned ones.",
+    "suggestion": "Add explicit limitation: 'The random SAE baseline comparison reveals that the Chanin metric is sensitive to dictionary structure. We cannot distinguish structure-driven absorption from pathology-driven absorption with current metrics. This does not invalidate the null-result finding but limits interpretation of the trained-vs-random comparison.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "H9 (layer-dependent structure, n=4 layers) uses n=4. With 4 data points, Pearson r=+0.82 is descriptive, not inferential. Any correlation on n=4 is inherently unreliable. The paper's claim that this 'aligns with prior findings' (layer 8 strongest absorption) is circular -- it uses the same n=4 layer dataset to both construct the graph and validate layer dependence.",
+    "suggestion": "Report H9 as 'descriptive trend observed across 4 layers, n insufficient for inferential statistics.' Remove any statistical language around the correlation coefficient."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Section 3.6 performs post-hoc power analysis ('approximately 20% power'). Post-hoc power analysis is methodologically questionable (Cohen, 1994) -- power should be computed a priori. The paper's own finding that H6 was falsified makes post-hoc power analysis moot -- the experiment had adequate power to detect a large effect (precision >> chance) and found none.",
+    "suggestion": "Remove post-hoc power analysis entirely. Replace with brief a priori power note: 'A priori power analysis (alpha=0.05, n=26, medium effect r=0.5) indicates approximately 35-47% power.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "The H6_inhibition_graph.json data shows that ALL features (including V, W, X, Y, Z) have IDENTICAL top_k_indices and top_k_correlations (feature_id=25906, local_idx=1330). This indicates a data processing error in graph construction -- these features were all mapped to the same latent. The paper does not flag this anomaly. For these features, the H6 result is meaningless.",
+    "suggestion": "Investigate why features V, W, X, Y, Z all share the same top-20 neighbor set. If this is a data processing artifact, exclude these features from the H6 analysis and re-compute precision@20. Add a note in the data quality section."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Homeostatic rebalancing (H10) was deferred but the paper discusses it extensively (Section 3.4, 4.7, 5.3). This is misleading -- readers will expect an empirical test of the repair method, but none exists. The theoretical discussion of rebalancing should be brief or omitted.",
+    "suggestion": "Either execute H10 or remove the extensive rebalancing discussion. The practical contribution should not include theoretical repair methods that were never tested."
+  }
+]

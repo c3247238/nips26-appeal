@@ -1,0 +1,83 @@
+{
+  "tasks": [
+    {
+      "id": "shared_runtime_probe",
+      "name": "Runtime setup probe for honest-compute experiments",
+      "description": "Probe max batch size, flash attention availability, torch.compile stability, and 2-GPU split feasibility before any new diagnostic run.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/results/runtime_probe_iter2.json",
+      "candidate_id": "shared",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "max_batch_size_hint": "auto-detect",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "LLaDA-8B",
+          "path": "shared/checkpoints/llada-8b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Detect a non-OOM batch >=16 on at least one runtime path and emit explicit backend/compile metadata.",
+        "estimated_time_min": 12
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Runtime probe matrix for batch size, backend, compile, and latency",
+          "columns": [
+            "Path",
+            "Batch",
+            "Flash",
+            "Compile",
+            "Latency"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cand_bucket_pilot",
+      "name": "Pilot benefit-bucket audit on GSM8K headline pair",
+      "description": "Build per-sample fixed/harmed/no-effect audit for the main GSM8K comparison using the optimized runtime path from shared_runtime_probe.",
+      "type": "analysis",
+      "depends_on": [
+        "shared_runtime_probe"
+      ],
+      "expected_output": "exp/results/benefit_bucket_audit_pilot.json",
+      "candidate_id": "cand_bucket",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "estimated_minutes": 25,
+      "shared_resources": [
+        {
+          "type": "artifact",
+          "name": "iter1_diag_compute_curve",
+          "path": "../iter_001/exp/results/diag_compute_curve_gsm8k.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Emit per-sample buckets with >=95% sample coverage and a summary that explains aggregate gain using fixed/harmed/no-effect counts.",
+        "estimated_time_min": 15
+      },
+      "visualizations": [
+        {
+          "type": "stacked_bar",
+          "description": "Fixed/harmed/no-effect bucket proportions for the headline pair",
+          "x": "method_pair",
+          "y": "count",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

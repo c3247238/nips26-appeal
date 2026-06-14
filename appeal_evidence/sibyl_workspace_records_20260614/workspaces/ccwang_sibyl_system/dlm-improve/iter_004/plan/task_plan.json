@@ -1,0 +1,101 @@
+{
+  "plan_id": "iteration4_espd_fullscale_v1",
+  "workspace": "/Users/cwan0785/sibyl-system/workspaces/dlm-improve/current",
+  "created_on": "2026-03-13",
+  "selected_candidates": [
+    "cand_espd"
+  ],
+  "planning_detail": {
+    "samples": 1319,
+    "primary_benchmark": "GSM8K full test split",
+    "timeout_seconds": 21600,
+    "runtime_contract": "reuse iteration4_runtime_contract_v2 and retain max-safe batch size"
+  },
+  "policy": {
+    "mode": "full_scale_post_selection",
+    "summary": "Instantiate the full-scale espd path after phase-1 promotion, using fresh task ids, a dedicated full_scale_espd_v1 setup/arms bundle, and one experiment per GPU.",
+    "forbidden_moves": [
+      "reuse pilot task ids that already have remote DONE markers",
+      "mix pilot and full-scale arm outputs in the same bundle",
+      "change backend or compile settings away from the retained runtime contract",
+      "claim full-scale success without comparing against RAND-84, CARD-84, and fixed-frontier"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "setup_espd_fullscale_v1",
+      "name": "冻结 ESPD full-scale setup",
+      "description": "复制 retained runtime contract，并从共享 GSM8K test split 生成 1319 样本 full manifest 到 full_scale_espd_v1/setup。",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/results/setup_espd_fullscale_v1.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 12,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "reuse_retained_contract"
+    },
+    {
+      "id": "refresh_gsm8k_controls_full_v1",
+      "name": "运行 full GSM8K shared controls",
+      "description": "在 full_scale_espd_v1 bundle 中重跑 CARD-84 与 RAND-84，保持 retained runtime contract 和最大 batch。",
+      "type": "baseline",
+      "depends_on": [
+        "setup_espd_fullscale_v1"
+      ],
+      "expected_output": "exp/results/gsm8k_controls_full_v1.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 120,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "reuse_retained_contract"
+    },
+    {
+      "id": "espd_gsm8k_full_v1",
+      "name": "运行 cand_espd full GSM8K",
+      "description": "在 1319 样本 GSM8K full split 上运行 cand_espd，并记录 quality-at-equal-compute 与 speed-at-equal-quality-band。",
+      "type": "candidate",
+      "depends_on": [
+        "refresh_gsm8k_controls_full_v1"
+      ],
+      "expected_output": "exp/results/espd_gsm8k_full_v1.json",
+      "candidate_id": "cand_espd",
+      "gpu_count": 1,
+      "estimated_minutes": 90,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "reuse_retained_contract"
+    },
+    {
+      "id": "espd_fixed_frontier_gsm8k_full_v1",
+      "name": "运行 ESPD fixed-frontier sham control",
+      "description": "在同一 full bundle 上运行 fixed-frontier 对照，检验速度收益是否真的来自 entropy routing。",
+      "type": "baseline",
+      "depends_on": [
+        "refresh_gsm8k_controls_full_v1",
+        "espd_gsm8k_full_v1"
+      ],
+      "expected_output": "exp/results/espd_fixed_frontier_gsm8k_full_v1.json",
+      "candidate_id": "cand_espd",
+      "gpu_count": 1,
+      "estimated_minutes": 90,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "reuse_retained_contract"
+    },
+    {
+      "id": "espd_fullscale_bundle_v1",
+      "name": "汇总 ESPD full-scale 证据包",
+      "description": "汇总 full GSM8K 的 candidate、shared controls 与 fixed-frontier 结果，输出供 result_debate 使用的 machine-readable bundle。",
+      "type": "analysis",
+      "depends_on": [
+        "espd_gsm8k_full_v1",
+        "espd_fixed_frontier_gsm8k_full_v1"
+      ],
+      "expected_output": "exp/results/espd_fullscale_bundle_v1.json",
+      "candidate_id": "cand_espd",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "n/a"
+    }
+  ]
+}

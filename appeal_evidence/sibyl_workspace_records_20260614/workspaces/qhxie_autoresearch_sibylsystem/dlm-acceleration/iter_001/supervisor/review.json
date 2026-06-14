@@ -1,0 +1,93 @@
+{
+  "score": 6.0,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 5,
+    "experiments": 6,
+    "reproducibility": 5
+  },
+  "summary": "ComposeAccel presents the first systematic composability study of training-free MDM acceleration methods. The core finding — that M1+CD-SSD achieves super-multiplicative synergy (Ortho=1.385) while all other tested pairs destructively interfere — is real, reproducible from raw JSON artifacts, and supported by a coherent mechanistic explanation (CHR_refine elevation from 60% to 94% on GSM8K, confirmed in igsd_p2_tau09_td16_s123.json and igsd_p2_tau09_td16_s456.json). The paper has addressed the fabricated Wilcoxon p-value claim from the prior review (removed), resolved the tau=0.0 paradox (acknowledged as equivalent to naive T=16), fixed the QAS inconsistency (now uses standard formula 3.40×0.703=2.39), and correctly repositions CD-SSD as concurrent with SSD. However, a NEW critical issue discovered in this review: the paper repeatedly claims alpha=0.52 (52% tokens accepted at tau=0.9, T_draft=16), but the actual measured avg_accept_rate in the full experiment data is 0.881 (88.1% on GSM8K) — a 36-percentage-point error that appears throughout the mechanistic discussion. The CHR_refine=0.940 figure is correctly reported (verified). Additionally, three prior major issues persist: (1) pairwise Ortho is based on only 2 seeds at 15% benchmark scale; (2) M1 implementation gap of 1.38x vs published 15-26x; (3) single-model evaluation only (LLaDA-8B-Instruct). The composability framework and failure-mode atlas contributions are genuine and the paper would score higher after fixing the alpha discrepancy and completing full-scale 3-seed pairwise validation.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "The paper claims alpha=0.52 (52% of tokens accepted from draft at tau=0.9, T_draft=16) in 7 locations including the abstract, contribution bullets, Section 2.2, Section 3.4, Section 3.2, Section 4.2, Section 4.3, and Section 6.1. The actual measured avg_accept_rate from the full experiment data (igsd_p2_tau09_td16_s123.json and igsd_pareto_full.json) is 0.881 on GSM8K and 0.830 combined. Cross-validation: the full experiment script computes accept_rate = n_accept / n_total where n_total = ALL generation positions (not just masked positions), and at T_draft=16, 88% of positions already have confidence >= 0.9. The mechanistic explanation for synergy still holds (frozen tokens create H_i=0 for EntropyCache), but the quantitative figure 'approximately 52% of token positions frozen' is wrong — the actual fraction is 88%. This changes the claim 'at alpha=0.52, over half the position-step pairs incur zero KV recomputation' to 'at alpha=0.88, nearly nine-tenths of position-step pairs incur zero KV recomputation' — a much stronger synergy claim that would require re-examining why the combined speedup is only 5.13x (not higher) given 88% frozen tokens.",
+      "suggestion": "Replace all alpha=0.52 figures with the measured value from the full experiment data: alpha=0.881 on GSM8K (igsd_p2_tau09_td16_s123.json: avg_accept_rate=0.881). Or, if the 0.52 figure was based on a different measurement (e.g., fraction of initially-masked positions that get accepted), define this quantity explicitly and provide the supporting data. Either the alpha=0.52 is wrong or the measurement definition in the paper does not match what the code computes. The mechanistic explanation in Section 4.2 should be updated to use the correct measured value, including revisiting why the speedup is only 9.4% above multiplicative baseline if 88% of positions are frozen."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Pairwise Ortho scores (the primary composability result) are computed from only 2 seeds over 200/1319 GSM8K samples (15% benchmark scale). Per-seed Ortho for M1+CD-SSD is [1.292, 1.478] — the lower bound barely clears 1.0 by a margin of 0.292. The paper states this limitation but continues to describe the binary composability finding in absolute terms ('exactly one of three feasible pairs', abstract and conclusion). The synergy verdict is directionally robust, but the exact Ortho magnitude should not be treated as a precise quantity at 2-seed, 15% scale. Full 3-seed validation is listed as future work but has not been completed.",
+      "suggestion": "Complete full 3-seed, full-benchmark (1319 GSM8K + 500 MATH500) pairwise experiments before submission. This would reduce variance on the Ortho=1.385 estimate and allow reporting a 95% CI. Alternatively, tone down 'exactly one pair' and 'binary' language to 'in the three evaluated pairs, we find one synergistic pair and two interference pairs, with the synergy confirmed across both seeds.' Do not claim a universal structural property with 2-seed evidence."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "M1 implementation achieves only 1.38x speedup versus published EntropyCache 15-26x. The paper acknowledges this gap and argues Ortho is implementation-agnostic because it measures speedup ratios under the same conditions. This argument is partially valid: the Ortho=1.385 ratio is measured at 1.38x absolute speedup, and the CHR_refine=0.940 mechanism is confirmed. However, (a) the absolute combined speedup of 5.13x is presented in Table 3 alongside published single-method baselines of 15-34x, making the ComposeAccel result appear inferior to published single methods; (b) the claim that 'combined speedup would scale proportionally' to ~74x with a kernel-optimized M1 is speculative; (c) a reviewer comparing numbers will note the 10-20x gap. The paper's framing as an analysis paper helps, but the absolute speedup numbers are uninterpretable in the context of the broader literature.",
+      "suggestion": "Add a prominent note in Table 3 header: 'All speedup values are under the ComposeAccel prototype implementation (no kernel-level sparse attention); absolute values are not directly comparable to published baselines in Table 1.' Or implement kernel-level sparse attention for M1 to close the gap. Ensure the conclusion does not compare the 5.13x result against the 27-34x published single-method results without the implementation caveat."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Single-model evaluation: all results are from LLaDA-8B-Instruct. Dream-7B-Instruct was unavailable (model download failed). The paper's central structural claim — 'binary composability is a property of MDM inference because of mask-state coupling' — is stated as a general principle but validated on one model only. The mechanistic explanation depends on LLaDA's specific bidirectional attention and mask schedule. No evidence exists that the binary pattern generalizes to MDLM, SEDD, or other MDM architectures.",
+      "suggestion": "Scope all generalizing claims explicitly to LLaDA-8B-Instruct in the abstract and conclusion. Remove or hedge language like 'binary composability is a structural property of MDM inference' — it may be LLaDA-specific. Alternatively, run at minimum a small-scale composability experiment on a second MDM to provide evidence for generalization."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The paper's M2 (Adaptive Step Scheduling) NO_GO verdict explicitly uses 'Simplified Saber' without backtracking (verified from code). The paper states in limitations that the NO_GO may not transfer to the full Saber algorithm, but the NO_GO language is prominently used in the abstract, introduction, and conclusion without this caveat being sufficiently visible. Section 3.3 Failure Mode Atlas F1 is labeled CRITICAL with detection signal 'auto-reject J >= 2', which is misleading for practitioners who may use the actual Saber implementation with backtracking. The actual Saber paper specifically designed backtracking to address mask inconsistencies.",
+      "suggestion": "Add a visible caveat in Section 2.2 and Section 3.3: 'Our M2 implementation omits Saber's backtracking mechanism; the NO_GO verdict applies specifically to confidence-based top-k unmasking without recovery. Whether the full Saber algorithm with backtracking avoids step_starvation is unknown and warrants testing before claiming adaptive step scheduling is generally incompatible with LLaDA-8B.' Qualify all NO_GO language accordingly."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The mechanistic explanation for binary composability (Section 4.1: trajectory-preserving vs trajectory-modifying classification) lacks independent experimental evidence for the trajectory modification claim for M3. M3 is classified as 'trajectory-modifying through non-stationary entropy distribution' because it interferes, but no per-step entropy distributions comparing M3-on vs M3-off are shown. Figure 7 is described as a conceptual diagram; it is post-hoc rationalization from the observed interference patterns rather than a measurement-backed mechanistic explanation. The CHR_refine measurement in Figure 8 provides direct evidence for the M1+CD-SSD synergy — an equivalent per-step entropy measurement for M3 is absent.",
+      "suggestion": "Add a Figure 8 analog for M3: measure per-step entropy distribution (mean H_i) with and without M3 guidance activated, using the same instrumented forward passes used for Figure 8. If M3 measurably shifts the entropy landscape, this converts the trajectory-modification claim from post-hoc rationalization to evidence-backed mechanism. If M3 does not measurably shift entropy, the explanation for the interference pattern (M1+M3 Ortho=0.301) needs revision."
+    },
+    {
+      "stage": "review",
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The composability framework — specifically the Orthogonality metric Ortho(Ma+Mb) = Speedup(Ma+Mb) / (Speedup(Ma) * Speedup(Mb)) — is a direct application of the multiplicative speedup baseline to measure efficiency loss. This is formally equivalent to a composition efficiency ratio that appears implicitly in system optimization literature. The paper claims 'this protocol did not exist before this work' (Section 6.4), but should acknowledge that the metric is a natural extension of the Amdahl's Law product rule and conceptually related to Kolbeinsson et al. (2024)'s composability framework for weight-space interventions. The composability study applied to MDM inference-time methods is novel; the metric formulation is not an independent invention.",
+      "suggestion": "Revise the novelty claim in Section 6.4 from 'this protocol did not exist before this work' to 'this protocol is the first systematic application of composability evaluation to MDM inference-time acceleration methods.' Credit the general idea of pairwise composability measurement to prior work while claiming the domain-specific application as novel."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "HumanEval and MBPP baselines are degenerate (2.4% and 0.0% pass@1) yet are included in combined QAS/AccRet calculations. The paper correctly notes this and applies MBPP convention (AccRet=1.0), but these conventions systematically distort combined metrics. For example, CD-SSD's combined QAS=2.39 uses MBPP AccRet=1.0 by convention, which inflates the combined figure versus using only GSM8K + MATH500 (where AccRet=0.637 and 0.885). The task-dependent analysis Section 3.5 correctly limits to domain benchmarks, but Tables 2 and 3 mix degenerate and non-degenerate benchmarks in the combined QAS column.",
+      "suggestion": "Add a secondary QAS column in Table 2 and Table 3 computed over GSM8K + MATH500 only, alongside the existing combined QAS. Label clearly: 'QAS (combined, 4 benchmarks)' and 'QAS (reasoning benchmarks)'. This allows readers to assess quality-adjusted speedup on the benchmarks where the model actually performs."
+    },
+    {
+      "stage": "review",
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "Appendix A (Per-Seed Results), Appendix C (M2 Negative Results), and Appendix D (Qualitative Examples) are all marked as placeholder. For a paper whose central contribution is empirical composability analysis, detailed per-seed tables in Appendix A are essential for verifying variance and seed-level reproducibility. Appendix D's absence means readers cannot visually verify output quality claims (e.g., that CD-SSD at tau=0.9 produces coherent outputs, not repetitive or degenerate text that games confidence scores).",
+      "suggestion": "Complete Appendix A before submission: table each method x seed x benchmark result. Add at least 2-3 qualitative examples in Appendix D comparing baseline, M1, CD-SSD, and M1+CD-SSD outputs on the same GSM8K problem to demonstrate generation quality. These take minimal effort relative to their value for reproducibility."
+    }
+  ],
+  "risks": [
+    "The alpha=0.52 error is repeated 7+ times in the paper. If the correct value is 0.88, the quantitative description of the synergy mechanism changes substantially — reviewers will notice the discrepancy with the reported CHR_refine=94% (which is internally consistent with alpha=0.88, not 0.52)",
+    "Pairwise Ortho scores with lower bound 1.292 (barely above 1.0) at 2-seed scale create a reproducibility risk: if the full 3-seed experiment yields Ortho < 1.0 for any seed, the binary composability claim collapses",
+    "M2 NO_GO verdict without backtracking means the failure mode F1 description is incomplete — practitioners using actual Saber may get different results",
+    "SSD+M1 composability is still untested — if SSD+M1 achieves comparable Ortho, the CD-SSD-specific claim collapses to a general self-speculative + KV property, which is a stronger generalization claim but weakens CD-SSD novelty",
+    "The M1 implementation gap (1.38x vs 15-26x) will cause confusion when practitioners read Table 1 and compare published methods to ComposeAccel's measured values"
+  ],
+  "evidence_gaps": [
+    "alpha=0.52 is stated as measured but does not match any raw experiment file (actual avg_accept_rate=0.881 on GSM8K at tau=0.9, T_draft=16); the source of the 0.52 figure is unclear",
+    "No per-step entropy distribution data comparing M3-on vs M3-off to validate trajectory-modification claim in Section 4.1",
+    "No 3-seed full-benchmark pairwise validation; all Ortho scores are 2-seed estimates on 15% benchmark scale",
+    "Dream-7B-Instruct unavailable; single-model conclusions are structural claims without cross-model evidence",
+    "No batch_size sensitivity experiment; deployment guidance for production systems (batch_size > 1) is unvalidated",
+    "SSD+M1 composability experiment listed as highest-priority future work but not completed — cannot determine if CD-SSD synergy is specific to reduced-step drafting or general to self-speculative MDM methods",
+    "Appendices A, C, and D are placeholders — per-seed variance data and qualitative output examples missing"
+  ],
+  "what_would_raise_score": "To reach score 7.0: (1) Fix the alpha=0.52 error — determine the correct partition fraction from raw data and update all 7+ occurrences. (2) Complete full 3-seed pairwise experiments and report Ortho with proper confidence intervals. (3) Qualify all M2 NO_GO language with the 'simplified implementation without backtracking' caveat. These three fixes are primarily correctness corrections with low experimental cost. To reach 7.5: Additionally add the M3 per-step entropy distribution measurement (validates trajectory-modification mechanism), run SSD+M1 composability experiment (determines generalizability of synergy claim), and complete Appendices A and D. A score above 8.0 would require: cross-model validation (Dream-7B or MDLM), kernel-level M1 implementation showing the projected combined speedup, and batch-size sensitivity experiments."
+}

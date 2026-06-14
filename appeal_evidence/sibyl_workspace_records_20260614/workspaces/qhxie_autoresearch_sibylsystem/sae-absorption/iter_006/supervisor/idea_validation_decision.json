@@ -1,0 +1,129 @@
+{
+  "decision": "PIVOT",
+  "selected_candidate_id": "none",
+  "confidence": 0.75,
+  "candidate_scores": {
+    "cand_cross_domain_unsupervised": {
+      "weighted_score": 2.10,
+      "verdict": "PIVOT",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 2, "evidence": "Cross-domain absorption 0-6.6%, all below 10% target. Controls broken: shuffled=59.6% on first-letter (expected ~0%). Net signal vs shuffled is NEGATIVE in all domains."},
+        "hypothesis_survival": {"weight": 0.25, "score": 1, "evidence": "H1: BORDERLINE FALSIFIED (rates < 10%). H3: FALSIFIED (rho=-0.10, threshold 0.3). H6: FALSIFIED (p=0.25, d=0.33). H4: technically met. H5: mixed."},
+        "path_to_full_result": {"weight": 0.20, "score": 2, "evidence": "Broken controls undermine measurement validity. Unsupervised pipeline completely failed. 3/6 hypotheses falsified."},
+        "novelty": {"weight": 0.15, "score": 3, "evidence": "Novelty 7/10 from report. Cross-domain is genuinely novel. But unsupervised detection (core novelty) failed completely."},
+        "resource_efficiency": {"weight": 0.10, "score": 4, "evidence": "All experiments completed efficiently, ~3 hours total on single A100."}
+      }
+    },
+    "cand_decomposition_reframing": {
+      "weighted_score": 2.65,
+      "verdict": "PIVOT_TARGET",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 3, "evidence": "Confound decomposition (96.9% hierarchy-driven) and threshold sensitivity data are solid."},
+        "hypothesis_survival": {"weight": 0.25, "score": 3, "evidence": "H_alt1 FALSIFIED (96.9% hierarchy-driven > 50%). H_alt2 and H_alt3 untested but feasible."},
+        "path_to_full_result": {"weight": 0.20, "score": 2, "evidence": "Chanin et al. (2025) partially anticipates decomposition. Causal patching angle remains novel."},
+        "novelty": {"weight": 0.15, "score": 2, "evidence": "Novelty 6/10. Reduced by Chanin hedging paper."},
+        "resource_efficiency": {"weight": 0.10, "score": 3, "evidence": "Would require activation patching experiments not yet started."}
+      }
+    },
+    "cand_impossibility_theorem": {
+      "weighted_score": 1.60,
+      "verdict": "DROP",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1, "evidence": "No pilot data. Crowded theoretical landscape."},
+        "hypothesis_survival": {"weight": 0.25, "score": 2, "evidence": "Cui et al. 2025, Tang et al. 2025 provide competing results."},
+        "path_to_full_result": {"weight": 0.20, "score": 1, "evidence": "Novelty report recommends 'drop'."},
+        "novelty": {"weight": 0.15, "score": 2, "evidence": "Novelty 5/10. Crowded space."},
+        "resource_efficiency": {"weight": 0.10, "score": 3, "evidence": "Low compute cost but high intellectual effort."}
+      }
+    },
+    "cand_successive_refinement": {
+      "weighted_score": 1.85,
+      "verdict": "DROP",
+      "criterion_scores": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1, "evidence": "CMI FAILED to discriminate absorbed vs non-absorbed (p=0.25, d=0.33)."},
+        "hypothesis_survival": {"weight": 0.25, "score": 1, "evidence": "H_sr1 FALSIFIED. Markov chain violation shows no significant difference."},
+        "path_to_full_result": {"weight": 0.20, "score": 1, "evidence": "No path without discriminative CMI signal."},
+        "novelty": {"weight": 0.15, "score": 4, "evidence": "Novelty 8/10 (highest). But negative empirical result eliminates publishability."},
+        "resource_efficiency": {"weight": 0.10, "score": 5, "evidence": "Already completed. Zero additional cost."}
+      }
+    }
+  },
+  "hypotheses_status": {
+    "H1_cross_domain": {
+      "status": "BORDERLINE_FALSIFIED",
+      "evidence": "City-country 0%, animal-class 1.4%, city-continent 6.5%, city-language 6.6%. All below 10% target. However, controls are broken (shuffled > signal in most domains), so even these low rates may not be trustworthy."
+    },
+    "H2_predictors": {
+      "status": "UNTESTABLE",
+      "evidence": "Cannot compute meaningful correlations because absorption rates are near-zero and controls are broken."
+    },
+    "H3_unsupervised": {
+      "status": "FALSIFIED",
+      "evidence": "Best rho = -0.10, AUROC = 0.47. No component achieves rho > 0.3. ITAC does not separate candidates from random pairs."
+    },
+    "H4_confound": {
+      "status": "SUPPORTED_WITH_CAVEATS",
+      "evidence": "2/4 metrics retain |partial_r| > 0.2. L0 partial r = -0.494 (FDR-significant). But quality proxies are degenerate (float16 overflow noted)."
+    },
+    "H5_scaling": {
+      "status": "MIXED",
+      "evidence": "OLS interaction p = 1.2e-6 (significant). GAM interaction p = 1.0 (not significant). L0 correlation significant at layer 12 only."
+    },
+    "H6_successive_refinement": {
+      "status": "FALSIFIED",
+      "evidence": "Mann-Whitney p = 0.25. Cohen's d = 0.33. Spearman rho (CMI vs absorption) = 0.14 (p = 0.51)."
+    }
+  },
+  "critical_issues": [
+    {
+      "issue": "Shuffled label control produces 59.6% absorption on first-letter (expected ~0%)",
+      "severity": "critical",
+      "implication": "The absorption metric is not well-calibrated for Gemma 2 2B / Gemma Scope. Net signal vs shuffled is NEGATIVE in all domains.",
+      "recommended_action": "Diagnose root cause before any further absorption measurement."
+    },
+    {
+      "issue": "Random probe control produces 9.2% absorption (expected ~0%)",
+      "severity": "high",
+      "implication": "Base rate of false positive absorption detection is non-trivial."
+    },
+    {
+      "issue": "Only 4/25 letters pass F1 > 0.85 probe gate on first-letter",
+      "severity": "high",
+      "implication": "Probe quality is systematically inadequate. The 0.85 gate that the proposal pre-specified as mandatory fails for 84% of letters."
+    },
+    {
+      "issue": "Unsupervised pipeline produces negative/near-zero correlation with gold standard",
+      "severity": "high",
+      "implication": "The core methodological novelty (conditional cosine + firing rate + ITAC) does not work."
+    }
+  ],
+  "reasons": [
+    "3/6 primary hypotheses falsified by full experiment results (H3, H6, and H1 borderline)",
+    "Controls are broken in every domain: shuffled label control = 59.6% on first-letter, net signal vs shuffled is NEGATIVE",
+    "Only 4/25 letters pass the pre-specified F1 > 0.85 probe quality gate",
+    "Unsupervised detection pipeline completely failed (rho = -0.10, AUROC = 0.47)",
+    "Successive refinement CMI does not discriminate absorbed from non-absorbed features (p = 0.25)",
+    "No candidate achieves weighted score >= 2.5 (REFINE threshold)"
+  ],
+  "next_actions": [
+    "Diagnose why shuffled label control produces 59.6% absorption -- possible implementation bug or metric calibration issue",
+    "If control bug is found and fixable: re-run pilot on first-letter only, then reassess ADVANCE decision",
+    "If controls are inherently broken on Gemma 2 2B: pivot to cand_decomposition_reframing with activation patching focus",
+    "Consider framing accumulated evidence as negative result paper about absorption measurement methodology",
+    "Preserve all experiment artifacts -- negative results are themselves publishable with proper framing"
+  ],
+  "dropped_candidates": [
+    "cand_impossibility_theorem",
+    "cand_successive_refinement"
+  ],
+  "pivot_recommendation": {
+    "primary": "cand_decomposition_reframing",
+    "modifications": [
+      "Focus on activation patching / causal test (novel angle not anticipated by Chanin et al. 2025)",
+      "Use negative unsupervised detection result as evidence that absorption is harder to detect than assumed",
+      "Investigate WHY controls are broken -- this could be a contribution itself",
+      "Consider negative result paper combining all 6 iterations of evidence"
+    ],
+    "alternative": "Negative result / methodology critique paper documenting systematic failures of absorption measurement generalization"
+  }
+}

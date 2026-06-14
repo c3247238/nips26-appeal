@@ -1,0 +1,131 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "The Steering Signature of Feature Absorption: An Empirical Study of Absorption's Effect on Causal Intervention Reliability",
+      "status": "front_runner",
+      "summary": "First empirical demonstration that absorbed features exhibit higher steering sensitivity than non-absorbed features (r=+0.35, N=100, GPT-2 layer 8). Reframes absorption as a steering signature (hub-like high-leverage features) rather than a silencing signal. Validated UAS metric (r=0.79). TopK mitigation benchmark (70.9% absorption reduction, 8x MSE cost). Addresses SAE Sanity Checks by showing absorbed features have causal weight.",
+      "hypotheses": [
+        "H1: Absorption peaks in middle layers [UNRESOLVED: two pilot runs contradict]",
+        "H2: Mitigation methods trade off absorption for reconstruction quality [PARTIALLY CONFIRMED: TopK 70.9%/8x; JumpReLU failed]",
+        "H3: High-absorption features show HIGHER steering sensitivity (reversed from original) [CONFIRMED: r=+0.35]",
+        "H4: UAS correlates with supervised absorption [CONFIRMED: r=0.65-0.79]",
+        "H5: Absorption degrades downstream discriminability [DIRECTIONAL: 4.95% vs 5% threshold]"
+      ],
+      "pilot_focus": "Resolve H3 contradiction: replicate with null controls (shuffled/random directions) and multiple alpha values. Target: ~15 min.",
+      "key_refs": [
+        "2409.14507 - Chanin et al. - A is for Absorption (foundational)",
+        "2509.22033 - Korznikov et al. - OrtSAE",
+        "2510.08855 - Li & Ren - ATM",
+        "2602.14111 - Korznikov et al. - SAE Sanity Checks (existential threat, now addressed)",
+        "2602.11881 - Luo et al. - From Atoms to Trees (HSAE)",
+        "2503.17547 - Bussmann et al. - Matryoshka SAEs (to be included in benchmark)"
+      ],
+      "novelty_clear": true,
+      "novelty_notes": "The H3 reversal (absorbed features are MORE steerable) is a genuinely novel empirical finding. UAS validation is novel. The steering sensitivity atlas is novel. Addresses SAE Sanity Checks directly.",
+      "key_findings": {
+        "h3_reversal": {
+          "description": "Full experiment (N=100) shows positive correlation between UAS and steering sensitivity (r=+0.35, p=2.92e-04), contradicting pilot (N=20) and original H3 prediction",
+          "high_abs_mean_effect": 0.1035,
+          "low_abs_mean_effect": 0.0874,
+          "ratio": 0.84,
+          "mechanism_hypothesis": "Absorbed features are hub-like: high activation frequency, high cosine similarity with many other features, high residual stream leverage"
+        },
+        "h4_confirmed": {
+          "spearman_r_range": [0.6466, 0.7875],
+          "interpretation": "UAS reliably predicts supervised absorption without probes"
+        },
+        "h2_topk_cost": {
+          "absorption_reduction_pct": 70.9,
+          "mse_multiplier": 8.0,
+          "interpretation": "TopK achieves largest absorption reduction but at severe reconstruction cost"
+        }
+      }
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Absorption-Aware Hierarchical Feature Decomposition",
+      "status": "backup",
+      "summary": "Combine HSAE's hierarchical feature discovery with absorption-aware regularization. Motivated by H3 finding: absorbed features are hub-like (high-leverage, high-activation-frequency). Use HSAE parent-child structure to regularize hub-child relationships and prevent absorption collapse.",
+      "hypotheses": [
+        "H_b1: HSAE-identified child features are more absorbed (hub-like) than non-child features",
+        "H_b2: Absorption-aware regularization (penalize child-parent cosine similarity) reduces absorption without harming reconstruction",
+        "H_b3: Combined HSAE + absorption regularization outperforms standalone OrtSAE or ATM on steering sensitivity"
+      ],
+      "pilot_focus": "Load HSAE relationships, test whether child features have higher UAS and higher steering sensitivity. Target: ~15 min.",
+      "key_refs": [
+        "2602.11881 - Luo et al. - From Atoms to Trees (HSAE)",
+        "2509.22033 - Korznikov et al. - OrtSAE",
+        "2510.08855 - Li & Ren - ATM"
+      ],
+      "novelty_clear": true,
+      "novelty_notes": "HSAE discovers hierarchy; our regularization addresses the hub-like nature of absorbed features directly. Novel mechanism grounded in H3 finding.",
+      "pivot_trigger": "If H3 replication confirms absorbed features are hub-like; if H1 layer ordering correlates with hub feature density"
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Is Feature Absorption Optimal? Information-Theoretic 4D Pareto Frontier Analysis",
+      "status": "backup",
+      "summary": "Extend Pareto frontier analysis to 4 dimensions: sparsity, reconstruction, absorption, and steering sensitivity. The H3 finding (absorbed features are more steerable) suggests steering sensitivity should be on the Pareto frontier. If absorbed features are optimal for steering, absorption is a feature not a bug.",
+      "hypotheses": [
+        "H_c1: Absorption sits near the sparsity-reconstruction-absorption Pareto frontier",
+        "H_c2: Steering sensitivity is maximized at moderate absorption (hub feature regime)",
+        "H_c3: OrtSAE/ATM off the 4D Pareto frontier (improvement has a cost)"
+      ],
+      "pilot_focus": "Train SAEs at 5 lambda_sparse values, compute 4D Pareto frontier. Target: ~20 min.",
+      "key_refs": [
+        "2409.14507 - Chanin et al. - A is for Absorption",
+        "2505.24473 - Balagansky et al. - HierarchicalTopK (2D Pareto)",
+        "2602.14111 - Korznikov et al. - SAE Sanity Checks"
+      ],
+      "novelty_clear": true,
+      "novelty_notes": "First 4D Pareto frontier for SAEs (adds absorption + steering sensitivity to existing sparsity-reconstruction analysis). Theoretically compelling if H3 is confirmed.",
+      "pivot_trigger": "If H5 is strongly confirmed; if absorption is Pareto-optimal for steering"
+    },
+    {
+      "candidate_id": "cand_d",
+      "title": "Multi-Factor Feature Reliability Index for Interpretability Practitioners",
+      "status": "backup",
+      "summary": "Comprehensive Feature Reliability Index (FRI) combining steering sensitivity (POSITIVE component per H3), activation frequency, UAS (negative), and specificity. Provides practitioners a single score to evaluate feature trustworthiness for interventions.",
+      "hypotheses": [
+        "H_d1: FRI predicts steering effectiveness better than UAS alone",
+        "H_d2: FRI distinguishes intervention-appropriate features from classification-appropriate features",
+        "H_d3: Absorbed features (high UAS) may still have high FRI due to high steering sensitivity"
+      ],
+      "pilot_focus": "Compute FRI components for 50 features, test whether FRI correlates with steering effects better than UAS. Target: ~15 min.",
+      "key_refs": [
+        "2409.14507 - Chanin et al. - absorption",
+        "Tian et al. - feature purity/sensitivity"
+      ],
+      "novelty_clear": true,
+      "novelty_notes": "First multi-dimensional reliability scoring with steering sensitivity as positive component (reflecting H3 finding that absorbed=more steerable).",
+      "pivot_trigger": "If experiments reveal absorbed features are useful for steering but not classification; FRI captures dual nature"
+    }
+  ],
+  "selection_reasoning": "cand_a remains front-runner because it has produced the most surprising empirical finding: absorbed features are MORE steerable, not less. This is a genuine scientific contribution regardless of whether it validates or overturns the original hypothesis. The H3 reversal is the paper's hook. cand_b becomes more attractive if H3 replication confirms the hub interpretation (child features = hubs = absorbed = more steerable). cand_c is valuable if the Pareto frontier analysis reveals that absorption is genuinely optimal for steering sensitivity. cand_d is the fallback if absorption turns out to be one of several failure modes.",
+  "iteration": 1,
+  "date": "2026-04-25",
+  "novelty_verification": {
+    "H3_steering_signature": {
+      "query": "sparse autoencoder absorption steering causal intervention feature sensitivity",
+      "new_prior_art": [
+        {
+          "paper": "Tian et al. 2025. Measuring Sparse Autoencoder Feature Sensitivity. arXiv:2509.23717",
+          "relation": "related",
+          "distinction": "Measures activation sensitivity (will feature fire on similar text?), not steering sensitivity (does adding feature direction change model outputs?). Does not stratify by absorption level. Fundamentally different measurement."
+        },
+        {
+          "paper": "Chalnev et al. 2024. Improving Steering Vectors by Targeting SAE Features. arXiv:2411.02193",
+          "relation": "related",
+          "distinction": "Uses SAEs to measure causal effects of steering vectors. Does not examine absorption. Does not compare absorbed vs non-absorbed feature steering."
+        },
+        {
+          "paper": "Marks et al. 2024. Sparse Feature Circuits. arXiv:2403.19647",
+          "relation": "related",
+          "distinction": "Discovers causal circuits via ablation. Treats all features equally; does not stratify by absorption or measure absorption's effect on intervention effectiveness."
+        }
+      ],
+      "novelty_verdict": "CLEAN: The specific claim that absorbed features exhibit higher steering sensitivity (Spearman r=+0.35) is not present in any prior work."
+    }
+  }
+}

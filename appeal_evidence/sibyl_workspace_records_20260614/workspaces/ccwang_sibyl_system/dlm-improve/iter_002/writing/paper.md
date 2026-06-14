@@ -1,0 +1,103 @@
+# Honest Compute for Diffusion Language Models: Bucket-Level Outcomes and Runtime-Lineage Audits
+
+## Abstract
+
+Training-free revision for diffusion language models is often summarized by a small aggregate gain and a nominal step label. We argue that this reporting pattern is not enough. A credible claim about revision requires three additional ingredients: sample-level outcome structure, realized runtime lineage, and an explicit statement of robustness scope. We study this problem through a focused GSM8K headline pair, `Standard-64` versus `Entropy-Revise-64+3`, and a supporting protocol bundle. First, a runtime probe identifies the feasible audited path on the current host (`eager|compile=True`) and a safe batch size of `57`, making the execution envelope explicit. Second, a benefit-bucket audit shows that the net `+3` percentage-point gain is composed of `7 fixed`, `4 harmed`, and `89 no_effect` examples at full coverage. Third, a minimal three-seed spot-check preserves the same direction across seeds `40`, `41`, and `42`, supporting sign consistency but not a full robustness claim. The contribution is therefore not a new controller family. It is a compute-normalized diagnostic/protocol paper that specifies when a reported revision gain should be considered interpretable and auditable.
+
+## 1. Introduction
+
+Training-free intervention remains the fastest way to change the behavior of diffusion language models (DLMs), but the resulting literature often compresses several distinct questions into a single headline number. A revision policy may appear better because it uses a different realized runtime path, because its observer signal tracks draft errors well, or because the task happens to tolerate local repair. When these factors are reported together only as an aggregate accuracy delta, the comparison becomes hard to interpret and even harder to audit.
+
+This paper argues for a narrower but more defensible framing. We do not present a new controller family. Instead, we study when a small revision gain can be trusted, what structure it hides at the sample level, and which runtime conditions must be made explicit before the claim is scientifically meaningful. Our central thesis is that aggregate revision gain alone is insufficient to explain training-free DLM behavior. The gain must be interpreted together with bucket-level outcomes and realized compute lineage.
+
+The evidence comes from a focused GSM8K headline pair, `Standard-64` versus `Entropy-Revise-64+3`, supplemented by runtime and boundary assets. The new closure in `iter_002` adds three pieces that were missing in the previous round. First, a runtime probe identifies the feasible execution path on the current host and records the safe batch size under the actual software stack. Second, a benefit-bucket audit decomposes the net gain into `fixed`, `harmed`, and `no_effect` examples. Third, a minimal three-seed spot-check tests whether the headline direction is preserved under small stochastic variation. Together, these assets let us state what the comparison supports and, equally importantly, what it does not support.
+
+The resulting picture is more modest than a method paper but more useful than a loose benchmark summary. The bucket audit shows that the GSM8K gain is real but sparse: `7` examples are fixed, `4` are harmed, and `89` are unchanged, yielding a net `+3` percentage-point improvement at full coverage. The runtime audit shows that these comparisons are only credible when backend, compilation path, and batchability are explicit. The seed spot-check shows only sign consistency, not full robustness. In parallel, the protocol bundle clarifies that observer diagnostics, controller outcomes, and runtime execution are separate reporting objects rather than interchangeable forms of evidence.
+
+This framing also explains why we deliberately stop short of opening a new controller line. The optional minimal controller probe was closed as a `NO_GO` artifact, because additional controller variants would shift the paper back toward a hero-method story without changing the main empirical fact: the present contribution is a compute-normalized diagnostic and reporting protocol for revision in DLMs.
+
+Our contributions are therefore threefold. First, we provide a bucket-level audit that explains the structure of the GSM8K headline gain rather than only reporting its average. Second, we package runtime fairness and claim-to-asset lineage into an auditable protocol bundle. Third, we add a minimal seed sign-consistency check that constrains the language of the main claim. The paper is intentionally scoped around these contributions and does not claim a universal cross-task gain law, a new controller family, or full multi-seed robustness.
+
+## 2. Related Work
+
+Work on diffusion language models has rapidly expanded from model construction to training-free inference control. Existing methods vary widely in what they modify: some keep the denoising schedule fixed, some reallocate computation across positions, and some introduce auxiliary signals to decide which tokens should be revisited. This diversity has produced strong empirical results, but it has also made comparisons difficult because nominal method labels often obscure runtime asymmetries and heterogeneous intervention scopes.
+
+A second thread studies confidence and calibration signals for language generation. These signals are useful as observers because they help identify where a draft may be unreliable. However, the literature often moves too quickly from diagnostic usefulness to intervention usefulness. The distinction matters: a signal can predict error well without yielding a strong controller when converted into a revision policy. Our paper does not reject observer-side diagnostics; instead, it argues that observer quality and controller gain should be reported as separate empirical objects.
+
+A third thread concerns evaluation protocol and compute accounting. In many generation settings, realized runtime depends on batchability, implementation path, backend support, and compilation status in addition to nominal step count. Reporting only nominal compute is therefore insufficient when the goal is to compare intervention policies as systems. Our runtime-lineage bundle is a DLM-specific response to that problem: it maps claims to concrete assets and makes execution assumptions auditable.
+
+Finally, our bucket analysis connects to broader work on failure decomposition and recoverability. Aggregate metrics answer whether one method wins on average, but they do not explain whether that gain comes from repairing previously wrong drafts, preserving already correct drafts, or merely leaving most cases unchanged. We treat that decomposition as a first-class research object. Under this view, the contribution of the paper is not another revision heuristic, but a reporting contract for understanding when a reported gain is mechanistically interpretable.
+
+## 3. Protocol Perspective
+
+This section defines the paper's protocol objects. The goal is not to introduce a new model or controller, but to specify how evidence should be separated and reported for a training-free DLM revision study.
+
+### 3.1 Observer, controller, and runtime are different objects
+
+We distinguish three layers. The **observer layer** assigns a signal to a draft state and estimates whether that draft looks revision-worthy. The **controller layer** converts some observer-side information into an intervention policy, for example by remasking a subset of tokens and running additional denoising steps. The **runtime layer** records how the policy is actually executed on hardware and software: backend, compilation path, batch size, latency, and realized forward evaluations.
+
+This separation is the central protocol move of the paper. A strong observer does not automatically imply a strong controller, and neither one implies that the realized compute path is fair. We therefore report the three layers through separate artifacts rather than collapsing them into one benchmark table.
+
+### 3.2 Headline pair and bucket-level outcome decomposition
+
+Our main comparison is the GSM8K headline pair `Standard-64` versus `Entropy-Revise-64+3`. For each sample, the comparison is placed into one of three mutually exclusive outcome buckets:
+
+- `fixed`: the revised policy corrects an answer that the standard policy got wrong,
+- `harmed`: the revised policy changes a correct standard answer into an incorrect one,
+- `no_effect`: both policies end with the same correctness status.
+
+This decomposition is intentionally minimal. It does not claim a complete failure taxonomy. Instead, it provides the smallest structure needed to explain a nonzero aggregate delta at the sample level. In `iter_002`, the headline gain is explained by `7 fixed`, `4 harmed`, and `89 no_effect` samples over the audited slice.
+
+### 3.3 Honest-compute reporting contract
+
+A revision comparison is only credible when nominal method names are accompanied by execution metadata. Our reporting contract therefore requires the following fields to be explicit whenever a result is used in the paper: nominal and realized denoising steps, backend and compilation status, safe batch size on the actual host, latency or throughput, and claim-to-asset lineage from the prose statement to a concrete artifact. The role of this contract is not to define a universal benchmark standard. Its role is narrower: it prevents a paper from implying a cleaner comparison than the underlying execution path actually supports.
+
+### 3.4 Minimal robustness closure
+
+The present paper uses a minimal three-seed spot-check as a quality gate rather than a full robustness claim. The criterion is directional stability of the headline delta. If the sign flips under the minimal seed set, the headline gain should be treated as fragile. If the sign is preserved, the result may be reported as sign-consistent, but not as fully robust.
+
+## 4. Experiments
+
+We present the evidence in the same order as the paper's claims: runtime closure, bucket-level gain structure, minimal seed stability, and optional probe disposition. Boundary evidence from earlier reasoning and code slices is used only for positioning and is not promoted to a new headline.
+
+### 4.1 Setup
+
+The main audited slice is GSM8K with the headline pair `Standard-64` versus `Entropy-Revise-64+3`. All new assets in `iter_002` are tied to concrete JSON artifacts. The runtime probe records the feasible path on the current host, the bucket audit explains the net accuracy delta, the protocol bundle maps claims to assets, and the seed spot-check constrains the strength of the headline wording.
+
+The runtime probe yields two operational facts that matter for all later interpretation. The recommended path on the present host is `eager|compile=True`, and the safe batch size for the audited GSM8K slice is `57`. Flash attention is not available in the current environment. These facts are not implementation trivia: they define the execution envelope under which the audited results should be read.
+
+### 4.2 Runtime fairness must be explicit before the gain is interpretable
+
+The runtime-lineage bundle turns the comparison into an auditable object. Rather than reporting only a nominal step label, we map each main claim to an artifact and to the execution fields required to interpret it. The key takeaway is simple: a revision claim is only meaningful if the reader can inspect the realized path used to obtain it.
+
+### 4.3 Bucket-level outcomes explain the aggregate gain
+
+The main empirical result is the benefit-bucket audit of the GSM8K headline pair. The audit covers the entire reviewed slice (`coverage = 100%`) and reports `standard_accuracy = 0.34`, `entropy_accuracy = 0.37`, `accuracy_delta = +0.03`, `fixed = 7`, `harmed = 4`, and `no_effect = 89`.
+
+This decomposition matters because the aggregate gain is small enough that it can easily be over-interpreted. The bucket view shows that the gain is neither a broad rewrite of behavior nor a pure preservation story. Instead, the revised policy helps on a narrow subset, hurts on a smaller subset, and leaves the majority unchanged. That is exactly why the paper treats bucket-level outcomes as the main evidence layer.
+
+### 4.4 Minimal seed closure supports sign consistency, not full robustness
+
+The minimal seed spot-check evaluates the same headline pair across seeds `40`, `41`, and `42`. The resulting deltas are `+0.03`, `+0.01`, and `+0.01`. All three runs preserve the same direction, `entropy_better`, so the headline result is sign-consistent under this minimal check. We explicitly stop there. The experiment does not justify a full robustness claim or a general stability statement across tasks.
+
+### 4.5 Optional controller expansion was intentionally closed
+
+The optional minimal controller probe was not executed as a new experimental branch. Instead, it was closed through an explicit `NO_GO` artifact. This is an important positive decision rather than missing work. By the time runtime, bucket, and seed evidence were all in place, an additional controller variant would have changed the story more than it would have improved the evidence.
+
+## 5. Discussion
+
+The strongest outcome of `iter_002` is a reduction in narrative ambition paired with an increase in evidential clarity. The paper no longer needs to pretend that a new controller has emerged. Its defensible contribution is to specify what a revision gain must be accompanied by before it should be taken seriously.
+
+The bucket audit turns the headline GSM8K result from a small average improvement into an interpretable structure. Without the `fixed / harmed / no_effect` split, the reader only sees a `+3pp` delta and is left to guess whether the revised policy broadly improves the system or merely shifts a few marginal examples. The audit shows that the latter interpretation is closer to the truth. This does not weaken the result; it makes the result honest.
+
+The runtime-lineage bundle serves a different purpose. It does not claim a new scientific law. Instead, it acts as a credibility shield against a familiar failure mode in DLM evaluation: apparently comparable methods may depend on materially different realized execution paths. Reporting backend, compile status, and safe batch size alongside claim-to-asset lineage is therefore a condition for interpretability, not an optional appendix nicety.
+
+The optional controller probe was closed because it would have changed the paper's identity. Once the bucket, protocol, and seed closures were complete, another controller branch would not have tested the main thesis more cleanly. It would have invited the reader back into a method paper framing that the evidence no longer supports. The most disciplined decision was therefore to stop.
+
+Several limitations remain important. The seed closure is minimal and only supports sign consistency. The main bucket audit is centered on a single GSM8K headline pair. Boundary evidence from other tasks should remain supporting context rather than a source of universal claims. The paper does not establish a complete failure taxonomy or a universal observer-controller law.
+
+## 6. Conclusion
+
+This paper reframes training-free DLM revision as a compute-normalized diagnostic problem rather than a search for a new hero controller. The main headline pair on GSM8K improves by `+3` percentage points, but the contribution of that number lies in how it is explained and constrained: the gain decomposes into `7 fixed`, `4 harmed`, and `89 no_effect` examples; the runtime path is made explicit through a protocol bundle; and a minimal three-seed spot-check shows directional consistency without licensing a stronger robustness claim.
+
+Under this framing, the durable contribution is not a new intervention family. It is a reporting contract for when a revision gain should be believed. Aggregate deltas need bucket-level explanation. Runtime claims need lineage and fairness metadata. Minimal robustness checks should constrain the language of the conclusion instead of being retrofitted after the fact.

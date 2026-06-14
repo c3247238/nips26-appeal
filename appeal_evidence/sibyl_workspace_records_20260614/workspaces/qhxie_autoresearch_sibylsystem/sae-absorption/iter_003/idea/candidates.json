@@ -1,0 +1,100 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_ars_amortization_crosshierarchy",
+      "title": "Unsupervised Absorption Fingerprinting and the Amortization Gap: A Unified Framework for Diagnosing and Separating the Root Causes of SAE Feature Absorption",
+      "status": "front_runner",
+      "revision_round": 1,
+      "iteration": 2,
+      "summary": "Three interlocking training-free contributions: (1) Absorption Risk Score (ARS) — first unsupervised co-occurrence-network-based absorption detector, derived from ecological competitive exclusion theory (Jaccard niche overlap × activation asymmetry × decoder cosine similarity), targeting the 75% early-absorption majority where EDA (iter_001) has no signal; (2) Amortization Gap Controlled Dictionary Experiment — first decisive mechanistic test separating encoder-amortization-gap from sparsity-optimization-landscape explanations of absorption by fixing the decoder and varying encoding method (feedforward vs. OMP vs. 2-pass); (3) Cross-Hierarchy Absorption Characterization — first systematic measurement of absorption beyond the first-letter task with proper matched negative controls, testing whether frequency imbalance (ρ) predicts absorption severity across hierarchy types.",
+      "hypotheses": [
+        "H1 (ARS Unsupervised Detection): ARS AUROC > 0.70 vs. Chanin et al. labels on Gemma Scope L12-16k; directed co-occurrence asymmetry is the highest-information component",
+        "H2 (Amortization Gap): If dominant: OMP absorption rate < 50% of feedforward with same decoder; if landscape dominant: OMP >= 80% of feedforward. Pre-committed to reporting either direction.",
+        "H3 (Cross-Hierarchy Generalization): Entity-type absorption > negative control by > 10 pp (paired t-test p < 0.05 Bonferroni); frequency ratio ρ predicts absorption rate across hierarchies (Spearman ρ > 0.40)",
+        "H4 (Phase Transition in ρ): Step-like increase in absorption rate near theoretical ρ* using 26-letter natural sweep; R² of step-function fit > linear fit",
+        "H5 (Safety Attribution): >= 20% of SAE-vs-linear-probe false-negatives on harmful intent classification are absorption-attributable; intervention with absorbed parent latent is more effective than random latent addition"
+      ],
+      "pilot_focus": "Two 15-minute pilots before full commitment: (1) ARS on Gemma Scope L12-16k top-10 high-ARS pairs vs. Chanin labels on 3 letters; go-criterion: >= 5/10 high-ARS pairs are Chanin-labeled absorbed. (2) Feedforward vs. OMP absorption on 1000 tokens, 3 letters; go-criterion: OMP reduction >= 10%.",
+      "key_novelty": "ARS: first unsupervised co-occurrence-topology absorption detector (no probe labels needed). Amortization gap: first controlled dictionary experiment separating encoder from landscape causes. Cross-hierarchy: first negative-control-matched systematic absorption generalization study. All three have confirmed zero prior-work overlap from literature search (April 2026).",
+      "crowded_risks": "H-SAE (Muchane et al., arXiv:2506.01197): architectural hierarchy encoding — requires retraining, distinct from training-free detection and mechanistic causal analysis. MP-SAE (Costa et al., arXiv:2506.03093): iterative encoding for absorption reduction — does not fix dictionary, cannot distinguish encoder from landscape. OrtSAE: requires retraining; addresses structural decoder geometry, not detection or causal separation.",
+      "compute_estimate": "12-16 GPU-hours total, all forward passes. Breakdown: ARS full validation (3 hr) + amortization gap (2 hr) + cross-hierarchy (3 hr) + supplementary phase transition + safety attribution (2.5 hr) + cross-architecture ARS (2 hr).",
+      "falsification_conditions": "H1 AUROC < 0.55 AND H2 (amortization gap) is inconclusive (10-25% OMP reduction) AND H3 entity-type is not significant vs. negative control. All three primary contributions must fail simultaneously to pivot to backup. Individual failures lead to 2-contribution paper, not full pivot.",
+      "connection_to_previous_iteration": "ARS directly motivated by iter_001's 75% early-absorption finding (EDA fails for early cases; co-occurrence topology can detect absorbing relationship even without decoder signal). Amortization gap experiment was Backup A in iter_001 (elevated to primary in iter_002). Cross-hierarchy replaces iter_001's RAVEL study with proper probes and negative controls.",
+      "venue_target": "NeurIPS 2026 main track if all three contributions confirmed. EMNLP 2026 or NeurIPS 2026 MI Workshop if 2/3 contributions confirmed.",
+      "theoretical_grounding": "ARS: Lotka-Volterra competitive exclusion formally maps to L1-penalized SAE loss (ecological analogy is mathematically rigorous for two-feature system). Amortization gap: O'Neill et al. (2411.13117) proves encoder amortization gap exists; this experiment measures its magnitude in practice. Phase transition: Critical Frequency Ratio Theorem (ρ*(k, p₁, λ) = 1 - λk/(p₁ · const_geometry · (1-ε²))) provides exact testable prediction for H4."
+    },
+    {
+      "candidate_id": "cand_lca_sae",
+      "title": "LCA-SAE: Locally Competitive Encoder Dynamics for Absorption Reduction",
+      "status": "backup",
+      "iteration": 2,
+      "summary": "Replace feedforward SAE encoder with unrolled Locally Competitive Algorithm (LCA) using lateral inhibition from decoder Gram matrix. Parallel competition allows parent and child features to coexist at graded activation levels. Differentiated from MP-SAE by parallel vs. sequential competition. Activate if amortization gap experiment confirms encoder improvements can reduce absorption.",
+      "hypotheses": [
+        "LCA reduces absorption rate >= 30% relative to feedforward at matched L0",
+        "LCA reduces late absorption more than early absorption (mechanistic validation of taxonomy)",
+        "5 iterations are sufficient for convergence"
+      ],
+      "pilot_focus": "10-minute CPU pilot on Chanin et al. 2-feature toy model. Go criterion: parent feature activated by LCA when child is active (parent activation > 0.1).",
+      "key_novelty": "First application of LCA parallel lateral competition to SAE absorption. Distinct from MP-SAE (sequential greedy vs. simultaneous competition).",
+      "crowded_risks": "MP-SAE (Costa et al., arXiv:2506.03093 + 2506.05239): overlapping idea. Key differentiator: LCA parallel competition can be applied as drop-in encoder replacement to any pre-trained SAE without retraining the decoder. MP-SAE requires joint retraining.",
+      "compute_estimate": "3-4 GPU-hours (threshold fine-tuning + SAEBench evaluation)",
+      "pivot_trigger": "Amortization gap experiment shows OMP reduces absorption >= 30% (encoder matters) AND ARS AUROC < 0.60 (detection contribution fails)."
+    },
+    {
+      "candidate_id": "cand_successive_refinement",
+      "title": "Successive Refinement Test: Does Wider SAE Width Recover Previously Absorbed Features?",
+      "status": "backup",
+      "iteration": 2,
+      "summary": "Test whether wider SAEs recover features absorbed in narrower ones. If not successively refinable, 'just use wider SAEs' is not the correct prescription. Run as supplementary experiment regardless of main results.",
+      "hypotheses": [
+        "< 50% of absorbed features in 16k SAE have a matching unabsorbed feature in 65k SAE (cosine similarity > 0.80 with probe direction)",
+        "Wider SAEs have different absorbed features, not fewer total absorbed features"
+      ],
+      "pilot_focus": "Pure weight analysis, no activation data needed. < 1 GPU-hour.",
+      "key_novelty": "First application of Equitz-Cover (1991) successive refinement framework to SAE absorption. Novel framing of width vs. absorption tradeoff.",
+      "compute_estimate": "< 1 GPU-hour (weight analysis only)",
+      "pivot_trigger": "Always run as supplementary. No separate pivot condition."
+    },
+    {
+      "candidate_id": "cand_recoverability",
+      "title": "Recoverability Analysis: Is Late Absorption Lossless or Lossy Compression?",
+      "status": "backup",
+      "iteration": 2,
+      "summary": "For late-absorbed latents (decoder-present, ~13% from iter_001), test whether the absorbed parent information is recoverable from child feature activations via linear readout. Determines whether ITAC-style corrections are in principle capable of recovering lost information.",
+      "hypotheses": [
+        "Information recovery ratio I(parent; child_activations) / I(parent; parent_activations) > 0.90 for late-absorbed latents (lossless)",
+        "Information recovery ratio < 0.70 for early-absorbed latents (genuine loss; no post-hoc correction can recover)"
+      ],
+      "pilot_focus": "Target late-absorbed latents from iter_001 taxonomy at L12-65k. 1-2 GPU-hours.",
+      "key_novelty": "Lossless vs. lossy absorption distinction is new. Information-theoretic framing of absorption recoverability is novel and practically important for mitigation strategy selection.",
+      "compute_estimate": "1-2 GPU-hours",
+      "pivot_trigger": "Activate after amortization gap experiment if late absorption is confirmed significant (> 15%) and amortization gap is a mixed result (20-50% OMP reduction)."
+    }
+  ],
+  "dropped_candidates": [
+    {
+      "candidate_id": "cand_label_implication_loss",
+      "title": "Label-Implication-Aware Decoder Regularization (from Innovator Candidate C)",
+      "reason_dropped": "Requires SAE fine-tuning, violating training-free constraint. Chicken-and-egg hierarchy identification problem: absorption corrupts the co-occurrence signal needed to identify the hierarchy.",
+      "status": "dropped"
+    },
+    {
+      "candidate_id": "cand_basin_attraction",
+      "title": "Basin-of-Attraction Analysis of Absorbing vs. Non-Absorbing Minima (from Theoretical Candidate C)",
+      "reason_dropped": "Requires retraining SAEs from different random seeds (violates training-free constraint). Technically too demanding (full Hessian analysis in high-dimensional parameter space). Key insight incorporated as theoretical remark in the phase transition hypothesis (H4).",
+      "status": "dropped"
+    },
+    {
+      "candidate_id": "cand_absorption_faithful",
+      "title": "Absorption as Faithful Recovery of Model Compression (from Contrarian Candidate B)",
+      "reason_dropped": "Steelmanned and refuted: Chanin et al.'s first-letter behavioral test demonstrates genuine information loss cases where the model relies on the general feature but the SAE fails. Absorption is not purely faithful recovery.",
+      "status": "dropped"
+    },
+    {
+      "candidate_id": "cand_info_bound_standalone",
+      "title": "Information-Theoretic Lower Bound on Absorption Rate (from Theoretical Candidate B)",
+      "reason_dropped": "Bound is vacuous for practical L0 values (k >= H/I implies AR_min <= 0). Incorporated as supplementary theoretical remark grounding the ARS motivation, not a standalone experiment.",
+      "status": "merged_into_supplementary"
+    }
+  ]
+}

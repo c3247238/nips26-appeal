@@ -1,0 +1,79 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Effective WD inflation confound is uncontrolled. EqWD's modulation factor phi >= 1 always, meaning the effective average WD over training is systematically higher than FixedWD with the same lambda_base. The paper acknowledges this in Section 5.6 item 2 but does not run the obvious control: FixedWD with lambda = 6e-4 or 7e-4 to match EqWD's effective average. Without this control, a reviewer cannot distinguish 'better-timed modulation' from 'more regularization is better.' The CAWD control partially addresses this but is confounded by CAWD's potentially detrimental alignment signal, as the paper itself notes.",
+    "suggestion": "Run FixedWD with lambda in {5e-4, 6e-4, 7e-4, 8e-4, 1e-3} on ImageNet (3 seeds each). If FixedWD at matched effective lambda matches EqWD, the timing hypothesis is refuted and EqWD reduces to 'use higher WD.' If EqWD still wins, the timing mechanism is validated. This is the single most important missing experiment."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "45-epoch ImageNet regime is non-standard. The paper dedicates a full subsection (5.5) to acknowledging this, but the concern remains: EqWD's claimed advantage is during 'transitional phases' (warmup and cosine decay transitions). In a 45-epoch schedule with step decay at epoch 30, these transitions are proportionally larger (compared to 90-epoch cosine). At 90 epochs with gradual cosine annealing, the transitions are smoother and the ratio deviation signal may be attenuated. The paper correctly notes method rankings can change, but this is not just a caveat -- it undermines the primary empirical claim.",
+    "suggestion": "Run 90-epoch ImageNet experiments for at least EqWD, FixedWD, and SWD (the top-3 methods) with 3 seeds each. If resource-constrained, even single-seed 90-epoch runs would significantly strengthen the paper."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "Proposition 2 ('Ratio Sufficiency') is not a meaningful theorem -- it is a tautological conditional statement. It says: 'IF alignment deviation is a function of gradient and weight norms, THEN the ratio is sufficient.' The antecedent is an empirical condition, not something the proposition proves. The real contribution is the AIS empirical test showing MI(alignment; accuracy | norms) ~ 0, but this test was only conducted on CIFAR-100 (ResNet-20 and VGG-16-BN), not on ImageNet where EqWD's advantage is claimed.",
+    "suggestion": "Downgrade Proposition 2 from a formal proposition to an 'empirical finding' or 'observation.' Conduct the AIS diagnostic on ImageNet ResNet-50 to verify that ratio sufficiency holds at the scale where it matters."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "BEM (Budget Equivalence Metric) test result is negative but not reported in the paper. The experiment_analysis.json mentions EqWD not being superior to FixedWD under equal tuning budget. Omitting a negative result that was conducted is more damaging than disclosing it.",
+    "suggestion": "Add a subsection on budget equivalence testing. Frame the near-equivalence as: 'EqWD achieves comparable performance to tuned FixedWD without any tuning, demonstrating robustness of default hyperparameters.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Statistical significance is insufficient for the key comparisons. EqWD vs SWD on ImageNet: bootstrap 95% CI includes zero. EqWD vs FixedWD: p ~ 0.11-0.20. With n=3 seeds, the power to detect a 0.3% difference is very low.",
+    "suggestion": "Increase to n=5 seeds. Consider Bayesian analysis as an alternative to frequentist CI at small n."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Learning rate schedule is step decay (lr=0.1 for epochs 1-29, lr=0.01 for epochs 30-45) but paper claims 'cosine annealing' in Section 4.1. This is a factual error that undermines the mechanistic narrative about 'cosine decay transitions.'",
+    "suggestion": "Correct the paper to accurately describe the lr schedule. If cosine was intended, re-run with actual cosine schedule."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "CIFAR-100 results with default beta=1.0 rank 3rd. Single-seed beta=5.0 result (66.07%) is not publishable evidence. Cross-dataset story is post-hoc rationalization.",
+    "suggestion": "Run beta=5.0 with 3 seeds on CIFAR-100 to confirm, or re-frame contribution as specific to large-scale training."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "VGG-16-BN CIFAR-100 results show very high variance (std 1.19-2.02%) making method comparison uninformative.",
+    "suggestion": "Move VGG results to appendix or flag training instability explicitly."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "minor",
+    "description": "No diagnostic showing how EMA r* tracks the theoretical r*=lambda/gamma, especially during the lr drop at epoch 30.",
+    "suggestion": "Add EMA r* vs theoretical r* diagnostic plot."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Weight decay lambda=0.0001 in raw data vs lambda=5e-4 stated in paper Section 4.1. Potential discrepancy in reported hyperparameters.",
+    "suggestion": "Verify and correct the reported base weight decay coefficient."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "Paper scope has narrowed from the original unified framework proposal to a focused EqWD algorithm paper. This is fine but ensure no vestigial over-claims remain.",
+    "suggestion": "Audit for residual unified framework language that overpromises."
+  }
+]

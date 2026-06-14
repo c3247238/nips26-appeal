@@ -1,0 +1,86 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Data provenance mismatch between iterations. Table 2 (AdamW CIFAR-10) uses iter_003 data (constant=90.13+/-0.31, from seeds 90.48/90.03/89.89). The iter_006 instrumented rerun of the identical configuration yields constant=89.80+/-0.31 (seeds 89.72/90.15/89.54) -- a 0.33pp shift in the mean. PMP-WD results referenced in Section 5.1 come from iter_006 (90.29+/-0.12). The paper mixes data from two different experiment batches without acknowledging this. The 0.33pp cross-iteration shift exceeds the paper's claimed 0.25pp total spread, meaning the inter-batch variance is LARGER than the inter-method variance the paper is trying to characterize.",
+    "suggestion": "Either: (1) rerun ALL methods in Table 2 using the same iter_006 instrumented code to ensure provenance consistency, or (2) use iter_003 data uniformly (including for PMP-WD, which means running PMP-WD with the iter_003 training code), or (3) explicitly document the data provenance for each method in a supplementary table, showing that iter_003 and iter_006 training code is identical. Option 1 is strongly preferred."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Lyapunov function V_t empirically INCREASES throughout training, contradicting Theorem 1's guarantee that V_{t+1} <= V_t. Section 5.7 states that 'all methods remain within the certified band' but the evolution lessons record that V_t is 'monotonically increasing on a log scale'. If V_t increases, the Lyapunov certificate is vacuous -- it does not certify convergence for the observed trajectories.",
+    "suggestion": "Decompose V_t = f(w_t) + mu_t*||w_t||^2 and show that f(w_t) (the loss) DOES decrease monotonically even though V_t increases. Plot both components separately. Alternatively, acknowledge that the guarantee requires gamma_t < 1/L and this condition is violated in practice."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Theorem 2 validation is claimed as positive but the evidence shows otherwise. rho=-0.379 with p=0.121 is NOT statistically significant. The paper frames this as 'directionally consistent with the theoretical improvement' -- this is spin, not science.",
+    "suggestion": "Report honestly: 'The correlation is not statistically significant (rho=-0.379, p=0.121, N=18).' Demote Theorem 2 from primary contribution to theoretical proposition pending larger-scale validation."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "No ImageNet experiments despite the proposal planning Phase 4 (72 GPU-hours) and project constraints mandating ImageNet. Without ImageNet, conclusions about 'the weight decay illusion' are confined to toy-scale CIFAR.",
+    "suggestion": "Diagnose ImageNet failures. Use ImageNet-100 as fallback (3 methods x 3 seeds = 9 runs, ~6 GPU-hours)."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "Theory-experiment optimizer mismatch: ALL theorems assume SGD dynamics. The main experiments use AdamW. PMP-WD's costate derivation uses SGD momentum but is applied to AdamW. This gap is never discussed.",
+    "suggestion": "Add explicit limitation statement about the SGD theory / AdamW experiment gap."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "PMP-WD advantage framing is misleading. 90.29% vs 89.80% with p=0.12 is not significant. Method ordering reversed between iter_003 and iter_006.",
+    "suggestion": "Add PMP-WD to Table 3 with its p-value. Report honestly that PMP-WD is not statistically distinguishable from constant."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "No appendix with proofs exists despite multiple references. 4th consecutive iteration of neglect. Theory-heavy paper with 4 theorems and zero proofs is a desk-reject risk.",
+    "suggestion": "Write Appendix A with complete proofs for Theorems 1-4. Non-negotiable for submission."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "NoBN ablation data exists in iter_005 but is absent from the paper. The 0.12pp spread may undermine the BN-narrowing narrative.",
+    "suggestion": "Include NoBN results honestly. If spread is still narrow, revise the BN-narrowing explanation."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Statistical power at N=3 insufficient for null-result paper. TOST at delta=0.5% has only 15-20% power.",
+    "suggestion": "Add 2 seeds for key comparisons (8 runs, ~2 GPU-hours)."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "BEM=0.000 for half_lambda is inconsistent with the formula. Raw data shows mean_wd_actual=0.0005, same as constant. Either the implementation is wrong or the method is mislabeled.",
+    "suggestion": "Verify half_lambda implementation and BEM computation code."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "Abstract claims '105 controlled experiments' -- verify count with PMP-WD additions.",
+    "suggestion": "Report exact verified experiment count."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "CIFAR-100 spread reported inconsistently as 0.76pp and 0.58pp without marking distinction.",
+    "suggestion": "Report both: '0.76pp including no-WD (0.58pp among WD methods).'"
+  }
+]

@@ -1,0 +1,167 @@
+{
+  "tasks": [
+    {
+      "id": "activation_patching_pilot",
+      "name": "Activation Patching Pilot: 9 Core Words",
+      "description": "Validate whether 9 persistent core words (eight, lower, liked, offer, often, etc.) represent genuine hierarchy-driven absorption via activation patching. Suppress child feature and measure parent recovery rate.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/activation_patching_pilot.json",
+      "candidate_id": "cand_g",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 9,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Recovery rate > 0.5 indicates genuine absorption; < 0.2 indicates metric artifact"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Activation patching recovery rates for 9 core words",
+          "columns": ["word", "recovery_rate", "std_error"],
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {"type": "model", "name": "gpt2-small", "path": "transformer-lens"},
+        {"type": "sae", "name": "gpt2-small-res-jb", "path": "sae_lens"}
+      ]
+    },
+    {
+      "id": "random_sae_activation_patching",
+      "name": "Random SAE Baseline Activation Patching",
+      "description": "Run same activation patching experiment on random SAE baseline to compare recovery rates. If trained SAE shows higher recovery, it suggests training optimizes genuine absorption, not just metric sensitivity.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/random_sae_activation_patching.json",
+      "candidate_id": "cand_g",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 9,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Trained SAE recovery > Random SAE recovery supports H7 interpretation"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Trained SAE vs Random SAE recovery rate comparison",
+          "columns": ["word", "trained_recovery", "random_recovery", "difference"],
+          "paper_section": "experiments"
+        }
+      ],
+      "shared_resources": [
+        {"type": "model", "name": "gpt2-small", "path": "transformer-lens"},
+        {"type": "sae", "name": "gpt2-small-res-jb", "path": "sae_lens"}
+      ]
+    },
+    {
+      "id": "dead_feature_stratified_analysis",
+      "name": "Dead Feature Ratio Stratified Analysis",
+      "description": "Analyze whether activation patching results differ for features with L0 > threshold (active) vs L0 = 0 (dead). High dead ratio (89-99%) may invalidate some prior conclusions.",
+      "type": "analysis",
+      "depends_on": ["activation_patching_pilot"],
+      "expected_output": "exp/results/dead_feature_stratified.json",
+      "candidate_id": "cand_g",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 26,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Results stratified by L0 show different patterns"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "L0 vs recovery rate colored by dead/active status",
+          "x": "l0",
+          "y": "recovery_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "activation_patching_full",
+      "name": "Activation Patching Full: Extended Word Set",
+      "description": "Extend activation patching to full set of 26 first-letter features. Validate whether the 9 core words are representative or outliers.",
+      "type": "experiment",
+      "depends_on": ["activation_patching_pilot"],
+      "expected_output": "exp/results/activation_patching_full.json",
+      "candidate_id": "cand_g",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 26,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Recovery patterns consistent with pilot; >50% words show genuine absorption"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Full 26-word recovery rate heatmap",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "architecture_comparison_pilot",
+      "name": "Architecture Comparison Pilot (JumpReLU vs TopK)",
+      "description": "Pilot comparison of JumpReLU vs TopK architectures on activation patching. Must use matched training data/dict size to avoid confounding. EXPLORATORY - may skip if time insufficient.",
+      "type": "experiment",
+      "depends_on": ["activation_patching_pilot"],
+      "expected_output": "exp/results/architecture_comparison_pilot.json",
+      "candidate_id": "cand_g",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 9,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Significant difference between architectures after controlling for training data"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Architecture comparison: JumpReLU vs TopK recovery rates",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "figure_generation",
+      "name": "Figure Generation for Paper",
+      "description": "Generate final figures for paper: activation patching results, trained vs random comparison, dead feature analysis.",
+      "type": "analysis",
+      "depends_on": ["activation_patching_full", "random_sae_activation_patching", "dead_feature_stratified_analysis"],
+      "expected_output": "exp/results/figures/",
+      "candidate_id": "cand_g",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "visualizations": [
+        {
+          "type": "composite_figure",
+          "description": "Combined figure with recovery rates, comparisons, and stratified analysis",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "planning_detail": "samples=100, seeds=[42], timeout=900s (pilot config)",
+    "iteration": 6,
+    "front_runner": "cand_g (optimal compression)",
+    "experiment_rationale": "Activation patching validation was recommended for 3 consecutive reviews but never executed. This is the ONLY experiment that can distinguish genuine hierarchy-driven absorption from metric artifact.",
+    "key_question": "Do the 9 persistent core words show genuine absorption (parent recovers when child suppressed) or metric artifact (parent never fired)?"
+  }
+}

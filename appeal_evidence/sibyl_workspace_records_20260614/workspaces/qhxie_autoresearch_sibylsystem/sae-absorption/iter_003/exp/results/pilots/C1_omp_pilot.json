@@ -1,0 +1,109 @@
+{
+  "task_id": "task_C1_omp_pilot",
+  "mode": "PILOT",
+  "timestamp": "2026-04-14T06:07:11.049956",
+  "elapsed_sec": 22.450976371765137,
+  "seed": 42,
+  "n_tokens": 100,
+  "target_letters": [
+    "a",
+    "e",
+    "s"
+  ],
+  "absorbed_feature_ids": [
+    2406,
+    2888,
+    3226,
+    3943,
+    4176,
+    5042,
+    7060,
+    7371,
+    11270,
+    12466,
+    15451,
+    15474,
+    16664,
+    19444,
+    19908,
+    20084,
+    22408,
+    24154
+  ],
+  "n_absorbed_features": 18,
+  "encoding_stats": {
+    "K_omp": 56,
+    "mean_l0_feedforward": 55.709999084472656,
+    "mean_l0_omp": 34.91,
+    "mean_l0_twopass": 3635.39990234375,
+    "mean_recon_err_feedforward": 0.24223683774471283,
+    "mean_recon_err_omp": 0.2188945914626389,
+    "mean_recon_err_twopass": 6.35808801651001,
+    "omp_recon_better_than_feedforward": true
+  },
+  "absorption_by_letter": {
+    "a": {
+      "n_tokens": 20,
+      "absorption_rate_A": 0.95,
+      "absorption_rate_B": 1.0,
+      "absorption_rate_C": 0.95,
+      "n_fire_A": 1,
+      "n_fire_B": 0,
+      "n_fire_C": 1,
+      "omp_reduction_ratio": -0.052631578947368474
+    },
+    "e": {
+      "n_tokens": 12,
+      "absorption_rate_A": 1.0,
+      "absorption_rate_B": 1.0,
+      "absorption_rate_C": 1.0,
+      "n_fire_A": 0,
+      "n_fire_B": 0,
+      "n_fire_C": 0,
+      "omp_reduction_ratio": 0.0
+    },
+    "s": {
+      "n_tokens": 21,
+      "absorption_rate_A": 1.0,
+      "absorption_rate_B": 1.0,
+      "absorption_rate_C": 1.0,
+      "n_fire_A": 0,
+      "n_fire_B": 0,
+      "n_fire_C": 0,
+      "omp_reduction_ratio": 0.0
+    }
+  },
+  "overall_absorption": {
+    "n_letter_tokens_total": 53,
+    "absorption_rate_feedforward": 0.9811320754716981,
+    "absorption_rate_omp": 1.0,
+    "absorption_rate_twopass": 0.9811320754716981,
+    "omp_reduction_ratio": -0.019230769230769225,
+    "direction": "OMP_increases_absorption",
+    "omp_differs_by_gt_5pp": false
+  },
+  "pilot_pass_criteria": {
+    "omp_recon_lt_feedforward": true,
+    "absorption_measured_for_letters": true,
+    "direction_reported": true,
+    "pass": true
+  },
+  "proceed_to_C2": false,
+  "notes": [
+    "OMP INCREASES absorption by 1.9% — unexpected direction",
+    "INTERPRETATION: Absorption rates near 100% across all conditions indicates that absorbed features (n=18) rarely fire on letter-containing tokens in this 100-token corpus — the measurement is at ceiling. This makes the OMP vs feedforward comparison inconclusive for the amortization gap hypothesis.",
+    "2-PASS ENCODING BUG: 2-pass residual encoding shows L0=3635 and reconstruction error=6.36 — likely caused by encoding the residual (already small) after b_dec is double-subtracted. The 2-pass result is invalid and should be disregarded.",
+    "OMP VALIDITY: OMP recon error (0.219) < feedforward (0.242) — OMP implementation is valid. K=56 matches mean L0 of feedforward. The sanity check passes.",
+    "RECOMMENDATION: DO NOT proceed to C2. Instead: (1) Use Chanin IG pipeline directly (not proxy activation check) to measure absorption per encoding condition — the current proxy is too coarse; (2) The near-100% absorption rate means absorbed features almost never fire on simple letter tokens in this corpus, regardless of encoding method. The amortization gap hypothesis cannot be meaningfully tested with this approach on 100 tokens.",
+    "ALTERNATIVE INTERPRETATION: The high absorption rate under all conditions is consistent with the sparsity landscape dominance hypothesis — if absorption is driven by the sparsity landscape structure (not the amortization gap), then switching to OMP (which eliminates the amortization gap by design) should not change absorption rates, and indeed it does not.",
+    "OMP_L0_NOTE: OMP achieved mean L0=34.9 vs target K=56. This is because sklearn OMP terminates early due to linear dependence in the dictionary (24576 atoms in 768-dimensional space). The OMP solution is still valid (lower recon error) but is sparser than targeted."
+  ],
+  "analysis": {
+    "omp_validity_confirmed": true,
+    "absorption_measurement_quality": "POOR — ceiling effect, near 100% in all conditions",
+    "amortization_gap_test_conclusive": false,
+    "2pass_encoding_valid": false,
+    "interpretation": "sparsity_landscape_consistent_with_results",
+    "proceed_to_C2_reason": "Absorption measurement too coarse for meaningful comparison. Full Chanin IG pipeline required."
+  }
+}

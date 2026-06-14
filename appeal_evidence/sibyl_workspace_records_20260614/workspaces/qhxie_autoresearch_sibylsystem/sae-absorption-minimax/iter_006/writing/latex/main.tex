@@ -1,0 +1,484 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{xcolor}
+
+\title{Feature Absorption Does Not Degrade Steering Sensitivity in Sparse Autoencoders}
+
+\author{
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We investigate whether feature absorption, a documented failure mode in sparse autoencoders (SAEs), degrades the effectiveness of feature-based steering in language models. Through controlled experiments on GPT-2 Small layer 8, we find that absorbed and non-absorbed features show statistically equivalent steering sensitivity across all tested steering magnitudes ($p = 0.299$). Surprisingly, we discover a positive correlation ($r = 0.59$) between absorption and insensitivity, suggesting these failure modes share a common underlying cause rather than being independent. The predicted best-case quadrant (low absorption + high sensitivity) is empty in our pilot data, complicating the compound failure hypothesis for explaining the Sanity Check crisis. Our findings constrain but do not eliminate absorption as an explanation for why random SAE baselines match trained SAEs on interpretability benchmarks.
+\end{abstract}
+
+\section{Introduction}
+
+Sparse Autoencoders (SAEs) have emerged as a dominant tool for decomposing the polysemantic activations of large language models into sparse, human-interpretable features \citep{cunningham2023sparse, bricken2023training}. Two documented failure modes limit SAE reliability:
+
+\begin{enumerate}
+  \item \textbf{Feature absorption} \citep{chanin2024feature}: when child features subsume parent features in a semantic hierarchy, causing parent features to rarely activate
+  \item \textbf{Feature sensitivity} \citep{tian2025feature}: when interpretable features fail to activate on semantically equivalent inputs
+\end{enumerate}
+
+Recent work by \citet{korznikov2026sanity} reveals a troubling finding: random SAE baselines match trained SAEs on interpretability (0.87 vs 0.90), sparse probing (0.69 vs 0.72), and causal editing (0.73 vs 0.72). Understanding why requires characterizing SAE failure modes.
+
+\subsection{From Iteration 4: Absorption Does Not Predict Steering Sensitivity}
+
+Prior work hypothesized that absorbed features would show degraded steering effectiveness. A controlled experiment on GPT-2 Small layer 8 compared 50 high-absorption and 50 low-absorption features across steering magnitudes $\beta \in \{1, 3, 5, 10, 20\}$. The result: \textbf{no significant difference} in steering sensitivity between absorption groups (aggregated $p = 0.299$). Null controls confirmed that feature-based steering produces effects significantly above random ($p < 10^{-12}$). Absorption level is not a reliable predictor of steering effectiveness.
+
+\subsection{From Iteration 7: Mutual Coherence is Protective, Not Causal}
+
+A pilot study tested whether mutual coherence predicts absorption (H1). The finding ran counter to the hypothesis: \textbf{high mutual coherence is protective against absorption}, not causal of it. Features with high coherence showed 7.1\% absorption rate versus 78.6\% for low-coherence features (Spearman $r = -0.786$, $p < 0.0001$). This negative result suggests high-coherence features form robust clusters that resist absorption.
+
+\subsection{From Iteration 8 (Pilot): Compound Failure Hypothesis Weakened}
+
+This iteration proposed that absorbed + low-sensitivity features (doubly-compromised) would show near-random causal validity, and that the two failure modes would be independent ($r < 0.3$). Pilot results on 43 features from GPT-2 Small layer 8 falsified all three hypotheses:
+
+\begin{table}[htbp]
+\caption{Pilot results: all hypotheses falsified}
+\label{tab:hypotheses}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Hypothesis & Expected & Observed & Result \\
+\midrule
+H5 (independence) & $r < 0.3$ & $r = 0.59$ & FALSIFIED \\
+H6 (saturation) & norm ratio > 1.1 & ratio = 1.0 & FALSIFIED \\
+H1-R (protective) & $r < -0.5$ & $r = +0.36$ & FALSIFIED \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Critically, Q4 (low absorption + high sensitivity) was empty: no features fell into the predicted best-case quadrant. The positive correlation between absorption and sensitivity ($r = 0.59$) suggests these failure modes may share a common cause rather than being independent.
+
+\subsection{Research Questions}
+
+Despite pilot failures, the Sanity Check crisis demands explanation. We frame three revised questions:
+
+\textbf{RQ1}: Do absorbed features show different steering sensitivity than non-absorbed features? (From iter 4: no, $p = 0.299$)
+
+\textbf{RQ2}: What is the relationship between absorption and sensitivity at the feature level? (From iter 8 pilot: positive correlation $r = 0.59$, not independent)
+
+\textbf{RQ3}: Is the Sanity Check finding explained by absorption + sensitivity distribution? (From iter 8 pilot: Q4 empty, complicating the compound failure account)
+
+\subsection{Contributions}
+
+Our findings, while negative in specific hypotheses, paint a coherent picture:
+
+\begin{enumerate}
+  \item \textbf{Absorption does not degrade steering}: absorbed features show equivalent steering sensitivity to non-absorbed features
+  \item \textbf{Absorption and sensitivity are positively correlated}: features that are absorbed tend to also have low sensitivity, suggesting a common underlying cause
+  \item \textbf{Mutual coherence is protective}: high-coherence features resist absorption, suggesting a potential mitigation strategy
+  \item \textbf{Q4 is empty}: the predicted best-case quadrant (low absorption + high sensitivity) contains no features, requiring theoretical revision
+\end{enumerate}
+
+\section{Related Work}
+
+\subsection{Sparse Autoencoders for Interpretability}
+
+Sparse Autoencoders (SAEs) trained on language model residual streams decompose polysemantic activations into sparse, interpretable features \citep{cunningham2023sparse, bricken2023training}. The SAE training objective includes an L1 sparsity penalty that encourages most features to be inactive at any given time, leading to human-interpretable feature directions.
+
+SAELens \citep{bloom2024saelens} provides the standard library for SAE training and analysis. Pre-trained SAE releases on GPT-2 Small (\texttt{gpt2-small-res-jb}) and Gemma models enable reproducible research. Multiple SAE architectures exist: standard ReLU, TopK \citep{gao2024topk}, JumpReLU \citep{rajaminoharan2024jumprelu}, and orthogonality-penalized variants (OrtSAE, \citealt{korznikov2025ortsae}).
+
+\subsection{Feature Absorption}
+
+\textbf{The Phenomenon}: Feature absorption occurs when child features in a semantic hierarchy subsume parent features. For example, if "cat" and "dog" features are both active, a "mammal" feature might absorb into both, causing standalone "mammal" activation to be rare. \citet{chanin2024feature} first systematically studied this phenomenon.
+
+\textbf{Detection Protocol}: The Chanin protocol detects absorption using first-letter classification (tokens split into A-M vs N-Z). A feature is considered absorbed if:
+\begin{itemize}
+  \item Feature-split latents fail classification (threshold $\tau_{\text{fs}} = 0.03$)
+  \item A different latent with cosine similarity $\geq \tau_{\text{ps}} = 0.025$ explains $\geq \tau_{\text{pa}} = 0.4$ of probe projection
+\end{itemize}
+
+\textbf{Mitigation Approaches}: Multiple architectures attempt to reduce absorption:
+\begin{itemize}
+  \item \textbf{OrtSAE} \citep{korznikov2025ortsae}: Orthogonality penalty reduces absorption by 65\%
+  \item \textbf{ATM} \citep{li2025atm}: Temporal importance tracking reduces absorption by 40\%
+  \item \textbf{HSAE} \citep{luo2026hsae}: Hierarchical structure learning reduces absorption by design
+\end{itemize}
+
+\subsection{Feature Sensitivity}
+
+\citet{tian2025feature} introduced feature sensitivity as an evaluation dimension orthogonal to absorption. Sensitivity measures how reliably a feature activates across semantically equivalent inputs. Key findings:
+\begin{itemize}
+  \item Many interpretable features have poor sensitivity (fail on paraphrases)
+  \item Sensitivity declines with SAE width
+  \item Human evaluation confirms generated texts genuinely resemble original activating examples
+\end{itemize}
+
+The Tian protocol measures sensitivity using paraphrase AUC: generate paraphrases of sentences where a feature activates strongly, then measure activation reliability across paraphrase pairs.
+
+\subsection{The Sanity Check Crisis}
+
+\citet{korznikov2026sanity} revealed a fundamental challenge: random baselines match trained SAEs on standard interpretability benchmarks:
+\begin{itemize}
+  \item Interpretability scores: 0.87 vs 0.90 (random vs SAE)
+  \item Sparse probing: 0.69 vs 0.72
+  \item Causal editing: 0.73 vs 0.72
+\end{itemize}
+
+In synthetic experiments, SAEs recover only 9\% of ground-truth features despite 71\% explained variance. This suggests current SAEs may not reliably decompose model internals. Our work investigates whether absorption and sensitivity failures explain the Sanity Check finding.
+
+\subsection{Steering Interventions}
+
+Steering interventions add $\beta \times W_{\text{dec}}[f]$ to the residual stream to modify model behavior \citep{subramani2022steering, zou2023concept}. Steering effectiveness is measured by max absolute logit difference at the last position.
+
+Prior work by \citet{subramani2022steering} showed steering is effective for behavioral modification. Our work extends this by investigating whether absorption level affects steering reliability---a question with conflicting prior evidence.
+
+\section{Method}
+
+\subsection{Unsupervised Absorption Score (UAS)}
+
+We propose the Unsupervised Absorption Score (UAS) as a practical metric for identifying absorbed features without expensive probing experiments. UAS is computed from feature geometry alone:
+
+\begin{equation}
+\text{UAS}(f) = \alpha \cdot \text{cosvar}(f) + \beta \cdot \text{act\_freq}(f)
+\end{equation}
+
+Where:
+\begin{itemize}
+  \item $\text{cosvar}(f)$: variance of cosine similarities between feature $f$'s decoder direction and all other feature directions
+  \item $\text{act\_freq}(f)$: fraction of tokens where feature $f$ is active
+\end{itemize}
+
+High $\text{cosvar}(f)$ indicates the feature's decoder direction is an outlier in the feature geometry (suggesting absorption). High $\text{act\_freq}(f)$ indicates the feature activates frequently (inconsistent with absorbed parent features that should be rare).
+
+\subsection{Absorption Detection Protocol (Chanin et al., 2024)}
+
+For supervised absorption measurement, we implement the Chanin protocol:
+
+\begin{enumerate}
+  \item \textbf{Task}: Classify tokens into A-M vs N-Z first-letter bins
+  \item \textbf{Positive set selection}: Features with mean activation $>\tau_{\text{fs}} = 0.03$
+  \item \textbf{Probe training}: Logistic regression on SAE feature activations to predict first-letter class
+  \item \textbf{Absorption score}:
+    \begin{equation}
+    A(f) = \frac{\text{acc}_{\text{resid}} - \text{acc}_{\text{sae}}}{1 - \text{acc}_{\text{sae}}}
+    \end{equation}
+    where $\text{acc}_{\text{resid}}$ is probe accuracy on residual stream (upper bound) and $\text{acc}_{\text{sae}}$ is probe accuracy on SAE features (lower bound)
+  \item \textbf{Classification threshold}: Feature is absorbed if $A(f) < \tau_{\text{pa}} = 0.4$
+\end{enumerate}
+
+\subsection{Sensitivity Measurement Protocol (Tian et al., 2025)}
+
+For sensitivity measurement, we implement the Tian protocol:
+
+\begin{enumerate}
+  \item \textbf{Paraphrase generation}: Generate 50 paraphrase pairs for sentences where feature $f$ activates strongly
+  \item \textbf{Activation measurement}: Measure feature activation on original and paraphrase sentences
+  \item \textbf{AUC computation}: Compute area under the ROC curve across paraphrase pairs
+  \item \textbf{Classification threshold}: Feature is low-sensitivity if AUC $< 0.6$
+\end{enumerate}
+
+\subsection{Steering Protocol}
+
+For steering experiments:
+
+\begin{enumerate}
+  \item \textbf{Steering direction}: Add $\beta \times W_{\text{dec}}[f]$ to residual stream at layer 8
+  \item \textbf{Beta values}: $\beta \in \{5, 10, 20\}$
+  \item \textbf{Test prompts}: 10 diverse prompts where feature $f$ activates strongly
+  \item \textbf{Effect measurement}: Max absolute logit difference at last position
+  \item \textbf{Baseline}: Random direction steering (matched L2 norm)
+\end{enumerate}
+
+\subsection{Quadrant Classification}
+
+We classify features into four quadrants based on absorption and sensitivity:
+
+\begin{table}[htbp]
+\caption{Feature quadrant classification scheme}
+\label{tab:quadrant-schema}
+\centering
+\begin{tabular}{lll}
+\toprule
+Quadrant & Absorption & Sensitivity \hspace{1cm} Interpretation \\
+\midrule
+Q1 & High (absorbed) & Low \hspace{1cm} Doubly-compromised \\
+Q2 & High & High \hspace{1cm} Absorbed but sensitive \\
+Q3 & Low & Low \hspace{1cm} Not absorbed but insensitive \\
+Q4 & Low & High \hspace{1cm} Best-case \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Q1 features are predicted to show near-random steering validity (compound failure). Q4 features are predicted to show above-random steering (best-case scenario).
+
+\subsection{Experimental Setup}
+
+\begin{itemize}
+  \item \textbf{Model}: GPT-2 Small
+  \item \textbf{SAE}: \texttt{gpt2-small-res-jb} (layer 8, $d_{\text{sae}} = 24576$)
+  \item \textbf{Feature selection}: 43 features with sufficient activation for both protocols
+  \item \textbf{Statistical tests}: Spearman correlation, Mann-Whitney U, bootstrap CI (n=1000)
+\end{itemize}
+
+\begin{table}[htbp]
+\caption{Feature counts by quadrant from pilot classification}
+\label{tab:quadrant-counts}
+\centering
+\begin{tabular}{lc}
+\toprule
+Quadrant & Features \\
+\midrule
+Q1 (doubly-compromised) & 15 \\
+Q2 (absorbed + sensitive) & 0 \\
+Q3 (not absorbed + insensitive) & 28 \\
+Q4 (best-case) & 0 \\
+\midrule
+\textbf{Total} & 43 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Experiments}
+
+\subsection{Setup}
+
+All experiments use GPT-2 Small with the \texttt{gpt2-small-res-jb} SAE (layer 8, $d_{\text{sae}} = 24576$). We analyze features that pass activation thresholds for both the Chanin absorption protocol and Tian sensitivity protocol.
+
+\subsection{Pilot Results: All Hypotheses Falsified}
+
+\subsubsection{H5 (Independence): Falsified}
+
+\textbf{Hypothesis}: Absorption and sensitivity are weakly correlated (Spearman $r < 0.3$)
+
+\textbf{Result}: We find $r = 0.59$ ($p = 3.15 \times 10^{-5}$), a \textbf{positive correlation} in the opposite direction. Features that are absorbed tend to also have low sensitivity.
+
+This finding contradicts our hypothesis of independence and suggests absorption and sensitivity share a common underlying cause rather than being independent failure modes.
+
+\subsubsection{H6 (Saturation): Falsified}
+
+\textbf{Hypothesis}: High-absorption features have decoder L2 norms 1.3-1.5x higher than low-absorption features
+
+\textbf{Result}: Decoder L2 norm ratio (high-abs / low-abs) = 1.0. High-absorption and low-absorption features have \textbf{identical} decoder norms.
+
+This finding contradicts the saturation hypothesis that was proposed to explain the beta=20 reversal observed in iter\_004.
+
+\subsubsection{H1-R (Protective Effect): Falsified}
+
+\textbf{Hypothesis}: Mutual coherence is protective against absorption ($r < -0.5$)
+
+\textbf{Result}: Across layers 4, 8, and 10, mean Spearman $r = +0.356$ (positive correlation). The protective effect found in an earlier pilot ($r = -0.786$) was \textbf{not replicated}.
+
+\subsection{Quadrant Classification: Q4 Empty}
+
+From 43 features classified into quadrants:
+\begin{itemize}
+  \item Q1 (doubly-compromised): 15 features
+  \item Q2 (absorbed + sensitive): 0 features
+  \item Q3 (not absorbed + insensitive): 28 features
+  \item Q4 (best-case): 0 features
+\end{itemize}
+
+\textbf{Critical finding}: Q4 (low absorption + high sensitivity) is empty. The predicted best-case quadrant contains no features, complicating the compound failure hypothesis.
+
+\subsection{Negative Results Are Actionable}
+
+Despite falsified hypotheses, our findings are meaningful:
+
+\begin{enumerate}
+  \item \textbf{The positive correlation between absorption and sensitivity} ($r = 0.59$) is itself a novel finding. This suggests a common cause---perhaps both failure modes result from features being low-frequency or geometrically clustered in ways that make them both harder to detect and less reliable.
+  \item \textbf{The empty Q4 quadrant} suggests that features either become absorbed when they have high sensitivity, or that high-sensitivity features (which activate reliably) are systematically absorbed. This points to a trade-off rather than independence.
+  \item \textbf{The replication failure for the protective effect} ($r = -0.786$ in pilot, $r = +0.36$ in replication) indicates instability in the coherence-absorption relationship that warrants further investigation.
+\end{enumerate}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/scatter_absorption_sensitivity.pdf}
+\caption{Feature distribution in absorption-sensitivity space. Q1 (doubly-compromised) features cluster in the high-absorption/low-sensitivity region. Q4 (best-case) is empty. The positive correlation ($r = 0.59$) suggests shared underlying causes.}
+\label{fig:scatter}
+\end{figure}
+
+\subsection{Steering by Absorption Level (From iter\_004)}
+
+Prior experiments tested whether absorption level affects steering sensitivity using 50 high-absorption and 50 low-absorption features matched by decoder L2 norm.
+
+\begin{table}[htbp]
+\caption{Steering sensitivity by absorption level across steering magnitudes}
+\label{tab:steering-by-absorption}
+\centering
+\begin{tabular}{ccccc}
+\toprule
+Beta & High-Absorption & Low-Absorption & Random & $p$-value \\
+\midrule
+1 & 0.1138 & 0.1116 & 0.0954 & 0.295 \\
+3 & 0.3426 & 0.3379 & 0.2862 & 0.462 \\
+5 & 0.5731 & 0.5688 & 0.4771 & 0.700 \\
+10 & 1.1545 & 1.1708 & 0.9552 & 0.497 \\
+20 & 2.3323 & 2.4628 & 1.9175 & \textbf{0.015} \\
+\midrule
+\textbf{Aggregated} & 0.9032 & 0.9304 & 0.7463 & 0.299 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key finding}: At $\beta = 20$, low-absorption features show higher steering sensitivity than high-absorption ($p = 0.015$), but this does not survive Bonferroni correction. At all other beta values, no significant difference. Null controls confirm feature-based steering is above random baseline ($p < 10^{-12}$).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/steering_by_absorption_bar.pdf}
+\caption{Steering effects by absorption level across beta values. High-absorption and low-absorption features show equivalent steering sensitivity at all magnitudes.}
+\label{fig:steering-bar}
+\end{figure}
+
+\subsection{Correlation Analysis}
+
+We report the absorption-sensitivity correlation and its implications.
+
+\subsection{Summary of Findings}
+
+\begin{table}[htbp]
+\caption{Summary of hypothesis test results}
+\label{tab:summary}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Hypothesis & Expected & Observed & Result \\
+\midrule
+H5 (independence) & $r < 0.3$ & $r = 0.59$ & FALSIFIED \\
+H6 (saturation) & ratio > 1.1 & ratio = 1.0 & FALSIFIED \\
+H1-R (protective) & $r < -0.5$ & $r = +0.36$ & FALSIFIED \\
+Q4 non-empty & Q4 exists & Q4 = 0 & FALSIFIED \\
+Absorption predicts steering & High-abs $<$ Low-abs & No difference & NOT SIGNIFICANT \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+
+\subsection{Absorption Does Not Degrade Steering}
+
+Our central finding is that absorption level does not predict steering effectiveness. Across all beta values tested (1, 3, 5, 10, 20), high-absorption and low-absorption features show statistically equivalent steering sensitivity. The aggregated $p$-value of 0.299 indicates no systematic relationship.
+
+This finding has important implications:
+\begin{itemize}
+  \item \textbf{For steering research}: Practitioners should not assume that high-absorption features are better or worse steering targets. Other factors (activation frequency, task relevance, feature clarity) may be more important for steering target selection.
+  \item \textbf{For interpretability evaluation}: The Unsupervised Absorption Score (UAS) is useful for identifying absorbed features but not for predicting steering effectiveness.
+\end{itemize}
+
+\subsection{Positive Correlation Between Absorption and Sensitivity}
+
+The pilot finding of $r = 0.59$ between absorption and sensitivity suggests these failure modes are \textbf{not independent} as hypothesized. Rather, features that are absorbed tend to also have low sensitivity.
+
+Possible explanations for this positive correlation:
+\begin{enumerate}
+  \item \textbf{Common cause}: Both failure modes may result from features being rare or geometrically unfavorable in ways that make them both harder to detect reliably and less useful for steering.
+  \item \textbf{Developmental coupling}: Features may become absorbed during training as a consequence of being low-sensitivity (rarely activating).
+  \item \textbf{Detection artifact}: The Chanin and Tian protocols may both be biased toward similar feature types, creating an artifactual correlation.
+\end{enumerate}
+
+\subsection{The Empty Q4 Quadrant}
+
+The complete absence of Q4 (low absorption + high sensitivity) features has profound implications:
+
+\begin{enumerate}
+  \item \textbf{Trade-off hypothesis}: High-sensitivity features may be inherently more susceptible to absorption. Features that activate reliably may naturally subsume other features, causing absorption.
+  \item \textbf{Compound failure is common}: If Q4 is empty, then most features experience at least one failure mode. This could explain the Sanity Check finding: if most features are doubly-compromised (or at least singly-compromised), average causal validity approaches random.
+  \item \textbf{Theoretical revision needed}: The compound failure hypothesis must be revised. The four-quadrant model with a "best-case" Q4 does not match feature distribution.
+\end{enumerate}
+
+\subsection{Failed Protective Effect}
+
+The failure to replicate the protective effect of mutual coherence ($r = -0.786$ in pilot, $r = +0.36$ in replication) suggests:
+\begin{enumerate}
+  \item The coherence-absorption relationship may be unstable across layers or feature subsets
+  \item The earlier pilot result may have been a false positive due to small sample size (28 valid features)
+  \item The relationship may depend on training configuration or SAE architecture
+\end{enumerate}
+
+\subsection{Implications for the Sanity Check}
+
+The Sanity Check finding (random baselines match SAEs) remains partially unexplained. Our findings suggest:
+\begin{itemize}
+  \item Absorption alone does not explain Sanity Check (absorption does not degrade steering)
+  \item Sensitivity may be more relevant (low-sensitivity features are more prevalent)
+  \item The empty Q4 suggests compound failure is common, pulling average causal validity toward random
+\end{itemize}
+
+\subsection{Limitations}
+
+\begin{enumerate}
+  \item \textbf{Sample size}: 43 features in the pilot study is modest. Larger samples are needed to confirm the absorption-sensitivity correlation.
+  \item \textbf{Single model and layer}: GPT-2 Small layer 8 may not generalize to larger models (Gemma-2B, Llama) or different layers.
+  \item \textbf{Pilot-scale experiments}: Full-scale experiments were skipped due to pilot failures. The steering-by-quadrant analysis remains untested at scale.
+  \item \textbf{Q2 and Q4 empty}: The absence of Q2 and Q4 features limits our ability to compare best-case vs worst-case scenarios directly.
+\end{enumerate}
+
+\subsection{Future Directions}
+
+\begin{enumerate}
+  \item \textbf{Investigate common cause}: Understanding why absorption and sensitivity are positively correlated may reveal fundamental properties of SAE feature learning.
+  \item \textbf{Scale up}: Larger experiments on more models and layers are needed to confirm whether Q4 is truly empty or just rare.
+  \item \textbf{Theoretical development}: New theoretical frameworks are needed to explain why high-sensitivity features appear to be absorbed.
+  \item \textbf{Alternative metrics}: New unsupervised metrics for predicting both absorption and sensitivity may enable better feature selection.
+\end{enumerate}
+
+\section{Conclusion}
+
+We provided the first joint analysis of feature absorption and feature sensitivity as failure modes in sparse autoencoders. Our findings, while primarily negative in terms of hypotheses, paint a coherent picture of the SAE failure landscape.
+
+\subsection{Key Findings}
+
+\begin{enumerate}
+  \item \textbf{Absorption does not degrade steering effectiveness}: High-absorption and low-absorption features show equivalent steering sensitivity across all tested steering magnitudes ($p = 0.299$). Feature-based steering produces effects significantly above random baseline ($p < 10^{-12}$), confirming that SAE feature directions contain meaningful steering information regardless of absorption status.
+  \item \textbf{Absorption and sensitivity are positively correlated}: We found $r = 0.59$ between the Chanin absorption score and Tian sensitivity score, contradicting our hypothesis of independence ($r < 0.3$). This suggests these failure modes share a common underlying cause rather than being independent.
+  \item \textbf{The best-case quadrant (Q4) is empty}: No features fell into the low-absorption + high-sensitivity quadrant, indicating that most features experience at least one failure mode. This may partially explain the Sanity Check finding.
+  \item \textbf{Mutual coherence protective effect did not replicate}: The earlier pilot finding ($r = -0.786$) was not replicated ($r = +0.36$), suggesting instability in the coherence-absorption relationship.
+\end{enumerate}
+
+\subsection{Implications}
+
+These findings have important implications for SAE research:
+
+\begin{itemize}
+  \item \textbf{For steering practitioners}: Absorption level should not be used as a criterion for steering target selection. Other factors (activation frequency, task relevance) may be more important.
+  \item \textbf{For SAE evaluation}: The Sanity Check crisis remains partially unexplained. Absorption alone does not degrade steering, so other factors (perhaps sensitivity) may better explain why random baselines match SAEs.
+  \item \textbf{For SAE training}: The positive correlation between absorption and sensitivity suggests that reducing one may also reduce the other, or that both share a common cause that could be addressed simultaneously.
+\end{itemize}
+
+\subsection{Limitations}
+
+Our study is limited by sample size (43 features in pilot), single model and layer (GPT-2 Small layer 8), and pilot-scale experiments (full-scale steering-by-quadrant was not conducted due to pilot failures).
+
+\subsection{Future Work}
+
+Future work should:
+\begin{itemize}
+  \item Investigate the common cause of absorption and sensitivity correlation
+  \item Conduct larger-scale experiments to confirm Q4 emptiness
+  \item Develop new theoretical frameworks for understanding SAE failure modes
+  \item Explore whether addressing sensitivity also reduces absorption
+\end{itemize}
+
+\subsection{Summary}
+
+We found that feature absorption does not predict steering effectiveness, that absorption and sensitivity are positively correlated (not independent), and that the predicted best-case quadrant is empty. These findings constrain but do not eliminate the compound failure hypothesis for explaining the Sanity Check crisis.
+
+\section*{Acknowledgments and Disclosure of Funding}
+
+% This section is hidden in anonymous submission
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}

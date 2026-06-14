@@ -1,0 +1,55 @@
+{
+  "resume_action_type": "gpu_poll",
+  "resume_action": {
+    "action_type": "gpu_poll",
+    "agents": null,
+    "skills": null,
+    "team": null,
+    "bash_command": null,
+    "gpu_poll": {
+      "ssh_connection": "",
+      "query_cmd": "nvidia-smi --query-gpu=index,memory.used,memory.total --format=csv,noheader,nounits",
+      "script": "#!/bin/bash\n# Sibyl GPU poll: wait for free GPUs (LOCAL)\n# Candidates: [0,1], threshold: 2000MB, mode: aggressive (<25% VRAM)\n# Poll every 600s, unlimited attempts\n\nMARKER=\"/tmp/sibyl_sae-absorption_06c3591c2e_gpu_free.json\"\nrm -f \"$MARKER\"\n\ni=0\nwhile true; do\n    i=$((i + 1))\n    OUTPUT=$(nvidia-smi --query-gpu=index,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null)\n    if [ $? -ne 0 ]; then\n        echo \"[poll $i] nvidia-smi failed, retrying in 600s...\"\n        sleep 600\n        continue\n    fi\n\n    # Parse free GPUs\n    FREE_GPUS=\"\"\n    while IFS=',' read -r idx mem total; do\n        idx=$(echo \"$idx\" | tr -d ' ')\n        mem=$(echo \"$mem\" | tr -d ' ')\n        total=$(echo \"$total\" | tr -d ' ')\n        # Check if this GPU is in our candidate list\n        case \",0,1,\" in\n            *\",$idx,\"*)\n                if [ \"$mem\" -lt 2000 ] 2>/dev/null; then\n                    if [ -z \"$FREE_GPUS\" ]; then\n                        FREE_GPUS=\"$idx\"\n                    else\n                        FREE_GPUS=\"$FREE_GPUS,$idx\"\n                    fi\n                fi\n        # Aggressive mode: also claim GPUs with <25% VRAM usage\n        if [ -n \"$total\" ] && [ \"$total\" -gt 0 ] 2>/dev/null; then\n            pct=$(( mem * 100 / total ))\n            if [ \"$pct\" -lt 25 ] 2>/dev/null; then\n                if [ -z \"$FREE_GPUS\" ]; then\n                    FREE_GPUS=\"$idx\"\n                else\n                    FREE_GPUS=\"$FREE_GPUS,$idx\"\n                fi\n            fi\n        fi\n                ;;\n        esac\n    done <<< \"$OUTPUT\"\n\n    if [ -n \"$FREE_GPUS\" ]; then\n        echo \"[poll $i] Found free GPUs: $FREE_GPUS\"\n        echo \"{\\\"free_gpus\\\": [$FREE_GPUS], \\\"poll_count\\\": $i}\" > \"$MARKER\"\n        exit 0\n    fi\n\n    echo \"[poll $i] No free GPUs (all above 2000MB), waiting 600s...\"\n    sleep 600\ndone\n",
+      "max_gpus": 2,
+      "threshold_mb": 2000,
+      "interval_sec": 600,
+      "marker_file": "/tmp/sibyl_sae-absorption_06c3591c2e_gpu_free.json",
+      "aggressive_mode": true,
+      "aggressive_threshold_pct": 25,
+      "max_attempts": 0
+    },
+    "description": "轮询等待空闲 GPU（最多 2 张，每 10min 通过本地 nvidia-smi检查，无限等待）（流氓模式：<25% 显存占用也抢）",
+    "stage": "experiment_cycle",
+    "iteration": 11,
+    "estimated_minutes": 0,
+    "checkpoint_info": null,
+    "experiment_monitor": null,
+    "execution_script": "## EXECUTION: gpu_poll\n**Priority: execute gpu_poll.script directly**\n1. Write script to /tmp/sibyl_gpu_poll.sh\n2. Bash(run_in_background): bash /tmp/sibyl_gpu_poll.sh\n3. Poll marker_file='/tmp/sibyl_sae-absorption_06c3591c2e_gpu_free.json' every 600s\n4. On exit 0 (GPU found): re-run cli_next() for experiment task\n5. On exit 1 (max 0 attempts): keep polling (永不放弃)",
+    "language": "zh"
+  },
+  "background_agent_required": false,
+  "pending_sync_count": 187,
+  "pending_hooks": [
+    {
+      "name": "lark_sync",
+      "pending_count": 187,
+      "path": "/home/qhxie/AutoResearch-SibylSystem/workspaces/sae-absorption/lark_sync/pending_sync.jsonl",
+      "resume_hint": "restart the sibyl-lark-sync background agent before continuing the loop"
+    }
+  ],
+  "pending_background_agents": [],
+  "breadcrumb": {
+    "ts": 1777303026.5940642,
+    "stage": "experiment_cycle",
+    "action_type": "gpu_poll",
+    "iteration": 11,
+    "workspace_path": "/home/qhxie/AutoResearch-SibylSystem/workspaces/sae-absorption",
+    "in_loop": true,
+    "loop_type": "gpu_poll",
+    "description": "轮询等待空闲 GPU（最多 2 张，每 10min 通过本地 nvidia-smi检查，无限等待）（流氓模式：<25% 显存占用也抢）"
+  },
+  "recovery_state_path": "/home/qhxie/AutoResearch-SibylSystem/workspaces/sae-absorption/.sibyl/recovery_state.json",
+  "source": "cli_resume",
+  "saved_at": 1777304161.4571757,
+  "path": "/home/qhxie/AutoResearch-SibylSystem/workspaces/sae-absorption/.sibyl/recovery_state.json"
+}

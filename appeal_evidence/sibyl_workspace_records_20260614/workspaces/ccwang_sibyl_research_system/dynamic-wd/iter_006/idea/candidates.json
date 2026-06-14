@@ -1,0 +1,124 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_lyapunov_unified",
+      "title": "Stability-Optimal Weight Decay: A Lyapunov Control Framework Unifying Adaptive Regularization in Deep Learning",
+      "status": "front_runner",
+      "summary": "Unified Lyapunov convergence certificate for general time-varying WD schedules, proving all major WD methods (constant, CWD, cosine, SWD, PMP-WD) are special cases within a certified band. Cumulative alignment generalization bound replacing worst-case delta_T. PMP-WD shown optimal within the certified family with bang-bang structure explaining CWD. Addresses the key weakness: 'no deeper theoretical results beyond trivial propositions.'",
+      "hypotheses": [
+        "H1: Computable certified band [lambda_min(t), lambda_max(t)] for convergence",
+        "H2: Cumulative alignment predicts generalization better than worst-case (Spearman rho diff > 0.1)",
+        "H3: All major WD methods satisfy the Lyapunov certificate as special cases",
+        "H4: PMP-WD achieves optimal V_T with bang-bang structure explaining CWD",
+        "H5: Alignment informativeness depends on BN presence (narrow band for BN = methods equivalent)",
+        "H6: Minibatch alignment proxy concentrates with O(1/sqrt(B)) rate",
+        "H7: Budget-matched alignment test distinguishes BN vs non-BN regimes",
+        "H8: Contraction spectrum equivalence characterizes WD method similarity"
+      ],
+      "pilot_focus": "Certificate band computation on CIFAR-10/ResNet-20 + alignment trajectory tracking across 8 methods + BN vs non-BN ablation",
+      "key_theorems": [
+        "Theorem 1: Lyapunov certificate for time-varying WD (certified band)",
+        "Theorem 2: Cumulative alignment generalization bound (extends Sun et al. CVPR 2025)",
+        "Theorem 3: Subsumption (all methods as special cases of control-theoretic family)",
+        "Theorem 4: PMP-WD optimality with bang-bang prediction",
+        "Proposition 5: Minibatch alignment concentration"
+      ],
+      "strengths": [
+        "Addresses evolution lesson about lacking deeper theoretical results (Theorems 1-4)",
+        "Subsumption is the unification the paper title promises",
+        "Bang-bang prediction provides falsifiable explanation for CWD behavior",
+        "Resilient to negative empirical results (certificate + subsumption stand regardless)",
+        "iter_003 data already supports H5 (narrow band for BN architectures)",
+        "Random mask vs CWD finding strengthens the analysis"
+      ],
+      "risks": [
+        "Certificate too conservative (30%) -- narrow band means only constant WD works, but this IS a finding",
+        "PMP-WD does not beat constant WD (35%) -- reframe as 'constant is near-optimal within certified family'",
+        "Cumulative alignment bound is incremental (25%) -- fall back to certificate + subsumption as primary",
+        "Proofs require strong assumptions limiting practical relevance (20%)"
+      ],
+      "empirical_evidence": {
+        "cifar10_resnet20_spread": "0.25% total spread across 7 methods (iter_003, 3 seeds)",
+        "cifar100_resnet20_spread": "0.76% total spread, 0.58% excluding no_wd (iter_003, 3 seeds)",
+        "cwd_vs_constant_cifar10": "CWD 90.06% vs constant 90.13% (-0.07%)",
+        "cwd_vs_constant_cifar100": "CWD 62.84% vs constant 63.15% (-0.31%)",
+        "random_mask_vs_cwd_cifar10": "random_mask 90.12% vs CWD 90.06% (random wins by +0.06%)",
+        "best_method_cifar100": "cosine_schedule 63.42% (+0.27% over constant)"
+      },
+      "perspectives_weighted": {
+        "innovator": "HIGH -- Lyapunov state-space formulation, phase-space diagnostics, multi-timescale extension",
+        "theoretical": "HIGH -- Theorems 1-4, cumulative alignment bound, PMP optimality",
+        "pragmatist": "MEDIUM -- Unified operator formulation, diagnostic metrics, engineering feasibility",
+        "contrarian": "HIGH -- BN confound analysis, alignment SNR challenge, random mask control integrated as key ablations",
+        "interdisciplinary": "MEDIUM -- Homeostatic set-point informs multi-timescale extension; thermodynamic bound on alignment informativeness",
+        "empiricist": "HIGH -- Budget-matched comparison, random mask control, oracle alignment, BN vs non-BN, pre-registered falsification"
+      }
+    },
+    {
+      "candidate_id": "cand_alignment_mirage",
+      "title": "The Alignment Mirage: When Gradient-Weight Geometry Misleads Dynamic Regularization",
+      "status": "backup",
+      "summary": "Critical analysis demonstrating that in BN architectures, alignment-based WD is a noisy proxy for effective LR scheduling. First systematic measurement of alignment signal SNR. Random mask control showing CWD's alignment is not causal.",
+      "hypotheses": [
+        "Alignment SNR < 1 in BN networks for most of training",
+        "Alignment-aware WD helps only without BN (confound test)",
+        "Effective-LR-aware WD matches alignment-aware WD with lower complexity",
+        "Random alignment control performs comparably to true alignment in BN networks"
+      ],
+      "pilot_focus": "BN vs no-BN comparison with alignment tracking on CIFAR-10/ResNet-20",
+      "strengths": [
+        "Provocative thesis attracts attention",
+        "iter_003 data already supports core findings (random mask matches CWD)",
+        "BN confound never explicitly tested in WD literature",
+        "Lower computational cost"
+      ],
+      "risks": [
+        "Core insight partially anticipated by Defazio (2025) and NeurIPS 2024 paper",
+        "If alignment IS genuinely informative even with BN, thesis collapses",
+        "Harder to publish without constructive alternative"
+      ]
+    },
+    {
+      "candidate_id": "cand_architecture_aware",
+      "title": "Rethinking Dynamic Weight Decay: Parameter Structure Matters More Than Training Dynamics",
+      "status": "backup",
+      "summary": "Parameter-type structure (where WD is applied) dominates training dynamics (how WD varies). Nuclear norm trap in attention layers (Kobayashi et al. NeurIPS 2024) is a first-order effect unaddressed by any dynamic WD method. Simple architecture-aware prescription outperforms sophisticated scheduling.",
+      "hypotheses": [
+        "Architecture-aware WD provides larger gains than any dynamic method on ViT",
+        "Nuclear norm bias from WD on attention layers measurably reduces rank",
+        "Factorial ablation: parameter-type dimension explains more variance than scheduling or alignment",
+        "No WD on attention + standard WD on FFN outperforms uniform dynamic WD"
+      ],
+      "pilot_focus": "ViT-Small on CIFAR-10/100: uniform WD vs architecture-aware WD",
+      "strengths": [
+        "Backed by rigorous NeurIPS 2024 result (nuclear norm equivalence)",
+        "Challenges entire dynamic WD research agenda",
+        "Simple actionable prescription",
+        "Relevant for transformer-dominated landscape"
+      ],
+      "risks": [
+        "Low-rank bias may be beneficial (explains why WD works for transformers)",
+        "Architecture-aware WD is already partially standard practice (no WD on biases/norms)",
+        "Requires ViT experiments not yet run"
+      ]
+    }
+  ],
+  "synthesis_reasoning": {
+    "landscape_analysis": "All 6 perspectives converge on a key empirical finding from iter_003: on CIFAR-10/ResNet-20 with BN, the spread across ALL 7 WD methods (including no_wd) is only 0.25%. CWD does not outperform constant WD. Random mask matches CWD. The central question is WHY. The innovator and theoretical perspectives answer through Lyapunov certificates (narrow band for BN). The contrarian challenges alignment's informativeness (BN confound, noise). The empiricist demands rigorous controls. The interdisciplinary perspective enriches the control-theoretic framing. The pragmatist ensures engineering feasibility.",
+    "conflict_resolution": {
+      "innovator_vs_pragmatist": "The innovator's spectral-drift and entropy-production ideas are theoretically beautiful but practically intractable. Resolution: spectral dynamics retained as motivational Section 3 material, not core algorithm. Thermodynamic lens dropped from formal claims but thermodynamic uncertainty relation retained as Proposition bounding alignment informativeness.",
+      "theoretical_vs_contrarian": "The theoretical perspective's cumulative alignment bound assumes alignment is informative. The contrarian argues it is a noisy mirage in BN networks. Resolution: BOTH are correct in different regimes. The BN ablation experiment distinguishes them. The cumulative bound is theoretically valid regardless of practical informativeness. The contrarian's random mask control is integrated as a key experiment.",
+      "innovator_vs_contrarian_on_LyaWD": "The innovator proposes LyaWD as a new algorithm. The contrarian argues it may be solving a non-problem for BN architectures. Resolution: LyaWD/PMP-WD is presented as the theoretically optimal solution within the framework, but the paper's value does not depend on PMP-WD beating constant WD. If constant WD IS near-optimal (as iter_003 suggests), the framework EXPLAINS this.",
+      "empiricist_vs_innovator": "The empiricist demands budget-matched controls. The innovator proposes PMP-WD as optimal. Resolution: PMP-WD is evaluated with the empiricist's rigorous controls. Both perspectives are validated if PMP-WD wins fairly or if its failure reveals the framework's predictive power."
+    },
+    "weighting_rationale": "Theoretical and innovator perspectives received highest weight because the evolution lesson explicitly identifies 'no deeper theoretical results' as the key weakness. The contrarian received high weight because iter_003 data empirically supports BN confound and alignment noise concerns. The empiricist's rigorous evaluation was adopted wholesale. The pragmatist provides notation and feasibility. The interdisciplinary homeostatic framing enriches the multi-timescale extension without being the lead contribution.",
+    "changes_from_prior_round": [
+      "PMP-WD bang-bang prediction elevated to central claim (Theorem 4) -- provides falsifiable explanation for CWD",
+      "iter_003 empirical evidence integrated throughout -- CWD underperformance, random mask equivalence, narrow spread",
+      "Architecture-aware WD (nuclear norm trap) added as new backup candidate from contrarian perspective",
+      "Cumulative alignment bound (H2) explicitly acknowledged as incremental; priority lowered relative to certificate and PMP",
+      "Explicit perspective weighting and conflict resolution documented",
+      "Novelty report concerns addressed: time sensitivity acknowledged, incremental bound risk mitigated by centering PMP-WD"
+    ]
+  }
+}

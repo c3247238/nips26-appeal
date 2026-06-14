@@ -1,0 +1,105 @@
+{
+  "summary": "Critical review identifies three major concerns: (1) The paper presents null results as positive findings without sufficient power or caveats; (2) The 'optimal compression' reframing lacks direct empirical support and is post-hoc; (3) The Chanin absorption metric validity is questioned but the metric is still used to support the paper's conclusions. Statistical power is critically low (n=26, ~20% power for medium effects), and the one 'significant' result (H1b L8 r=-0.431, p=0.028) does not survive multiple comparison correction (Bonferroni p=0.334, BH-FDR q=0.107).",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Zero statistically significant results after proper multiple comparison correction. The paper presents 12 hypothesis tests with zero survivors. The abstract, introduction, and conclusion all present H1b (layer 8 delta-corrected steering correlation, r=-0.431, p=0.028) as evidence of a real effect, but this p-value does not survive Bonferroni correction (alpha=0.00417 for 12 tests, corrected p=0.334) or Benjamini-Hochberg FDR (q=0.107). Presenting uncorrected p-values as evidence of effects is methodologically misleading.",
+      "suggestion": "Either remove claims about H1b representing a real effect, or clearly state that the finding is suggestive but not statistically significant after correction. The honest framing is: 'no significant effects were found after rigorous multiple comparison correction'."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "Statistical power is severely inadequate. With n=26 features, the study has approximately 20% power to detect a medium effect size (r=0.5). This means the study is 4x more likely to miss a real effect than to find it. The null results are therefore uninterpretable: they may reflect true absence of effect OR simply insufficient sample size.",
+      "suggestion": "Acknowledge this limitation prominently. Consider: (1) using effect sizes and confidence intervals instead of p-values; (2) conducting a formal power analysis for the Discussion section; (3) acknowledging that non-significant results at this sample size are inconclusive."
+    },
+    {
+      "category": "analysis",
+      "severity": "critical",
+      "description": "Post-hoc reframing as 'optimal compression' lacks direct empirical support. The paper acknowledges that H6 (decoder graph predicts absorption) is falsified (precision@20=0.0) and H8 (graph statistics predict at-risk features) is not supported (r=0.12, p=0.55). The 'optimal compression' framing is introduced to explain why absorption is 'benign', but this theoretical framing was not pre-registered and is not directly tested. The mechanistic LCA connection is theoretically interesting but empirically unsupported.",
+      "suggestion": "Either: (1) remove or substantially weaken the 'optimal compression' claim, framing it as a hypothesis for future work; or (2) run an experiment that directly tests the compression-optimality prediction. Currently, the paper uses a falsified hypothesis as theoretical motivation."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "Probe quality confound in CMI absorption analysis. The paper notes that absorption rate correlates with probe F1 at rho=-0.67 (p<0.001). The CMI-absorption correlation analysis uses data from L0=82 where mean probe F1=0.817. Low-CMI letters may be inherently harder to probe, causing both low estimated CMI and artificially high absorption rates. The paper never computes partial correlation controlling for probe F1, nor restricts the CMI analysis to quality-gated features (F1>0.85).",
+      "suggestion": "Compute partial correlation of CMI vs. absorption controlling for probe F1. If the correlation disappears, the CMI-absorption relationship is confounded by probe quality. Restrict analysis to features with probe F1>0.85 and report whether the pattern holds."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "CMI dimension instability: The CMI-absorption correlation at d'=10 (rho=-0.383, p=0.059 uncorrected) reverses sign at d'>=20 (d'=20: rho=+0.048, d'=30: rho=+0.299, d'=50: rho=+0.197). Bonferroni-corrected p=0.236. This qualitative sign reversal across dimensions is a red flag — it suggests the phenomenon is not stable across measurement conditions. The paper does not acknowledge this instability.",
+      "suggestion": "Acknowledge the dimension instability in the Discussion. Consider whether this instability undermines the claim that CMI-absorption correlation is a robust phenomenon. The sign reversal suggests the correlation may be an artifact of the specific probing conditions at d'=10."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "H2-H4 falsified (near-zero correlations, p > 0.86), yet the paper frames this as a 'reframing' contribution rather than acknowledging that the experiments may be underpowered or the wrong measurement. The narrative framing ('absorption is benign') is presented as a positive contribution when it could equally be 'experiments failed to detect an effect due to insufficient power'.",
+      "suggestion": "Revise framing to be more neutral: 'We did not find evidence that absorption degrades downstream tasks' rather than 'absorption is benign'. The latter is a stronger claim that requires stronger evidence."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Section 3.6 claims 'approximately 20% power to detect a medium effect size (r = 0.5).' This is a post-hoc power analysis, which is methodologically questionable—power should be computed before the experiment. Post-hoc power analysis is widely considered uninformative in the statistical literature.",
+      "suggestion": "Remove post-hoc power analysis. If discussing power, reference the a-priori power analysis that should have been conducted before data collection. Alternatively, use confidence intervals which are more informative than power calculations."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The random SAE baseline comparison (H7) shows MCC~0.21 across ALL variants including Random control. This suggests Hungarian matching yields chance-level recovery regardless of training. The paper acknowledges MCC failure but does not address the implication: absorption reduction may reflect sparsity-induced suppression rather than genuine hierarchical feature recovery.",
+      "suggestion": "Address the MCC failure explicitly. Either: (1) use a different metric for the random baseline comparison that does not have chance-level recovery; or (2) acknowledge that the MCC failure means the random baseline comparison may not be meaningful."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The absorption-sensitivity relationship is beta-conditional: effect emerges only at high steering magnitudes (beta=10, 20). At beta=5 (median), zero difference. This is not discussed as a limitation.",
+      "suggestion": "Discuss the beta-conditional nature of the finding explicitly. The effect may only be observable at high steering strengths, which limits practical applicability."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "The OrtSAE ablation comparison is at unmatched L0: without penalty L0~920 vs. with penalty L0~550. The paper uses this to conclude 'the orthogonality penalty does not appear to reduce absorption', but this comparison is confounded by dictionary size.",
+      "suggestion": "Match L0 between conditions before comparing absorption. Or acknowledge this confound explicitly and qualify the conclusion."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "The abstract presents multiple claims as established findings ('absorption does not significantly degrade', 'trained SAEs exhibit significantly LOWER absorption') without adequate hedging. These are null results and one correlation, not established facts.",
+      "suggestion": "Use more tentative language in the abstract: 'Our analysis finds no significant correlation', 'trained SAEs show lower absorption on average', etc."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "The paper uses 'honest null-result reporting' as a positive contribution, but this framing is problematic when the null results may simply reflect insufficient statistical power rather than true absence of effect.",
+      "suggestion": "Reframe as 'pre-registered analysis with multiple comparison correction' or 'null results with effect size reporting' rather than implying the null result is a definitive finding."
+    },
+    {
+      "category": "novelty",
+      "severity": "minor",
+      "description": "The LCA-SAE connection is claimed as novel, but the paper does not clearly establish what's new compared to prior work on decoder correlations and competitive dynamics in SAEs (Schubert et al. 2023, Lieberum et al. 2023).",
+      "suggestion": "More clearly differentiate the novel contribution: is it the specific formal connection to LCA, or the specific graph construction, or the homeostatic rebalancing?"
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "Some experiment details are sparse. The H6-H10 experiments are described briefly but the code to reproduce them is not clearly linked.",
+      "suggestion": "Ensure all analysis code is publicly available with clear replication instructions."
+    }
+  ],
+  "metric_gaming_risks": [
+    "The Chanin absorption metric shows high absorption (0.278) in random SAEs, suggesting it may measure 'dictionary structure' rather than 'learned pathology'. Using a flawed metric to support conclusions about the phenomenon is circular.",
+    "The Hungarian matching used for the random baseline comparison has MCC~0.21 at chance level, indicating the matching itself may be unreliable.",
+    "The one 'significant' result (H1b at layer 8) only appears after random baseline subtraction and is not robust across layers (L4 shows opposite sign)."
+  ],
+  "novelty_risks": [
+    "The claim that absorption is 'benign' has been suggested by others (e.g., Wang et al. ICLR 2026 showing weak interpretability-utility correlation). The novelty is the specific random baseline comparison.",
+    "The LCA connection is novel in the SAE literature but LCA itself has been known for 15+ years. The paper should clarify what specific aspect is novel: the formal connection, the graph construction, or the homeostatic rebalancing.",
+    "The 'optimal compression' framing is post-hoc and not directly tested. If this framing is rejected, the paper loses its primary theoretical contribution."
+  ],
+  "reproducibility_gaps": [
+    "The analysis code for H6-H10 experiments is not clearly documented. Ensure all code is available.",
+    "The steering and probing experiments used specific prompts (100 per feature). These should be shared or seed-documented for exact replication.",
+    "The random SAE baseline code should be shared to allow reproduction of the H7/H10 comparison.",
+    "The probe quality confound (correlation with probe F1) was not addressed. This should be checked in any replication."
+  ]
+}

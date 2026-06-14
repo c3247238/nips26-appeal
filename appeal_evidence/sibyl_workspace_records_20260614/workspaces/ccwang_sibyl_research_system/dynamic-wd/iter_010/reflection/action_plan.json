@@ -1,0 +1,189 @@
+{
+  "issues_classified": [
+    {
+      "id": "C1",
+      "description": "Figure 5 (diagnostic heatmap) shows half_lambda BEM = 0.000 while Table 6 reports BEM = 0.500. Same class of figure-table contradiction bug that plagued Figures 3/4 in prior iterations -- fixed in scatter plot (Figure 4) but not propagated to heatmap.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Regenerate fig4_diagnostic_heatmap.png from the same data source as Table 6. Verify half_lambda BEM = 0.500 visually after regeneration. Estimated: 10 minutes. Verification: Read the regenerated PNG with visual tool and confirm half_lambda column shows 0.500.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:heatmap-bem-mismatch:heatmap001"
+    },
+    {
+      "id": "C2",
+      "description": "Figure 8 (theorem2_validation.png) includes PMP-WD data points that are not in the paper's method set (Section 4.1 lists 7 methods; PMP-WD is not among them). The figure references a nonexistent 'Theorem 2'. N=18 data points implies 6 methods x 3 seeds, inconsistent with the 7-method design. Desk-reject-level: a figure showing data for an undescribed method.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Regenerate Figure 8 using ONLY the 7 methods from Section 4.1. Recompute Spearman rho and p-values without PMP-WD data. Rename theorem2_validation.png to alignment_analysis.png. Update LaTeX figure reference. Estimated: 30 minutes. Verification: Legend must show exactly 7 methods; file must be named alignment_analysis.png.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:figure8-pmpwd-ghost:figure8_001"
+    },
+    {
+      "id": "C3",
+      "description": "No ImageNet experiments despite project constraints mandating them. Flagged for 6+ iterations with zero progress. No root cause diagnosis has been performed. The paper claims 'sufficiently overparameterized problems' but evidence is confined to CIFAR-10/100 (32x32, <=15M params). This is the single largest credibility gap.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "PHASE 1 (diagnosis, 1 hour): SSH into compute server. Check: (1) ImageNet data path exists and is readable, (2) run 1-epoch ResNet-50 smoke test with batch_size=64, (3) check CUDA/PyTorch/torchvision compatibility, (4) document specific failure mode. PHASE 2 (experiment): ImageNet-100 (100-class subset) with 3 methods (constant, cwd_hard, no_wd) x 3 seeds x ResNet-50 = 9 runs, ~6-8 GPU-hours. PHASE 3 (integration): Add results as Table 7, update abstract/conclusion with ImageNet findings. Verification: 9 summary.json files exist with valid accuracy numbers.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:no-imagenet-6th-iteration:imagenet001"
+    },
+    {
+      "id": "C4",
+      "description": "Statistical power insufficient for null-result claims. N=3 gives ~15-20% power for 0.5% effects. TOST equivalence confirmed in only 6/12 comparisons at delta=1.0%. Paper headline 'all methods equivalent' is not supported -- 'failed to reject at low power' != 'confirmed equivalence'.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Add 2 seeds (seeds 789, 1024; N=5 total) for 4 key AdamW CIFAR-10 comparisons: constant vs {cwd_hard, swd, cosine_schedule, no_wd}. Cost: 8 runs, ~2 GPU-hours. Recompute TOST with N=5. Simultaneously revise abstract/conclusion to qualify: 'equivalent within our detection threshold of 0.7%'. Verification: 8 new summary.json files; TOST pass rate improves from 50% to >75%.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:tost-power-insufficient:power001"
+    },
+    {
+      "id": "C5",
+      "description": "CSI listed as a primary contribution (Section 1.3, item 2) despite zero predictive value (rho<0.3, p>0.3) and arbitrary component weights (0.4, 0.3, 0.3). Sensitivity analysis tests only 3 nearly-identical weight sets. Flagged for 5+ iterations without demotion.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "In Section 1.3, change CSI from 'contribution' to 'exploratory diagnostic tool'. Add honest statement: 'CSI captures coupling stability differences but does not predict accuracy outcomes in our experiments.' Consider presenting the 3 components separately instead of as a weighted composite. Reduce CSI discussion footprint by 50%. Estimated: 1 hour. Verification: grep Section 1.3 for 'contribution' -- CSI should not appear as one.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:csi-no-predictive-value:csi001"
+    },
+    {
+      "id": "C6",
+      "description": "Section 5.7 draws directional conclusions from two non-significant correlations (rho=-0.379, p=0.121; rho=0.045, p=0.858). The claim 'cumulative alignment may be more informative' is statistically improper without a formal Steiger's z-test. Flagged since iter_007.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Rewrite Section 5.7 as explicit negative result: 'We found no statistically significant relationship between alignment deviation and generalization gap (bar_delta: rho=-0.379, p=0.121; sup_delta: rho=0.045, p=0.858; N=18). This null result is consistent with the Phi Invariance Conjecture.' Remove ALL directional claims. Alternatively, move to appendix. Estimated: 30 minutes. Verification: grep for 'suggests' or 'may be more informative' in Section 5.7 -- should return zero hits.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:alignment-analysis-nonsignificant:alignment001"
+    },
+    {
+      "id": "C7",
+      "description": "Abstract implies full factorial design ('7 methods, 2 optimizers, 2 architectures, 2 datasets') suggesting 168 runs. Actual design: 84 (ResNet-20 full matrix) + 21 (VGG-16-BN, SGD/CIFAR-10 only) = 105. Misleading to reviewers who expect VGG-16-BN + AdamW or VGG-16-BN + CIFAR-100.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Revise abstract to explicitly decompose: '105 experiments including 84 on ResNet-20 (7 methods x 2 optimizers x 2 datasets x 3 seeds) and 21 on VGG-16-BN (7 methods x SGD x CIFAR-10 x 3 seeds).' Estimated: 5 minutes. Verification: abstract explicitly states 84+21 decomposition.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:abstract-factorial-misleading:abstract001"
+    },
+    {
+      "id": "C8",
+      "description": "Title uses 'Why' (causal claim) but paper only demonstrates correlation/observation, not causal mechanism. No ablation of AdamW's second-moment, no causal intervention experiment, no theoretical derivation of why adaptive scaling subsumes Phi modulation.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Change 'Why Dynamic Weight Decay Methods Are Equivalent Under AdamW' to 'When Dynamic Weight Decay Methods Are Equivalent Under AdamW' or 'The Phi Invariance Conjecture: Dynamic Weight Decay Methods Are Equivalent Under AdamW on CIFAR-Scale Benchmarks.' Estimated: 5 minutes. Verification: title does not contain 'Why'.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:title-causal-overclaim:title001"
+    },
+    {
+      "id": "C9",
+      "description": "NoBN ablation data from iter_005 exists (constant: 87.74+/-0.21, CWD: 87.62+/-0.13, spread 0.12pp) but only 2/7 methods tested. Section 6.2 reports these preliminary results, but 0.12pp spread WITHOUT BN is narrower than 0.25pp WITH BN under AdamW -- contradicting the BN-mechanism hypothesis. Paper hand-waves with 'limiting generalizability' rather than addressing the contradiction.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Two options: (A) Run remaining 5 methods without BN (5 methods x 3 seeds = 15 runs, ~4 GPU-hours) to properly test the BN hypothesis. (B) If no time, remove the preliminary 2/7 NoBN results from Section 6.2 and rewrite the BN mechanism discussion to be purely hypothesis-based, acknowledging it is untested. Do NOT present 2/7 as evidence for a 7-method claim. Estimated: Option A = 4 GPU-hours + 1 hour integration; Option B = 30 minutes. Verification: Section 6.2 either shows all 7 NoBN methods or no NoBN data.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:nobn-incomplete-contradictory:nobn001"
+    },
+    {
+      "id": "C10",
+      "description": "Proposal.md still references 4 theorems and 2 propositions (Lyapunov, PMP, controller taxonomy, formal budget equivalence theorem) that are not in the delivered paper. Future planners/critics compare paper against proposal and penalize the gap. Figure filename 'theorem2_validation.png' is vestigial.",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "Update proposal.md to match the empirical-only paper scope. Remove all references to Lyapunov, PMP, optimal control, Theorems 1-4, controller taxonomy. Rename theorem2_validation.png to alignment_analysis.png. Estimated: 30 minutes. Verification: grep proposal.md for 'Lyapunov', 'PMP', 'Theorem' -- should return zero hits.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "planning:proposal-scope-mismatch:scope001"
+    },
+    {
+      "id": "C11",
+      "description": "VGG-16-BN tested only with SGD/CIFAR-10 (21 runs). Paper attributes Phi Invariance to BN, but without VGG-16-BN + AdamW comparison, BN vs optimizer vs architecture effects are fully confounded. The paper's 2nd architecture is not a proper independent validation.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add VGG-16-BN + AdamW on CIFAR-10: 7 methods x 3 seeds = 21 runs, ~6 GPU-hours. If VGG+AdamW also shows invariance, it confirms Phi Invariance is robust across architectures+optimizers. If not, the BN-mechanism hypothesis needs revision. Estimated: 6 GPU-hours + 1 hour analysis. Verification: 21 new summary.json files under vgg16bn/adamw/.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:vgg-adamw-confounded:vgg001"
+    },
+    {
+      "id": "C12",
+      "description": "D'Angelo et al. (2024) showed 'WD is never useful as regularization in modern settings', which partially subsumes the null result. The paper does not clearly distinguish its contribution from D'Angelo's finding. Related Work does not have an explicit comparison paragraph.",
+      "category": "ideation",
+      "severity": "medium",
+      "suggestion": "Add a paragraph in Related Work explicitly contrasting with D'Angelo: 'D'Angelo et al. showed WD does not regularize; we show that even the training dynamics modulation by different WD schedules is irrelevant under AdamW. The Phi framework enables this systematic comparison.' Estimated: 20 minutes. Verification: Related Work contains 'D'Angelo' with explicit differentiation.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "ideation:dangelo-overlap:novelty001"
+    },
+    {
+      "id": "C13",
+      "description": "Proposition 1 (composition closure: product of non-negative functions is non-negative) is trivially obvious and inflates theoretical contribution appearance. Was downgraded in iter_009 but may have been re-added during rewrites.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Verify Proposition 1 is an inline remark, not a labeled proposition. If still labeled, downgrade: 'By construction, the element-wise product of two valid Phi modulators is itself a valid Phi modulator, enabling principled composition.' Estimated: 5 minutes.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:proposition1-trivial:prop001"
+    },
+    {
+      "id": "C14",
+      "description": "Reproducibility gaps: CSI Hessian condition number unspecified (loss vs weight-space, power iteration count, train/test data, mini-batch/full-batch). UnifiedAdamW/UnifiedSGD code not released. SWD running mean computation unspecified. GPU type and wall-clock time not reported.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Add supplementary pseudocode for CSI, AIS, BEM computation. Specify GPU type (RTX PRO 6000 Blackwell, 98GB) and per-experiment wall-clock time. Add code release placeholder (anonymized GitHub link or 'code available upon acceptance'). Estimated: 1 hour. Verification: Section 4 or appendix contains GPU type, wall-clock, pseudocode.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:reproducibility-gaps:repro001"
+    }
+  ],
+  "issues_fixed": [
+    "Figure 3(a) PMP-WD contamination: Figure 3 now shows correct 7 methods with 'Spread: 0.25pp' matching Table 2 and Section 5.1 text. No PMP-WD in Figure 3. (iter_009 S1/S3/S5: FIXED)",
+    "Figure 4 (BEM scatter plot) half_lambda position: Now correctly shows half_lambda at BEM ~0.5, matching Table 6. (iter_009 S2: FIXED)",
+    "Data provenance mismatch between Figure 3 and Table 2: Both now use iter_003 data. Cross-verified against 42 raw summary.json files. (iter_009 S1: FIXED)",
+    "Triple spread contradiction (0.49pp vs 0.25pp vs 0.25pp): All three sources (Figure 3, Section 5.1, Table 2) now consistently show 0.25pp. (iter_009 S3: FIXED)",
+    "Certified Band / Lyapunov V_t contradiction section: Removed in iter_009. (iter_008 S2: FIXED)"
+  ],
+  "success_patterns": [
+    "Figure regeneration as FIRST task: The lesson from iter_009 ('regenerate figures before any writing') was followed, and all 3 critical figure-table-text consistency issues from iter_009 are now resolved. This confirms that data-first, text-second is the correct ordering.",
+    "High fix-completion rate on targeted edits: 4/5 critical figure issues from iter_009 are confirmed fixed. Targeted, specific edit instructions outperform vague 'improve writing' directives.",
+    "Statistical methodology rigor: Paired t-tests with Bonferroni correction, Cohen's d, TOST, power analysis remain consistently above community norm across all iterations. This is the paper's competitive advantage.",
+    "Phi modulator taxonomy: Universally praised across 8+ iterations. CWD/random-mask bang-bang control insight is structurally sound.",
+    "Three-stage review pipeline (supervisor + critic + writing review) catches distinct non-overlapping issues. Never skip any stage.",
+    "Strategic scope reduction: Removing Lyapunov/PMP-WD/certified-band was correct. The empirical paper is cleaner and more defensible."
+  ],
+  "systemic_patterns": [
+    "Figure-table consistency bugs are hydra-headed: fixing one figure reveals the same bug in another. Figure 4 scatter was fixed but Figure 5 heatmap uses stale data. Figure 8 has PMP-WD ghost data. Root cause: figure generation scripts read from different data sources rather than a single authoritative source.",
+    "ImageNet is a persistent blind spot: 6 iterations of 'add ImageNet' with zero progress. No root cause diagnosis has ever been performed. The system plans experiments it cannot execute.",
+    "Recurring issues that survive 3+ iterations (CSI demotion, alignment analysis reframing, title 'Why' fix, abstract factorial decomposition) are text-level fixes that take <30 minutes each. They persist because higher-priority figure/data work dominates each iteration. These need to be bundled as a single batch fix early in the iteration.",
+    "Quality oscillation (5.0->7.8->8.2->5.5->5.5->7.0->5.0->6.5->6.5->6.0->6.5): gains come from experiment/data work, crashes come from rewrites. The pattern is clear: do NOT rewrite. Do targeted edits + new experiments."
+  ],
+  "quality_trajectory": "stagnant",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 0,
+    "total_gpu_idle_minutes": 0,
+    "bottleneck_stages": ["experiment_cycle"],
+    "suggestions": [
+      "No new experiments were run in iter_010 -- all improvements came from figure regeneration and text edits. GPU utilization was 0%.",
+      "The highest-ROI compute investment is ImageNet diagnosis + ImageNet-100 runs (9 runs, ~8 GPU-hours). This single experiment block would raise the score by ~1.0 point.",
+      "Bundle 4 quick text fixes (CSI demotion, alignment reframing, title, abstract) into a single 2-hour text-edit block at the START of iter_011, before experiments.",
+      "Extra seeds (8 runs, ~2 GPU-hours) and ImageNet-100 (9 runs, ~8 GPU-hours) can run in parallel on different GPUs.",
+      "NoBN completion (15 runs, ~4 GPU-hours) can run simultaneously with ImageNet if GPUs allow.",
+      "Total compute budget for iter_011: ~14 GPU-hours across 32 runs. With 8 GPUs available, wall-clock time ~2-3 hours."
+    ]
+  },
+  "recommended_focus": [
+    "1. IMMEDIATE (10 min): Fix Figure 5 heatmap BEM for half_lambda -- removes last data integrity issue",
+    "2. IMMEDIATE (30 min): Fix Figure 8 -- remove PMP-WD ghost data, rename file, recompute statistics",
+    "3. BATCH TEXT FIXES (2 hours): CSI demotion, alignment Section 5.7 reframing, title Why->When, abstract factorial decomposition, proposal.md update, D'Angelo differentiation paragraph",
+    "4. EXPERIMENT: ImageNet-100 diagnosis + 9 runs (~8 GPU-hours) -- highest single-action ROI",
+    "5. EXPERIMENT: Extra seeds for 4 key comparisons (~2 GPU-hours) -- strengthens TOST power",
+    "6. EXPERIMENT (if time): NoBN completion 5/7 methods (~4 GPU-hours) -- properly tests BN hypothesis"
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

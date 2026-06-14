@@ -1,0 +1,92 @@
+{
+  "task": "aggregation_unification",
+  "timestamp": "2026-04-16T14:19:31.889703",
+  "description": "Reconciles three different first-letter absorption rates: 21.6% (iter_010), 27.1% (iter_009), 34.5% (iter_008)",
+  "rates": {
+    "rate_21_6": {
+      "source": "iter_010/exp/results/phase1/probe_degradation.json (target_f1=1.0)",
+      "iteration": 10,
+      "per_token_rate": 0.216068,
+      "per_word_bootstrap_mean": 0.231143,
+      "n_test_words": 2345,
+      "n_prompts_per_word": 5,
+      "n_total_tokens": 11725,
+      "n_probe_correct_raw": 11103,
+      "n_false_negatives": 2399,
+      "aggregation": "per-token: FN/probe_correct_raw over all 11,725 token observations",
+      "probe_training": "3,517 words * 4 prompts = 14,068 train tokens (separate from test)"
+    },
+    "rate_27_1": {
+      "source": "iter_009/exp/results/phase1/absorption_firstletter.json -> L24_16k",
+      "iteration": 9,
+      "per_token_rate": 0.27065,
+      "per_word_bootstrap_mean": 0.304625,
+      "n_test_words": 500,
+      "n_prompts_per_word": 3,
+      "n_total_tokens": 1500,
+      "n_probe_correct_raw": 1138,
+      "n_false_negatives": 308,
+      "aggregation": "per-token: FN/probe_correct_raw over 1,500 token observations (500 words * 3 prompts)",
+      "probe_training": "1,033 words * 4 prompts = 4,132 train tokens"
+    },
+    "rate_34_5": {
+      "source": "iter_008/exp/results/pilots/consolidation_summary.json -> phase1_crossdomain.absorption_firstletter.key_rates.L24_16k",
+      "iteration": 8,
+      "rate": 0.345,
+      "n_test_words": "unknown (pilot, likely 100-200 words)",
+      "n_prompts_per_word": "unknown (pilot)",
+      "aggregation": "pilot run, likely small sample with different probe training",
+      "note": "This is from a PILOT run with smaller sample size. The 34.5% is a point estimate from limited data."
+    }
+  },
+  "reconciliation": {
+    "main_factors": [
+      {
+        "factor": "Sample size difference",
+        "details": "iter_010 uses 2345 test words (full sae-spelling vocab), iter_009 uses 500 (subset). Larger sample dilutes rare-word absorption."
+      },
+      {
+        "factor": "Prompt count difference",
+        "details": "iter_010 uses 5 prompts/word, iter_009 uses 3 prompts/word. More prompt contexts may reduce context-dependent absorption."
+      },
+      {
+        "factor": "Probe training difference",
+        "details": "iter_010 probe trained on 14,068 tokens (C=0.001), iter_009 on 4,132 tokens (C=0.01). Better-regularized probe may affect FN detection boundary."
+      },
+      {
+        "factor": "Aggregation is identical",
+        "details": "Both use per-token aggregation (FN/probe_correct_raw). The difference is NOT an aggregation mismatch."
+      },
+      {
+        "factor": "34.5% is a superseded pilot estimate",
+        "details": "iter_008 value is from a pilot run with small sample. It was superseded by iter_009 FULL run (27.1%) using 500 test words."
+      }
+    ],
+    "aggregation_types": {
+      "per_token": "FN_count / probe_correct_raw_count over all token observations. Each word*prompt is one observation. This is the PRIMARY metric used in Table 2.",
+      "per_word": "For each unique word, compute word_absorption = FN_contexts / probe_correct_contexts, then average across words. This gives equal weight to each word regardless of sample count. Used for bootstrap CIs.",
+      "per_letter": "For each letter class, compute letter_absorption = FN / probe_correct in that class, then average across letters. Gives equal weight to each letter."
+    },
+    "per_token_vs_per_word_gap": {
+      "iter_010_control": "per-token: 21.6%, per-word: 23.1%, gap: 1.5pp",
+      "iter_009": "per-token: 27.1%, per-word: 30.5%, gap: 3.4pp",
+      "explanation": "Per-word > per-token because low-frequency words tend to have higher absorption (the SAE lacks dedicated features for rare words), and per-word aggregation gives them equal weight."
+    }
+  },
+  "canonical_value": {
+    "recommended": "27.1% (iter_009, per-token, 500 words x 3 prompts)",
+    "rationale": [
+      "27.1% is from iter_009 FULL run, the authoritative experiment for the L24 16k cross-domain comparison",
+      "It matches the paper's Table 2 and is consistent across the paper narrative",
+      "21.6% comes from iter_010 which used a DIFFERENT probe (retrained with more data and different C), so it's a different experimental condition",
+      "21.6% is correctly cited as the 'probe degradation F1=1.0 control' but should NOT replace the 27.1% Table 2 value",
+      "34.5% is a superseded iter_008 pilot and should not appear in the final paper",
+      "The ~5.5pp gap between 21.6% and 27.1% is explained by larger test set (2345 vs 500 words) and better-regularized probe"
+    ],
+    "paper_usage": {
+      "Table_2": "27.1% (iter_009, the cross-domain comparison experiment)",
+      "Table_3_control": "21.6% (iter_010, the probe degradation experiment's undegraded baseline)",
+      "Note": "These are from different experimental runs with different probes. The discrepancy is documented as 'control_check.delta' in probe_degradation.json"
+    }
+  }
+}

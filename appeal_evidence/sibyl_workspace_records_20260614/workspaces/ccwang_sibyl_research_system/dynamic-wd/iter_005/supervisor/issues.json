@@ -1,0 +1,65 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "PMP-WD (Theorem 3) is derived but completely unvalidated. The paper's primary positive algorithmic contribution -- a state-feedback WD controller from the stochastic Pontryagin Maximum Principle with an independent RG beta function derivation -- has zero experimental evaluation. Section 1.2 explicitly states 'PMP-WD is a theoretical contribution; empirical evaluation is deferred to future work.'",
+    "suggestion": "Implement PMP-WD and run it on at least ResNet-20 CIFAR-10 under AdamW at rho-standard (rho=0.5) and rho-high (rho=5.0), 3 seeds each. Estimated cost: ~2 GPU-hours."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The rho-high regime (rho=5.0) remains at the 5-epoch pilot stage. Theorem 1's most interesting prediction -- method sensitivity increases at elevated rho -- is entirely untested at the extreme. The 'differentiation' zone in Figure 1 is unsupported by data.",
+    "suggestion": "Run rho-high with stabilization (warmup, gradient clipping) or try rho=2.0 as an intermediate point. 3 methods x 3 seeds = 9 runs."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Statistical power at N=3 seeds is insufficient for a null-result paper. TOST at delta=0.5% has only 15-20% power. The central equivalence claim lacks formal statistical support.",
+    "suggestion": "Add 2 seeds (N=5) for 4 key methods on CIFAR-10 AdamW for ResNet-20 and VGG-16-BN. 16 additional runs, ~4 GPU-hours."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Paper underreports available data: rho-low CWD shows 3 completed seeds in raw data but paper claims '1 seed'. NoBN has 3 methods partially complete but paper claims '2 methods'. Table 6 and Section 5.3 are stale.",
+    "suggestion": "Update all sections to reflect current data. rho-low Phi spread is 0.18% (2 methods, 3 seeds each), not '>= 0.04%'."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Abstract claims '105 completed 200-epoch runs' but cross-validated count is 122. The paper underreports its own evidence.",
+    "suggestion": "Update the abstract to the accurate count of 122 completed runs."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "SGD rho confound unresolved. Matched-rho SGD has only 2 seeds for constant and 1 for CWD. The 3.7x spread ratio used as headline finding is a mixed-effects confound.",
+    "suggestion": "Complete matched-rho SGD: add CWD seeds 123/456 and no_wd for 3 seeds. 5 additional runs."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "minor",
+    "description": "CWD phi formula uses u_t (preconditioned update) but framework definition uses g_t (raw gradient). The distinction matters for Adam's normalization.",
+    "suggestion": "Define u_t explicitly in Section 3.1 and clarify which CWD uses."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "minor",
+    "description": "CSI weights (0.4, 0.3, 0.3) unjustified. Referenced Appendix A.3 does not exist. CSI has no within-architecture predictive value.",
+    "suggestion": "Add Appendix A.3 or remove reference. Consider demoting CSI to a secondary metric."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "CIFAR-100 SGD results referenced in text (Phi spread = 1.71%) but no dedicated statistical analysis table provided.",
+    "suggestion": "Add CIFAR-100 SGD statistical analysis paragraph with p-values and effect sizes."
+  }
+]

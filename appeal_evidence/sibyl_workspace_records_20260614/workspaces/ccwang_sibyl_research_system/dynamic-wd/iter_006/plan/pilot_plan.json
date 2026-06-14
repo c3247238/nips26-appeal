@@ -1,0 +1,84 @@
+{
+  "pilots": [
+    {
+      "task_id": "impl_pmpwd",
+      "pilot_name": "pmpwd_smoke_test",
+      "description": "5-epoch smoke test of PMP-WD optimizer + diagnostics instrumentation on CIFAR-10/ResNet-20",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "PMP-WD runs without error; diagnostics.jsonl written with fields: delta_t, w_norm, g_norm, r_t, V_t, lambda_min, lambda_max, effective_wd",
+      "estimated_minutes": 5,
+      "gpu_count": 1,
+      "fallback_on_fail": "Check momentum buffer access, gradient computation order, L estimation stability"
+    },
+    {
+      "task_id": "pilot_pmpwd_cifar10",
+      "pilot_name": "pmpwd_cifar10_full",
+      "description": "Full 200-epoch PMP-WD run on CIFAR-10/ResNet-20 to validate Theorem 4 predictions",
+      "samples": 50000,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "Test accuracy >= 88% (within 2% of constant 90.13%); no divergence; lambda(t) trajectory shows clear bang-bang switching; V_T(PMP-WD) is finite and comparable to V_T(constant)",
+      "estimated_minutes": 15,
+      "gpu_count": 1,
+      "fallback_on_fail": "If divergence: reduce Lambda_max from 5e-4 to 1e-4. If no bang-bang: check costate proxy computation. If accuracy < 86%: try soft sigmoid approximation.",
+      "key_diagnostics": [
+        "lambda(t) trajectory: should show binary switching",
+        "Fraction of parameters with lambda > 0 per epoch (switching frequency)",
+        "Correlation between <p(t), w(t)> and sign(cos(g,w)) -- tests CWD connection",
+        "V_T comparison against constant WD baseline"
+      ]
+    },
+    {
+      "task_id": "nobn_complete",
+      "pilot_name": "nobn_new_methods_pilot",
+      "description": "Pilot cosine_schedule and PMP-WD on ResNet-20-NoBN, 200 epochs, seed 42",
+      "samples": 50000,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "Both methods converge; accuracy > 85% (NoBN typically ~2-3% lower than BN); no gradient explosion",
+      "estimated_minutes": 15,
+      "gpu_count": 2,
+      "fallback_on_fail": "If divergence: reduce LR to 0.05 for NoBN (known to need lower LR). If accuracy very low (<80%): check model definition."
+    },
+    {
+      "task_id": "pilot_imagenet",
+      "pilot_name": "imagenet_setup_verify",
+      "description": "2-epoch ImageNet/ResNet-50 training with DDP on 2 GPUs. Diagnose why previous attempts failed.",
+      "samples": 1000,
+      "seed": 42,
+      "timeout_sec": 1800,
+      "pass_criteria": "Training completes 2 epochs without error; data loading throughput > 500 img/s; no OOM on 2x RTX PRO 6000 (98GB); top-1 > 5% (sanity)",
+      "estimated_minutes": 30,
+      "gpu_count": 2,
+      "fallback_on_fail": "Check: (1) ImageNet data path exists and is readable, (2) DDP init (NCCL), (3) batch size fits in memory, (4) num_workers for DataLoader. Previous failures may be data path or DDP config issues.",
+      "diagnosis_steps": [
+        "Verify ImageNet data exists at expected path",
+        "Check if torchvision.datasets.ImageNet can load",
+        "Test single-GPU training first, then DDP",
+        "Monitor GPU memory usage during first batch"
+      ]
+    },
+    {
+      "task_id": "alignment_grid",
+      "pilot_name": "alignment_computation_test",
+      "description": "Test full-batch alignment computation on CIFAR-10/ResNet-20 with constant WD, 20 epochs",
+      "samples": 50000,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "Full-batch delta_t computed every 10 epochs; values in [-1, 1]; computation adds < 50% overhead to training time; at least one |rho| > 0.3 on this single config",
+      "estimated_minutes": 10,
+      "gpu_count": 1,
+      "fallback_on_fail": "If too slow: subsample to 10% of training set for alignment computation. If delta_t always near 0: check gradient computation (should use full training set, not minibatch)."
+    }
+  ],
+  "pilot_execution_order": [
+    "pmpwd_smoke_test",
+    "pmpwd_cifar10_full",
+    "imagenet_setup_verify",
+    "nobn_new_methods_pilot",
+    "alignment_computation_test"
+  ],
+  "gate_policy": "Each pilot must pass before its dependent full tasks are launched. Pilots 1-2 are sequential (PMP-WD implementation then validation). Pilots 3-5 can run in parallel after pilot 1 passes."
+}

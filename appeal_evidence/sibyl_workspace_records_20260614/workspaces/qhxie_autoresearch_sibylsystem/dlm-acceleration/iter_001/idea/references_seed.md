@@ -1,0 +1,5 @@
+- LLaDA (Large Language Diffusion with mAsking): 目标测试模型
+- MDLM (arxiv: 2406.07524): Masked Diffusion Language Model
+- SEDD: Score Entropy Discrete Diffusion
+- Speculative Decoding: SpecInfer, Fast and Slow 等
+- 系统将自动搜索相关文献

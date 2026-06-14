@@ -1,0 +1,333 @@
+{
+  "iteration": 3,
+  "current_scores": {
+    "final_review": 5.5,
+    "critic": 5.5,
+    "supervisor": 6.0,
+    "codex": 6.0
+  },
+  "weighted_average": 5.75,
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 10,
+  "priority_actions": [
+    {
+      "id": "P0-1",
+      "priority": "P0",
+      "category": "experiment_gap",
+      "action": "Report existing SGD baseline results — analyze SGD data already collected, generate comparison tables (SGD vs AdamW), run paired t-tests, show that WD matters under SGD (constant 91.22% vs no_wd 90.30%, Delta=0.92%) directly validating optimizer-specificity claim",
+      "estimated_effort": "2 hours (analysis + writing only, zero compute)",
+      "impact": "very_high",
+      "blocks": [],
+      "details": {
+        "data_location": "iter_003/exp/results/sgd_baseline/",
+        "key_finding": "SGD shows ~0.92% gap between constant and no_wd on CIFAR-10 vs ~0.12% under AdamW — 8x larger effect",
+        "paper_impact": "Transforms paper from pure null result to sharp optimizer-dependent characterization"
+      }
+    },
+    {
+      "id": "P0-2",
+      "priority": "P0",
+      "category": "experiment_gap",
+      "action": "Add ImageNet experiments with ResNet-50 — at least 4 key methods (constant, cosine_schedule, cwd_hard, no_wd) × 3 seeds, 90 epochs",
+      "estimated_effort": "8-12 hours GPU time",
+      "impact": "very_high",
+      "blocks": [],
+      "details": {
+        "architecture": "ResNet-50 (25.6M params)",
+        "dataset": "ImageNet-1K",
+        "methods": [
+          "constant",
+          "cosine_schedule",
+          "cwd_hard",
+          "no_wd"
+        ],
+        "seeds": [
+          42,
+          123,
+          456
+        ],
+        "epochs": 90,
+        "rationale": "Required by project spec; validates scale-dependence claim; most reviewers flag this as critical gap"
+      }
+    },
+    {
+      "id": "P0-3",
+      "priority": "P0",
+      "category": "metric_error",
+      "action": "Fix all three metric definitions: (1) BEM — fix boundedness claim, investigate half_lambda BEM=0.000 bug, use signed BEM; (2) AIS — correct range to [-1,1], specify Delta-L sign convention; (3) CSI — add component normalization, justify or ablate weights",
+      "estimated_effort": "4 hours",
+      "impact": "high",
+      "blocks": [],
+      "details": {
+        "bem_fixes": [
+          "Remove [0,1] bound claim or restrict domain",
+          "Debug half_lambda BEM=0.000 (should be ~0.5)",
+          "Consider signed BEM to preserve directional info"
+        ],
+        "ais_fixes": [
+          "Correct range claim from [0,1] to [-1,1]",
+          "Document Delta-L sign convention",
+          "Show per-layer averaging formula"
+        ],
+        "csi_fixes": [
+          "Normalize components before weighting",
+          "Justify weights via sensitivity analysis or use equal (1/3, 1/3, 1/3)"
+        ]
+      }
+    },
+    {
+      "id": "P0-4",
+      "priority": "P0",
+      "category": "experiment_gap",
+      "action": "Add VGG-16-BN on CIFAR-10/100 as second architecture — all 7 methods × 3 seeds × 2 datasets = 42 runs",
+      "estimated_effort": "6-8 hours GPU time",
+      "impact": "high",
+      "blocks": [],
+      "details": {
+        "architecture": "VGG-16-BN (14.7M params)",
+        "datasets": [
+          "CIFAR-10",
+          "CIFAR-100"
+        ],
+        "methods": "all 7 (constant, cosine_schedule, cwd_hard, cwd_soft, swd, half_lambda, no_wd)",
+        "seeds": [
+          42,
+          123,
+          456
+        ],
+        "rationale": "Tests architecture dependence of Phi Invariance — single architecture is the most cited weakness"
+      }
+    },
+    {
+      "id": "P0-5",
+      "priority": "P0",
+      "category": "statistical_issue",
+      "action": "Increase seeds to 5 for all configurations — add seeds 789 and 999",
+      "estimated_effort": "4-6 hours GPU time",
+      "impact": "high",
+      "blocks": [],
+      "details": {
+        "new_seeds": [
+          789,
+          999
+        ],
+        "configurations": "all existing ResNet-20 × CIFAR-10/100 × 7 methods",
+        "new_runs": "7 methods × 2 seeds × 2 datasets = 28 additional runs",
+        "statistical_benefit": "Reduces minimum detectable effect from ~0.7% to ~0.45%"
+      }
+    },
+    {
+      "id": "P1-1",
+      "priority": "P1",
+      "category": "theory_gap",
+      "action": "Prove Phi Invariance under quadratic loss with diagonal Hessian under AdamW — formal theorem providing theoretical support for conjecture",
+      "estimated_effort": "6 hours",
+      "impact": "high",
+      "blocks": []
+    },
+    {
+      "id": "P1-2",
+      "priority": "P1",
+      "category": "theory_gap",
+      "action": "Add quantitative order-of-magnitude analysis of Phi perturbation magnitude vs adaptive gradient step magnitude across training",
+      "estimated_effort": "3 hours",
+      "impact": "medium",
+      "blocks": []
+    },
+    {
+      "id": "P1-3",
+      "priority": "P1",
+      "category": "statistical_issue",
+      "action": "Add formal power analysis stating minimum detectable effect size; add TOST equivalence testing with ±0.3% margin using 5 seeds; add bootstrap 95% CI",
+      "estimated_effort": "3 hours",
+      "impact": "medium",
+      "blocks": [
+        "P0-5"
+      ]
+    },
+    {
+      "id": "P1-4",
+      "priority": "P1",
+      "category": "missing_analysis",
+      "action": "Address BN scale-invariance confound — either test a BN-free architecture (VGG-16 without BN or MLP) or discuss explicitly as a confound with mechanistic reasoning",
+      "estimated_effort": "4 hours",
+      "impact": "medium",
+      "blocks": []
+    },
+    {
+      "id": "P1-5",
+      "priority": "P1",
+      "category": "experiment_gap",
+      "action": "Add training curves (loss and accuracy vs epoch, mean ± std) and weight norm trajectory plots for key methods",
+      "estimated_effort": "3 hours",
+      "impact": "medium",
+      "blocks": []
+    },
+    {
+      "id": "P1-6",
+      "priority": "P1",
+      "category": "writing_quality",
+      "action": "Add Discussion subsection engaging with implicit regularization literature — cite Wilson et al. 2017, Barrett & Dherin 2021, Kosson et al. 2023, Smith et al. 2021",
+      "estimated_effort": "2 hours",
+      "impact": "medium",
+      "blocks": []
+    },
+    {
+      "id": "P1-7",
+      "priority": "P1",
+      "category": "experiment_gap",
+      "action": "Test higher lambda values (5e-3, 5e-2) for constant, cosine_schedule, cwd_hard on CIFAR-10 to distinguish 'AdamW subsumes WD' from 'WD too small to matter'",
+      "estimated_effort": "4 hours GPU time",
+      "impact": "medium",
+      "blocks": [],
+      "details": {
+        "rationale": "Codex review's key insight — at lambda=5e-4, WD is ~1% perturbation; need to test when WD is first-order"
+      }
+    },
+    {
+      "id": "P2-1",
+      "priority": "P2",
+      "category": "writing_quality",
+      "action": "Unify terminology throughout paper — use framework axis names (temporal, directional, spatial, target-norm) consistently from Introduction",
+      "estimated_effort": "2 hours",
+      "impact": "low"
+    },
+    {
+      "id": "P2-2",
+      "priority": "P2",
+      "category": "writing_quality",
+      "action": "Expand conclusion to 300+ words covering stability finding, TOST caveats, benchmark infrastructure contribution, SGD boundary condition",
+      "estimated_effort": "1 hour",
+      "impact": "low"
+    },
+    {
+      "id": "P2-3",
+      "priority": "P2",
+      "category": "writing_quality",
+      "action": "Create referenced appendices (Appendix B: diagnostic panels for all runs, Appendix C.2: CSI sensitivity analysis)",
+      "estimated_effort": "2 hours",
+      "impact": "low"
+    },
+    {
+      "id": "P2-4",
+      "priority": "P2",
+      "category": "writing_quality",
+      "action": "Add reproducibility table with hardware specs, software versions, wall-clock times, codebase URL",
+      "estimated_effort": "1 hour",
+      "impact": "low"
+    },
+    {
+      "id": "P2-5",
+      "priority": "P2",
+      "category": "writing_quality",
+      "action": "Strengthen conjecture statement — cover full BEM range, define 'sufficiently overparameterized' quantitatively, make boundary conditions formal",
+      "estimated_effort": "1 hour",
+      "impact": "low"
+    },
+    {
+      "id": "P2-6",
+      "priority": "P2",
+      "category": "experiment_gap",
+      "action": "Add computational overhead comparison for dynamic vs constant WD methods",
+      "estimated_effort": "2 hours",
+      "impact": "low"
+    },
+    {
+      "id": "P2-7",
+      "priority": "P2",
+      "category": "missing_analysis",
+      "action": "Investigate and discuss cosine_schedule variance anomaly (sigma=0.07% on CIFAR-10 but 0.42% on CIFAR-100)",
+      "estimated_effort": "1 hour",
+      "impact": "low"
+    }
+  ],
+  "experiment_plan": {
+    "new_experiments": [
+      "ImageNet ResNet-50: 4 methods × 3 seeds × 90 epochs (P0-2)",
+      "VGG-16-BN CIFAR-10/100: 7 methods × 3 seeds × 2 datasets (P0-4)",
+      "Higher lambda (5e-3, 5e-2): 3 methods × 3 seeds × CIFAR-10 (P1-7)",
+      "Additional seeds (789, 999): 7 methods × 2 seeds × 2 datasets for ResNet-20 (P0-5)"
+    ],
+    "fix_existing": [
+      "Analyze and report existing SGD baseline data (P0-1)",
+      "Debug half_lambda BEM=0.000 computation (P0-3)",
+      "Generate training curves from existing run logs (P1-5)",
+      "Extract weight norm trajectories from existing checkpoints (P1-5)"
+    ],
+    "estimated_total_gpu_hours": "22-30 hours",
+    "parallelization_strategy": "ImageNet + VGG-16-BN + additional seeds can run concurrently on 8 GPUs"
+  },
+  "theory_plan": [
+    "Prove Phi Invariance Theorem for quadratic loss f(w) = 0.5 w^T H w under AdamW with diagonal H (P1-1)",
+    "Derive quantitative bound: ||phi(t,w,g) * lambda * w|| / ||m_t / (sqrt(v_t) + eps)|| = O(lambda / lr) << 1 (P1-2)",
+    "Connect to implicit regularization: show AdamW's effective regularization path subsumes explicit WD modulation (P1-6)",
+    "Formalize the 'BN scale-invariance' confound and its interaction with WD irrelevance (P1-4)"
+  ],
+  "writing_plan": [
+    "Section 4: Add ImageNet and VGG-16-BN experiment descriptions",
+    "Section 5.1: Update all accuracy tables with 5-seed results, add SGD comparison table",
+    "Section 5.2: Fix BEM definition and recompute all BEM values",
+    "Section 5.3: Fix AIS/CSI definitions, add CIFAR-100 diagnostic table",
+    "Section 5 (new): Add training curves and weight norm trajectories subsection",
+    "Section 3: Add Theorem 1 (quadratic loss invariance proof)",
+    "Section 3.4: Fix all metric mathematical definitions",
+    "Section 6: Rewrite Discussion with implicit regularization literature engagement",
+    "Section 6: Add BN confound discussion",
+    "Section 7: Expand conclusion to 300+ words",
+    "Appendix: Create B (diagnostic panels), C.2 (CSI sensitivity), per-seed tables",
+    "Throughout: Unify terminology to framework axis names"
+  ],
+  "lessons": [
+    "Always report ALL collected experimental data — the SGD baseline was the single most impactful unreported result",
+    "Metric definitions require formal verification of boundary cases before publication — all 3 metrics had mathematical errors",
+    "Null result papers require STRONGER experimental coverage than positive result papers — reviewers will ask 'did you just not look hard enough?'",
+    "3 seeds is never sufficient for null-result claims — budget for 5+ seeds from the planning phase",
+    "A notational framework without deeper theoretical results is seen as 'just notation' — need at least one non-trivial theorem",
+    "Address confounds proactively (BN scale-invariance, small-lambda regime) rather than waiting for reviewers to identify them",
+    "Plan parallel experiment execution from the start — SGD and VGG experiments could have run during Iteration 3 writing",
+    "Codex review provides a genuinely orthogonal perspective — the 'WD too small to matter' insight was unique to Codex"
+  ],
+  "risk_factors": [
+    {
+      "risk": "ImageNet experiments fail or show unexpected results",
+      "mitigation": "If dynamic WD helps at ImageNet scale, pivot framing to 'scale-dependent transition' rather than universal invariance",
+      "probability": "medium"
+    },
+    {
+      "risk": "VGG-16-BN shows different pattern from ResNet-20",
+      "mitigation": "Reframe as architecture-dependent finding; strengthen Discussion with architecture analysis",
+      "probability": "low-medium"
+    },
+    {
+      "risk": "GPU contention delays experiment completion",
+      "mitigation": "Prioritize P0-1 (SGD analysis, zero compute) and P0-3 (metric fixes) first; experiments can extend to Iteration 5",
+      "probability": "medium"
+    },
+    {
+      "risk": "Higher lambda experiments break the invariance",
+      "mitigation": "This is actually a positive finding — establishes boundary conditions for the conjecture, making it more precise and informative",
+      "probability": "medium-high"
+    }
+  ],
+  "score_projection": {
+    "iteration_4_target": "7.0-7.5",
+    "critical_path": [
+      "P0-1 (SGD)",
+      "P0-2 (ImageNet)",
+      "P0-3 (fix metrics)",
+      "P0-5 (5 seeds)"
+    ],
+    "iteration_5_target": "7.5-8.0",
+    "stretch_additions": [
+      "ViT experiments",
+      "higher lambda",
+      "complete appendices"
+    ]
+  },
+  "issues_classified": [],
+  "issues_fixed": [],
+  "success_patterns": [],
+  "systemic_patterns": [],
+  "recommended_focus": [],
+  "quality_trajectory": "stagnant"
+}

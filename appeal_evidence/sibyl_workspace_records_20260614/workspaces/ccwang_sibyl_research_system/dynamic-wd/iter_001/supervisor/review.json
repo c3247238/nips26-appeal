@@ -1,0 +1,50 @@
+{
+  "score": 7.8,
+  "verdict": "PASS",
+  "summary": "This paper presents a well-executed negative-result study demonstrating that dynamic weight decay scheduling provides no benefit over a well-tuned constant under standard nonconvex SGD training. The revision meaningfully addresses the four major issues from the previous round: single-seed limitations are now transparently disclosed with multi-seed runs in progress, two relevant recent references are incorporated and discussed, the CIFAR-100 asymmetry receives a mechanistic explanation, and the budget equivalence claim is grounded in a quantitative formal argument. The paper remains limited in scope (CIFAR-scale, SGD only) but makes a genuine contribution through its mechanistic analysis of three failure modes for adaptive weight decay.",
+  "strengths": [
+    "Three mechanistic insights are cleanly separated and each is supported by a dedicated experiment: budget equivalence (exact metric matching), LR-WD coupling (catastrophic collapse), and alignment inapplicability (random WD equivalence). The experimental design is admirably controlled.",
+    "The decoupling ablation is the paper's strongest result: a near-100% accuracy collapse (92.05% to 10.00%) with weight norm 0.0036 is large enough to be unambiguous with a single seed, and the positive feedback loop in Eq. (5) is clearly explained.",
+    "Budget equivalence is now supported by a formal argument deriving the product approximation exp(-2 sum lambda_t) for small lambda_t, with explicit quantification of the trajectory-dependent error terms (O(delta_t * gamma_t * G * |w_t|) per step). This substantially strengthens the claim relative to the previous version.",
+    "The CIFAR-100 asymmetry analysis (Section 5.3) now provides a mechanistic explanation: the inverse formula of AADWD-Aggressive amplifies budget variance near zero alignment, and CIFAR-100's tighter generalization optimum exposes this instability more severely. This is a substantive addition.",
+    "Single-seed limitation is now prominently acknowledged in the training protocol section and in Limitations, with multi-seed validation (seeds 123, 456) noted as in progress for camera-ready. The disclosure is honest and appropriately calibrated to effect size.",
+    "Integration of chen2025correction and malladi2025weight is substantive rather than perfunctory: both references are discussed in the body of the Related Work and shown to corroborate the LR-WD coupling necessity finding from independent angles.",
+    "The CWD late-training instability finding (4.84%-12.57% best-to-final collapse across all settings) is a useful secondary contribution with potential practical value for practitioners evaluating this method.",
+    "The paper clearly states its scope limitations (SGD only, CIFAR scale, milestone LR, no Adam/AdamW) and identifies specific conditions under which alignment might become actionable, avoiding overclaiming."
+  ],
+  "weaknesses": [
+    "Single seed remains the most significant unresolved weakness. The authors commit to multi-seed results in camera-ready but the current submission lacks confidence intervals for even the primary CIFAR-10/ResNet-20 comparisons. Differences of 0.17%-0.49% between AADWD variants and fixed WD are not interpretable without variance estimates.",
+    "The budget equivalence coincidence (AADWD-Aggressive's time-averaged lambda equals exactly 5e-4, the optimal fixed WD) is acknowledged as arising from the interaction of c=2.5, clipping, and near-constant alignment -- but the paper does not verify that budget equivalence holds for other values of c (where the time-average would be different from the fixed WD optimum). It is possible that the 'exact match' result is partially an artifact of this coincidence rather than a general equivalence principle.",
+    "Theorem 1 and Theorem 2 use polynomial decay learning rates (gamma_t = gamma/sqrt(T)), while all experiments use milestone (piecewise constant) schedules. The Remark acknowledges this gap, but the formal theorems do not directly apply to the experimental setting. This creates a disconnect between the theoretical and empirical sections.",
+    "The proxy fidelity result (Pearson r = 0.849) is presented as adequate, but the value falls below the r=0.85 diagnostic threshold mentioned in the paper. The authors argue the core finding does not depend on proxy quality, which is correct, but the measurement methodology section would benefit from a direct test: what happens if alignment is measured with the full training batch rather than the EMA proxy?",
+    "CIFAR-100 results in the cross-architecture table show Conservative at 68.24% and Aggressive at 61.34%, but the analysis section (5.3) references 62.12% and 61.44% for these same methods. This numerical inconsistency should be resolved.",
+    "The paper does not include learning curves or training loss plots for the primary comparisons. While weight norm trajectories are shown for the decoupling experiment, the training dynamics for fixed WD vs. AADWD Conservative (the closest competitors) are not visible in the main figures, making it harder to assess whether the performance differences arise from early training, late training, or convergence speed.",
+    "The 39-experiment count is stated prominently but the breakdown is not given. A table mapping all 39 experiments to their location in the paper would help reviewers assess coverage and identify potential cherry-picking."
+  ],
+  "issues": [
+    {
+      "severity": "major",
+      "description": "Numerical inconsistency: Section 5.3 (CIFAR-100 asymmetry analysis) cites Conservative at 62.12% and Aggressive at 61.44% but Table 2 (cross-architecture results) reports Conservative at 68.24% and Aggressive at 61.34% for CIFAR-100/ResNet-20. These cannot both be correct for the same experiment. Authors should reconcile."
+    },
+    {
+      "severity": "major",
+      "description": "Budget equivalence verification is limited to the single case where AADWD-Aggressive's time-average coincidentally equals the fixed WD optimum (5e-4). To establish the principle more convincingly, the experiment should be repeated for at least one other AADWD configuration (e.g., c=1.0 with time-average ~2e-4) to confirm that the constant WD at that budget also matches performance, not just that two runs with the same budget happen to reach the same accuracy."
+    },
+    {
+      "severity": "minor",
+      "description": "The per-phase alignment statistics in Table 4 are missing standard deviation for the Early and Mid phases (shown only as '---'), making it impossible to assess whether the monotonic decrease from 0.0045 to 0.0028 across phases is statistically meaningful or within noise."
+    },
+    {
+      "severity": "minor",
+      "description": "Figure captions describe '20-epoch pilot' runs, but the main results tables report 200-epoch full runs. The figures thus do not correspond to the quantitative claims in the tables. Either the figures should be updated to show 200-epoch dynamics, or the captions should more explicitly state that the figures are illustrative pilots and the quantitative claims rest on the full runs."
+    },
+    {
+      "severity": "minor",
+      "description": "The paper states 'All experiments use a single random seed (42)' in the training protocol but then says 'no method outperforms fixed WD across all 39 experiments' as if this is a definitive conclusion. The framing should consistently acknowledge the single-seed qualifier on statements about dominance, beyond just the limitations section."
+    },
+    {
+      "severity": "minor",
+      "description": "Proposition 1 (budget equivalence, informal) states that the error per step is O(lambda_max * delta_max) but the formal argument in Section 5.1 gives O(delta_t * gamma_t * G * |w_t|). These two error characterizations should be reconciled or one should reference the other explicitly."
+    }
+  ]
+}

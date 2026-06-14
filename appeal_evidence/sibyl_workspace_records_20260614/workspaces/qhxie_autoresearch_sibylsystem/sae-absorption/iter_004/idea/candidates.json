@@ -1,0 +1,110 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Competitive Geometry of Feature Absorption: LV Unsupervised Detector + Corpus PMI + Downstream Impact",
+      "status": "front_runner",
+      "summary": "Integrates three tightly coupled contributions: (1) Lotka-Volterra competition coefficient alpha_ij as probe-free absorption detector (validated against sae-spelling ground truth), (2) corpus PMI as primary predictor of which feature pairs absorb (reframing absorption as data-driven), and (3) first direct test of whether absorption metric predicts downstream task performance. All training-free on Gemma Scope. The LV theory also explains the width paradox via distributed competitive exclusion.",
+      "hypotheses": [
+        "H1: alpha_ij = sigma_ij * (f_j/f_i) predicts absorption with F1 >= 0.65 without probe directions",
+        "H2: Corpus PMI predicts absorption patterns with partial R^2 >= 0.10 after controlling for SAE config",
+        "H3: Absorption metric |r| < 0.20 with downstream SAEBench tasks — the causal chain is unvalidated",
+        "H4: Distributed absorption DAS(k=3) increases monotonically with SAE width while single-child DAS(k=1) is non-monotone"
+      ],
+      "pilot_focus": "15-min pilot: (1) confirm sae-spelling pipeline reproduces Chanin et al. results on letters A-E; (2) check empirical L0 matching across 16k and 65k SAE widths; (3) compute top-100 alpha_ij pairs and manually verify top-10 correspond to letter-feature parent-child pairs",
+      "novelty_score": 9,
+      "feasibility_score": 9,
+      "impact_score": 9,
+      "time_estimate_hours": 14,
+      "requires_training": false,
+      "key_risks": [
+        "L0 may not be matched across SAE widths (50% probability) — mitigated by within-width L0 sweep",
+        "LV detector F1 < 0.50 (25% probability) — mitigated by information-theoretic alternative",
+        "PMI not predictive after controlling for config (35% probability) — conventional view upheld, other contributions stand"
+      ],
+      "primary_evidence": [
+        "No arXiv paper applies Lotka-Volterra to SAE absorption (novelty confirmed by search)",
+        "LessWrong negative result was for ablation-effect cosine similarity, not activation co-occurrence statistics",
+        "DeepMind 2025 blog confirms downstream disconnection hypothesis is empirically live",
+        "SAEBench provides 200+ SAEs for correlation analysis with no pre-existing systematic test"
+      ]
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "The Absorption-Sparsity Phase Transition: An Information-Theoretic Theory",
+      "status": "backup",
+      "summary": "Derives a formal phase boundary in (rho, L0, q) space where rho=p_C/p_P is frequency ratio, using Tang et al. (2024) biconvex framework. The information-theoretic absorption strength A(P,C) = I(f_P; f_C)/H(f_P) predicts absorption rate and is validated on Gemma Scope SAEs and synthetic data. Resolves width paradox via distributed absorption (DAS metric). Integrates Candidates A+B+C from theoretical perspective.",
+      "hypotheses": [
+        "A(P,C) = I(f_P; f_C)/H(f_P) correlates with absorption rate at Pearson r > 0.70 across 26 letters",
+        "MDL absorption criterion H(f_P|f_C) < L0_savings has sensitivity >= 0.80 for absorbed pairs",
+        "Phase transition exists in (rho, L0) space on SynthSAEBench-style synthetic data"
+      ],
+      "pilot_focus": "Load Gemma Scope 16k layer 12. Compute I(f_A; f_{a-feature}) from activation frequencies on 5k tokens. Check whether A('A-feature', 'a-token') correlates with Chanin absorption rate for the A letter.",
+      "novelty_score": 9,
+      "feasibility_score": 7,
+      "impact_score": 8,
+      "time_estimate_hours": 10,
+      "requires_training": false,
+      "key_risks": [
+        "MI estimation noisy for rare parent features",
+        "Synthetic phase transition experiment requires generating controlled datasets",
+        "Width paradox explanation overlaps with front-runner's distributed absorption"
+      ],
+      "pivot_trigger": "Front-runner H1 (LV detector) fails with F1 < 0.50"
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Absorption at Scale: Empirical Scaling Laws and Iso-Absorption Curves",
+      "status": "backup",
+      "summary": "Systematic empirical survey of 30 Gemma Scope SAEs producing quantitative regression model absorption_rate = f(L0, width, layer, corpus_cooc). Delivers practical iso-absorption contour curves showing which (L0, width) combinations achieve acceptable absorption thresholds. Cross-domain validation on country-name and given-name hierarchies. Builds entirely on sae-spelling + SAELens + Gemma Scope with minimal new code.",
+      "hypotheses": [
+        "Regression R^2 > 0.70 for log-linear model over (L0, width, layer)",
+        "Cross-domain absorption rates follow same scaling relationships as first-letter task",
+        "Iso-absorption curves provide actionable practitioner guidance"
+      ],
+      "pilot_focus": "Load 1 Gemma Scope SAE (Gemma 2 2B layer 12, 16k), run sae-spelling on 5 letters, confirm 15-35% absorption rate and validate pipeline.",
+      "novelty_score": 7,
+      "feasibility_score": 10,
+      "impact_score": 7,
+      "time_estimate_hours": 10,
+      "requires_training": false,
+      "key_risks": [
+        "Regression R^2 may be low if interaction terms dominate",
+        "Chanin et al. Fig 7b already shows the trend; coefficient quantification may not be enough novelty"
+      ],
+      "pivot_trigger": "Both H1 and H2 fail; need a practical-contribution-only paper"
+    },
+    {
+      "candidate_id": "cand_d",
+      "title": "Does Absorption Reduction Help? Controlled Causal Experiments and Downstream Impact",
+      "status": "backup",
+      "summary": "The first pre-registered controlled experiment isolating causal drivers of absorption rate (L0 vs. width, with L0/D confound controlled) plus systematic downstream impact analysis across 200+ SAEBench SAEs. Addresses whether the field's central motivating assumption (absorption -> downstream failure) is empirically valid. Three pre-specified falsifiable predictions.",
+      "hypotheses": [
+        "H1-empiricist: Width effect on absorption disappears after controlling for L0/D ratio (p > 0.05)",
+        "H2-empiricist: Absorption rate |r| < 0.10 with all SAEBench downstream tasks",
+        "H3-empiricist: ATM SAE's 20x absorption reduction does not generalize to GPT-2 small (< 5x improvement)"
+      ],
+      "pilot_focus": "Download SAEBench CSV. Compute Pearson correlation between absorption_score and RAVEL, SCR, Sparse Probing. Check if |r| < 0.10 for all tasks. This 15-minute analysis determines if H2-empiricist is trivially supported or falsified.",
+      "novelty_score": 7,
+      "feasibility_score": 10,
+      "impact_score": 8,
+      "time_estimate_hours": 13,
+      "requires_training": false,
+      "key_risks": [
+        "L0 may not be matched across Gemma Scope widths — limits width ablation",
+        "ATM SAE checkpoints may not be public",
+        "SAEBench data may lack covariate information for proper partial correlations"
+      ],
+      "pivot_trigger": "Front-runner Component 3 shows inconsistent results; need clean methodological contribution"
+    }
+  ],
+  "synthesis_notes": {
+    "primary_weighting_rationale": "Front-runner (cand_a) integrates the most important gap in the field (probe-free detection), the most novel theoretical contribution (LV competitive exclusion, confirmed novel by search), and the most practically urgent question (does absorption matter for downstream tasks). The interdisciplinary and innovator perspectives were weighted most heavily because they contribute genuine structural novelty; the empiricist and contrarian perspectives contributed the falsification structure and downstream impact component; the pragmatist and theoretical perspectives provided implementation scaffolding and formal grounding.",
+    "perspectives_weighted_most": ["interdisciplinary (LV theory)", "empiricist (falsification structure, downstream test)", "innovator (probe-free CMI angle informed LV operationalization)", "contrarian (corpus PMI as mechanism)"],
+    "perspectives_weighted_less": ["theoretical (formal proofs remain as backup, not primary)", "pragmatist (scaling law becomes secondary unless H1+H2 fail)"],
+    "key_contrarian_absorbed": "The contrarian's 'corpus statistics are the real cause' insight is directly incorporated as H2 (PMI prediction). The multi-type absorption taxonomy is incorporated as H5. The 'fixing the wrong variable' challenge is incorporated as H3 (downstream impact test).",
+    "key_theoretical_absorbed": "The information-theoretic A(P,C) quantity and the width paradox distributed absorption mechanism (DAS metric) are incorporated as H4 and as backup cand_b. The LV theory naturally connects to the theoretical phase transition framework through the competition coefficient threshold.",
+    "key_empiricist_absorbed": "All pre-registered falsification criteria, the L0/D confound check pilot, Bonferroni correction, pre-specified minimum effect sizes, and the ATM replication component are directly incorporated from the empiricist perspective.",
+    "integration_insight": "The LV competition coefficient alpha_ij naturally unifies multiple perspectives: it is an unsupervised detector (innovator), computable from corpus co-activation statistics (contrarian), formally grounded in competitive dynamics mathematics (interdisciplinary), directly testable with pre-registered predictions (empiricist), and implementable training-free in ~30 minutes (pragmatist)."
+  }
+}

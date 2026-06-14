@@ -1,0 +1,170 @@
+{
+  "candidate_id": "cand_unified_framework",
+  "pilot_phase": {
+    "purpose": "Validate codebase correctness, verify CSI/AIS metric differentiation, quick CWD effective-lambda test, and soft CWD proximal convergence check",
+    "total_estimated_gpu_hours": 2.5,
+    "total_estimated_wall_hours": 1.5,
+    "kill_criteria": [
+      "AdamW baseline < 91% on CIFAR-10/ResNet-20 at 100 epochs → codebase bug, must fix before proceeding",
+      "CSI values identical (CV < 5%) across all 4 pilot methods → metric is degenerate, redesign CSI",
+      "AIS computation produces NaN or Inf → numerical issue in metric, must fix",
+      "CWD mask ratio < 0.1 or > 0.9 → CWD implementation likely incorrect",
+      "Soft CWD (beta=100) differs from hard CWD by > 1% accuracy → proximal approximation too crude, may need different approach for H1"
+    ],
+    "go_no_go_decisions": [
+      {
+        "decision": "Proceed to CIFAR full phase",
+        "condition": "All kill criteria pass; AdamW > 91%; CSI differentiates methods; AIS computable",
+        "fallback": "Fix implementation issues and re-run pilots"
+      },
+      {
+        "decision": "Keep CSI/AIS metrics",
+        "condition": "CSI values have CV > 10% across methods; AIS differentiates alignment-aware (CWD) from agnostic methods",
+        "fallback": "Simplify metrics — fall back to just tracking weight norm CV and effective lambda as proxies"
+      },
+      {
+        "decision": "Proceed with soft CWD for H1",
+        "condition": "Soft CWD (beta >= 100) matches hard CWD within 0.2%",
+        "fallback": "Acknowledge soft CWD is an approximation; weaken H1 claim to 'approximate proximal interpretation'"
+      }
+    ]
+  },
+  "pilot_tasks": [
+    {
+      "id": "pilot_baseline",
+      "name": "AdamW constant WD baseline",
+      "config": {
+        "dataset": "CIFAR-10",
+        "model": "ResNet-20",
+        "optimizer": "AdamW",
+        "lr": 1e-3,
+        "wd": 5e-4,
+        "lr_schedule": "cosine",
+        "epochs": 100,
+        "batch_size": 128,
+        "seed": 42,
+        "wd_method": "constant"
+      },
+      "pass_criteria": "Test accuracy > 91%; loss monotonically decreasing after epoch 10; no NaN in diagnostics",
+      "estimated_minutes": 15,
+      "gpu_count": 1
+    },
+    {
+      "id": "pilot_cwd",
+      "name": "CWD (hard binary mask)",
+      "config": {
+        "dataset": "CIFAR-10",
+        "model": "ResNet-20",
+        "optimizer": "AdamW",
+        "lr": 1e-3,
+        "wd": 5e-4,
+        "lr_schedule": "cosine",
+        "epochs": 100,
+        "batch_size": 128,
+        "seed": 42,
+        "wd_method": "cwd_hard",
+        "cwd_beta": null
+      },
+      "pass_criteria": "Trains without error; mask ratio ~0.4-0.6; accuracy within ±1% of baseline",
+      "estimated_minutes": 15,
+      "gpu_count": 1,
+      "diagnostics": ["mask_ratio_per_layer", "effective_lambda", "weight_norms"]
+    },
+    {
+      "id": "pilot_swd",
+      "name": "SWD/AdamS (gradient-norm scaling)",
+      "config": {
+        "dataset": "CIFAR-10",
+        "model": "ResNet-20",
+        "optimizer": "AdamW",
+        "lr": 1e-3,
+        "wd": 5e-4,
+        "lr_schedule": "cosine",
+        "epochs": 100,
+        "batch_size": 128,
+        "seed": 42,
+        "wd_method": "swd",
+        "swd_sensitivity": 1.0
+      },
+      "pass_criteria": "WD multiplier varies (CV > 0.1); accuracy within ±1% of baseline",
+      "estimated_minutes": 15,
+      "gpu_count": 1,
+      "diagnostics": ["wd_multiplier_trajectory", "gradient_norms"]
+    },
+    {
+      "id": "pilot_coswd",
+      "name": "Cosine WD schedule",
+      "config": {
+        "dataset": "CIFAR-10",
+        "model": "ResNet-20",
+        "optimizer": "AdamW",
+        "lr": 1e-3,
+        "wd_max": 5e-4,
+        "wd_min": 0,
+        "lr_schedule": "cosine",
+        "epochs": 100,
+        "batch_size": 128,
+        "seed": 42,
+        "wd_method": "cosine_schedule"
+      },
+      "pass_criteria": "Accuracy within ±1.5% of baseline; mean WD computable and approximately 2.5e-4",
+      "estimated_minutes": 15,
+      "gpu_count": 1,
+      "diagnostics": ["wd_schedule_trajectory", "mean_wd"]
+    },
+    {
+      "id": "pilot_metrics",
+      "name": "CSI/AIS/BEM metric validation",
+      "config": {
+        "inputs": ["pilot_baseline", "pilot_cwd", "pilot_swd", "pilot_coswd"],
+        "compute": ["CSI", "AIS", "BEM"]
+      },
+      "pass_criteria": "CSI values differ by >10% across methods; AIS computable; BEM < 0.01 for budget-equivalent pairs",
+      "estimated_minutes": 10,
+      "gpu_count": 0
+    },
+    {
+      "id": "pilot_soft_cwd",
+      "name": "Soft CWD proximal approximation sweep",
+      "config": {
+        "dataset": "CIFAR-10",
+        "model": "ResNet-20",
+        "optimizer": "AdamW",
+        "lr": 1e-3,
+        "wd": 5e-4,
+        "lr_schedule": "cosine",
+        "epochs": 100,
+        "batch_size": 128,
+        "seed": 42,
+        "wd_method": "cwd_soft",
+        "beta_values": [10, 50, 100, 500, 1000]
+      },
+      "pass_criteria": "|acc_hard - acc_soft(beta=100)| < 0.2%; mask similarity > 0.95 for beta >= 100",
+      "estimated_minutes": 50,
+      "gpu_count": 1,
+      "diagnostics": ["mask_similarity_vs_hard", "accuracy_vs_beta", "convergence_rate"]
+    }
+  ],
+  "pilot_schedule": {
+    "parallel_wave_1": {
+      "tasks": ["pilot_baseline"],
+      "gpus_used": 1,
+      "wall_minutes": 15,
+      "note": "Must complete first as reference"
+    },
+    "parallel_wave_2": {
+      "tasks": ["pilot_cwd", "pilot_swd", "pilot_coswd"],
+      "gpus_used": 3,
+      "wall_minutes": 15,
+      "note": "3 methods in parallel after baseline validates"
+    },
+    "parallel_wave_3": {
+      "tasks": ["pilot_metrics", "pilot_soft_cwd"],
+      "gpus_used": 1,
+      "wall_minutes": 50,
+      "note": "Metrics analysis (no GPU) runs in parallel with soft CWD sweep (1 GPU)"
+    },
+    "total_wall_minutes": 80,
+    "total_gpu_minutes": 140
+  }
+}

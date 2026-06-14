@@ -1,0 +1,72 @@
+{
+  "pilot_tasks": [
+    {
+      "id": "pilot_e1_fano_factor",
+      "name": "Pilot: Fano Factor Control",
+      "task_id": "e1_fano_factor_control",
+      "config": {
+        "samples": 100,
+        "seed": 42,
+        "timeout_seconds": 900,
+        "n_features_per_group": 15,
+        "steering_strength": 5
+      },
+      "pass_criteria": "CV remains significant predictor after Fano factor control (p < 0.05 raw, uncorrected for pilot)",
+      "expected_output": "exp/results/pilot_e1_fano_factor.json",
+      "estimated_minutes": 10
+    },
+    {
+      "id": "pilot_e2_non_absorbed",
+      "name": "Pilot: Non-Absorbed Baseline",
+      "task_id": "e2_non_absorbed_baseline",
+      "config": {
+        "samples": 100,
+        "seed": 42,
+        "timeout_seconds": 900,
+        "n_features_per_group": 15,
+        "steering_strength": 5
+      },
+      "pass_criteria": "Absorbed high-CV steering effect > 40% of non-absorbed effect",
+      "expected_output": "exp/results/pilot_e2_non_absorbed.json",
+      "estimated_minutes": 10
+    },
+    {
+      "id": "pilot_e3_gemma",
+      "name": "Pilot: Cross-Architecture Gemma-2",
+      "task_id": "e3_cross_architecture_gemma",
+      "config": {
+        "samples": 100,
+        "seed": 42,
+        "timeout_seconds": 900,
+        "n_features_per_group": 15,
+        "steering_strength": 5,
+        "gemma_layer": 6
+      },
+      "pass_criteria": "CV effect direction matches GPT-2 (high-CV > low-CV) with raw p < 0.10",
+      "expected_output": "exp/results/pilot_e3_gemma.json",
+      "estimated_minutes": 15
+    },
+    {
+      "id": "pilot_e4_held_out_patching",
+      "name": "Pilot: Held-Out Activation Patching",
+      "task_id": "e4_held_out_activation_patching",
+      "config": {
+        "samples": 100,
+        "seed": 42,
+        "timeout_seconds": 900,
+        "n_words": 10,
+        "recovery_threshold": 0.10
+      },
+      "pass_criteria": "Mean recovery > 25% on held-out words (relaxed from pilot's 30% due to smaller n)",
+      "expected_output": "exp/results/pilot_e4_held_out_patching.json",
+      "estimated_minutes": 15
+    }
+  ],
+  "pilot_summary": {
+    "total_pilot_tasks": 4,
+    "total_pilot_minutes": 50,
+    "sequential_or_parallel": "parallel",
+    "go_decision_threshold": "3/4 pilots must pass pass_criteria to proceed to full experiments",
+    "pilot_failure_handling": "If a pilot fails, analyze whether the failure is due to (a) small sample noise -> increase n and retry pilot, (b) fundamental issue -> redesign experiment, (c) expected negative result -> report as negative and skip full experiment"
+  }
+}

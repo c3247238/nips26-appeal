@@ -1,0 +1,218 @@
+{
+  "tasks": [
+    {
+      "id": "setup_wordnet",
+      "name": "Setup WordNet and Token Verification",
+      "description": "Download NLTK WordNet data and verify that all selected parent-child hierarchy tokens and control-pair tokens are single tokens in both GPT-2 and Pythia tokenizers.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "plan/verified_tokens.json",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "visualizations": []
+    },
+    {
+      "id": "pilot_semantic_probe",
+      "name": "Pilot: Semantic-Hierarchy Probe Pipeline",
+      "description": "Run the custom semantic-hierarchy absorption pipeline on 2 SAEs (MatryoshkaBatchTopK_trainer_0 and TopK_trainer_0) using 3 WordNet hierarchies and 2 control pairs. Validate probe quality, numerical stability, and expected ordering.",
+      "type": "experiment",
+      "depends_on": [
+        "setup_wordnet"
+      ],
+      "expected_output": "exp/results/pilots/pilot_semantic_probe_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All hierarchies return finite absorption scores; probe AUROC > 0.6 for all tested hierarchies; Matryoshka semantic absorption < TopK semantic absorption; semantic-hierarchy score > non-hierarchy control score for at least 1 of 2 SAEs"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Pilot semantic vs control absorption per SAE",
+          "x": "condition",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "firstletter_pythia",
+      "name": "First-Letter Absorption on Pythia-160M SAEs",
+      "description": "Run the official SAEBench absorption evaluator on all 8 Pythia-160M SAE configurations (7 families + random-SAE control). Record mean_full_absorption_score and mean_absorption_fraction_score.",
+      "type": "baseline",
+      "depends_on": [
+        "pilot_semantic_probe"
+      ],
+      "expected_output": "exp/results/full/firstletter_pythia_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "pythia-160m-saes",
+          "path": "downloaded_saes/"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "First-letter absorption scores by architecture",
+          "columns": [
+            "Architecture",
+            "Trainer",
+            "Absorption_Full",
+            "Absorption_Fraction",
+            "L0"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "semantic_hierarchy_pythia",
+      "name": "Semantic-Hierarchy Absorption on Pythia-160M SAEs",
+      "description": "Run the custom semantic-hierarchy absorption pipeline on all 8 Pythia-160M SAE configurations using 10 WordNet hierarchies. Compute mean absorption score per SAE and per-hierarchy breakdown.",
+      "type": "experiment",
+      "depends_on": [
+        "firstletter_pythia"
+      ],
+      "expected_output": "exp/results/full/semantic_hierarchy_pythia_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "First-letter vs semantic-hierarchy absorption scatter",
+          "x": "first_letter_absorption",
+          "y": "semantic_hierarchy_absorption",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Per-hierarchy absorption and probe AUROC",
+          "columns": [
+            "Hierarchy",
+            "Probe_AUROC",
+            "Absorption_Score"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "nonhierarchy_control_pythia",
+      "name": "Non-Hierarchy Control Absorption on Pythia-160M SAEs",
+      "description": "Run the custom absorption pipeline on 10 non-hierarchical correlated pairs for all 8 Pythia-160M SAE configurations. Compute mean control absorption score per SAE.",
+      "type": "experiment",
+      "depends_on": [
+        "semantic_hierarchy_pythia"
+      ],
+      "expected_output": "exp/results/full/nonhierarchy_control_pythia_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Semantic-hierarchy vs non-hierarchy control per architecture",
+          "x": "architecture",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "tau_fs_robustness",
+      "name": "Robustness Analysis: Varying tau_fs",
+      "description": "Re-run semantic-hierarchy and non-hierarchy absorption at tau_fs = 0.01 and tau_fs = 0.05 for all 8 SAEs. Compute Pearson correlation between first-letter and semantic-hierarchy absorption at each threshold.",
+      "type": "ablation",
+      "depends_on": [
+        "nonhierarchy_control_pythia"
+      ],
+      "expected_output": "exp/results/full/tau_fs_robustness_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Correlation across tau_fs values",
+          "columns": [
+            "tau_fs",
+            "Pearson_r",
+            "Bootstrap_CI_Lower",
+            "Bootstrap_CI_Upper"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "gpt2_replication",
+      "name": "Replication: Semantic-Hierarchy on GPT-2 Small",
+      "description": "Run the semantic-hierarchy and non-hierarchy absorption pipelines on GPT-2 small (layer 8, resid_pre) using 2-3 representative SAEs (Standard and TopK). Test whether the correlation pattern replicates across models.",
+      "type": "ablation",
+      "depends_on": [
+        "tau_fs_robustness"
+      ],
+      "expected_output": "exp/results/full/gpt2_replication_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "GPT-2 vs Pythia semantic-hierarchy absorption comparison",
+          "x": "model",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "statistical_analysis",
+      "name": "Statistical Analysis and Figure Generation",
+      "description": "Compute Pearson correlations with bootstrap CIs, paired t-tests, and generate all figures and tables for the paper. Save analysis notebook and final summary JSON.",
+      "type": "analysis",
+      "depends_on": [
+        "gpt2_replication"
+      ],
+      "expected_output": "exp/results/full/statistical_analysis_summary.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Figure 2: First-letter vs semantic-hierarchy absorption with regression line",
+          "x": "first_letter_absorption",
+          "y": "semantic_hierarchy_absorption",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Figure 3: Architecture comparison across three conditions",
+          "x": "architecture",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

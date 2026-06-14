@@ -1,0 +1,80 @@
+{
+  "decision": "ADVANCE",
+  "selected_candidate_id": "cand_a",
+  "confidence": 0.88,
+  "candidate_scores": {
+    "cand_a": {
+      "weighted_score": 4.7,
+      "verdict": "ADVANCE",
+      "scores_by_criterion": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 5, "evidence": "UAD F1=0.704 exceeds 0.6 threshold; DFDA 11.14% improvement exceeds 10%; perfect recall"},
+        "hypothesis_survival": {"weight": 0.25, "score": 5, "evidence": "H1 supported (F1=0.704 > 0.6); H3 supported (11.14% > 10%); gates passed"},
+        "path_to_full_result": {"weight": 0.20, "score": 4, "evidence": "Clear pipeline: cross-model validation, multi-seed, DFDA scaling, end-to-end"},
+        "novelty": {"weight": 0.15, "score": 5, "evidence": "First unsupervised absorption detection; first training-free compensation; no prior work"},
+        "resource_efficiency": {"weight": 0.10, "score": 4, "evidence": "Pilot in 27.8s; full validation ~80 min; DFDA uses 388 params per pair"}
+      }
+    },
+    "cand_b": {
+      "weighted_score": 2.25,
+      "verdict": "PIVOT_BACKUP",
+      "scores_by_criterion": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 2, "evidence": "No direct pilot; clustering works on first-letter but semantic hierarchies untested"},
+        "hypothesis_survival": {"weight": 0.25, "score": 2, "evidence": "All hypotheses untested"},
+        "path_to_full_result": {"weight": 0.20, "score": 2, "evidence": "No clear pipeline; would require significant new WordNet experiments"},
+        "novelty": {"weight": 0.15, "score": 3, "evidence": "Extends Geometry of Concepts but less distinctive than UAD"},
+        "resource_efficiency": {"weight": 0.10, "score": 3, "evidence": "Substantial new compute required"}
+      }
+    },
+    "cand_c": {
+      "weighted_score": 1.85,
+      "verdict": "PIVOT_BACKUP",
+      "scores_by_criterion": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1, "evidence": "No pilot evidence; seed stability untested"},
+        "hypothesis_survival": {"weight": 0.25, "score": 1, "evidence": "All hypotheses untested; high falsification risk"},
+        "path_to_full_result": {"weight": 0.20, "score": 2, "evidence": "Requires 3-5 SAE training runs; high risk of negative result"},
+        "novelty": {"weight": 0.15, "score": 4, "evidence": "High novelty if supported (challenges field's framing)"},
+        "resource_efficiency": {"weight": 0.10, "score": 3, "evidence": "Multiple SAE training runs required"}
+      }
+    },
+    "cand_d": {
+      "weighted_score": 1.7,
+      "verdict": "PIVOT_BACKUP",
+      "scores_by_criterion": {
+        "pilot_signal_strength": {"weight": 0.30, "score": 1, "evidence": "No pilot evidence; correlations untested"},
+        "hypothesis_survival": {"weight": 0.25, "score": 1, "evidence": "All correlations untested; dead feature ratios were 94-99%"},
+        "path_to_full_result": {"weight": 0.20, "score": 2, "evidence": "Requires multiple SAE configs; confounding risks high"},
+        "novelty": {"weight": 0.15, "score": 3, "evidence": "Moderate novelty (reframing absorption as signal)"},
+        "resource_efficiency": {"weight": 0.10, "score": 3, "evidence": "Multiple SAE training configurations required"}
+      }
+    }
+  },
+  "reasons": [
+    "UAD F1=0.704 exceeds 0.6 threshold by 17% margin",
+    "UAD recall=1.0 (perfect) -- no false negatives on absorbed pairs",
+    "DFDA mean improvement=11.14% exceeds 10% threshold",
+    "DFDA uses only 388 parameters total (<0.01% of SAE params)",
+    "Novelty is genuine: no prior work addresses unsupervised absorption detection or training-free compensation",
+    "Clear validation pipeline defined: cross-model (Gemma-2B, Pythia-2.8B), multi-seed (3 seeds), DFDA scaling, end-to-end",
+    "Pilot runtime 27.8s confirms resource efficiency; full validation estimated ~80 min",
+    "H1 and H3 falsification criteria were NOT triggered; main hypotheses survive"
+  ],
+  "next_actions": [
+    "Run UAD on Gemma-2B layer 10 SAE (16K features, 10K tokens)",
+    "Run UAD on Pythia-2.8B",
+    "Run UAD on GPT-2 Small with 3 seeds (42, 123, 456)",
+    "Implement Chanin et al. true absorption protocol for ground-truth labels",
+    "Fix pre-trained SAE loading compatibility with SAELens v6.39.0",
+    "Scale DFDA to >= 8 absorbed pairs on 2 models",
+    "Measure probe accuracy improvement post-compensation (end-to-end pipeline)",
+    "Run ablation: UAD without clustering; DFDA without residual"
+  ],
+  "go_no_go_gates": {
+    "G1": {"status": "PASSED", "condition": "H1: F1 >= 0.6 on GPT-2 Small", "result": "F1=0.704"},
+    "G2": {"status": "PENDING", "condition": "H2: F1 >= 0.55 on >= 2 larger models", "action_if_failed": "If F1 >= 0.5 but < 0.55: proceed with caveat; if < 0.5: PIVOT"},
+    "G3": {"status": "PENDING", "condition": "H3: Mean improvement >= 10% on >= 8 pairs", "action_if_failed": "Downgrade DFDA to pilot result; paper focuses on UAD only"},
+    "G4": {"status": "PENDING", "condition": "H4: Pipeline improves probing accuracy", "action_if_failed": "Report UAD+DFDA as separate contributions without end-to-end claim"}
+  },
+  "dropped_candidates": [],
+  "backup_candidates": ["cand_b", "cand_c", "cand_d"],
+  "pivot_trigger": "If UAD F1 < 0.5 on any of Gemma-2B or Pythia-2.8B, pivot to backup candidate based on observed failure mode"
+}

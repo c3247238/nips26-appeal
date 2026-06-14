@@ -1,0 +1,112 @@
+{
+  "action_items": [
+    {
+      "priority": 1,
+      "severity": "critical",
+      "category": "data_integrity",
+      "action": "Recompute all SGD statistics from raw workspace data",
+      "details": "Raw data: SGD constant mean=91.107 (paper claims 91.22); SWD p=0.054 (paper claims p=0.013*); half_lambda p=0.062 (paper claims p=0.028*). Update Table 5 with correct numbers. Remove asterisks from SWD and half_lambda. Keep no_wd claim (p=0.0005 confirmed). Revise Section 6.1 narrative: only no_wd is statistically significant under SGD, not SWD or half_lambda.",
+      "files_affected": ["writing/paper.md", "writing/sections/*.md"],
+      "effort": "1 hour (recompute + edit)"
+    },
+    {
+      "priority": 2,
+      "severity": "critical",
+      "category": "experiment",
+      "action": "Run ImageNet/ResNet-50 experiments",
+      "details": "Minimum: 3 seeds for {constant, no_wd, cosine_schedule, CWD} on ImageNet-1K/ResNet-50. These are the experiments most needed to support or falsify the Phi Invariance Conjecture at scale. With 8x RTX PRO 6000, this takes ~9h wall clock. If the null result persists at ImageNet, the paper becomes a top-venue submission. If it fails, the boundary is precisely identified and the paper is still publishable as a boundary-condition study.",
+      "files_affected": ["exp/", "writing/paper.md"],
+      "effort": "9h GPU wall clock + writing"
+    },
+    {
+      "priority": 3,
+      "severity": "major",
+      "category": "writing",
+      "action": "Add SGD weight norm table",
+      "details": "Section 6.1 claims 'SGD no_wd achieves final weight norm 126.71 vs. 64.49 for SGD constant (96% difference)' with no table support. Add a small table with SGD weight norms for at minimum constant, no_wd, and cosine_schedule. Verify the 126.71 number from the SGD no_wd summary.json files.",
+      "files_affected": ["writing/paper.md"],
+      "effort": "30 minutes"
+    },
+    {
+      "priority": 4,
+      "severity": "major",
+      "category": "writing",
+      "action": "Add SGD vs. AdamW contrast figure",
+      "details": "Create a dual bar chart showing accuracy delta (vs. constant) for each method, side-by-side for AdamW and SGD, on CIFAR-10. This is the paper's most compelling visual argument. The no_wd contrast (AdamW: -0.05% vs. SGD: -0.94%) is striking and deserves a figure. Label corrected SGD p-values (no_wd: p<0.001; others: NS).",
+      "files_affected": ["writing/figures/", "writing/paper.md"],
+      "effort": "1-2 hours (figure + integration)"
+    },
+    {
+      "priority": 5,
+      "severity": "major",
+      "category": "experiment",
+      "action": "Run CWD falsification ablations C1 and C3",
+      "details": "C1: effective-lambda matched constant WD (run AdamW with constant WD at mean(lambda_eff) of CWD, i.e., approximately 0.5*lambda). C3: inverted mask (apply WD only when sign(theta) != sign(u)). Both on CIFAR-10, ResNet-20, 3 seeds. These directly test whether CWD's alignment-awareness contributes anything. C1 especially: if C1 matches CWD, the alignment mechanism is irrelevant. Currently only C2 (random_mask) was run.",
+      "files_affected": ["exp/", "writing/paper.md"],
+      "effort": "3-4 GPU-hours + writing"
+    },
+    {
+      "priority": 6,
+      "severity": "major",
+      "category": "experiment",
+      "action": "Fix BEM implementation for half_lambda",
+      "details": "Re-implement half_lambda as phi=0.5 with lambda=5e-4 (instead of phi=1 with lambda=2.5e-4). This eliminates the confusing footnote and ensures BEM is computed correctly by the framework. Recompute BEM for half_lambda and update Table 4a and Figure 3.",
+      "files_affected": ["exp/code/", "exp/results/", "writing/paper.md"],
+      "effort": "1-2 hours (re-run + update tables)"
+    },
+    {
+      "priority": 7,
+      "severity": "major",
+      "category": "writing",
+      "action": "Narrow Phi Invariance Conjecture scope",
+      "details": "Conjecture 1 as written claims invariance for 'a neural network trained with AdamW to convergence on CIFAR-scale benchmarks with BatchNorm and moderate weight decay (lambda <= 1e-3).' The scope should explicitly exclude ImageNet, LLMs, non-BN architectures, and large lambda. The current wording implies broader generality than the evidence supports. Add explicit scope restrictions matching the experimental conditions.",
+      "files_affected": ["writing/paper.md"],
+      "effort": "30 minutes"
+    },
+    {
+      "priority": 8,
+      "severity": "major",
+      "category": "experiment",
+      "action": "Add AdamWN experiments to cover target-norm axis",
+      "details": "AdamWN (target-norm axis) is in Table 1 of the Phi taxonomy but not in the experiments. Without it, the paper cannot claim the null result covers all four axes. Add AdamWN on CIFAR-10, ResNet-20, 3 seeds. This is ~3h GPU time.",
+      "files_affected": ["exp/", "writing/paper.md"],
+      "effort": "3 GPU-hours + writing"
+    },
+    {
+      "priority": 9,
+      "severity": "minor",
+      "category": "writing",
+      "action": "Standardize method naming throughout paper",
+      "details": "Establish prose form: 'cosine-WD' and 'no-WD' in running text; reserve 'cosine_schedule' and 'no_wd' for table column headers and code references only. Apply globally to paper.md. Also fix 'Phi' capitalization (always capitalize as proper name).",
+      "files_affected": ["writing/paper.md"],
+      "effort": "1 hour (grep + replace)"
+    },
+    {
+      "priority": 10,
+      "severity": "minor",
+      "category": "writing",
+      "action": "Add or create Appendix C for CSI sensitivity analysis",
+      "details": "Section 3.4 references 'a sensitivity analysis (Appendix C) confirms CSI rankings are robust to w1 in [0.3, 0.5]' but Appendix C does not exist. Either run the sensitivity analysis (vary w1, check if rankings change) and add it as an appendix, or remove the forward reference.",
+      "files_affected": ["writing/paper.md"],
+      "effort": "2-3 hours"
+    },
+    {
+      "priority": 11,
+      "severity": "minor",
+      "category": "writing",
+      "action": "Remove hollow phrases from paper",
+      "details": "Three identified hollow phrases: (1) Section 2.1 'collectively suggest' → replace with direct implication; (2) Section 7.3 'An intriguing secondary finding' → replace with specific numbers upfront; (3) Conclusion 'rich space for understanding' → cut or replace with specific open question. Also fix sentence fragment in Section 4.2 ('Three independent runs per method...  using seeds').",
+      "files_affected": ["writing/paper.md"],
+      "effort": "30 minutes"
+    },
+    {
+      "priority": 12,
+      "severity": "minor",
+      "category": "experiment",
+      "action": "Investigate and explain 4x wall-clock time variation within same method",
+      "details": "Section 7.4 reports training time range ~600s-2400s for the same method across seeds. This 4x variation for the same code/architecture/dataset suggests GPU preemption, job queue contention, or measurement error. Investigate: compare timestamps in epoch_metrics.jsonl files for fast vs. slow runs. If preemption occurred, rerun affected experiments. If measurement error, correct it.",
+      "files_affected": ["exp/results/"],
+      "effort": "1-2 hours"
+    }
+  ]
+}

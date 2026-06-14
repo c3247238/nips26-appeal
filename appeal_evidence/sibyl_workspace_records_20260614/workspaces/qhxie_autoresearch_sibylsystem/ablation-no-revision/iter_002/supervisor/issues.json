@@ -1,0 +1,37 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "H4 causal conclusion 'dictionary completeness — not absorption level — drives patching fidelity' remains in Abstract, Section 6.3, and Conclusion despite prior review identifying it as critical. The experiment compares full SAE (100% of latents) against 10% subsets — this tests whether reconstruction capacity matters, not whether absorption level predicts circuit importance. The paper itself acknowledges in Section 5.5 that 'layer 4 (49.3% absorption) was the correct target' but was 'never attempted.' No conclusion about absorption level and circuit importance can be drawn from an experiment where both subsets yield 0.0.",
+    "suggestion": "Remove all variants of the causal conclusion from Abstract, Section 5.3, Section 6.3, and Conclusion. Replace with: 'H4 is uninformative: both absorption subsets yield 0.0 faithfulness, preventing any conclusion about whether absorption level predicts circuit-level causal importance. Full SAE patching (0.289) outperforms subset patching (0.000), but this tests dictionary completeness (reconstruction capacity), not absorption quality. The correctly designed experiment (comparing full SAE representations at layers with different absorption profiles) was not conducted. H4 is inconclusive, not falsified.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "8 perfect-score latents (Af=1.0) each fire on exactly 100 tokens — exactly matching the number of sequences in the pilot corpus — yet are listed as 'open question' in Section 6.5 instead of being investigated. h5_pilot_output.log confirms this pattern occurs at ALL dictionary sizes (2K, 8K, 24K), ruling out coincidence. The paper acknowledges 'suspicious uniformity' but does not investigate. If these represent positional artifacts (e.g., position-embedding alignment), the metric may be detecting corpus structure rather than semantic absorption, invalidating the Af>0.5 threshold interpretation at high absorption levels.",
+    "suggestion": "Investigate immediately before next iteration: (1) Compute token position consistency across sequences for each perfect-score latent — if all fire at the same position X across all 100 sequences, this confirms positional artifact; (2) Check whether encoder outputs exceed threshold only at that consistent position; (3) If confirmed as artifacts, exclude from primary analysis, document in Appendix with quantified impact on absorption statistics. Do not leave as 'open question' — the regularity is too systematic to dismiss."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Only pilot experiments (n=100) reported despite Section 4.2 stating 'The full experiment uses 1,024 sequences.' The 10x scale gap is material for rare phenomenon characterization. Cross-validated from pilot_summary.md and paper Section 4.2.",
+    "suggestion": "Either run full-scale experiments (n=1,024) with pre-committed analysis plan, or explicitly scope the paper as a pilot study with commitment to full-scale replication before publication. If scoping as pilot, state this explicitly in Abstract and Discussion."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "No seed ablation for any experiment: All experiments use seed=42 with no confirmation across seeds. The dramatic layer discrepancy (layer 4 at 49.3% vs layer 8 at 0.19%) is too large to trust without seed confirmation. If the layer-dependence is a seed artifact, the primary finding is invalid.",
+    "suggestion": "Add seed ablation (seeds 42, 43, 44) for key findings: H1 layer comparison (layer 4 vs layer 8) and H3 inverted-U pattern. Report variance across seeds. If seed ablation is not feasible before next milestone, explicitly acknowledge as limitation in the paper."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "H5 '10-fold reduction' framing overstates practical significance: 2K=2.25% vs 24K=0.19% is directionally correct but practically negligible (97.75% vs 99.81% non-absorbed). Paper acknowledges this but relative framing persists in Abstract and Section 5.4.",
+    "suggestion": "Lead with absolute numbers in Abstract and Section 5.4: '97.75% non-absorbed at 2K vs 99.81% at 24K.'"
+  }
+]

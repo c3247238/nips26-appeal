@@ -1,0 +1,68 @@
+{
+  "overall_recommendation": "GO",
+  "selected_candidate_id": "cand_ars_amortization_crosshierarchy",
+  "candidates": [],
+  "tasks": [
+    {
+      "task_id": "task_B1_cooccurrence_graph",
+      "go_no_go": "GO",
+      "timestamp": "2026-04-14T05:57:04.381463",
+      "elapsed_sec": 16.191459894180298,
+      "key_findings": [
+        "A_cooccur formula P(j|i)/P(i|j) is bounded by f_j/f_i < 1/3 when f_i > 3*f_j (pass criterion was misspecified)",
+        "56/71 letter features show A_cooccur > 0.25 (meaningful directional co-occurrence)",
+        "46/71 letter features show A_cooccur > 0.30 (strong directional asymmetry)",
+        "O_jaccard values computed for all 71 letter features; max=0.333 for absorbed features 2406, 3943",
+        "21726/24576 SAE latents active in 10,000 token corpus",
+        "Data format valid; arrays ready for B2 ARS_v2 computation"
+      ],
+      "key_metrics": {
+        "n_letter_features_analyzed": 71,
+        "n_active_latents": 21726,
+        "A_cooccur_max": 0.3333333432674408,
+        "A_cooccur_n_gt_025": 56,
+        "O_jaccard_max": 0.3333333432674408,
+        "elapsed_sec": 16.191459894180298
+      },
+      "note": "Co-occurrence matrix (24576 x 71) computed. Arrays saved to full/ and pilots/ for B2."
+    },
+    {
+      "task_id": "task_B2_ars_v2_validation",
+      "go_no_go": "GO",
+      "timestamp": "2026-04-14T06:22:47.123802",
+      "elapsed_sec": 44.87894535064697,
+      "key_findings": [
+        "encoder_norm remains best single detector: AUROC=0.7566 (95% CI: 0.661-0.851)",
+        "O_jaccard (Jaccard overlap with parent features) surprisingly strong: AUROC=0.7211, AUPRC=0.0748 (highest AUPRC!)",
+        "ARS_v2 (encoder_norm * A_cooccur) AUROC=0.5856 \u2014 significantly WORSE than encoder_norm alone (DeLong z=-2.455, p=0.993)",
+        "A_cooccur values bounded at 0.333 by mathematical construction (f_j < f_i/3 means ratio < 1/3) \u2014 no discriminative signal",
+        "ARS_original and ARS_full both AUROC~0.528 \u2014 co-occurrence combination degrades encoder_norm signal",
+        "encoder_norm significantly > EDA (DeLong z=3.046, p=0.0012)",
+        "O_jaccard has highest AUPRC (0.0748 vs 0.004 for encoder_norm) due to coverage of only 71 letter features",
+        "Primary hypothesis H_ARS: FAILED \u2014 ARS_v2 does NOT improve over encoder_norm alone",
+        "Key insight: A_cooccur formula is mathematically bounded by token frequency ratio, providing near-zero discrimination"
+      ],
+      "key_metrics": {
+        "encoder_norm_auroc": 0.7566,
+        "O_jaccard_auroc": 0.7211,
+        "EDA_auroc": 0.6503,
+        "ARS_v2_auroc": 0.5856,
+        "ARS_original_auroc": 0.5276,
+        "ARS_full_auroc": 0.5276,
+        "A_cooccur_auroc": 0.5844,
+        "O_jaccard_auprc": 0.074751,
+        "delong_ARSv2_vs_enc_norm_z": -2.455,
+        "delong_ARSv2_vs_enc_norm_p": 0.993,
+        "delong_enc_norm_vs_EDA_z": 3.046,
+        "delong_enc_norm_vs_EDA_p": 0.0012,
+        "elapsed_sec": 44.87894535064697
+      },
+      "pilot_pass_criteria": {
+        "all_7_formulations_computed": true,
+        "delong_test_run": true,
+        "pass": true
+      },
+      "note": "H_ARS FAILED: ARS_v2 significantly degrades encoder_norm. A_cooccur bounded at 0.33 by construction. O_jaccard alone second strongest (AUROC=0.721) but only covers letter feature subset. Recommend: keep encoder_norm as primary detector; investigate O_jaccard as complementary signal in full experiment."
+    }
+  ]
+}

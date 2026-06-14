@@ -1,0 +1,47 @@
+# Writing Quality Review
+
+## Summary
+This paper introduces the absorption score $A_f$, a training-free metric quantifying feature absorption in Sparse Autoencoders, and presents a five-hypothesis falsification study on GPT-2 small SAEs. The central finding is a layer-dependent inverted-U pattern: absorption peaks at layer 4 (49.3% of latents with $A_f > 0.5$) but is nearly absent at layer 8 (0.19%), falsifying H1 at the primary analysis layer while revealing an unexpected layer-dependence that constitutes the paper's core empirical contribution. Of five hypotheses, H1 is falsified at layer 8 but not falsified at layer 4, H3 is falsified as monotonic (inverted-U found), H4 is uninformative (both subsets yield 0.0), H5 is confirmed in direction only, and H2 was not tested due to early termination. The paper is clearly written, methodologically careful in its negative result reporting, and presents all five required figures with correct text references. Two minor clarity issues in the Conclusion reduce the score slightly from a potential 9.
+
+## Detailed Assessment
+
+### Structural Coherence: 8/10
+The paper follows a clear logical arc: Introduction motivates feature absorption and states the key 100x gap finding, Background positions the work among SAE literature and causal analysis methods, Methodology defines the absorption score with reproducibility in mind, Experimental Setup describes models/dataset/hypotheses, Experiments test each hypothesis, Discussion interprets failures and open questions, and Conclusion summarizes. The abstract accurately represents the paper's mixed results. Transitions are smooth: Section 3 flows from metric definition to hypothesis framing, and Section 6's "Why Did the Hypotheses Fail?" provides constructive interpretation of negative results.
+
+However, Section 5 (Experiments) presents pilot results only -- the paper's own Section 4.2 confirms "100 sequences" (pilot scale), and the proposal explicitly states "All pilot experiments returned NO-GO." The H2 section (Section 5.5) explicitly states "No pilot was run for H2" with status "not tested." This means the paper's central contribution rests entirely on the layer-dependence finding (H1 layer 8 falsification + H3 inverted-U). This is handled transparently and is a valid scientific contribution, but the paper should clarify earlier (perhaps in the Abstract or Section 4) that all results are from pilot-scale experiments, not full experiments.
+
+### Notation & Terminology Consistency: 9/10
+Cross-checking against `notation.md` and `glossary.md` reveals strong consistency. The absorption score formula is correctly stated as $A_f = \frac{1}{|T_f|} \sum_{t \in T_f} \mathbb{1}[\text{RVE}_f(t) > 0.80]$. All symbols ($d_{model}=768$, $d_{sae}=24{,}576$, L0, $\ell$, pp for percentage points) are used correctly. Terminology is consistent: "feature absorption" used as preferred term, "co-firing" used correctly, "absorption score" abbreviated $A_f$ throughout. The glossary's banned filler phrases are absent. The paper correctly uses "falsified" (not "failed" or "disproved") for negative results and "uninformative" (not "falsified") for H4 where the experiment design prevented testing.
+
+One minor note: the paper uses "activations" as a mass noun in some places while the glossary defines it as countable -- this is acceptable usage and not worth flagging as an issue.
+
+### Claim-Evidence Integrity: 9/10
+Every major claim is supported by specific numbers that match the source data. H1 at layer 8: "only 46 of 24,576 latents (0.19%)" matches pilot_summary.json. H3 reports "Spearman $r = 0.086$, $p = 0.872$" matching notation.md. H4 reports "raw residual: 0.400, SAE all: 0.289, both subsets: 0.000" matching pilot_summary.json exactly. H5 reports "2K: 2.25%, 24K: 0.19%" matching the cumulative subsampling results. All five figures exist in `latex/figures/` with correct filenames. The H1 layer discrepancy (falsified at layer 8, not falsified at layer 4) is clearly addressed: the paper pre-registers layer 8 as the primary test layer, with layer 4 as exploratory. The Conclusion correctly states the findings without introducing new claims.
+
+### Visual Communication: 9/10
+All five figures are present in `latex/figures/` and correctly referenced in the text. Figure captions are self-explanatory and describe key takeaways. Figures appear in the text after their first reference: Figure 1 (pipeline) in Section 3, Figure 2 (layer 4 histogram) in Section 5.2, Figure 3 (layer absorption) in Section 5.2, Figure 4 (faithfulness) in Section 5.3, Figure 5 (dictionary size) in Section 5.4. Tables 1-4 and Table A1 are all present with self-explanatory captions. The visual narrative flows from pipeline overview through results without orphaned figures. No text-heavy sections lack visual support.
+
+### Writing Quality: 7/10
+The writing is generally clear and direct, consistently leading with concrete results. Numbers are specific and not rounded away. No generic openings, filler transitions, or vague hype words detected. The banned patterns from glossary.md are absent. Two clarity issues exist:
+
+1. **Conclusion, paragraph 1**: "absorption is too rare to constitute a primary failure mode --- with the notable caveat that layer 4 represents a strong exception" -- the phrase "notable caveat that layer 4 represents a strong exception" is contradictory: a caveat contradicts rather than supports the main claim. The paper's actual finding is that absorption IS layer-dependent; layer 4 is not an "exception" to a general rule -- it IS the finding alongside layer 8. The phrasing should reflect that the layer-dependence itself is the finding, not that layer 4 is an outlier.
+
+2. **Conclusion, paragraph 1**: "layers 8 and 10 (which have the highest L0 (i.e., the densest representations)" -- L0 is the count of non-zero activations per token, which is a measure of representation density. However, the parenthetical self-correction is unnecessary: higher L0 means more non-zero activations, which IS denser by definition. The reader who doesn't know what L0 means can look to the glossary. The clarification is redundant and potentially confusing.
+
+## Issues for the Editor
+
+1. **Minor** **[Conclusion Phrasing Obscures Central Finding]**: Conclusion (para 1) -- "absorption is too rare to constitute a primary failure mode --- with the notable caveat that layer 4 represents a strong exception" -- The phrase "exception" frames layer 4 as a special case violating a general rule. But the paper's central finding is that absorption is layer-dependent with an inverted-U. The phrasing should reflect that the layer-dependence itself IS the finding. **Fix**: Replace "notable caveat that layer 4 represents a strong exception" with "with the notable finding that absorption peaks at mid-layers (layer 4: 49.3%) rather than increasing monotonically with depth."
+
+2. **Minor** **[Conclusion Unnecessary Parenthetical]**: Conclusion (para 1) -- "layers 8 and 10 (which have the highest L0 (i.e., the densest representations)" -- The parenthetical self-correction is confusing and unnecessary. Higher L0 means more non-zero activations per token, which IS denser by definition. Readers who don't know what L0 means can consult the glossary or body text. **Fix**: Remove the parenthetical. Replace with: "layers 8 and 10 have the highest L0 yet the lowest absorption rates, demonstrating that sparsity does not drive absorption."
+
+3. **Minor** **[Pilot Scale Should Be Stated Earlier]**: The Abstract and Section 4 state hypotheses and results but do not prominently disclose that all experiments are at pilot scale (100 sequences). The proposal explicitly states "All pilot experiments returned NO-GO" and the H2 section (5.5) admits "No pilot was run." A reader finishing Section 4 (Experimental Setup) may reasonably assume these are full experiments. **Fix**: Add a sentence to Section 4 or the Abstract noting: "All experiments were conducted at pilot scale (100 sequences x 128 tokens); full experiments with 1,024 sequences remain pending."
+
+## What Works Well
+
+1. **Exemplary negative result reporting** (throughout Section 5): "Only 46 of 24,576 latents (0.19%) have $A_f > 0.5$" -- direct, specific, unhedged reporting without softening. The paper correctly labels H4 as "uninformative" rather than "falsified," acknowledging the design flaw rather than overclaiming. The H4 note about task-agnostic latent selection being the critical flaw is especially good scientific practice.
+
+2. **Precise metric definition** (Section 3.1): The absorption score formula is stated with full operational detail -- activating tokens, top-5 co-firers, partial reconstruction, RVE threshold -- enabling exact reproduction. The validation against random dictionary controls is good scientific practice.
+
+3. **Layer-dependence as central contribution** (throughout): The paper's narrative -- from "absorption is widespread" to "absorption is layer-dependent with an inverted-U pattern peaking at mid-layers" -- represents a genuine discovery, not just a reframing of failure. The 100x gap between layer 4 and layer 8 is a real finding that the community should know about. The paper appropriately elevates this as the primary contribution.
+
+SCORE: 8

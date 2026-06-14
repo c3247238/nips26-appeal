@@ -1,0 +1,127 @@
+{
+  "tasks": [
+    {
+      "id": "paper_draft_finalize",
+      "name": "Finalize paper draft with all results integrated",
+      "description": "Complete paper writing: integrate all H1-H8 results, H10 random baseline, rate-distortion framing, and methodological contributions. Paper already has outline and partial draft in writing/.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "latex/paper.md",
+      "candidate_id": "cand_g",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "N/A",
+      "estimated_minutes": 120,
+      "pilot": null,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Hypothesis testing summary table",
+          "columns": ["Hypothesis", "Layer", "Test", "Raw p", "Bonferroni p", "Status"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "figure_generation",
+      "name": "Generate all paper figures from experimental data",
+      "description": "Generate Figures 1-6 from experimental data: absorption distribution, steering correlation, precision-recall, inhibition graph, random SAE comparison. Data exists in exp/results/pilots/ and exp/results/full/",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "latex/figures/",
+      "candidate_id": "cand_g",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "N/A",
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All figures generated and validated"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate distribution across layers",
+          "x": "feature",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter",
+          "description": "Steering success vs absorption rate",
+          "x": "absorption_rate",
+          "y": "steering_success",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "box_plot",
+          "description": "Random SAE vs trained SAE absorption",
+          "x": "sae_type",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "latex_compilation",
+      "name": "Compile LaTeX paper to PDF",
+      "description": "Compile the LaTeX paper to PDF. Verify all figures are included, bibliography builds, and document compiles without errors.",
+      "type": "experiment",
+      "depends_on": ["paper_draft_finalize", "figure_generation"],
+      "expected_output": "latex/paper.pdf",
+      "candidate_id": "cand_g",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "N/A",
+      "estimated_minutes": 30,
+      "pilot": null,
+      "visualizations": []
+    },
+    {
+      "id": "literature_integration",
+      "name": "Integrate literature review with paper citations",
+      "description": "Review literature.md and integrate key citations into paper. Ensure all claims are backed by references. Update bibliography if needed.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "latex/paper.md (updated bibliography)",
+      "candidate_id": "cand_g",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "N/A",
+      "estimated_minutes": 45,
+      "pilot": null,
+      "visualizations": []
+    },
+    {
+      "id": "review_cycle",
+      "name": "Internal review and revision cycle",
+      "description": "Run internal review: check for consistency, verify all figures are referenced, ensure methodology section is complete, check that H6 falsification is clearly explained.",
+      "type": "experiment",
+      "depends_on": ["latex_compilation"],
+      "expected_output": "latex/paper.md (revised)",
+      "candidate_id": "cand_g",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "N/A",
+      "estimated_minutes": 60,
+      "pilot": null,
+      "visualizations": []
+    }
+  ],
+  "shared_resources": [
+    {
+      "type": "dataset",
+      "name": "GPT-2 Small SAE absorption data",
+      "path": "exp/results/pilots/"
+    },
+    {
+      "type": "dataset",
+      "name": "Full experiment results",
+      "path": "exp/results/full/"
+    },
+    {
+      "type": "paper",
+      "name": "Literature review",
+      "path": "context/literature.md"
+    }
+  ],
+  "candidate_id": "cand_g",
+  "notes": "All main experiments are COMPLETED. Remaining work is paper writing, figure generation, and review. The key insight from H10 (random > trained absorption) should be prominently featured as metric validation. Focus is on completing the paper, not running new experiments."
+}

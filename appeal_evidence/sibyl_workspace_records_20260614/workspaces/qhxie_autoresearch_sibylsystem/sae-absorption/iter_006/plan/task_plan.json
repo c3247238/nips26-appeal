@@ -1,0 +1,749 @@
+{
+  "metadata": {
+    "iteration": 6,
+    "candidate_id": "cand_cross_domain_ratedistortion",
+    "date": "2026-04-15",
+    "total_estimated_minutes": 540,
+    "total_estimated_hours": 9.0,
+    "model": "Gemma 2 2B",
+    "sae_source": "Gemma Scope (pre-trained, HuggingFace)",
+    "training_required": false,
+    "revision_note": "Updated from cand_cross_domain_unsupervised after idea_debate synthesis round 2. Rate-distortion theory elevated to co-primary. Unsupervised detection de-prioritized. New tasks: multi-L0 confound decomposition, CMI estimation, geometric constant, lateral inhibition, ITAC-CMI bridge, cross-domain CMI, bifurcation analysis.",
+    "key_lesson_from_iter5": "Must use Gemma 2 2B (not GPT-2 Small); EDA=SAEBench metric; proxy labels inflate AUROC; ITAC needs real activations; within-width null is a primary finding; architecture must be covariate in GAM"
+  },
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup and Model Download",
+      "description": "Install dependencies (sae-lens>=4.0, transformer-lens, torch>=2.1, scikit-learn, scipy, pygam). Download Gemma 2 2B model and Gemma Scope SAEs: L10/L12/L20 at 16k/65k widths (residual stream). For L12 16k, download MULTIPLE L0 configs: L0={22, 42, 82, 163} for multi-L0 decomposition. Verify SAELens loads each config via SAE.from_pretrained(). Smoke test: encode 100 tokens, verify non-zero activations, measure VRAM.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/results/setup_verification.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "shared_resources": [
+        {"type": "model", "name": "gemma-2-2b", "path": "shared/models/gemma-2-2b"},
+        {"type": "sae", "name": "gemma-scope-l12-16k-l0-22", "path": "shared/saes/gemma-scope-2b-res"},
+        {"type": "sae", "name": "gemma-scope-l12-16k-l0-42", "path": "shared/saes/gemma-scope-2b-res"},
+        {"type": "sae", "name": "gemma-scope-l12-16k-l0-82", "path": "shared/saes/gemma-scope-2b-res"},
+        {"type": "sae", "name": "gemma-scope-l12-16k-l0-163", "path": "shared/saes/gemma-scope-2b-res"},
+        {"type": "sae", "name": "gemma-scope-l12-65k", "path": "shared/saes/gemma-scope-2b-res"},
+        {"type": "sae", "name": "gemma-scope-l10-16k", "path": "shared/saes/gemma-scope-2b-res"},
+        {"type": "sae", "name": "gemma-scope-l20-16k", "path": "shared/saes/gemma-scope-2b-res"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "SAELens loads all SAE configs without error; smoke test produces non-zero activations for >=90% of tokens; VRAM usage < 20GB on single GPU; all 4 L0 configs for L12-16k load successfully"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "first_letter_improved",
+      "name": "First-Letter Absorption Baseline (Improved, 50+ words/letter)",
+      "description": "Reproduce and IMPROVE Chanin et al. first-letter absorption on Gemma 2 2B + Gemma Scope L12 16k. KEY IMPROVEMENT: use 50+ words per letter (up from 25 in pilot) for better probe quality. Train k-sparse (k=5) logistic regression probes per letter. Apply probe quality gate (F1>0.85). Measure absorption rate with bootstrap 95% CI. Run on L12-16k and L12-65k. CRITICAL: calibrate controls -- pilot showed C1=9.2% (random, too high) and C2=59.5% (shuffled, way too high). Investigate and fix control implementation before proceeding. Also run dense probe ceiling (C3) and untrained SAE control (C4 if feasible).",
+      "type": "baseline",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/full/first_letter_improved.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 500,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate within 0.5x-3x of published 15-35%; probe F1 > 0.85 for at least 20/26 letters (improved from 4/25 in pilot); random control < 2%; shuffled control < 20% (investigate if higher)"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Per-letter absorption rates with bootstrap 95% CI",
+          "x": "letter",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "First-letter validation with controls and probe quality per letter",
+          "columns": ["Letter", "N_Words", "Probe_F1", "Absorption_Rate", "CI_Lower", "CI_Upper", "Random_Control", "Shuffled_Control"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cross_domain_city_country",
+      "name": "Cross-Domain Absorption: City -> Country",
+      "description": "Primary cross-domain test for H1. Measure absorption on city-country hierarchy using Gemma 2 2B + Gemma Scope L12 16k and 65k. Use RAVEL-sourced single-token cities. Apply probe quality gate. Exclude countries with <5 cities or F1<0.50. Stratify by probe quality tier (F1>0.85 vs 0.70-0.85). Run threshold sensitivity (5x4 grid). Include shuffled country control.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/cross_domain_city_country.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate measurable for at least 10 countries; probe F1>0.85 for at least 15/20 countries; shuffled control < 10%; threshold sensitivity CV < 0.5"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "City-country absorption rate per country with CI",
+          "x": "country",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Threshold sensitivity grid (cosine x magnitude gap)",
+          "x": "cosine_threshold",
+          "y": "magnitude_gap",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cross_domain_city_continent",
+      "name": "Cross-Domain Absorption: City -> Continent",
+      "description": "Coarser hierarchy for H1. Measure absorption on city-continent (6 continents) on Gemma 2 2B L12 16k. Fewer parent classes but larger child sets per parent -- pilot showed 6.5% rate. Include shuffled control. Report per-continent and aggregate rates.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/cross_domain_city_continent.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Probe F1 > 0.85 for at least 4/6 continents; absorption rate measurable; shuffled control < 10%"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "City-continent absorption rate per continent with CI",
+          "x": "continent",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cross_domain_city_language",
+      "name": "Cross-Domain Absorption: City -> Language",
+      "description": "Different hierarchy type for H1. Measure absorption on city-language mapping (10+ languages) on Gemma 2 2B L12 16k. Pilot showed 6.6% rate. Include shuffled control. Report per-language and aggregate.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/cross_domain_city_language.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Probe F1 > 0.85 for at least 7/10 languages; absorption rate measurable; shuffled control < 10%"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "City-language absorption rate per language with CI",
+          "x": "language",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cross_domain_animal_class",
+      "name": "Cross-Domain Absorption: Animal -> Class",
+      "description": "Non-geographic domain for H1. Measure absorption on animal-class (mammal/bird/reptile/fish/insect) on Gemma 2 2B L12 16k. Uses WordNet hierarchy. Pilot showed only 1.4% rate. Include shuffled control.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/cross_domain_animal_class.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Probe F1 > 0.85 for at least 3/5 classes; absorption rate measurable; shuffled control < 10%"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Animal-class absorption rate per class with CI",
+          "x": "class",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cross_domain_analysis",
+      "name": "Cross-Domain Comparative Analysis and Hierarchy Predictors (H6)",
+      "description": "Aggregate all cross-domain results. Compute hierarchy predictors (co-occurrence frequency ratio, fan-out, depth, parent frequency) from 1M-token corpus. Correlate predictors with absorption rate (Spearman, Bonferroni-corrected). Fit linear model: absorption_rate ~ co_occurrence_ratio + fan_out + parent_frequency + L0. Perform FDR correction. Report domain-dependent absorption rates as primary empirical finding.",
+      "type": "analysis",
+      "depends_on": ["first_letter_improved", "cross_domain_city_country", "cross_domain_city_continent", "cross_domain_city_language", "cross_domain_animal_class"],
+      "expected_output": "exp/results/full/cross_domain_comparative.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 1000000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "All predictor correlations computed; at least 4 domains have measurable absorption rates; FDR correction applied"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Cross-domain absorption summary: domain x rate x predictors x controls",
+          "columns": ["Domain", "N_Parents", "Mean_Probe_F1", "Absorption_Rate", "CI", "CoOccurrence_Ratio", "FanOut", "Depth", "Shuffled_Control"],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter",
+          "description": "Absorption rate vs hierarchy predictors across domains",
+          "x": "predictor_value",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "confound_decomposition_multi_l0",
+      "name": "Multi-L0 Confound Decomposition (H2 Primary)",
+      "description": "PRIMARY CONTRIBUTION. Decompose false negatives at L0={22, 42, 82, 163} on first-letter task into three components: (a) hedging (recoverable at different L0), (b) reconstruction error (residual norm > 2 sigma), (c) hierarchy-driven (persistent across L0, low reconstruction error). Pilot showed 96.9% hierarchy-driven at L0=22. NOVEL: profile how the decomposition changes across L0, testing prediction that hierarchy-driven fraction peaks at optimal L0 and decreases at extremes.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/confound_decomposition_multi_l0.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 500,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Decomposition computed at all 4 L0 values; hierarchy-driven > 80% at L0=22 (replicating pilot); clear trend across L0 values; total false negatives >50 at each L0 for statistical power"
+      },
+      "visualizations": [
+        {
+          "type": "stacked_bar",
+          "description": "Multi-L0 confound decomposition: hedging vs reconstruction error vs hierarchy-driven",
+          "x": "L0",
+          "y": "fraction",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Confound decomposition per L0",
+          "columns": ["L0", "Total_FN", "Hedging_Pct", "ReconError_Pct", "HierarchyDriven_Pct", "Absorption_Rate", "Probe_F1"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "confound_partial_correlations",
+      "name": "Confound Control: Partial Correlations and Rosenbaum Matching",
+      "description": "Compute partial correlations between absorption rate and 4 quality metrics (SP-F1, SCR, TPP, Unlearning) controlling for log(L0), log(width), arch_class across all Gemma Scope SAEs. Apply Benjamini-Hochberg FDR correction. Rosenbaum sensitivity: both Mahalanobis (cross-width) and within-width matching. Report Gamma for both. Within-width null (Gamma~1.0) is an expected positive finding.",
+      "type": "analysis",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/confound_partial_correlations.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 500,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Partial correlations computed for all 4 metrics; FDR correction applied; Rosenbaum Gamma computed for both matching strategies"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Partial correlations: metric x raw_r x partial_r x FDR_p",
+          "columns": ["Quality_Metric", "Raw_r", "Partial_r", "P_uncorrected", "P_FDR", "Significant"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_threshold_sensitivity",
+      "name": "Ablation: Absorption Threshold Sensitivity (5x4 Grid)",
+      "description": "Full 5x4 threshold grid on first-letter: cosine={0.01, 0.02, 0.025, 0.03, 0.05} x gap={0.5, 1.0, 1.5, 2.0}. Report CV across thresholds, Kendall tau rank stability. CV < 0.3 = stable; CV > 0.5 = brittle. This is the FIRST systematic threshold sensitivity analysis of the Chanin absorption metric.",
+      "type": "ablation",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/ablation_threshold_sensitivity.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 500,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 20 grid cells computed; CV reported; Kendall tau rank stability computed; absorption rates monotonic in expected direction"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Threshold sensitivity: absorption rate across cosine x gap grid",
+          "x": "cosine_threshold",
+          "y": "magnitude_gap",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cmi_estimation",
+      "name": "CMI Estimation: Rate-Distortion Diagnostic (H3 Primary)",
+      "description": "PRIMARY NOVEL CONTRIBUTION. For all 25 first-letter features on Gemma 2 2B L12 16k: compute I(X; w_parent | f_child) using k-NN MI estimator (Kraskov et al., 2004) in decoder-direction subspace at d'={10, 20, 30, 50}. Correlate CMI with observed absorption rate. Target: Spearman rho < -0.3. Letters with low CMI should be preferentially absorbed (rate-distortion optimal). Report Mann-Whitney U test for absorbed vs non-absorbed partition, Cohen's d. This is the FIRST application of successive refinement theorem to SAE absorption.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/cmi_estimation.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 35,
+      "pilot": {
+        "samples": 10000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "CMI estimated for at least 20/25 letters without numerical instability; CMI values non-negative and finite; Mann-Whitney p < 0.05; Cohen's d > 0.5; Spearman rho < -0.2 at best subspace dimension"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "CMI vs absorption rate per letter (25 points, with regression line and CI band)",
+          "x": "absorption_rate",
+          "y": "CMI",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "violin_plot",
+          "description": "CMI distribution: absorbed vs non-absorbed letters",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "CMI-absorption correlation stability across subspace dimensions d'={10,20,30,50}",
+          "x": "subspace_dim",
+          "y": "spearman_rho",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "itac_cmi_bridge",
+      "name": "ITAC-CMI Connection: Theory-Practice Bridge",
+      "description": "Validate that ITAC is a scalar proxy for CMI. Compute both ITAC (Var ratio on real activations, 100k tokens) and CMI (k-NN estimator) for the same 25 first-letter features. Report Spearman correlation between ITAC and CMI. Target: rho > 0.5. This bridges the information-theoretic diagnostic (CMI) with the practical metric (ITAC), establishing that ITAC tracks the successive refinement quantity.",
+      "type": "experiment",
+      "depends_on": ["cmi_estimation"],
+      "expected_output": "exp/results/full/itac_cmi_bridge.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 100000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Both ITAC and CMI computed for at least 20/25 letters; Spearman correlation between ITAC and CMI computed; no NaN values"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "ITAC vs CMI per letter (25 points, with regression line)",
+          "x": "CMI",
+          "y": "ITAC",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "geometric_constant",
+      "name": "Geometric Constant Validation: Decoder Weight Analysis",
+      "description": "Compute c(w_P, w_C) = ||w_P||^2 * (1 - cos^2(w_P, w_C)) from SAE decoder weights (sae.W_dec) for all first-letter parent-child pairs. Test whether c modulates the absorption threshold beyond CMI alone. Specifically: does CMI/c(w_P, w_C) correlate more strongly with absorption rate than raw CMI? This is a zero-GPU computation (decoder weights only) that validates the geometric component of the rate-distortion theory.",
+      "type": "analysis",
+      "depends_on": ["cmi_estimation"],
+      "expected_output": "exp/results/full/geometric_constant.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "comment_on_time": "Pure decoder weight computation, no GPU needed for forward pass. Requires loading SAE weights only.",
+      "pilot": {
+        "samples": 500,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "c(w_P, w_C) computed for all 25 letter pairs; CMI/c correlation with absorption computed; comparison with raw CMI correlation reported"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "CMI/c vs absorption rate (25 letters), compared with raw CMI",
+          "x": "absorption_rate",
+          "y": "CMI_over_c",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "lateral_inhibition",
+      "name": "Lateral Inhibition Check: Per-Token False-Negative Prediction",
+      "description": "For 100k tokens on Gemma 2 2B L12 16k: compute inhibition ratio q = G_PC * a_C / (theta_P - b_P) per token, where G_PC = decoder weight interaction term, a_C = child activation, theta_P = JumpReLU threshold for parent. Test whether q > 1 predicts per-token false negatives. Target: precision@50 > 0.3. This validates the mechanistic lateral inhibition hypothesis from LCA dynamics.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/lateral_inhibition.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 10000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Inhibition ratio q computed for at least 10k tokens; precision@50 for q>1 predictor > 0.2; ROC-AUC > 0.55 for per-token prediction"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Inhibition ratio q vs parent false-negative indicator per token",
+          "x": "inhibition_ratio_q",
+          "y": "false_negative",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "roc_curve",
+          "description": "Per-token false-negative prediction using inhibition ratio q",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "bifurcation_analysis",
+      "name": "Lateral Inhibition Bifurcation: JumpReLU vs L1 (H7)",
+      "description": "Compare absorption patterns between JumpReLU SAEs (Gemma Scope, hard threshold) and L1+ReLU SAEs (soft threshold). PREDICTION: JumpReLU shows bimodal per-parent absorption distribution (binary: all-or-nothing), while L1 shows continuous distribution. Use Gemma Scope JumpReLU SAEs at multiple L0 values. For L1 comparison: check if SAELens has L1-trained SAEs for Gemma 2 2B (gpt2-small-res-jb as fallback reference). KS test for distribution difference. If L1 SAEs unavailable for Gemma 2 2B, train a small custom L1 SAE (~1 hour) or use GPT-2 Small L1 SAEs as cross-model reference with appropriate caveats.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/bifurcation_analysis.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "comment_on_time": "May need up to 60 min if training custom L1 SAE. If using existing SAEs only, ~20 min.",
+      "pilot": {
+        "samples": 500,
+        "seed": 42,
+        "timeout": 1800,
+        "pass_criteria": "At least 2 JumpReLU and 1 L1 SAE compared; per-parent absorption distributions computed; KS test p-value reported; bimodality index computed for both distributions"
+      },
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "Per-parent absorption rate distributions: JumpReLU vs L1 (overlaid)",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Bifurcation analysis: architecture x mean_rate x bimodality_index x KS_p",
+          "columns": ["Architecture", "N_SAEs", "Mean_Absorption", "Bimodality_Index", "Distribution_Shape", "KS_Statistic", "KS_P"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "phase_transition_prediction",
+      "name": "Phase Transition Prediction from Rate-Distortion Theory",
+      "description": "From the rate-distortion framework, compute the predicted critical L0 value at which absorption becomes optimal: L0_crit = lambda / (CMI * c(w_P, w_C)). Compare with empirically observed L0 ~ 7-14 phase transition from scaling surface. This validates the theory's quantitative predictive power. Requires both CMI estimates and scaling surface data.",
+      "type": "analysis",
+      "depends_on": ["cmi_estimation", "geometric_constant", "scaling_surface"],
+      "expected_output": "exp/results/full/phase_transition_prediction.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "comment_on_time": "Pure computation on existing data, no GPU needed.",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Predicted L0_crit computed for at least 15 letters; comparison with empirical transition point reported; relative error < 50% is encouraging"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Predicted vs observed critical L0 per letter",
+          "x": "predicted_L0_crit",
+          "y": "observed_L0_transition",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "cross_domain_cmi",
+      "name": "Cross-Domain CMI Extension",
+      "description": "CONDITIONAL on H3 being supported (rho < -0.3 on first-letter). Extend CMI computation to city-continent and city-language hierarchies. Test whether CMI predicts cross-domain absorption rate differences. This bridges the rate-distortion theory (Stage 3) with the empirical characterization (Stage 1). If H3 is NOT supported, skip this task and report limitation.",
+      "type": "experiment",
+      "depends_on": ["cmi_estimation", "cross_domain_city_continent", "cross_domain_city_language"],
+      "expected_output": "exp/results/full/cross_domain_cmi.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "pilot": {
+        "samples": 10000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "CMI estimated for city-continent (6 parents) and city-language (10+ parents); cross-domain CMI-absorption correlation computed"
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "CMI vs absorption rate across all domains (first-letter + cross-domain)",
+          "x": "CMI",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "scaling_surface",
+      "name": "Scaling Surface: Width x L0 x Absorption Rate (H5)",
+      "description": "Measure absorption rate across all available Gemma Scope SAE configurations. Fit Beta-GAM with architecture covariate (CRITICAL fix: iter5 had 360 standard + 54 JumpReLU + 6 unknown, architecture was omitted). Report interaction p-value, explained deviance. Within-architecture subset analysis. Phase transition detection. Cross-domain scaling comparison if sufficient data.",
+      "type": "analysis",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/scaling_surface.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "comment_on_time": "May approach 60 min if many SAE configs; can be parallelized by layer.",
+      "pilot": {
+        "samples": 500,
+        "seed": 42,
+        "timeout": 1800,
+        "pass_criteria": "GAM converges; width-L0 interaction p < 0.05; explained deviance > 0.5; architecture covariate included; within-architecture p-value reported"
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Absorption rate scaling surface (width x L0)",
+          "x": "log_width",
+          "y": "log_L0",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Absorption rate vs L0 at fixed widths (phase transition detection)",
+          "x": "L0",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_probe_sparsity",
+      "name": "Ablation: Probe Sparsity (k=1,3,5,10)",
+      "description": "Test how probe granularity affects absorption measurement. Run first-letter absorption with k={1,3,5,10} sparse probes on Gemma 2 2B L12 16k. Report absorption rate vs k. Determines robustness to probe design choices.",
+      "type": "ablation",
+      "depends_on": ["first_letter_improved"],
+      "expected_output": "exp/results/full/ablation_probe_sparsity.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "pilot": {
+        "samples": 500,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All k values produce valid absorption rates; rates vary by <50% across k values"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate vs probe sparsity k",
+          "x": "k",
+          "y": "absorption_rate",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "decoder_geometry",
+      "name": "Decoder Geometry Analysis (Unsupervised Pipeline, Secondary)",
+      "description": "SECONDARY. Compute pairwise cosine similarity matrix for Gemma Scope L12 16k decoder (16k x 16k). Conditional cosine for pairs with global cosine > 0.1. Firing rate asymmetry filter (100k tokens). Hierarchical clustering dendrogram. Output: ranked candidate absorption pairs.",
+      "type": "experiment",
+      "depends_on": ["setup_env"],
+      "expected_output": "exp/results/full/decoder_geometry.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "pilot": {
+        "samples": 100000,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Cosine matrix computed without OOM; >= 100 candidate pairs; conditional cosine distribution shows clear tail"
+      },
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "Global vs conditional cosine similarity distributions",
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "unsupervised_validation",
+      "name": "Unsupervised Pipeline Validation (H4, Secondary)",
+      "description": "SECONDARY. Validate unsupervised pipeline (conditional cosine + firing rate + ITAC) against first-letter gold standard. Report Spearman rho, AUROC, Precision@50. Ablate each component. PRE-REGISTERED: if rho < 0.3, report as negative result and do not deploy cross-domain. Try larger corpus (500k tokens) and stricter candidate filtering per pilot recommendations.",
+      "type": "experiment",
+      "depends_on": ["first_letter_improved", "decoder_geometry"],
+      "expected_output": "exp/results/full/unsupervised_validation.json",
+      "candidate_id": "cand_cross_domain_ratedistortion",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 500000,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "Pipeline rho computed; AUROC computed; component ablation completed; pre-registered decision applied (rho < 0.3 = negative result)"
+      },
+      "visualizations": [
+        {
+          "type": "roc_curve",
+          "description": "Unsupervised detection ROC (full pipeline + components)",
+          "paper_section": "appendix"
+        },
+        {
+          "type": "table",
+          "description": "Unsupervised validation: rho, AUROC, Prec@50 per component",
+          "columns": ["Method", "Spearman_rho", "AUROC", "Prec_at_50"],
+          "paper_section": "appendix"
+        }
+      ]
+    }
+  ],
+  "decision_gates": [
+    {
+      "after_task": "first_letter_improved",
+      "condition": "Controls not calibrated: shuffled > 20% after refinement",
+      "action": "Investigate control implementation before proceeding to cross-domain. Check probe implementation, label shuffling procedure, threshold sensitivity."
+    },
+    {
+      "after_task": "first_letter_improved",
+      "condition": "Absorption rate differs >3x from published 15-35% range",
+      "action": "Debug: check SAELens version, layer choice, SAE config, probe implementation. Do NOT proceed until resolved."
+    },
+    {
+      "after_task": "cmi_estimation",
+      "condition": "Spearman rho > -0.2 (CMI does not predict absorption direction)",
+      "action": "De-prioritize rate-distortion framing. Skip cross_domain_cmi and phase_transition_prediction. Pivot emphasis to confound decomposition (H2) and cross-domain characterization (H1)."
+    },
+    {
+      "after_task": "cross_domain_analysis",
+      "condition": "All cross-domain absorption rates < 3% after probe gating and control calibration",
+      "action": "H1 FALSIFIED. Report as informative finding (absorption is domain-specific). Domain-dependent rates are still a novel contribution. Focus on first-letter for remaining analyses."
+    },
+    {
+      "after_task": "unsupervised_validation",
+      "condition": "Spearman rho < 0.3",
+      "action": "H4 FALSIFIED. Report as negative result. Do not deploy unsupervised pipeline cross-domain. This is the expected outcome based on pilot evidence."
+    },
+    {
+      "overall_scoring": "H1+H2+H3 supported = strong paper (rate-distortion + cross-domain + decomposition). H1+H2 only = moderate paper (cross-domain + decomposition). H3 only = pivot to cand_rate_distortion_theory (theory-first paper). None = pivot to cand_decomposition_reframing (metric validation / negative results)."
+    }
+  ],
+  "controls": [
+    {
+      "id": "C1",
+      "name": "Random probe control",
+      "description": "Replace trained probe with random direction; expected absorption ~0%. Pilot showed 9.2% -- must investigate.",
+      "integrated_in": ["first_letter_improved", "cross_domain_city_country"]
+    },
+    {
+      "id": "C2",
+      "name": "Shuffled label control",
+      "description": "Random label assignment; expected absorption ~0%. Pilot showed 59.5% on first-letter -- MUST investigate and calibrate.",
+      "integrated_in": ["first_letter_improved", "cross_domain_city_country", "cross_domain_city_continent", "cross_domain_city_language", "cross_domain_animal_class"]
+    },
+    {
+      "id": "C3",
+      "name": "Dense probe upper bound",
+      "description": "LR probe on raw model activations (no SAE); ceiling for SAE-based methods. Pilot: 0.617 mean F1.",
+      "integrated_in": ["first_letter_improved"]
+    },
+    {
+      "id": "C4",
+      "name": "Untrained SAE control",
+      "description": "Randomly initialized SAE decoder weights; expected absorption ~0%.",
+      "integrated_in": ["first_letter_improved"]
+    }
+  ],
+  "execution_order": [
+    {
+      "phase": "Phase 0: Setup",
+      "tasks": ["setup_env"],
+      "parallel": false,
+      "estimated_minutes": 20
+    },
+    {
+      "phase": "Phase 1: Improved Baseline + Decoder Geometry",
+      "tasks": ["first_letter_improved", "decoder_geometry"],
+      "parallel": true,
+      "note": "Both depend only on setup_env; can run in parallel on separate GPUs. first_letter_improved is GATE for all subsequent tasks.",
+      "estimated_minutes": 45
+    },
+    {
+      "phase": "Phase 2: Cross-Domain Experiments (parallelizable)",
+      "tasks": ["cross_domain_city_country", "cross_domain_city_continent", "cross_domain_city_language", "cross_domain_animal_class"],
+      "parallel": true,
+      "note": "All 4 cross-domain tasks can run in parallel on separate GPUs after first_letter_improved completes.",
+      "estimated_minutes": 45
+    },
+    {
+      "phase": "Phase 3: Rate-Distortion Theory (Primary Novel Contribution)",
+      "tasks": ["cmi_estimation", "lateral_inhibition", "bifurcation_analysis"],
+      "parallel": true,
+      "note": "CMI, lateral inhibition, and bifurcation can run in parallel. All depend on first_letter_improved. This is the HIGHEST PRIORITY phase after baseline.",
+      "estimated_minutes": 45
+    },
+    {
+      "phase": "Phase 4: Confound Decomposition (Primary)",
+      "tasks": ["confound_decomposition_multi_l0", "confound_partial_correlations", "ablation_threshold_sensitivity", "ablation_probe_sparsity"],
+      "parallel": true,
+      "note": "All depend on first_letter_improved. Can run in parallel.",
+      "estimated_minutes": 45
+    },
+    {
+      "phase": "Phase 5: Theory Refinement and Scaling",
+      "tasks": ["geometric_constant", "itac_cmi_bridge", "scaling_surface"],
+      "parallel": true,
+      "note": "geometric_constant and itac_cmi_bridge depend on cmi_estimation. scaling_surface depends on first_letter_improved only.",
+      "estimated_minutes": 45
+    },
+    {
+      "phase": "Phase 6: Integration and Conditional Tasks",
+      "tasks": ["cross_domain_analysis", "phase_transition_prediction", "cross_domain_cmi", "unsupervised_validation"],
+      "parallel": true,
+      "note": "cross_domain_analysis waits for all Phase 2 tasks. phase_transition_prediction waits for Phase 5. cross_domain_cmi is CONDITIONAL on H3 (rho < -0.3). unsupervised_validation is secondary.",
+      "estimated_minutes": 30
+    }
+  ]
+}

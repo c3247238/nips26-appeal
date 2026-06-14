@@ -1,0 +1,23 @@
+{
+  "iteration": 1,
+  "stage": "reflection",
+  "timestamp": "2026-03-08T04:59:32Z",
+  "changes": [
+    "Iteration 1 complete"
+  ],
+  "issues_found": [
+    "anneal_fix_lin_08_03 在 303 样本上 PPL median=-8.4%、mean=-38.0%，是所有方法中最大改善，但四份独立报告标记为 CRITICAL 且 blocking 后仍未执行 paired t-test / Wilcoxon / Bootstrap CI。如果显著将根本改变论文叙事。",
+    "PPL 自矛盾：论文将 'PPL 不可靠' 列为三大贡献之一，但核心负面结论 100% 建立在 GPT-2 PPL 上。LLM-Judge 和 GSM8K 被归入 'Supplementary' 而非与 PPL 并列的主证据。",
+    "温度退火 pilot bug 披露不充分：Section 3.8.3 仅以 'temperature computation error' 轻描淡写，未说明 13/15 值相同的事实、anneal_fix 的关系和 pilot 数据受影响程度。",
+    "LLM-Judge 存在 TIE 解析偏差（0/30 ties 不自然，idx=28 的 TIE 被计为 vanilla win）和能力不对等（1.5B 判断 7B 输出）。",
+    "Full-scale 验证仅覆盖开放文本生成。GSM8K 仅 50 题（p=0.09）。Best-of-N 在 7B 缺失。ReMDM 原始采样器未测。论文结论的泛化性不足。",
+    "论文约 12,000-15,000 词，远超 NeurIPS 6,000 词限制。核心论点被完整复述 4-6 次。三轮审查均指出，无改善。",
+    "论文零图表。大纲规划 5 图一个未实现。实验驱动论文无可视化在审稿中严重减分。",
+    "参考文献多处使用 arXiv:2505.xxxxx 占位符，总引用约 17 条偏少（目标 25-30）。三轮审查后无改善。",
+    "CRITICAL action items 被四份报告反复标记但始终未执行，说明流水线缺乏强制性的 blocking action item 追踪和执行机制。",
+    "TCR 的 PPL mean 改善 -20.9%（30.09->23.79），mean/median ratio 1.85->1.51，暗示显著的尾部修剪效应。anneal_fix 的 ratio 仅 1.25，暗示同时改善中心和尾部。两者均未做分位数分析。"
+  ],
+  "issues_fixed": [],
+  "quality_score": 5.0,
+  "notes": "{\"classified_issues\": [{\"description\": \"anneal_fix_lin_08_03 在 303 样本上 PPL median=-8.4%、mean=-38.0%，是所有方法中最大改善，但四份独立报告标记为 CRITICAL 且 blocking 后仍未执行 paired t-test / Wilcoxon / Bootstrap CI。如果显著将根本改变论文叙事。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"立即执行统计检验（0 GPU，2 小时）。同时检验 anneal_fix_cos_08_02 和 anneal_fix_lin_06_02。根据结果决定论文叙事方向。\"}, {\"description\": \"PPL 自矛盾：论文将 'PPL 不可靠' 列为三大贡献之一，但核心负面结论 100% 建立在 GPT-2 PPL 上。LLM-Judge 和 GSM8K 被归入 'Supplementary' 而非与 PPL 并列的主证据。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"将 PPL + LLM-Judge + GSM8K 重组为三重交叉验证的平等结构。将 'PPL 不可靠' 从 '贡献' 降级为 '方法论警告/局限性'。\"}, {\"description\": \"温度退火 pilot bug 披露不充分：Section 3.8.3 仅以 'temperature computation error' 轻描淡写，未说明 13/15 值相同的事实、anneal_fix 的关系和 pilot 数据受影响程度。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"在 Section 4.2 或脚注中明确说明 pilot 中温度参数未实际传递给采样器、13/15 值相同的现象、anneal_fix 是修复后版本及其结果。\"}, {\"description\": \"LLM-Judge 存在 TIE 解析偏差（0/30 ties 不自然，idx=28 的 TIE 被计为 vanilla win）和能力不对等（1.5B 判断 7B 输出）。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"修复 TIE 解析逻辑并重新计算结果。最好更换为更强 Judge 模型（Qwen2.5-7B-Instruct）并扩大到 100+ 对。\"}, {\"description\": \"Full-scale 验证仅覆盖开放文本生成。GSM8K 仅 50 题（p=0.09）。Best-of-N 在 7B 缺失。ReMDM 原始采样器未测。论文结论的泛化性不足。\", \"category\": \"research\", \"severity\": \"high\", \"suggestion\": \"扩展 GSM8K 到 200+ 题以获得 p<0.05 或降调叙事权重。从已有 3 seeds 数据零成本模拟 Best-of-3。在 Limitations 中讨论 ReMDM 缺失。\"}, {\"description\": \"论文约 12,000-15,000 词，远超 NeurIPS 6,000 词限制。核心论点被完整复述 4-6 次。三轮审查均指出，无改善。\", \"category\": \"pipeline\", \"severity\": \"high\", \"suggestion\": \"每个论点在一个主位置深入展开，其他位置一句交叉引用。TTT 详情、Parallel Voting 算法等移至附录。正文压缩到 9 页以内。\"}, {\"description\": \"论文零图表。大纲规划 5 图一个未实现。实验驱动论文无可视化在审稿中严重减分。\", \"category\": \"pipeline\", \"severity\": \"high\", \"suggestion\": \"至少补充：(1) 方法定位图（2D scatter: overhead vs training-required）；(2) Pilot vs Full-scale PPL shrinkage 柱状图；(3) PPL 分布箱线图（TCR + anneal_fix 尾部效应）。\"}, {\"description\": \"参考文献多处使用 arXiv:2505.xxxxx 占位符，总引用约 17 条偏少（目标 25-30）。三轮审查后无改善。\", \"category\": \"pipeline\", \"severity\": \"high\", \"suggestion\": \"替换所有占位符为真实 arXiv ID。补充缺失引用。\"}, {\"description\": \"CRITICAL action items 被四份报告反复标记但始终未执行，说明流水线缺乏强制性的 blocking action item 追踪和执行机制。\", \"category\": \"pipeline\", \"severity\": \"high\", \"suggestion\": \"在 orchestrator 中增加 blocking_actions 检查：当存在 blocking=true 的 action item 时，阻止推进到下一阶段。\"}, {\"description\": \"TCR 的 PPL mean 改善 -20.9%（30.09->23.79），mean/median ratio 1.85->1.51，暗示显著的尾部修剪效应。anneal_fix 的 ratio 仅 1.25，暗示同时改善中心和尾部。两者均未做分位数分析。\", \"category\": \"research\", \"severity\": \"medium\", \"suggestion\": \"对 TCR 和 anneal_fix 做 90th/95th percentile PPL 分析。如果尾部改善显著，作为独立贡献报告。\"}]}"
+}

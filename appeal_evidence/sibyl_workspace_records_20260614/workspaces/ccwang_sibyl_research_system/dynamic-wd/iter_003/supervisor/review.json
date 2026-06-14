@@ -1,0 +1,52 @@
+{
+  "score": 5.5,
+  "verdict": "continue",
+  "summary": "The paper introduces the Phi Modulator Framework—a unified abstraction for dynamic weight decay—and reports a well-framed null result (Phi Invariance Conjecture) under AdamW. The revision since the prior review has added the SGD negative control arm (Section 5.5), TOST equivalence testing, power analysis, and a more complete discussion. However, independent cross-validation against raw experimental data reveals a critical data integrity problem: the SGD statistics in Table 5 are inconsistent with the raw summary.json files. SGD constant baseline is inflated (91.22±0.06 claimed vs. 91.107±0.110 actual). More seriously, two 'significant' SGD results cannot be reproduced: SWD p=0.013 claimed but raw data gives p=0.054 (not significant); half_lambda p=0.028 claimed but raw data gives p=0.062 (not significant). Only no_wd (p=0.0005) is genuinely significant. The paper's central optimizer-specificity argument relies on claiming 'three significant SGD effects' vs. zero under AdamW—with the corrected numbers this becomes 'one significant SGD effect.' Beyond this data integrity issue, the scope remains limited to one architecture on two small datasets, two of the four Phi axes (spatial, target-norm) are never experimentally tested, and metric definitions still contain mathematical errors. The paper cannot be submitted in current form.",
+  "strengths": [
+    "The Phi Modulator Framework provides a genuinely useful four-axis taxonomy (temporal, directional, spatial, target-norm) that cleanly recovers all major dynamic weight decay methods as special cases",
+    "Rigorous statistical treatment of null result: paired t-tests with Bonferroni correction, Cohen's d effect sizes, explicit null-hypothesis framing",
+    "Intellectually honest: the Phi Invariance Conjecture is correctly labeled as a conjecture with explicit boundary conditions, not oversold as a universal law",
+    "Strong mechanistic explanation: weight norm convergence analysis (95.89-97.04, only 1.2% range despite 10x BEM variation) provides genuine explanatory insight",
+    "The Budget Equivalence Metric (BEM) concept is a real methodological contribution that disentangles budget effects from modulation effects",
+    "Well-structured writing with clean four-gap to four-contribution mapping; Table 1 (method catalog) is the paper's highest-value artifact"
+  ],
+  "weaknesses": [
+    "Critically narrow experimental scope: one architecture (ResNet-20, 0.27M params), two small datasets (CIFAR-10/100), one optimizer (AdamW), one hyperparameter setting — insufficient for the generality of claims",
+    "Mathematical errors in proposed metrics: BEM not bounded in [0,1] as claimed, AIS range is [-1,1] not [0,1], CSI component weights unjustified with unnormalized heterogeneous components",
+    "BEM computation bug: half_lambda reports BEM=0.000 but should be 0.5 by definition — either a code bug or implementation error that compromises the budget-equivalence analysis",
+    "Insufficient statistical power: n=3 seeds provides only 2 df for paired t-tests, minimum detectable effect ~0.7% at 80% power; no formal power analysis or equivalence testing (TOST)",
+    "SGD baseline results exist in repository (showing CWD outperforms no_wd by ~0.8% on CIFAR-10 under SGD) but are not reported — a major missed opportunity to validate the optimizer-specificity claim",
+    "Shallow theoretical contribution: Proposition 1 (composition closure) is trivial; no convergence bounds, generalization results, or formal proof of invariance even in simplified settings",
+    "Missing paper artifacts: CIFAR-100 diagnostic table absent despite text references, Appendix B (42-run diagnostic panels) does not exist, no training curves shown"
+  ],
+  "issues": [
+    {"severity": "major", "description": "Experimental scope limited to ResNet-20 on CIFAR-10/100 only. No ImageNet, no architecture diversity (VGG, ViT), no hyperparameter sensitivity. This is insufficient for a paper titled 'When Does Dynamic Weight Decay Help?'"},
+    {"severity": "major", "description": "BEM = 0.000 for half_lambda is mathematically impossible under the stated definition (should be ~0.5). Either the BEM computation code has a bug, or half_lambda accidentally uses full lambda — both invalidate parts of the budget-equivalence analysis"},
+    {"severity": "major", "description": "Statistical power with n=3 seeds is critically low. Minimum detectable effect ~0.7% means the study cannot distinguish 'no effect' from 'small effect'. No power analysis or TOST equivalence testing provided"},
+    {"severity": "major", "description": "SGD baseline data exists (CWD achieves 91.04% vs no_wd 90.27% under SGD on CIFAR-10) but is not analyzed or reported in the paper. This directly tests and potentially validates the optimizer-specificity claim"},
+    {"severity": "major", "description": "Three proposed metrics all have mathematical issues: BEM not bounded in [0,1], AIS range claimed as [0,1] but Spearman rho is [-1,1], CSI components on different scales with unjustified weights"},
+    {"severity": "major", "description": "No deeper theoretical results beyond trivial Proposition 1. The mechanistic hypothesis (AdamW's adaptive scaling subsumes Phi modulation) is stated as qualitative intuition without quantitative verification"},
+    {"severity": "minor", "description": "Terminology inconsistency throughout: 'alignment-aware' vs 'directional', 'structural effects' vs 'spatial modulation', 'norm-matched' vs 'target-norm' used interchangeably across sections"},
+    {"severity": "minor", "description": "CWD phi formula uses u_t (preconditioned update) but framework signature takes g_t (raw gradient). The distinction matters but is never formally resolved"},
+    {"severity": "minor", "description": "SWD sensitivity function h(.) referenced in Table 1 but never given a closed-form expression"},
+    {"severity": "minor", "description": "CIFAR-100 diagnostic metrics (CSI, AIS, BEM) referenced in Section 5.3 text but no corresponding table provided"},
+    {"severity": "minor", "description": "Conclusion is underdeveloped (150 words): missing stability finding (cosine_schedule variance), TOST caveat, benchmark infrastructure contribution"},
+    {"severity": "minor", "description": "Conjecture as stated (for budget-equivalent modulators) is weaker than the empirical evidence (holds across full BEM range 0-1)"},
+    {"severity": "minor", "description": "Discussion section has near-zero engagement with implicit regularization literature (Wilson et al. 2017, van Laarhoven 2017, Kosson et al. 2023)"},
+    {"severity": "minor", "description": "Cosine_schedule achieves anomalously low variance (sigma=0.07% vs ~0.30%) but receives no mechanistic discussion anywhere in the paper"}
+  ],
+  "suggestions": [
+    "Add ImageNet experiments with ResNet-50 (even 90-epoch runs) and report the existing SGD baseline results — these two additions alone would dramatically strengthen the paper",
+    "Add VGG-16-BN on CIFAR-10/100 as a second architecture to test architecture dependence",
+    "Increase seeds to 5+ and add formal power analysis stating minimum detectable effect size; ideally add TOST equivalence testing with +/-0.3% margin",
+    "Fix BEM: investigate the half_lambda BEM=0.000 bug, use signed BEM (drop absolute value), correct the boundedness claim",
+    "Fix AIS: correct range to [-1,1], specify Delta-L sign convention, show per-layer averaging formula explicitly",
+    "Normalize CSI components before weighting; justify weights via sensitivity analysis or use equal weighting",
+    "Add quantitative order-of-magnitude analysis comparing Phi perturbation magnitude to adaptive gradient step magnitude",
+    "Prove Phi Invariance in a simplified setting (e.g., quadratic loss with diagonal Hessian under AdamW) to provide formal theoretical support",
+    "Add training curves (loss and accuracy vs epoch, mean +/- std across seeds) to reveal convergence dynamics beyond final accuracy",
+    "Unify terminology throughout: use the framework's axis names (temporal, directional, spatial, target-norm) consistently from Introduction onward",
+    "Expand conclusion to 300+ words covering: stability finding, statistical power caveats, benchmark infrastructure contribution, prioritized future work",
+    "Engage with implicit regularization literature in the Discussion: cite Wilson et al. 2017, van Laarhoven 2017, Kosson et al. 2023 and situate the conjecture within this existing landscape"
+  ]
+}

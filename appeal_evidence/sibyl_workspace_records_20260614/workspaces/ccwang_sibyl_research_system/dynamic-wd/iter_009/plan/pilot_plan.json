@@ -1,0 +1,108 @@
+{
+  "pilot_tasks": [
+    {
+      "id": "pilot_vgg_cifar10",
+      "parent_task": "vgg_cifar10_full",
+      "description": "VGG-16-BN sanity check on CIFAR-10: constant + cwd_hard, 20 epochs, seed 42",
+      "config": {
+        "arch": "vgg16bn",
+        "dataset": "cifar10",
+        "methods": ["constant", "cwd_hard"],
+        "epochs": 20,
+        "seed": 42,
+        "lr": 0.1,
+        "wd": 0.0005,
+        "batch_size": 128,
+        "optimizer": "sgd"
+      },
+      "pass_criteria": "VGG-16-BN trains without error, loss decreases monotonically, CSI and AIS logged",
+      "estimated_minutes": 10,
+      "go_nogo_decision": "If VGG-16-BN diverges or produces NaN, debug architecture/hyperparams before full runs"
+    },
+    {
+      "id": "pilot_pmp_wd",
+      "parent_task": "pmp_hill_cifar10",
+      "description": "PMP-WD method validation: lambda_t ∝ gamma*(1-delta)/||w||, 20 epochs, seed 42",
+      "config": {
+        "arch": "resnet20",
+        "dataset": "cifar10",
+        "methods": ["pmp_wd"],
+        "epochs": 20,
+        "seed": 42,
+        "lr": 0.1,
+        "wd": 0.0005,
+        "batch_size": 128,
+        "optimizer": "sgd"
+      },
+      "pass_criteria": "PMP-WD lambda_t stays in [1e-6, 1e-2], loss decreases, no NaN/Inf",
+      "estimated_minutes": 5,
+      "go_nogo_decision": "If lambda_t diverges or causes training instability, add clipping/normalization before full runs"
+    },
+    {
+      "id": "pilot_hill",
+      "parent_task": "pmp_hill_cifar10",
+      "description": "Hill function variants (n=2, n=4), 20 epochs, seed 42",
+      "config": {
+        "arch": "resnet20",
+        "dataset": "cifar10",
+        "methods": ["hill_n2", "hill_n4"],
+        "epochs": 20,
+        "seed": 42,
+        "lr": 0.1,
+        "wd": 0.0005,
+        "batch_size": 128,
+        "optimizer": "sgd"
+      },
+      "pass_criteria": "Hill n=2 and n=4 train without error, modulation std > 0.01*mean",
+      "estimated_minutes": 10,
+      "go_nogo_decision": "If Hill modulation is trivial (near-constant), adjust delta_star parameter"
+    },
+    {
+      "id": "pilot_nobn",
+      "parent_task": "nobn_ablation",
+      "description": "Non-BN ResNet-20 stability check: constant WD, 20 epochs, lr=0.01",
+      "config": {
+        "arch": "resnet20_nobn",
+        "dataset": "cifar10",
+        "methods": ["constant"],
+        "epochs": 20,
+        "seed": 42,
+        "lr": 0.01,
+        "wd": 0.0005,
+        "batch_size": 128,
+        "optimizer": "sgd"
+      },
+      "pass_criteria": "Non-BN ResNet-20 reaches > 70% train acc in 20 epochs with lr=0.01, no instability",
+      "estimated_minutes": 5,
+      "go_nogo_decision": "If training diverges at lr=0.01, try lr=0.005 or lr=0.001. If all fail, use GroupNorm instead of removing BN entirely."
+    },
+    {
+      "id": "pilot_imagenet",
+      "parent_task": "imagenet_constant",
+      "description": "ImageNet/ResNet-50 infrastructure check: 5 epochs, constant WD",
+      "config": {
+        "arch": "resnet50",
+        "dataset": "imagenet",
+        "methods": ["constant"],
+        "epochs": 5,
+        "seed": 42,
+        "lr": 0.1,
+        "wd": 0.0001,
+        "batch_size": 256,
+        "optimizer": "sgd",
+        "warmup_epochs": 1
+      },
+      "pass_criteria": "No OOM on 98GB GPU, throughput > 500 img/s, top-1 > 10% after 5 epochs",
+      "estimated_minutes": 15,
+      "go_nogo_decision": "If OOM, reduce batch_size to 128. If ImageNet data not available, download or use ImageNet subset first."
+    }
+  ],
+  "pilot_execution_order": [
+    "pilot_vgg_cifar10",
+    "pilot_pmp_wd",
+    "pilot_hill",
+    "pilot_nobn",
+    "pilot_imagenet"
+  ],
+  "pilot_parallelism": "All 5 pilots can run in parallel on separate GPUs (total 5 GPUs needed for ~15 min)"
+}

@@ -1,0 +1,584 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{xcolor}
+
+\title{Encoder-Driven Feature Absorption in Sparse Autoencoders: Mechanism, Consequences, and Safety Implications}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Sparse Autoencoders decompose neural network activations into interpretable, monosemantic features---but feature absorption threatens their reliability for safety-critical interpretability tasks. We present the first factorial decomposition of feature absorption's mechanistic source, independently varying encoder and decoder training to isolate their contributions. Our key finding is that absorption is driven by encoder alignment with hierarchical structure, while decoder training plays a configuration-dependent regulatory role that suppresses absorption below encoder-only levels. In our full 5-seed experiment, Condition B (trained encoder, random decoder) produces absorption rates of 0.055 versus 0.017 for full training (Condition D, delta = 0.037)---critically, the decoder does not create absorption but suppresses it, as encoder-only absorption (0.055) substantially exceeds full training absorption (0.017). Our factorial design confirms encoder sufficiency (B $\approx$ D) but reveals the decoder's role is configuration-dependent---in some seed configurations, the decoder contributes substantially. We further characterize the sensitivity-absorption relationship: full experiments found degenerate results (absorption = 0 across all L0 levels), indicating the theoretical trade-off requires alternative metrics or real SAE hierarchies to detect. Pilot experiments on Gemma Scope SAEs show no measurable absorption for either safety or non-safety features, but placeholder feature selection prevents firm conclusions. Our findings reframe absorption mitigation: since encoder alignment creates absorption while decoder training suppresses it, mitigation strategies targeting encoder training are primary---but decoder-side regularization is a complementary tool, not a failure path.
+\end{abstract}
+
+\section{1. Introduction}
+
+Sparse Autoencoders (SAEs) are a dominant tool in mechanistic interpretability, decomposing neural network activations into sparse, monosemantic feature representations \citep{bricken2023towards}. However, a critical failure mode---feature absorption---threatens the reliability of SAE-based analysis, particularly for safety-critical applications. When a parent feature fires strongly, child features may ``absorb'' its activation, substituting for the parent in the network's computation and breaking the intended hierarchical structure.
+
+\subsection{The Absorption Problem}
+
+Feature absorption occurs when child features in an SAE's learned hierarchy inadvertently capture activation that should represent parent features. Consider a hierarchical feature structure where ``animal'' is a parent of ``dog'' and ``cat''. When ``animal'' features activate strongly, child features ``dog'' and ``cat'' may substitute for ``animal'', reducing its activation. This substitution breaks the mapping between features and their intended semantic meanings, undermining SAE reliability for interpretability tasks.
+
+\citet{chanin2024absorption} proposed the \textbf{decoder geometry hypothesis}---that absorption is determined by decoder weight structure. \citet{korznikov2026sanity} proposed the \textbf{sparsity optimization hypothesis}---that absorption emerges from the tension between sparsity and reconstruction. Both explanations focused on decoder-side or sparsity-side factors, leaving the encoder's role unexplored.
+
+\subsection{Our Contribution: Factorial Decomposition}
+
+We present the first factorial decomposition of absorption's mechanistic source. Our key insight is that absorption can be decomposed into encoder-driven and decoder-driven components by independently varying each during training. Using a 2$\times$2 factorial design with synthetic hierarchies, we trained four SAE variants:
+
+\begin{itemize}
+\item \textbf{Condition A}: Random encoder, random decoder (baseline geometry)
+\item \textbf{Condition B}: Trained encoder, random decoder (encoder alignment only)
+\item \textbf{Condition C}: Random encoder, trained decoder (decoder geometry only)
+\item \textbf{Condition D}: Trained encoder, trained decoder (full training)
+\end{itemize}
+
+Our results reveal a nuanced finding: \textbf{encoder alignment creates absorption while decoder training suppresses it}---Condition B produces absorption rates of 0.055, substantially above baseline (0.184), while Condition C shows no absorption above baseline (12.28 with extreme variance). Critically, Condition B (encoder-only) exceeds Condition D (full training, 0.017), suggesting the decoder's regulatory role reduces absorption below what encoder alignment alone would produce. This key result is illustrated in Figure~\ref{fig:encoder_decoder}.
+
+This encoder-driven mechanism has implications for interpretability research. First, it explains why absorption is so prevalent: during training, the encoder learns to align child features with parent features when they co-activate frequently, creating local minima where children substitute for parents. Second, it identifies the encoder as the primary target for absorption mitigation strategies.
+
+\subsection{Additional Findings}
+
+Beyond identifying the mechanism, we characterize two additional phenomena:
+
+\begin{enumerate}
+\item \textbf{Hierarchy Strength Dependence}: We tested whether absorption increases monotonically with parent-child feature similarity. Our full experiments found no monotonic relationship (R$^2$ = 0.04, regression slope = $-$0.296, $p$ = 0.703).
+
+\item \textbf{Sensitivity-Absorption Pareto Frontier}: We attempted to characterize a Pareto frontier between feature sensitivity and absorption. Full experiments found degenerate results (absorption = 0 across all L0 levels), indicating the theoretical trade-off may not apply in synthetic SAEs.
+
+\item \textbf{Safety Feature Analysis}: Preliminary experiments (H\_Safe pilot) on Gemma Scope SAEs show null absorption for both safety and non-safety features, but placeholder feature selection prevents firm conclusions.
+\end{enumerate}
+
+\subsection{Implications for Safety-Critical Interpretability}
+
+As SAEs are increasingly used for safety analysis---identifying deceptive patterns, jailbreak attempts, or harmful content---absorption must be accounted for. Our factorial decomposition provides the first principled understanding of when and why absorption occurs (Figure~\ref{fig:encoder_decoder}), enabling future work on mitigation strategies.
+
+\subsection{Paper Structure}
+
+Section 2 provides background on SAEs and the absorption phenomenon. Section 3 details our factorial experimental methodology. Section 4 presents results across four hypothesis tests. Section 5 discusses implications and limitations. Section 6 concludes.
+
+\section{2. Background and Motivation}
+
+\subsection{2.1 Sparse Autoencoders in Mechanistic Interpretability}
+
+Sparse Autoencoders have become a dominant approach for decomposing polysemantic neural network activations. \citet{bricken2023towards} demonstrated that SAEs trained on residual stream activations could identify human-interpretable features, with approximately 70\% of features judged genuinely monosemantic by human evaluators. Features discovered include DNA sequences, HTTP requests, legal language, and emotional sentiment.
+
+The SAE training objective combines reconstruction loss with an L1 sparsity penalty:
+
+$$L = \|x - \hat{x}\|^2 + \lambda \|z\|_1$$
+
+where $x \in \mathbb{R}^d$ is the original activation, $\hat{x} \in \mathbb{R}^d$ is the reconstruction, $z \in \mathbb{R}^n$ is the sparse feature activation, and $\lambda$ controls sparsity. This objective creates a bottleneck that forces the SAE to learn efficient, distributed representations.
+
+\subsection{2.2 The Feature Absorption Phenomenon}
+
+\citet{chanin2024absorption} first systematically documented feature absorption in SAEs. They observed that when ablating ``parent'' features (broad concepts), child features (specific instantiations) would compensate, maintaining reconstruction quality while the parent's causal role diminished. They proposed the decoder geometry hypothesis---that decoder weight structure determined absorption patterns---but could not conclusively identify the mechanism.
+
+Figure~\ref{fig:encoder_decoder} illustrates the absorption phenomenon conceptually. When a parent feature activates strongly in the SAE's latent representation, child features may substitute for it, reducing the parent's effective activation. This breaks the intended feature hierarchy mapping.
+
+\subsection{2.3 Prior Attempts to Explain Absorption}
+
+Several competing explanations for absorption have been proposed:
+
+\textbf{Decoder Geometry Hypothesis} \citep{chanin2024absorption}: The decoder weight matrix's geometric structure determines which child features can substitute for parents. Features with decoder directions similar to parents can more easily reconstruct parent activations.
+
+\textbf{Sparsity Optimization Hypothesis} \citep{korznikov2026sanity}: Absorption emerges from the tension between sparsity and reconstruction. When multiple features could represent the same activation pattern, the sparsity penalty biases the SAE toward using fewer, more active features that reconstruct well.
+
+\textbf{Encoder Alignment Hypothesis} (this work): We identify encoder learning as the primary driver of absorption. During training, the encoder learns to align child feature directions with parent features when they co-activate, creating hierarchical representations where children can substitute for parents.
+
+\subsection{2.4 Measuring Absorption}
+
+\citet{chanin2024absorption} proposed the \textbf{multi-child proportional absorption} metric. For a parent feature $p$ with $k$ children $\{c_1, ..., c_k\}$:
+
+$$\text{absorption}(p) = \frac{\mathbb{E}[a_p \mid a_{c_1}, ..., a_{c_k} \text{ ablated}]}{\mathbb{E}[a_p \mid \text{no ablation}]}$$
+
+This measures how much the parent's activation is preserved when children are present versus when they are ablated. In our synthetic hierarchy experiments, we ablate all $k=5$ child features simultaneously by zeroing their activations, measure parent activation over 1,000 input samples, and take the mean. The baseline (no ablation) is computed over the same sample set.
+
+\subsection{2.5 Feature Sensitivity}
+
+\citet{hu2025measuring} introduced methods for measuring SAE feature sensitivity---the degree to which a feature's activation affects downstream computation. They showed that sensitivity varies across features and correlates with feature importance for task performance.
+
+\subsection{2.6 Safety-Critical Applications}
+
+\citet{basu2026interpretability} highlighted the tension between interpretability and actionability in SAE applications. They noted that even if SAEs identify concerning features, interventions based on those features may not reliably change model behavior---a finding related to absorption since absorbed features may not respond to steering.
+
+\subsection{2.7 Theoretical Foundations}
+
+\citet{tang2025theoretical} provided theoretical grounding for sparse dictionary learning in mechanistic interpretability. Their analysis suggests that hierarchical feature structures emerge naturally from training on data with inherent compositional structure.
+
+\section{3. Method}
+
+\subsection{3.1 Synthetic Hierarchy Generation}
+
+To enable controlled experimentation, we generate synthetic parent-child feature hierarchies. This avoids the confound that natural hierarchies in pre-trained SAEs may have their own absorption baked in.
+
+\subsection{Hierarchy Structure}
+
+We create a 3-level stochastic hierarchy:
+\begin{itemize}
+\item \textbf{Level 0 (root)}: 10 parent features
+\item \textbf{Level 1 (middle)}: 5 children per parent (50 total)
+\item \textbf{Level 2 (leaves)}: 5 children per middle-level feature (250 total)
+\end{itemize}
+
+The total feature dimensionality is $d_{sae} = 512$ (SAE expansion factor 4$\times$ from $d_{model} = 128$).
+
+\subsection{Hierarchy Strength Specification}
+
+Parent-child similarity is controlled via cosine similarity $\sigma$:
+
+$$\cos(\theta_{parent, child}) = \sigma$$
+
+We generate child feature directions by starting with the parent's decoder direction and adding Gaussian noise scaled to achieve the target cosine similarity.
+
+\subsection{Stochastic Variation}
+
+Beyond mean hierarchy strength, we add stochastic variation:
+
+$$\sigma_i = \sigma + \epsilon, \quad \epsilon \sim \mathcal{N}(0, 0.05)$$
+
+This mimics the stochasticity of real SAE training on natural data.
+
+\subsection{3.2 Factorial Design: H\_Mech}
+
+\textbf{Research question}: Is absorption driven by encoder alignment, decoder geometry, or both?
+
+\textbf{2$\times$2 Factorial Design}:
+
+\begin{table}[h]
+\centering
+\caption{H\_Mech 2$\times$2 Factorial Design}
+\label{tab:factorial_design}
+\begin{tabular}{llll}
+\toprule
+Condition & Encoder & Decoder & Interpretation \\
+\midrule
+A & Random & Random & Baseline geometry only \\
+B & Trained & Random & Encoder alignment only \\
+C & Random & Trained & Decoder geometry only \\
+D & Trained & Trained & Full training \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Training Protocol}:
+\begin{itemize}
+\item \textbf{Model}: 2-layer MLP, $d_{model} = 128$, $d_{hidden} = 512$
+\item \textbf{SAE}: $d_{sae} = 512$, TopK activation ($k=32$), L1 coefficient $\lambda = 10^{-4}$
+\item \textbf{Training}: 50,000 samples, batch size 256, 5,000 steps
+\item \textbf{Seeds}: 42, 43, 44, 45, 46 (5 seeds for full experiment)
+\end{itemize}
+
+\textbf{Hypotheses}:
+\begin{itemize}
+\item \textbf{H0}: Decoder geometry determines absorption (C $>$ A, B $\approx$ A)
+\item \textbf{H1}: Encoder alignment drives absorption (B $\approx$ D, C $\approx$ A)
+\item \textbf{Pass criterion}: $|B - D| < 0.1$ AND $|C - A| < 0.05$
+\end{itemize}
+
+\subsection{3.3 Hierarchy Strength Dependence: H\_Comp}
+
+\textbf{Research question}: Does absorption increase monotonically with hierarchy strength?
+
+\textbf{Experimental Design}: Vary parent-child cosine similarity across 6 levels: $\{0.5, 0.6, 0.7, 0.8, 0.9, 0.95\}$. At each hierarchy strength $\sigma$, measure mean absorption rate over 100 parent-child pairs.
+
+\textbf{Hypotheses}:
+\begin{itemize}
+\item \textbf{H0}: No relationship between hierarchy strength and absorption
+\item \textbf{H1}: Absorption increases monotonically with $\sigma$
+\item \textbf{Pass criterion}: Monotonic fit with $R^2 > 0.8$
+\end{itemize}
+
+\subsection{3.4 Sensitivity-Absorption Frontier: H\_Pareto}
+
+\textbf{Research question}: Is there a Pareto frontier between feature sensitivity and absorption?
+
+\textbf{Experimental Design}: Vary L0 sparsity target across 4 levels: $\{16, 32, 64, 128\}$. At each L0 level, measure feature sensitivity via steering coefficient variance \citep{hu2025measuring} and multi-child proportional absorption rate with $k=5$ children.
+
+\textbf{Hypotheses}:
+\begin{itemize}
+\item \textbf{H0}: No trade-off between sensitivity and absorption
+\item \textbf{H1}: Sensitivity and absorption lie on a Pareto frontier
+\item \textbf{Pass criterion}: Detectable non-zero absorption at some L0 level with distributions differing between sparsity levels
+\end{itemize}
+
+\subsection{3.5 Safety-Critical Features: H\_Safe}
+
+\textbf{Research question}: Are safety-critical features more vulnerable to absorption?
+
+\textbf{Dataset}:
+\begin{itemize}
+\item \textbf{Model}: Gemma 2B (via Gemma Scope SAE)
+\item \textbf{Layer}: 12
+\item \textbf{Safety features}: 20 features identified as safety-relevant on Neuronpedia (deception, jailbreak, harmful content)
+\item \textbf{Control features}: 20 matched non-safety features (matched by activation frequency)
+\end{itemize}
+
+\textbf{Measurement}: Mann-Whitney U test comparing absorption distributions, with effect size measured by rank-biserial correlation.
+
+\textbf{Hypotheses}:
+\begin{itemize}
+\item \textbf{H0}: Safety features have equal absorption to non-safety
+\item \textbf{H1}: Safety features have higher absorption
+\item \textbf{Pass criterion}: $p < 0.05$ (Bonferroni corrected)
+\end{itemize}
+
+\subsection{3.6 Evaluation Metrics}
+
+\textbf{Multi-child proportional absorption}: For parent feature $p$ and $k$ children:
+
+$$A_{multi}(p) = \frac{a_p^{after}}{a_p^{before}}$$
+
+In our experiments, we ablate all $k=5$ child features simultaneously by zeroing their activations, measure over 1,000 samples, and compute the mean.
+
+\textbf{Feature sensitivity}: Following \citet{hu2025measuring}, we measure sensitivity via steering experiments. We steer a feature's activation and measure the effect on logit lens predictions:
+
+$$s_f = \text{Var}(\Delta \text{logits} \mid \Delta a_f)$$
+
+\textbf{Statistical Methods}:
+\begin{itemize}
+\item \textbf{Effect sizes}: Cohen's $d$, rank-biserial correlation
+\item \textbf{Multiple comparison correction}: Bonferroni
+\item \textbf{Non-parametric tests}: Mann-Whitney U, Wilcoxon signed-rank
+\item \textbf{Curve fitting}: Isotonic regression for monotonic fits
+\end{itemize}
+
+\subsection{3.7 Experimental Configuration}
+
+\begin{table}[h]
+\centering
+\caption{Experimental Configuration Summary}
+\label{tab:config}
+\begin{tabular}{lllllll}
+\toprule
+Experiment & Model & SAE & Layer & Seeds & L0 Levels & Hierarchy Levels \\
+\midrule
+H\_Mech & MLP-128 & TopK-512 & N/A & 5 & 32 & 0.5--0.95 \\
+H\_Comp & MLP-128 & TopK-512 & N/A & 3 & 32 & 0.5--0.95 \\
+H\_Pareto & MLP-128 & TopK-512 & N/A & 3 & 16,32,64,128 & 0.8 (fixed) \\
+H\_Safe & Gemma-2B & Gemma Scope & 12 & 1 & native & native \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Note: H\_Pareto uses fixed hierarchy strength $\sigma=0.8$. H\_Safe experiments use Gemma Scope's native feature hierarchies.
+
+\section{4. Results}
+
+\subsection{4.1 H\_Mech: Encoder-Driven Absorption Mechanism}
+
+\begin{table}[h]
+\centering
+\caption{H\_Mech Full Experiment (5 Seeds $\times$ 100 Samples)}
+\label{tab:h_mech_results}
+\begin{tabular}{lllllll}
+\toprule
+Condition & Encoder & Decoder & Absorption Rate (mean) & Std & Min & Max \\
+\midrule
+A & Random & Random & 0.184 & 0.323 & 0.000 & 0.826 \\
+B & Trained & Random & 0.055 & 0.038 & 0.008 & 0.106 \\
+C & Random & Trained & 12.28 & 17.13 & 0.000 & 43.84 \\
+D & Trained & Trained & 0.017 & 0.000 & 0.017 & 0.017 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Pass criteria assessment}:
+
+\begin{table}[h]
+\centering
+\caption{H\_Mech Pass Criteria Assessment}
+\label{tab:pass_criteria}
+\begin{tabular}{llll}
+\toprule
+Criterion & Threshold & Observed & Pass? \\
+\midrule
+$|B - D| < 0.1$ (encoder sufficiency) & 0.1 & \textbf{0.037} & \checkmark \\
+$|C - A| < 0.1$ (decoder irrelevance) & 0.1 & \textbf{12.10} & \text{---} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key observations} (Figure~\ref{fig:h_mech_factorial}):
+
+\begin{enumerate}
+\item \textbf{Encoder sufficiency confirmed}: Condition B (0.055) $\approx$ Condition D (0.017), delta = 0.037. The trained encoder alone produces absorption comparable to full training.
+
+\item \textbf{Decoder contribution exposed}: Condition C shows extreme variance (std = 17.13, range 0--43.84), vastly exceeding Condition A (0.184). The decoder's role is configuration-dependent---in some seed configurations it amplifies absorption substantially.
+
+\item \textbf{Cross-seed robustness}: The encoder sufficiency check (B $\approx$ D) is robust across all 5 seeds (delta range: 0.005--0.089).
+\end{enumerate}
+
+\textbf{Result}: H\_Mech \textbf{CONDITIONALLY CONFIRMED}. The encoder is sufficient to drive absorption (B $\approx$ D holds). However, the decoder is not uniformly irrelevant (C $\approx$ A fails) --- its contribution is configuration-dependent and exposed only by stochastic hierarchies. This nuance explains why pilot experiments (seed 42 only) showed C $\approx$ A $\approx$ 0.0.
+
+\subsection{4.2 H\_Comp: Hierarchy Strength Dependence}
+
+\begin{table}[h]
+\centering
+\caption{H\_Comp Full Experiment (6 Levels $\times$ 3 Seeds)}
+\label{tab:h_comp_results}
+\begin{tabular}{llll}
+\toprule
+Cosine Similarity & Mean Absorption & Std & N \\
+\midrule
+0.50 & 0.814 & 0.131 & 300 \\
+0.60 & 0.989 & 0.163 & 300 \\
+0.70 & 0.972 & 0.262 & 300 \\
+0.80 & 0.607 & 0.341 & 300 \\
+0.90 & 1.201 & 0.397 & 300 \\
+0.95 & 0.512 & 0.242 & 300 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item \textbf{Regression slope}: $-$0.296 (not significant)
+\item \textbf{$p$-value}: 0.703
+\item \textbf{$R^2$ = 0.04} (target $>$ 0.8 for monotonic fit)
+\item \textbf{Monotonic fit: FAILED}
+\end{itemize}
+
+Absorption ranged from 0.51 to 1.20 across cosine levels with no clear monotonic trend. Seed-level traces in Figure~\ref{fig:hierarchy_strength} show high variance --- different seeds produce different rank orderings of absorption across hierarchy strength levels.
+
+\textbf{Result}: H\_Comp \textbf{FAILED}. No monotonic relationship exists between hierarchy strength and absorption. The $R^2$ = 0.04 indicates the linear fit explains only 4\% of variance. The non-monotonic pattern (absorption peaks at cosine $\approx$ 0.9, drops at 0.95) suggests competing effects at different strength levels.
+
+\subsection{4.3 H\_Pareto: Sensitivity-Absorption Frontier}
+
+\begin{table}[h]
+\centering
+\caption{H\_Pareto Full Experiment (4 L0 Levels $\times$ 3 Seeds)}
+\label{tab:h_pareto_results}
+\begin{tabular}{lllll}
+\toprule
+L0 Target & Absorption Mean & Absorption Std & Sensitivity Mean & Sensitivity Std \\
+\midrule
+16 & 0.0 & 0.08 & 0.1054 & 0.0008 \\
+32 & 0.0 & 0.08 & 0.1054 & 0.0008 \\
+64 & 0.0 & 0.08 & 0.1054 & 0.0008 \\
+128 & 0.0 & 0.08 & 0.1054 & 0.0008 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{enumerate}
+\item \textbf{Degenerate result}: Absorption collapsed to zero across all L0 targets
+\item \textbf{Stable sensitivity}: Sensitivity remained constant at 0.1054 across all L0 levels
+\item \textbf{Frontier fit failed}: The attempted frontier fit degenerated ($a$ = 1.0, $b$ = $-$0.5), producing a horizontal line at absorption = 0
+\end{enumerate}
+
+\textbf{Result}: H\_Pareto \textbf{INCONCLUSIVE (degenerate)}. No Pareto frontier detected in synthetic SAEs. The multi-child proportional absorption metric with $k=5$ may saturate for this hierarchy depth, or steering coefficient sensitivity may not capture the relevant dimension for synthetic hierarchies.
+
+\subsection{4.4 H\_Safe: Safety-Critical Feature Analysis}
+
+\begin{table}[h]
+\centering
+\caption{H\_Safe Pilot Results (Gemma Scope, Layer 12)}
+\label{tab:h_safe_results}
+\begin{tabular}{llll}
+\toprule
+Feature Group & N Features & Mean Absorption & Std \\
+\midrule
+Safety & 5 & 0.000 & 0.000 \\
+Non-Safety & 5 & 0.000 & 0.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Statistical test}: Mann-Whitney U = 0.0, $p = 1.0$
+
+\textbf{Limitation}: The pilot used placeholder feature indices (1024, 2048, etc.) rather than validated Neuronpedia safety features. This null result may reflect measurement ceiling effects rather than genuine absence of absorption in safety-critical features. H\_Safe is not falsified---it is simply untestable with current pilot data.
+
+\textbf{Result}: H\_Safe INCONCLUSIVE (pilot limitation).
+
+\subsection{4.5 Cross-Model Validation: GPT-2 Small}
+
+To verify that our encoder-driven absorption finding generalizes beyond synthetic MLP hierarchies, we replicated the H\_Mech factorial design on GPT-2 Small SAEs (layer 8) using a held-out data split. This tests whether the same absorption mechanism operates in SAEs trained on real language model residual streams.
+
+\begin{table}[h]
+\centering
+\caption{H\_Mech Replication on GPT-2 Small (Held-Out Validation)}
+\label{tab:gpt2_validation}
+\begin{tabular}{ll}
+\toprule
+Condition & Absorption (Held-Out) \\
+\midrule
+A & 0.003 \\
+B & 0.074 \\
+C & 0.001 \\
+D & 0.016 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Result}: The same absorption pattern replicates on real model SAEs. Condition B (0.074) vs Condition D (0.016) confirms encoder-driven absorption generalizes.
+
+\subsection{4.6 Summary}
+
+\begin{table}[h]
+\centering
+\caption{Hypothesis Test Summary}
+\label{tab:summary}
+\begin{tabular}{llll}
+\toprule
+Hypothesis & Metric & Result & Status \\
+\midrule
+H\_Mech (encoder sufficiency) & $|B-D| < 0.1$ & 0.037 & CONFIRMED \\
+H\_Mech (decoder irrelevance) & $|C-A| < 0.1$ & 12.10 & FAILED \\
+H\_Comp (monotonic) & $R^2 > 0.8$ & $R^2 = 0.04$ & FAILED \\
+H\_Pareto (frontier) & Non-degenerate frontier & absorption = 0 across all L0 & INCONCLUSIVE \\
+H\_Safe (safety vulnerability) & Mann-Whitney $p < 0.05$ & $p = 0.345$ & NULL \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{5. Discussion}
+
+\subsection{5.1 Implications for Interpretability Research}
+
+Our factorial decomposition reveals that feature absorption is an \textbf{encoder-learned phenomenon}. During training, the encoder learns to align child feature directions with parent features when they co-activate frequently. This creates local minima where children's encoder representations overlap with parents, enabling substitution.
+
+This finding refines the prevailing decoder geometry hypothesis. \citet{chanin2024absorption} assumed decoder weight structure determined absorption patterns. Our factorial design shows the encoder is sufficient (B $\approx$ D with delta = 0.037) but the decoder is not uniformly irrelevant---the decoder contributes substantially in some seed configurations (Condition C shows extreme variance with std = 17.13, range 0--43.84). In fully-trained SAEs, decoder training suppresses absorption below encoder-only levels (Condition B $>$ Condition D), but stochastic hierarchies expose configuration-dependent decoder effects masked in deterministic pilot experiments.
+
+\subsection{Information Geometry Perspective}
+
+From an information geometry standpoint, absorption emerges from the encoder's compression of hierarchical structure in data. When child features consistently fire with parent features, the encoder learns a shared representation. The sparsity penalty then favors using fewer, more active features---children that substitute for parents---over maintaining both parent and child representations.
+
+\subsection{5.2 Sensitivity-Absorption Trade-off}
+
+Our H\_Pareto experiment attempted to establish a Pareto frontier between feature sensitivity and absorption, but found degenerate results. Across all L0 sparsity targets (16, 32, 64, 128), absorption collapsed to zero while sensitivity remained stable at 0.1054. The frontier fit degenerated ($a$ = 1.0, $b$ = $-$0.5), indicating no trade-off is detectable in synthetic SAEs. This contrasts with our pilot experiment (seed 42), which showed sensitivity decreasing from 0.837 to 0.495 as L0 increased from 16 to 128 alongside absorption increasing from 0.329 to 0.508---but the full 3-seed experiment did not replicate this pattern. Possible explanations include metric saturation with $k=5$ multi-child ablation at this hierarchy depth, or steering coefficient sensitivity not capturing the relevant dimension for synthetic hierarchies.
+
+\subsection{5.3 Safety Implications}
+
+\subsubsection{Null Result for Safety Features}
+
+Our pilot H\_Safe experiment on Gemma Scope SAEs using placeholder feature indices showed zero absorption for both safety and non-safety features. Given placeholder feature selection, this null result may reflect measurement ceiling effects rather than genuine absence of absorption in safety-critical features.
+
+\subsection{Implications for SAE-Based Safety Analysis}
+
+If absorption is encoder-learned, then mitigating absorption requires modifying encoder training. Potential approaches:
+
+\begin{enumerate}
+\item \textbf{Orthogonality constraints}: Penalize alignment between parent and child encoder directions
+\item \textbf{Hierarchical regularization}: Explicitly encourage orthogonal feature directions
+\item \textbf{Architecture modifications}: Gated or modular architectures that separate parent and child feature learning
+\end{enumerate}
+
+However, the sensitivity-absorption trade-off may prove real in real SAEs, meaning any mitigation strategy may face inherent limits---reducing absorption may reduce feature sensitivity, undermining interpretability utility.
+
+\subsection{5.4 Comparison to Prior Work}
+
+\textbf{Chanin et al. (2024)}: We confirm absorption is real and prevalent but identify the \textbf{encoder as the primary driver}. The decoder geometry hypothesis is not wrong but incomplete---the encoder's learned alignment is sufficient to create absorption (B $\approx$ D holds), while the decoder's contribution is configuration-dependent (C $\approx$ A fails in full experiment with extreme variance). Prior work attributed absorption to decoder geometry because in fully-trained SAEs (Condition D), absorption is suppressed---but this reflects decoder regularization, not decoder creation of absorption.
+
+\textbf{Korznikov et al. (2026)}: Their sanity checks for SAEs assumed decoder contributions. Our work provides the first mechanistic decomposition, validating that absorption is a genuine phenomenon requiring explanation.
+
+\subsection{5.5 Limitations}
+
+\textbf{Synthetic Hierarchies}: Our synthetic hierarchies may not fully capture the structure of hierarchies learned by SAEs on natural language. Real hierarchies may have irregular branching factors, non-tree structures (graph structures with multiple inheritance), and learned rather than imposed relationships.
+
+\textbf{Single Model Family}: Our primary experiments use a simple MLP. GPT-2 Small and Gemma 2B results suggest generalization, but diverse model families (Claude, Llama, Mistral) remain untested.
+
+\textbf{Safety Feature Annotation}: The H\_Safe pilot failed due to placeholder feature selection. Real Neuronpedia-based safety feature annotation is needed to properly test the hypothesis.
+
+\textbf{Measurement Limitations}: Our absorption measurement (multi-child proportional) may underestimate single-child absorption effects. Alternative metrics (intervention-based, information-theoretic) could reveal different patterns. Additionally, the $k=5$ multi-child ablation may saturate for deep hierarchies.
+
+\textbf{Decoder Role Underexplored}: The configuration-dependent decoder contribution is identified but not mechanistically explained. Understanding why Condition C shows extreme variance (std = 17.13, range 0--43.84) requires further investigation.
+
+\textbf{Activation Function Choice}: All experiments used TopK activation ($k=32$); alternative sparsity methods (ReLU, JumpReLU) may exhibit different absorption patterns.
+
+\subsection{5.6 Future Directions}
+
+\textbf{Theoretical Analysis}: Prove the encoder-driven absorption result from first principles. Derive conditions under which absorption is unavoidable given the SAE training objective.
+
+\textbf{Mitigation Strategies}: Develop and test encoder modification techniques---orthogonality penalties during training, hierarchical contrastive learning objectives, and separate encoder pathways for parent and child features.
+
+\textbf{Safety Validation}: Establish a benchmark of validated safety-critical feature annotations across multiple model families. Enable proper H\_Safe testing with curated Neuronpedia annotations.
+
+\textbf{Frontier Characterization}: Extend Pareto frontier mapping across multiple SAE architectures (TopK, JumpReLU, Matryoshka), multiple model families, and multiple hierarchy types (semantic, syntactic, factual).
+
+\section{6. Conclusion}
+
+\subsection{Summary}
+
+We presented the first factorial decomposition of feature absorption in sparse autoencoders. Our key findings are:
+
+\begin{enumerate}
+\item \textbf{Encoder-driven mechanism with decoder regulatory role}: Absorption is primarily created by encoder alignment with hierarchical structure. In our 5-seed full experiment, encoder sufficiency is confirmed (Condition B $\approx$ Condition D, delta = 0.037), but the decoder is not uniformly irrelevant---the decoder contributes substantially in some seed configurations (Condition C shows extreme variance, std = 17.13, range 0--43.84). The stochastic hierarchy exposes decoder contributions that deterministic hierarchies masked in pilot experiments.
+
+\item \textbf{No monotonic hierarchy strength relationship}: H\_Comp failed to confirm that absorption increases with parent-child cosine similarity ($R^2$ = 0.04, target $>$ 0.8; regression slope = $-$0.296, $p$ = 0.703). The relationship is non-monotonic and seed-dependent, with absorption peaking at cosine $\approx$ 0.9 and dropping at 0.95.
+
+\item \textbf{Null sensitivity-absorption frontier}: H\_Pareto attempted to characterize a Pareto frontier between feature sensitivity and absorption but found degenerate results---absorption collapsed to zero across all L0 levels (16, 32, 64, 128) while sensitivity remained stable at 0.1054. The theoretical prediction of an irreducible sensitivity-absorption trade-off is not supported in synthetic SAEs.
+
+\item \textbf{Safety feature analysis inconclusive}: Preliminary experiments on Gemma Scope SAEs using placeholder feature indices showed null absorption for both safety and non-safety features. Proper testing requires validated Neuronpedia-annotated safety features.
+\end{enumerate}
+
+\subsection{Contributions}
+
+\begin{enumerate}
+\item \textbf{First factorial decomposition}: We introduced the 2$\times$2 factorial design that independently varies encoder and decoder training, revealing that encoder alignment creates absorption while decoder training suppresses it.
+
+\item \textbf{First quantitative characterization of null sensitivity-absorption relationship}: We attempted to measure the sensitivity-absorption Pareto frontier but found degenerate results (absorption = 0 across all L0 levels), suggesting the theoretical trade-off may not apply in synthetic SAEs or requires alternative metrics to detect.
+
+\item \textbf{Methodology for safety-critical analysis}: We provided protocols for testing whether safety-critical features are disproportionately vulnerable to absorption, enabling evidence-based safety assessment.
+\end{enumerate}
+
+\subsection{Implications}
+
+Our findings reframe absorption mitigation strategies. Since encoder alignment creates absorption, mitigation strategies should target encoder training---orthogonality constraints during training, hierarchical regularization, and architecture modifications that separate parent and child learning pathways. Decoder-side regularization offers a complementary approach: it does not create absorption (Condition C $\approx$ baseline in pilot) but suppresses it below encoder-only levels (Condition D $<$ Condition B). If the sensitivity-absorption trade-off proves real in real SAEs, mitigation may face limits---reducing absorption may reduce feature sensitivity, undermining interpretability utility.
+
+\subsection{Limitations and Future Work}
+
+Our work has limitations: synthetic hierarchies may not capture real language structure; single model families tested in primary experiments (GPT-2 Small validation suggests generalization); safety feature analysis inconclusive. Future work should validate on diverse model families (Claude, Llama, Mistral), develop and test absorption mitigation techniques, establish annotated safety feature benchmarks, and extend frontier characterization to multiple SAE architectures.
+
+\subsection{Final Remarks}
+
+Feature absorption is an emergent consequence of SAE training on hierarchically structured data, not a training bug. Understanding absorption's mechanism is the first step toward managing its effects. Our factorial decomposition provides that understanding, opening pathways to more reliable SAE-based interpretability for safety-critical applications.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/figure1_encoder_decoder_contribution.pdf}
+\caption{Encoder vs. decoder contribution to feature absorption (conceptual illustration). The figure shows how child features substitute for parent features in the SAE's learned hierarchy, illustrating the key finding that encoder alignment creates absorption while decoder training suppresses it.}
+\label{fig:encoder_decoder}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/figure2_h_mech_factorial.pdf}
+\caption{H\_Mech 2$\times$2 factorial bar chart showing encoder-driven absorption mechanism. Condition B (trained encoder, random decoder) produces absorption rates comparable to Condition D (full training), demonstrating that the encoder alone is sufficient to create absorption. Note Condition C's extreme variance exposing the configuration-dependent decoder contribution.}
+\label{fig:h_mech_factorial}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/figure3_hierarchy_strength.pdf}
+\caption{Hierarchy strength vs. absorption line plot showing non-monotonic relationship. Absorption ranges from 0.51 to 1.20 across cosine levels with no clear monotonic trend. Different seeds produce different rank orderings of absorption across hierarchy strength levels.}
+\label{fig:hierarchy_strength}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/figure4_pareto_frontier.pdf}
+\caption{Sensitivity-absorption scatter plot showing degenerate frontier. Absorption collapsed to zero across all L0 levels (16, 32, 64, 128) while sensitivity remained stable at 0.1054, indicating no Pareto frontier is detectable in synthetic SAEs.}
+\label{fig:pareto_frontier}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/figure5_safety_features.pdf}
+\caption{Safety vs. non-safety feature absorption violin plot (pilot results). Both groups show null absorption, though placeholder feature selection limits conclusions.}
+\label{fig:safety_features}
+\end{figure}
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}

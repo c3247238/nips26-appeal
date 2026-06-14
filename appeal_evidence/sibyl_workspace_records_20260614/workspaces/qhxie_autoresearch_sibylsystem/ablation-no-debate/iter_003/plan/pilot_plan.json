@@ -1,0 +1,69 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seed": 42,
+    "timeout": 900,
+    "note": "Pilot sample size n=100 per requirements. n=16 too small (signal reversal risk)."
+  },
+  "pilot_tasks": [
+    {
+      "task_id": "h_mech_pilot",
+      "focus": "H_Mech 2x2 factorial (A/B/C/D) with stochastic hierarchy",
+      "pass_criteria": "Condition B not significantly worse than D (delta < 0.05), Condition C not significantly better than A (delta < 0.05)",
+      "expected_runtime_minutes": 10,
+      "risk_level": "low",
+      "fallback": "If stochastic hierarchy shows purely random absorption, document as degenerate case"
+    },
+    {
+      "task_id": "h_comp_pilot",
+      "focus": "Hierarchy strength sweep (cosine similarity 0.6, 0.8, 0.95)",
+      "pass_criteria": "Absorption monotonically increases with hierarchy strength (no reversal)",
+      "expected_runtime_minutes": 10,
+      "risk_level": "low",
+      "fallback": "If non-monotonic, expand to 5 strength levels for full experiment"
+    },
+    {
+      "task_id": "h_pareto_pilot",
+      "focus": "L0 targets {16, 64}, measure absorption + sensitivity",
+      "pass_criteria": "Detectable difference in absorption across L0 levels (delta > 0.1)",
+      "expected_runtime_minutes": 15,
+      "risk_level": "medium",
+      "fallback": "If no difference, use L0 {8, 128} for stronger contrast"
+    },
+    {
+      "task_id": "h_safe_gemma_pilot",
+      "focus": "Gemma Scope: 5 safety + 5 non-safety features",
+      "pass_criteria": "Safety features show non-zero absorption signal (mean > 0.05)",
+      "expected_runtime_minutes": 20,
+      "risk_level": "medium",
+      "fallback": "If Gemma Scope fails to load, fallback to GPT-2 Small features"
+    }
+  ],
+  "pilot_decision_rules": {
+    "h_mech_pilot": {
+      "continue_to_full": "B ≈ D within 0.05 AND C ≈ A within 0.05",
+      "revise_and_retry": "Large variance suggests noise problem",
+      "abandon": "Random encoder achieves same absorption as trained (decoder geometry confirmed)"
+    },
+    "h_comp_pilot": {
+      "continue_to_full": "Monotonic trend observed across 3 levels (R² > 0.7)",
+      "revise_and_retry": "Non-monotonic suggests complex relationship",
+      "abandon": "Zero correlation between hierarchy strength and absorption"
+    },
+    "h_pareto_pilot": {
+      "continue_to_full": "Delta > 0.1 in absorption across L0 levels",
+      "revise_and_retry": "Use L0 {8, 128} for stronger contrast",
+      "abandon": "Sensitivity metric implementation fails"
+    },
+    "h_safe_gemma_pilot": {
+      "continue_to_full": "Safety mean absorption > 0.05 AND variance comparable to non-safety",
+      "revise_and_retry": "Relax matching criteria for non-safety controls",
+      "abandon": "Gemma Scope SAE fails to load (model access issue)"
+    }
+  },
+  "notes": {
+    "gemma_scope_access": "Requires sae-lens pretrained SAE registry. May need huggingface token if gated.",
+    "stochastic_hierarchy": "Epsilon noise N(0, 0.05) added to parent-child cosine similarities",
+    "sensitivity_metric": "Use simplified steering coefficient from Hu et al. 2025: var(steering_effect) / mean(steering_effect)"
+  }
+}

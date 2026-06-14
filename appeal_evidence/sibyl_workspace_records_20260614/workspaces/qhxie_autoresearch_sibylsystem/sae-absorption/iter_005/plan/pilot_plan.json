@@ -1,0 +1,110 @@
+{
+  "iteration": 5,
+  "candidate_id": "cand_causal_chain",
+  "pilot_strategy": "Three independent pilot streams executed in parallel: (1) P1 confound go/no-go is the critical path -- zero GPU, 15 min, determines whether H1 is worth pursuing. (2) P3 scaling surface data download + linear fit -- zero GPU, 20 min, validates SAEBench data availability. (3) P2 probe training pilot -- single GPU, 15 min, validates model access and probe quality.",
+  "go_nogo_logic": "P1 go/no-go is the most important gate. If ALL four partial correlations drop below |0.2| after L0 control, pivot H1 narrative to 'L0 is the true driver.' P2 probe pilot determines whether cross-domain contribution (H2) is feasible. P3 pilot determines whether scaling surface (H3) has structure worth characterizing.",
+  "pilots": [
+    {
+      "pilot_id": "pilot_P1_confound",
+      "task_id": "P1_confound_go_nogo",
+      "name": "L0 Covariate Go/No-Go Pilot",
+      "description": "Load iter_004 C3A_saebench_corr.json. Compute partial_corr(absorption, sparse_probing_f1 | log_width, layer, arch_class, log_L0) using pingouin. Compare with iter_004 result (partial_r = -0.661 without L0). This is the single most important pilot: it determines whether H1 is worth pursuing.",
+      "samples": 54,
+      "seed": 42,
+      "timeout": 300,
+      "gpu_count": 0,
+      "estimated_minutes": 10,
+      "pass_criteria": "partial_r for sparse_probing_f1 has |r| > 0.2 after adding log(L0) as covariate. If < 0.2 for ALL four metrics, H1 is falsified -- pivot to characterizing L0 as true driver.",
+      "go_nogo": true,
+      "failure_action": "Pivot H1 to negative result framing: 'absorption is an epiphenomenon of L0.' Continue with H2 (cross-domain) and H3 (scaling surface) as primary contributions. Full Phase 1 still runs to quantify how much of the correlation is L0-driven.",
+      "data_source": "iter_004/exp/results/full/C3A_saebench_corr.json",
+      "key_check": "Count SAEs with non-null L0 (expect ~48 of 54). If < 30, insufficient data for L0-controlled analysis."
+    },
+    {
+      "pilot_id": "pilot_P3_scaling",
+      "task_id": "P3_scaling_surface",
+      "name": "Scaling Surface Data Availability Pilot",
+      "description": "Download SAEBench results from HuggingFace. Count SAEs with both absorption score and L0 available. Fit simple linear model: absorption ~ log(width) + log(L0). Check R^2.",
+      "samples": 200,
+      "seed": 42,
+      "timeout": 600,
+      "gpu_count": 0,
+      "estimated_minutes": 15,
+      "pass_criteria": "N >= 100 SAEs with both absorption and L0. Linear model R^2 > 0.15. Data spans at least 3 width values and 4 L0 values.",
+      "go_nogo": false,
+      "failure_action": "If SAEBench data unavailable or N < 100, fall back to the 54-SAE dataset from iter_004 for a reduced scaling analysis. Report limitation.",
+      "data_source": "HuggingFace: adamkarvonen/sae_bench_results",
+      "key_check": "SAEBench HuggingFace dataset accessible and parseable. Absorption scores present in expected format."
+    },
+    {
+      "pilot_id": "pilot_P2_probe",
+      "task_id": "P2_probe_training",
+      "name": "RAVEL Probe Training Pilot on Gemma 2 2B",
+      "description": "Load Gemma 2 2B via TransformerLens. Load 200 cities from RAVEL with country labels. Extract residual stream activations at layer 12. Train city-country logistic regression probe (1 seed). Measure accuracy.",
+      "samples": 200,
+      "seed": 42,
+      "timeout": 900,
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "pass_criteria": "Gemma 2B loads without 401/access error. City-country probe at layer 12 achieves accuracy > 75% on held-out set of 200 cities. If model access fails, GPT-2 Small fallback probe achieves > 80%.",
+      "go_nogo": true,
+      "failure_action": "If Gemma 2B access fails: fall back to GPT-2 Small with SAELens GPT-2 SAEs. If probe accuracy < 75% at layer 12: try layers 8 and 17. If all layers fail: try city-continent (simpler hierarchy). If all hierarchies fail: abort H2 cross-domain contribution.",
+      "data_source": "HuggingFace: google/gemma-2-2b + RAVEL city dataset",
+      "key_check": "HuggingFace token has Gemma 2 access. TransformerLens supports gemma-2-2b. RAVEL data downloadable."
+    },
+    {
+      "pilot_id": "pilot_P4_taxonomy",
+      "task_id": "P4_taxonomy_correction",
+      "name": "Taxonomy Correction Feasibility Pilot",
+      "description": "Load iter_004 C2D_taxonomy.json. Count letters with n_comparison_tokens=0. For 5 such letters, attempt frequency-matched comparison token sampling. Verify that frequency-matched tokens exist in sufficient quantity.",
+      "samples": 100,
+      "seed": 42,
+      "timeout": 300,
+      "gpu_count": 0,
+      "estimated_minutes": 10,
+      "pass_criteria": "Frequency-matched comparison tokens found for >= 4/5 test letters. Each has >= 10 comparison tokens.",
+      "go_nogo": false,
+      "failure_action": "If frequency-matched sampling fails, use Chanin ground-truth parent feature IDs as alternative baseline. If both fail, report taxonomy correction as infeasible and retain original rates with caveats.",
+      "data_source": "iter_004/exp/results/full/C2D_taxonomy.json",
+      "key_check": "Taxonomy JSON has per-letter n_comparison_tokens field. Token frequency data accessible from model tokenizer."
+    }
+  ],
+  "execution_order": [
+    {
+      "batch": 1,
+      "parallel": true,
+      "pilots": ["pilot_P1_confound", "pilot_P3_scaling", "pilot_P4_taxonomy"],
+      "note": "Zero-GPU pilots, run in parallel immediately"
+    },
+    {
+      "batch": 2,
+      "parallel": false,
+      "pilots": ["pilot_P2_probe"],
+      "note": "GPU pilot, can run in parallel with batch 1 if GPU available"
+    }
+  ],
+  "decision_tree": {
+    "P1_go": {
+      "condition": "At least 1 of 4 metrics retains |partial_r| > 0.2 after L0 control",
+      "if_true": "Proceed with full Phase 1 (width-stratified, mediation, Rosenbaum, etc.)",
+      "if_false": "Pivot H1 to negative result. Phase 1 becomes 'How much does L0 explain?' Reduce scope to go/no-go + mediation only."
+    },
+    "P2_go": {
+      "condition": "Model access + probe accuracy >= 75%",
+      "if_true": "Proceed with full Phase 2 (absorption measurement, controls, cross-domain comparison)",
+      "if_false": "Abort Phase 2 if no model works. If only Gemma fails, use GPT-2 Small with reduced novelty."
+    },
+    "P3_go": {
+      "condition": "N >= 100 SAEs with absorption + L0, linear R^2 > 0.15",
+      "if_true": "Proceed with full Phase 3 (GAM fitting, interaction test, phase boundary detection)",
+      "if_false": "Fall back to 54-SAE analysis. Reduced power but still informative."
+    },
+    "paper_killed": {
+      "condition": "H1 falsified AND H2 infeasible (no model access + no probe quality)",
+      "if_true": "Pivot to 'honest audit' framing (cand_honest_audit). Paper becomes deflationary: absorption is less important than believed.",
+      "if_false": "Continue with at least 2 of 3 contributions."
+    }
+  },
+  "total_pilot_time_estimate_minutes": 30,
+  "total_pilot_gpu_hours": 0.25
+}

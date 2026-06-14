@@ -1,0 +1,94 @@
+{
+  "iteration": 4,
+  "stage": "pilot_experiments",
+  "status": "completed",
+  "decision_recommendation": "PIVOT",
+  "screening_rule": "If both MGCD-lite and DSG fail to separate from RAND-84, return to idea_debate instead of launching a full benchmark.",
+  "advance_candidate_found": false,
+  "full_benchmark_allowed": false,
+  "shared_runtime": {
+    "sample_count": 50,
+    "effective_batch_size": 50,
+    "probed_safe_batch_size": 182,
+    "attention_backend": "eager"
+  },
+  "candidate_results": [
+    {
+      "candidate_id": "cand_mgcd",
+      "arm_name": "mgcd84",
+      "dataset_results": [
+        {
+          "dataset": "gsm8k",
+          "accuracy": 0.22,
+          "avg_nfe": 70.22,
+          "vs_card84_net_repaired": -5,
+          "vs_rand84_net_repaired": -4,
+          "compile_enabled": false,
+          "result_path": "current/exp/results/mgcd_gsm8k_pilot.remote.json"
+        },
+        {
+          "dataset": "mbpp",
+          "accuracy": 0.0,
+          "avg_nfe": 84.84,
+          "vs_card84_net_repaired": -2,
+          "vs_rand84_net_repaired": -2,
+          "compile_enabled": false,
+          "result_path": "current/exp/results/mgcd_mbpp_pilot.remote.json"
+        }
+      ],
+      "screening_verdict": "failed",
+      "failure_reason": "MGCD-lite failed the sham-control gate on both audited slices and underperformed CARD-84 as well."
+    },
+    {
+      "candidate_id": "cand_dsg",
+      "arm_name": "dsg84",
+      "dataset_results": [
+        {
+          "dataset": "gsm8k",
+          "accuracy": 0.3,
+          "avg_nfe": 68.0,
+          "vs_card84_net_repaired": -1,
+          "vs_rand84_net_repaired": 0,
+          "compile_enabled": true,
+          "result_path": "current/exp/results/dsg_gsm8k_pilot.json"
+        },
+        {
+          "dataset": "mbpp",
+          "accuracy": 0.02,
+          "avg_nfe": 68.0,
+          "vs_card84_net_repaired": -1,
+          "vs_rand84_net_repaired": -1,
+          "compile_enabled": true,
+          "result_path": "current/exp/results/dsg_mbpp_pilot.remote.json"
+        }
+      ],
+      "screening_verdict": "failed",
+      "failure_reason": "DSG was cleaner than MGCD but still never separated from RAND-84 and did not beat CARD-84 on either audited slice."
+    }
+  ],
+  "untested_candidates": [
+    {
+      "candidate_id": "cand_bsr",
+      "status": "not_executed",
+      "note": "BSR remained a planned complexity-control candidate but was not run in this screening round."
+    },
+    {
+      "candidate_id": "cand_lmg",
+      "status": "deferred",
+      "note": "LMG stayed out of the training-free screening stage by design."
+    }
+  ],
+  "gate_checks": {
+    "h1_sham_control_separation": "failed",
+    "h2_state_necessity": "not_tested",
+    "h3_boundary_object_sufficiency": "not_tested",
+    "h4_single_track_sufficiency": "failed",
+    "h5_hidden_compute_neutrality": "inconclusive",
+    "h6_harm_containment": "failed"
+  },
+  "notes": [
+    "MGCD and DSG both consumed real pilot budget and produced negative evidence rather than launch failures.",
+    "The local monitor had stale running-state drift during execution; remote DONE markers were used as the authoritative completion signal.",
+    "The next loop should return to idea_debate instead of instantiating a full benchmark."
+  ]
+}

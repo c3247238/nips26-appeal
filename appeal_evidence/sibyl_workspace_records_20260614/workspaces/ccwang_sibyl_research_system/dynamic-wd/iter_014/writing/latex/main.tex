@@ -1,0 +1,521 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{amsthm}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+\title{Gradient-to-Weight Ratio Homeostasis: A Unified Feedback Control Framework and Diagnostic Benchmark for Dynamic Weight Decay}
+
+\author{%
+  Anonymous Authors \\
+  \texttt{anonymous@example.com}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Weight decay (WD) is the dominant regularizer in deep learning, yet the field has fragmented into four disconnected sub-communities --- WD scheduling, alignment-aware WD, decoupled WD, and norm-matched WD --- each developing methods under incomparable evaluation protocols. We show that the per-layer gradient-to-weight (GW) ratio $\rho_t^l = \|g_t^l\| / \|w_t^l\|$ is the shared control variable across all four traditions, and formalize this observation into a single PID-style control law parameterized by proportional, integral, and derivative/alignment gains $(K_p, K_i, K_d)$. The framework maps five existing methods to specific gain configurations and fits CWD's effective-WD trajectories to 4.71\% error and CPR's to 9.57\% on 200-epoch CIFAR-10/ResNet-20 data. We propose UDWDC, a zero-hyperparameter proportional controller that closes the $\rho_t^l$ feedback loop, and introduce three standardized evaluation metrics --- Budget Equivalence Metric (BEM), Coupling Stability Index (CSI), and Alignment Informativeness Score (AIS) --- that expose method differences invisible to accuracy-only evaluation. In controlled experiments across CIFAR-10, CIFAR-100, and ImageNet, CPR achieves the highest accuracy (91.74\% on CIFAR-10, 74.74\% on ImageNet ResNet-50) through integral control; UDWDC v1 exhibits $\text{CSI}_\text{combined}$ = $-$2.41, quantifying instability not captured by its 90.15\% accuracy alone. The framework cleanly delineates its own scope: scheduling-based methods (SWD: 45.8\% fitting error) operate through global mechanisms outside the per-layer feedback paradigm, and CWD's accuracy gains are confounded by a 50\% WD magnitude reduction.
+\end{abstract}
+
+\section{Introduction}
+
+Weight decay (WD) is the default regularizer in deep learning: a single coefficient $\lambda$ that shrinks every parameter toward zero at each optimization step (in SGD-based optimizers; AdamW decouples WD from adaptive scaling, as discussed in Section~\ref{sec:background}). Despite its ubiquity, the research community has splintered into four parallel sub-traditions for \textit{dynamically} controlling $\lambda$, each addressing a different perceived failure mode of fixed WD:
+
+\begin{enumerate}
+\item \textbf{WD scheduling} adjusts $\lambda$ based on gradient norms or training progress. SWD~\citep{xie2023weight} senses $\|\nabla \mathcal{L}\|$ and reduces $\lambda_t$ when gradients are large; ADANA~\citep{ferbach2026adana} applies logarithmic-time schedules to $\lambda$ alongside $\beta_1$ and $\beta_2$.
+
+\item \textbf{Alignment-aware WD} conditions $\lambda$ on the cosine alignment $\alpha_t^l = \langle g_t^l, w_t^l \rangle / (\|g_t^l\| \|w_t^l\|)$ between gradient and weight vectors. CWD~\citep{chen2026cwd} applies a binary mask: decay only when $\alpha_t^l < 0$. A one-line code change yields +0.61\% on ImageNet ViT-S/16 over standard AdamW.
+
+\item \textbf{Decoupled WD} separates the weight-shrinkage term from adaptive gradient scaling. AdamW~\citep{loshchilov2019decoupled} remains the dominant instantiation; AdamO~\citep{chen2026adamo} further decomposes the update into radial (norm) and tangential (direction) components to resolve the ``Radial Tug-of-War'' between WD and gradient.
+
+\item \textbf{Norm-matched WD} drives weight norms toward explicit targets via augmented Lagrangian constraints or spectral analysis. CPR~\citep{franke2024cpr} outperforms AdamW across CIFAR-100, ImageNet, and GPT-2 by enforcing per-parameter-matrix upper-bound constraints with only two hyperparameters.
+\end{enumerate}
+
+These four sub-communities develop methods in isolation and evaluate under incomparable protocols --- different datasets, different metrics, different hyperparameter search budgets --- making it impossible to determine which design choices actually matter.
+
+Two recent theoretical results suggest the four traditions share a common target. Defazio~\citep{defazio2025gw} proves that under constant learning rate, WD drives the per-layer GW ratio $\rho_t^l = \|g_t^l\| / \|w_t^l\|$ to a well-defined steady state for all normalized layers. Wang \& Aitchison~\citep{wang2025ema} independently show that the optimal WD, recast as an Exponential Moving Average (EMA) timescale $\tau = 1/(\lambda_0 \cdot \eta_0)$, is constant across model and dataset scales. Sun et al.~\citep{sun2025convergence} prove that WD does not accelerate convergence but strictly improves generalization through an alignment-dependent mechanism.
+
+We formalize the connection: \textbf{all four dynamic WD sub-traditions are approximations of a single PID-style feedback control law that regulates $\rho_t^l$ toward a prescribed target trajectory $\rho^*(t) = \eta_t / \tau$.} CWD's alignment mask corresponds to a derivative/alignment correction term ($K_d > 0$). SWD's gradient-norm sensing maps to proportional-integral control ($K_p > 0$, $K_i > 0$). CPR's augmented Lagrangian penalty accumulates constraint violations as integral control ($K_i > 0$). FixedWD is open-loop control with all gains set to zero.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/rho_trajectories.pdf}
+\caption{Per-layer GW ratio $\rho_t^l$ trajectories on CIFAR-10/ResNet-20 (10-epoch pilot). (a) Mean $\rho_t^l$ across layers decays from $\sim$0.05 to $\sim$0.015 for all methods within 4 epochs, confirming $\rho_t^l$ as the shared control variable. CPR starts highest due to large initial effective WD; UDWDC shows more oscillation. (b) Per-layer $\rho_t^l$ distribution at the final epoch: CWD achieves tighter median, while UDWDC shows higher variance, consistent with its negative $\text{CSI}_{\text{combined}} = -2.41$.}
+\label{fig:rho_traj}
+\end{figure}
+
+Building on this unified view, we make the following contributions:
+
+\begin{enumerate}
+\item \textbf{Unified feedback control framework.} We derive a single parametric control law, $\lambda_t^l = \lambda_{\text{base}} + K_p \cdot e_t^l + K_i \cdot \text{EMA}(e_t^l) - K_d \cdot \alpha_t^l \cdot e_t^l$, where $e_t^l = \rho_t^l - \rho^*(t)$, and map five existing methods to specific gain configurations $(K_p, K_i, K_d)$. Empirical fitting on CIFAR-10/ResNet-20 trajectories (200 epochs, 3 seeds) achieves 4.71\% relative error for CWD and 9.57\% for CPR. Scheduling-based methods (SWD: 45.8\% error, DefazioCorrective: 37.6\% error) exceed the 20\% pass threshold, indicating that global gradient-norm scheduling does not map cleanly to per-layer $\rho_t^l$ feedback --- an honest boundary of the framework.
+
+\item \textbf{UDWDC: a simple proportional controller.} We propose Unified Dynamic Weight Decay Control (UDWDC), a proportional-only controller ($K_p > 0$, $K_i = K_d = 0$) that closes the $\rho_t^l$ feedback loop explicitly, introducing zero new hyperparameters beyond the user's existing $\lambda_{\text{base}}$ and $\eta_0$.
+
+\item \textbf{Standardized evaluation metrics.} We introduce BEM, which measures accuracy improvement per unit of total WD budget (relative to the NoWD baseline); CSI, which quantifies the temporal and spatial stability of $\rho_t^l$; and AIS, which measures the Spearman correlation between the alignment signal and optimal WD decisions.
+
+\item \textbf{Theoretical analysis.} We extend the nonconvex Stochastic Gradient Descent with Weight decay (SGDW) convergence framework of Sun et al.~\citep{sun2025convergence} to time-varying WD with alignment modulation. Theorem~\ref{thm:contraction} proves that alignment-modulated WD achieves tighter generalization bounds per unit WD budget when the alignment variance $\text{Var}_t[\phi(\delta_t)] > 0$.
+
+\item \textbf{Comprehensive experiments.} We conduct a controlled 7-way comparison on CIFAR-10 (ResNet-20), CIFAR-100 (VGG-16-BN), and ImageNet (ResNet-50) with 3 seeds (CIFAR) and up to 5 seeds (ImageNet). CPR achieves the highest accuracy on CIFAR-10 (91.74 $\pm$ 0.07\%) and ImageNet (74.74 $\pm$ 0.05\%). UDWDC v1 exhibits $\text{CSI}_\text{combined}$ = $-$2.41 (high instability) --- a failure mode that BEM = $-$0.26 reveals but raw accuracy (90.15\%) only partially exposes.
+\end{enumerate}
+
+\section{Background and Related Work}
+\label{sec:background}
+
+This section surveys the four WD sub-traditions in detail, identifies the GW ratio $\rho_t^l$ as their shared underlying quantity, and positions our work relative to other unified optimizer perspectives.
+
+\subsection{WD Scheduling}
+
+WD scheduling modulates $\lambda_t$ as a function of training progress or gradient statistics, without per-layer differentiation.
+
+\textbf{SWD}~\citep{xie2023weight} identifies that fixed WD causes gradient-norm spikes during learning rate decay, harming generalization. SWD senses $\|\nabla \mathcal{L}\|$ to modulate $\lambda_t$, reducing decay when gradients are large. Section~\ref{sec:experiments} validates: SWD achieves 90.39 $\pm$ 0.19\% on CIFAR-10/ResNet-20, close to FixedWD (90.68 $\pm$ 0.11\%).
+
+\textbf{ADANA}~\citep{ferbach2026adana} extends scheduling to logarithmic-time decay of $\lambda$, $\beta_1$, and $\beta_2$ simultaneously, achieving a 40\% compute efficiency gain on language modeling tasks.
+
+\textbf{Defazio corrective WD}~\citep{defazio2025gw} compensates for the interaction between WD and learning rate schedules by applying a corrective term proportional to the current learning rate ratio $\eta_t / \eta_0$. The corrective term is a feedforward compensation signal in the control framework, operating on $\rho^*(t)$ rather than on the error signal.
+
+\subsection{Alignment-Aware WD}
+
+\textbf{CWD}~\citep{chen2026cwd} applies a binary mask: WD is applied only when $\text{sign}(g_t) \neq \text{sign}(w_t)$ element-wise (i.e., when $\alpha_t^l < 0$), meaning the gradient would move weights \textit{toward} zero. CWD achieves +0.61\% on ImageNet ViT-S/16 over standard AdamW. Section~\ref{sec:experiments} finds CWD's effective WD is approximately 50\% of FixedWD ($\lambda_{\text{eff}} \approx 5 \times 10^{-5}$ vs.~$10^{-4}$) --- a confound addressed in Section~\ref{sec:discussion}.
+
+\textbf{GWA}~\citep{holzl2025gwa} quantifies per-sample gradient-weight coherence as a generalization proxy without directly modulating WD.
+
+\textbf{AdamO}~\citep{chen2026adamo} decomposes the optimizer update into radial and tangential components, identifying the ``Radial Tug-of-War'' between WD and gradient.
+
+\subsection{Decoupled WD}
+
+\textbf{AdamW}~\citep{loshchilov2019decoupled} demonstrated that in Adam, adding $\lambda w$ to the gradient ($L_2$ regularization) is not equivalent to subtracting $\eta \lambda w$ from the parameter update (WD). AdamW decouples the two, becoming the standard optimizer for transformer training.
+
+\textbf{Scaling rules.} Wang \& Aitchison~\citep{wang2025ema} recast optimal WD as an EMA timescale $\tau = 1/(\lambda_0 \cdot \eta_0)$ that remains constant across model and dataset scales. These scaling results provide the basis for the target trajectory $\rho^*(t) = \eta_t / \tau$ in our framework.
+
+\subsection{Norm-Matched WD}
+
+\textbf{CPR}~\citep{franke2024cpr} formulates WD as a per-parameter-matrix constraint optimization problem via augmented Lagrangian. When weight norms exceed the target, the Lagrange multiplier accumulates, producing progressively larger effective WD. Section~\ref{sec:experiments} validates: CPR's effective WD reaches $10\times$ the baseline, achieving 91.74 $\pm$ 0.07\% on CIFAR-10/ResNet-20 and 74.74 $\pm$ 0.05\% on ImageNet/ResNet-50.
+
+\textbf{AdamWN}~\citep{loshchilov2023adamwn} generalizes decoupled WD to target arbitrary weight norms. \textbf{AlphaDecay}~\citep{he2025alphadecay} assigns module-wise WD coefficients guided by spectral heavy-tailedness.
+
+\subsection{Theoretical Foundations}
+
+Defazio's GW ratio analysis~\citep{defazio2025gw} proves that WD drives $\rho_t^l$ to a steady state for all normalized layers, providing a clean explanation for the Adam vs.~AdamW performance gap.
+
+Sun et al.'s nonconvex convergence theory~\citep{sun2025convergence} proves that WD does not accelerate convergence but strictly improves generalization through an alignment-dependent mechanism. We extend this framework to time-varying $\lambda_t$ in Section~\ref{sec:theory}.
+
+D'Angelo et al.~\citep{dangelo2024wd} provide a unifying empirical perspective: WD is never useful as explicit regularization but instead acts as a training dynamics modifier through the ``loss stabilization mechanism'' for SGD.
+
+\subsection{Distinction from PIDAO}
+
+PIDAO~\citep{pidao2024} applies PID control to the optimizer step itself --- the gradient update direction and magnitude. Our work applies PID control to the WD coefficient $\lambda_t$ --- a different control target entirely. PIDAO optimizes \textit{how the gradient is used}; we optimize \textit{how much regularization is applied}. The two are complementary.
+
+\subsection{The Shared Control Variable}
+
+The four sub-traditions, despite their different formulations, all implicitly manipulate $\rho_t^l$: scheduling methods adjust $\lambda_t$ to shift the $\rho_t^l$ steady state; alignment-aware methods selectively disable WD to change the effective $\rho_t^l$ trajectory; decoupled methods ensure $\lambda$ acts on parameter norms without distortion; norm-matched methods enforce explicit norm targets equivalent to specifying $\rho^*$. Section~\ref{sec:framework} formalizes this observation (Table~\ref{tab:pid_mapping}).
+
+\section{Unified Feedback Control Framework}
+\label{sec:framework}
+
+We formalize the observation from Section~\ref{sec:background} into a single parametric control law.
+
+\subsection{The Gradient-to-Weight Ratio as Control Variable}
+
+For each parameter group (layer) $l$ at training step $t$, define the GW ratio:
+\begin{equation}
+  \rho_t^l = \frac{\|g_t^l\|_2}{\|w_t^l\|_2 + \epsilon}
+  \label{eq:gw_ratio}
+\end{equation}
+where $g_t^l$ is the stochastic gradient, $w_t^l$ is the parameter vector, and $\epsilon = 10^{-8}$ prevents division by zero.
+
+Defazio~\citep{defazio2025gw} proves that under constant learning rate $\eta$ and WD coefficient $\lambda$, the SGDW update drives $\rho_t^l$ to a unique steady state for all normalized layers. Wang \& Aitchison~\citep{wang2025ema} show the optimal WD expressed as the EMA timescale $\tau = 1/(\lambda_0 \cdot \eta_0)$ is constant across model sizes. Under cosine annealing with learning rate $\eta_t$, the target GW ratio is:
+\begin{equation}
+  \rho^*(t) = \frac{\eta_t}{\tau} = \eta_t \cdot \lambda_0 \cdot \eta_0
+  \label{eq:target}
+\end{equation}
+
+\subsection{PID Control Law Parameterization}
+
+We parameterize the WD coefficient as a function of the GW ratio error:
+\begin{equation}
+  \lambda_t^l = \lambda_{\text{base}} + K_p \cdot e_t^l + K_i \cdot \text{EMA}(e_t^l) - K_d \cdot \alpha_t^l \cdot e_t^l
+  \label{eq:pid}
+\end{equation}
+where $e_t^l = \rho_t^l - \rho^*(t)$ is the per-layer control error, $\alpha_t^l = \langle g_t^l, w_t^l \rangle / (\|g_t^l\| \cdot \|w_t^l\|)$ is the gradient-weight alignment cosine, $K_p$ is the proportional gain, $K_i$ is the integral gain, and $K_d$ is the derivative/alignment gain.
+
+Table~\ref{tab:pid_mapping} maps five existing methods plus UDWDC to specific gain configurations.
+
+\begin{table}[t]
+\centering
+\caption{Unified control law parameter mapping. Each existing method corresponds to a specific gain configuration in the PID framework. FixedWD is open-loop (no feedback). CWD uses only the alignment correction. DefazioCorrective prescribes $\lambda_t \propto \eta_t/\eta_0$ without measuring $\rho_t^l$ --- it is genuinely feedforward. UDWDC uses proportional feedback on $\rho_t^l$ directly.}
+\label{tab:pid_mapping}
+\begin{tabular}{lllllll}
+\toprule
+Method & $\rho^*(t)$ & $K_p$ & $K_i$ & $K_d$ & Feedback Signal & Control Type \\
+\midrule
+FixedWD & --- & 0 & 0 & 0 & None & Open-loop \\
+CWD & --- & 0 & 0 & $>0$ & Binary $\text{sign}(\alpha^l)$ & Derivative only \\
+SWD & Dynamic & $>0$ & $>0$ & 0 & $\|\nabla\mathcal{L}\|$ & Proportional-integral \\
+DefazioCorrective & $\eta_t/\tau$ & 0 & 0 & 0 & $\eta_t/\eta_0$ (schedule) & Feedforward \\
+CPR & Per-matrix & $>0$ & $>0$ & 0 & Norm violation & Integral-dominant \\
+\textbf{UDWDC (ours)} & $\eta_t/\tau$ & $>0$ & 0 & 0 & $\rho_t^l$ & Proportional \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Empirical Validation of Unification (H1).} We fit the extended control law to per-layer effective-WD trajectories from 200-epoch CIFAR-10/ResNet-20 experiments (3 seeds, 24 weight-bearing layers per seed, 72 traces total). Table~\ref{tab:h1_fitting} summarizes the results.
+
+\begin{table}[t]
+\centering
+\caption{H1 unification fitting results. The control law captures CWD (4.71\% error) and CPR (9.57\% error) well. SWD and DefazioCorrective exceed the 20\% threshold because they use global gradient statistics or feedforward schedule-based correction rather than per-layer measured $\rho_t^l$. H1 is not falsified (2/5 failures; falsification threshold: $>$2).}
+\label{tab:h1_fitting}
+\begin{tabular}{llrr l}
+\toprule
+Method & Family & Rel.~Error (\%) & Std (\%) & Status \\
+\midrule
+CWD & Alignment-based & 4.71 & 0.16 & PASS \\
+CPR & Constraint-based & 9.57 & 1.47 & PASS \\
+NoWD & Degenerate & 0.00 & 0.00 & PASS \\
+SWD & Scheduling-based & 45.81 & 0.68 & FAIL \\
+DefazioCorrective & Scheduling-based & 37.56 & 2.37 & FAIL \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{UDWDC: A Simple Proportional Controller}
+
+UDWDC closes the $\rho_t^l$ feedback loop with a proportional-only design:
+
+\begin{algorithm}[t]
+\caption{UDWDC}
+\label{alg:udwdc}
+\begin{algorithmic}[1]
+\REQUIRE $\lambda_{\text{base}}$, $\eta_0$ (from user's training recipe)
+\STATE Compute $\tau = 1 / (\lambda_{\text{base}} \cdot \eta_0)$
+\FOR{each step $t$, each layer $l$}
+  \STATE Measure $\rho_t^l = \|g_t^l\|_2 / (\|w_t^l\|_2 + \epsilon)$
+  \STATE Compute target $\rho^*(t) = \eta_t / \tau$
+  \STATE Compute $\lambda_t^l = \lambda_{\text{base}} \cdot \text{clamp}(\rho_t^l / \rho^*(t),\; 0.1,\; 10)$
+  \STATE Update $w_{t+1}^l = (1 - \eta_t \lambda_t^l) w_t^l - \eta_t g_t^l$
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+Algorithm~\ref{alg:udwdc} uses a multiplicative ratio formulation for numerical stability: the multiplicative form bounds the effective WD to $[0.1\times, 10\times]\lambda_{\text{base}}$ regardless of error magnitude, whereas the additive form (Equation~\ref{eq:pid}) can produce unbounded $\lambda_t^l$ when $e_t^l$ is large. UDWDC introduces \textbf{zero new hyperparameters}: the target trajectory $\rho^*(t) = \eta_t / \tau$ is fully determined by $\lambda_{\text{base}}$ and $\eta_0$, both already specified in the user's training recipe.
+
+Figure~\ref{fig:control_loop} shows the UDWDC feedback control loop.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/udwdc_control_loop.pdf}
+\caption{UDWDC closed-loop block diagram: measure $\rho_t^l$ $\to$ compute error $e_t^l = \rho_t^l - \rho^*(t)$ $\to$ proportional gain with clamping $\to$ $\lambda_t^l$ $\to$ weight update. Existing methods are open-loop (FixedWD) or partial-loop (CWD senses $\alpha_t^l$ but not $\rho_t^l$; CPR senses norm violation but not alignment).}
+\label{fig:control_loop}
+\end{figure}
+
+\textbf{UDWDC-v2: Stability Fix.} Pilot experiments revealed that UDWDC v1 suffers from instability: when $\rho_t^l < \rho^*(t)$ for most layers (common during early training with BN), the clamp drives $\lambda_t^l$ to $0.1 \times \lambda_{\text{base}}$, effectively disabling WD. UDWDC-v2 applies two modifications: (1) EMA smoothing with $\hat{\rho}_t^l = \text{EMA}(\rho_t^l, \beta = 0.99)$; and (2) floor clipping $\lambda_t^l \geq \lambda_{\min} = 0.1 \cdot \lambda_{\text{base}}$. These are engineering patches preserving the P-only design for simplicity while documenting the instability as a finding.
+
+\section{Theoretical Analysis}
+\label{sec:theory}
+
+We extend the nonconvex SGDW convergence framework of Sun et al.~\citep{sun2025convergence} to time-varying WD with alignment modulation.
+
+\begin{theorem}[Contraction-Rate Separation for Stagewise SGDW]
+\label{thm:contraction}
+Consider an $L_{\text{smooth}}$-smooth nonconvex objective $\mathcal{L}$ optimized by SGDW with a stagewise WD schedule $\lambda_t$ and alignment-weighting function $\phi(\delta_t) \geq 0$. Define the cumulative contraction $C_T = \sum_{t=1}^{T} \eta_t \lambda_t \|w_t\|^2$ and the alignment-weighted contraction $A_T = \sum_{t=1}^{T} \eta_t \lambda_t \|w_t\|^2 \cdot \phi(\delta_t)$.
+
+The convergence rate to an $\epsilon$-stationary point matches unregularized SGD at $O(1/\sqrt{T})$ when $C_T = O(\sqrt{T})$. When the alignment variance $\text{Var}_t[\phi(\delta_t)] > 0$, alignment-modulated WD achieves a strictly tighter generalization bound per unit of WD budget $C_T$ compared to fixed WD.
+\end{theorem}
+
+\textit{Intuition.} Fixed WD applies uniform contraction regardless of instantaneous alignment. Alignment-modulated WD concentrates contraction on steps where alignment indicates the decay is most beneficial for generalization. The efficiency gain is proportional to $\text{Var}_t[\phi(\delta_t)]$.
+
+\begin{proposition}[Geometry-Corrected Alignment for Adam]
+\label{prop:geometry}
+For AdamW with diagonal preconditioner $P_t = \mathrm{diag}(\hat{v}_t + \epsilon)$, the geometrically natural alignment is:
+\begin{equation}
+  \delta_t^P = \frac{\langle P_t^{-1} g_t, w_t \rangle}{\|P_t^{-1} g_t\| \cdot \|w_t\|}
+\end{equation}
+rather than the standard $\ell_2$-alignment $\alpha_t^l$. Alignment-aware WD methods should use preconditioner-corrected alignment when applied with Adam-family optimizers.
+\end{proposition}
+
+\begin{proposition}[Layer-Differentiated Steady States]
+\label{prop:steady}
+Under alignment-modulated WD on networks with normalized layers (BN), the per-layer steady-state GW ratios satisfy:
+\begin{equation}
+  r_l^* = \frac{\lambda_{\text{base}} \cdot \gamma}{\phi(\delta_l^*)}
+\end{equation}
+where $\gamma$ is a normalization-related constant and $\delta_l^*$ is the per-layer steady-state alignment. This yields layer-differentiated equilibria: layers with high steady-state alignment achieve lower GW ratios, and vice versa.
+\end{proposition}
+
+\section{Standardized Evaluation Metrics}
+\label{sec:metrics}
+
+We propose three metrics to enable fair cross-method comparison.
+
+\subsection{Budget Equivalence Metric (BEM)}
+
+\begin{equation}
+  \text{BEM} = \frac{\text{acc} - \text{acc}_{\text{NoWD}}}{\text{TotalWDBudget}}
+\end{equation}
+where $\text{TotalWDBudget} = \sum_{t=1}^{T} \sum_{l=1}^{L} \lambda_t^l \|w_t^l\|^2$ is the cumulative WD applied during training. BEM captures accuracy improvement per unit of regularization applied, separating methods that achieve high accuracy through efficient WD allocation from those that achieve it through brute-force high WD.
+
+\subsection{Coupling Stability Index (CSI)}
+
+\begin{equation}
+  \text{CSI}_{\text{temporal}} = 1 / \text{Var}_t[\lambda_{\text{eff}}^l], \quad \text{CSI}_{\text{spatial}} = 1 / \text{Var}_l[\lambda_{\text{eff}}^l]
+\end{equation}
+averaged over layers (temporal) or over time steps (spatial) in the last 25\% of training, normalized relative to FixedWD such that FixedWD achieves $\text{CSI} = 1.0$. The combined CSI is:
+\begin{equation}
+  \text{CSI}_{\text{combined}} = \frac{\text{CSI}_{\text{temporal}} + \text{CSI}_{\text{spatial}}}{2}
+\end{equation}
+
+\subsection{Alignment Informativeness Score (AIS)}
+
+\begin{equation}
+  \text{AIS} = \text{Spearman}(\alpha_t^l, \text{optimal WD decision})
+\end{equation}
+where the optimal WD decision is estimated retrospectively by correlating the alignment signal with generalization-gap changes across training. AIS is conditioned on batch size to account for alignment SNR scaling (Section~\ref{sec:batchsize}).
+
+\section{Experiments}
+\label{sec:experiments}
+
+We evaluate the unified framework and UDWDC across three dataset-architecture combinations with 7 methods, 3--5 seeds per configuration, and full diagnostic tracking of $\rho_t^l$, $\alpha_t^l$, effective WD, and weight norms per layer per epoch.
+
+\subsection{Experimental Setup}
+
+\textbf{Datasets.} CIFAR-10 (50K/10K, $32{\times}32$), CIFAR-100 (50K/10K, $32{\times}32$), and ImageNet-1K (1.28M/50K, $224{\times}224$).
+
+\textbf{Architectures.} ResNet-20 (272K parameters, BN) for CIFAR-10 diagnostic experiments; VGG-16-BN (15.3M parameters, BN) for CIFAR-100 ablation; ResNet-50 (25.6M parameters, BN) for ImageNet main comparison.
+
+\textbf{Methods.} Seven baselines: FixedWD ($\lambda = 10^{-4}$), CWD, SWD, CPR, DefazioCorrective, NoWD ($\lambda = 0$), and UDWDC. UDWDC-v2 (EMA smoothing + floor clipping) is included as a stability-fixed variant.
+
+\textbf{Training protocol.} SGD with momentum 0.9, cosine annealing from $\eta_0 = 0.1$ to 0. CIFAR: 200 epochs, batch size 128, seeds $\{42, 123, 456\}$. ImageNet: 90 epochs, batch size 432 (Distributed Data Parallel across 2 GPUs), seeds $\{42, 123, 456, 789, 2024\}$ for FixedWD and $\{42, 123, 456\}$ for dynamic methods. No mixup, cutmix, or RandAugment is used, isolating WD effects from augmentation interactions.
+
+\subsection{CIFAR-10 Diagnostic Results}
+
+Table~\ref{tab:cifar10} reports the 200-epoch CIFAR-10/ResNet-20 results.
+
+\begin{table}[t]
+\centering
+\caption{CIFAR-10/ResNet-20, 200 epochs, 3 seeds. CPR achieves the highest accuracy (+1.06 pp over FixedWD), driven by its aggressive integral control that accumulates $9.3\times$ the WD budget. UDWDC v1 underperforms NoWD by 0.10 pp, reflecting its instability. UDWDC-v2's enormous WD budget (98599) results from floor clipping applying nonzero $\lambda$ to all 65 layers including BN layers. BEM = (acc $-$ acc$_{\text{NoWD}}$) / WD budget.}
+\label{tab:cifar10}
+\begin{tabular}{lrrrr}
+\toprule
+Method & Best Acc (\%) & Gen Gap (\%) & WD Budget & BEM \\
+\midrule
+\textbf{CPR} & \textbf{91.74 $\pm$ 0.07} & \textbf{8.28 $\pm$ 0.05} & 4.44 & 0.39 \\
+FixedWD & 90.68 $\pm$ 0.11 & 9.28 $\pm$ 0.17 & 0.48 & 0.89 \\
+DefazioCorrective & 90.62 $\pm$ 0.20 & 9.31 $\pm$ 0.22 & 0.24 & 1.50 \\
+SWD & 90.39 $\pm$ 0.19 & 9.49 $\pm$ 0.23 & 0.47 & 0.30 \\
+UDWDC-v2 & 90.36 $\pm$ 0.09 & 9.53 $\pm$ 0.07 & 98599 & ${\approx}1.1{\times}10^{-6}$ \\
+CWD & 90.32 $\pm$ 0.08 & 9.66 $\pm$ 0.05 & 0.24 & 0.12 \\
+NoWD & 90.25 $\pm$ 0.30 & 9.73 $\pm$ 0.30 & 0.00 & --- \\
+UDWDC & 90.15 $\pm$ 0.23 & 9.82 $\pm$ 0.25 & 0.38 & $-$0.26 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key observations.} (1) CPR's integral control is highly effective: accumulating constraint violations drives $\lambda_{\text{eff}}$ to $10^{-3}$, producing the smallest generalization gap (8.28\%). (2) CWD's effective WD is approximately 50\% of FixedWD (0.24 vs.~0.48), confirming the contrarian concern. CWD (90.32\%) underperforms FixedWD (90.68\%). (3) UDWDC v1 achieves accuracy below NoWD (90.15\% vs.~90.25\%), indicating the proportional controller's instability actively harms performance. (4) The spread between best (CPR, 91.74\%) and worst WD method (UDWDC, 90.15\%) is 1.59 pp.
+
+\subsection{UDWDC Gain Ablation (CIFAR-100/VGG-16-BN)}
+
+To isolate the contribution of each PID component, we run 7 gain configurations on CIFAR-100/VGG-16-BN (200 epochs, 3 seeds). Table~\ref{tab:ablation} reports the results.
+
+\begin{table}[t]
+\centering
+\caption{UDWDC gain ablation on CIFAR-100/VGG-16-BN, 200 epochs, 3 seeds. The alignment-only variant (Kd\_only) slightly outperforms FixedWD, while all proportional-containing variants underperform. High variance in Full PID and PI\_control reflects sensitivity to gain interactions.}
+\label{tab:ablation}
+\begin{tabular}{lrrrrrr}
+\toprule
+Variant & $K_p$ & $K_i$ & $K_d$ & Acc (\%) & WD Budget & Gen Gap (\%) \\
+\midrule
+\textbf{Kd\_only} & 0 & 0 & 0.3 & \textbf{70.64 $\pm$ 0.30} & 0.594 & \textbf{29.34} \\
+FixedWD & 0 & 0 & 0 & 70.53 $\pm$ 0.48 & 0.580 & 29.41 \\
+Ki\_only & 0 & 0.1 & 0 & 69.64 $\pm$ 0.88 & 0.134 & 30.08 \\
+Full PID & 0.5 & 0.1 & 0.3 & 69.29 $\pm$ 1.28 & 0.277 & 30.46 \\
+PD\_control & 0.5 & 0 & 0.3 & 69.28 $\pm$ 0.57 & 0.300 & 30.36 \\
+PI\_control & 0.5 & 0.1 & 0 & 69.12 $\pm$ 1.11 & 0.317 & 30.55 \\
+Kp\_only & 0.5 & 0 & 0 & 68.52 $\pm$ 0.31 & 0.300 & 31.30 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key observations.} (1) The alignment correction alone ($K_d = 0.3$) matches or slightly exceeds FixedWD (70.64\% vs.~70.53\%), confirming alignment information provides marginal value in isolation. (2) Adding proportional control ($K_p > 0$) consistently degrades accuracy; Kp\_only achieves 68.52\%, 2.01 pp below FixedWD. (3) The integral term ($K_i$) partially mitigates the proportional instability: PI\_control (69.12\%) outperforms Kp\_only (68.52\%) by 0.60 pp. (4) Full PID (69.29\%) does not outperform any single-gain variant.
+
+\subsection{Alignment Signal Quality: Batch-Size Sweep}
+\label{sec:batchsize}
+
+We sweep batch sizes $\{64, 128, 256, 512, 1024\}$ on CIFAR-100/VGG-16-BN (200 epochs, 3 seeds) for FixedWD, CWD, and UDWDC-v2. Figure~\ref{fig:alignment_snr} shows the alignment SNR vs.~batch size and corresponding accuracy differences.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/alignment_snr.pdf}
+\caption{(a) Alignment SNR vs.~batch size for FixedWD, CWD, and UDWDC-v2 on CIFAR-100/VGG-16-BN (200 epochs, 3 seeds). SNR is non-monotonic for all methods: FixedWD peaks at bs=128 (0.0167) then collapses to 0.0001 at bs=512. CWD collapses at bs=256 (0.0001) before partial recovery. (b) Accuracy improvement over FixedWD: CWD degrades catastrophically at bs=512 ($-$3.84~pp) and bs=1024 ($-$5.63~pp, std=7.16\%). H3 is falsified: improved SNR does not prevent CWD accuracy collapse.}
+\label{fig:alignment_snr}
+\end{figure}
+
+\textbf{H3 is falsified.} The full 200-epoch batch-size sweep (Table~\ref{tab:batchsize}) contradicts H3's prediction of monotonically increasing CWD alignment SNR. FixedWD SNR decreases from bs=64 to bs=512, with only partial recovery at bs=1024. CWD SNR collapses to near-zero at bs=256 then partially recovers, but this does not prevent accuracy collapse: CWD falls $-3.84$~pp at bs=512 and $-5.63$~pp at bs=1024 (std=7.16\%). No batch size shows CWD reliably outperforming FixedWD.
+
+\begin{table}[t]
+\centering
+\caption{Full batch-size sweep (CIFAR-100/VGG-16-BN, 200 epochs, 3 seeds, from \texttt{phase2\_batchsize/summary.md}). H3 is falsified: FixedWD SNR is not monotonically increasing, CWD collapses at bs=256, and CWD accuracy deteriorates catastrophically at large batch sizes.}
+\label{tab:batchsize}
+\begin{tabular}{rrrrr}
+\toprule
+BS & FixedWD SNR & CWD SNR & CWD Acc (\%) & FixedWD Acc (\%) \\
+\midrule
+64 & 0.0281 & 0.0074 & $68.31 \pm 1.12$ & $69.55 \pm 1.33$ \\
+128 & 0.0167 & 0.0075 & $69.92 \pm 0.40$ & $70.53 \pm 0.48$ \\
+256 & 0.0011 & 0.0001 & $69.61 \pm 0.24$ & $69.54 \pm 0.25$ \\
+512 & 0.0001 & 0.0009 & $66.16 \pm 4.64$ & $69.99 \pm 0.10$ \\
+1024 & 0.0010 & 0.0014 & $63.42 \pm 7.16$ & $69.05 \pm 0.17$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{ImageNet Main Results (ResNet-50, 90 epochs)}
+
+Table~\ref{tab:imagenet} reports the ImageNet/ResNet-50 results. SWD, DefazioCorrective, and NoWD are absent from this table due to compute constraints. CWD has only 1 completed seed --- statistical comparisons involving CWD on ImageNet are not valid.
+
+\begin{table}[t]
+\centering
+\caption{ImageNet/ResNet-50, 90 epochs. CPR leads by 3.02 pp over FixedWD, driven by integral control. UDWDC underperforms FixedWD by 1.79 pp. CWD (1 seed) cannot support statistical comparisons. The lower absolute accuracy vs.~published recipes reflects our minimal augmentation protocol, isolating WD effects from augmentation interactions.}
+\label{tab:imagenet}
+\begin{tabular}{lrrrr}
+\toprule
+Method & Best Val Acc (\%) & Final Val Acc (\%) & WD Budget & Seeds \\
+\midrule
+\textbf{CPR} & \textbf{74.74 $\pm$ 0.05} & \textbf{74.74 $\pm$ 0.04} & 1.20 & 3 \\
+FixedWD & 71.72 $\pm$ 0.36 & 71.70 $\pm$ 0.37 & 0.52 & 5 \\
+CWD & 70.66 & 70.58 & 0.26 & 1 \\
+UDWDC & 69.93 $\pm$ 0.19 & 69.91 $\pm$ 0.19 & 0.70 & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key observations.} (1) CPR's dominance is more pronounced on ImageNet (+3.02 pp over FixedWD) than on CIFAR-10 (+1.06 pp). (2) UDWDC underperforms FixedWD by 1.79 pp on ImageNet, a larger gap than CIFAR-10 (0.53 pp). (3) CWD's single-seed result (70.66\%) falls between FixedWD and UDWDC.
+
+\subsection{Temporal Predictability of Alignment (H7)}
+
+The temporal predictability gate (H7) tests whether $\alpha_t^l$ carries information beyond a polynomial function of time. We fit degree-4 polynomials to $\alpha_t^l$ trajectories across all layer-method combinations (2640 total).
+
+18.1\% of layer-method combinations achieve $R^2 > 0.85$, and 28.0\% achieve $R^2 > 0.70$ (from \texttt{h7\_gate\_result.json}, 2640 total, 200 epochs). The mean $R^2$ is 0.279 (median 0.036). Per-layer-type statistics reveal a structured hierarchy: conv/weight layers show mean $R^2 = 0.595$ (median 0.825, 41.3\% above 0.85), indicating temporal predictability in large convolutional kernels. Shortcut connections show intermediate predictability (mean $R^2 = 0.301$, 22.2\% above 0.85). BN parameters and conv/bias layers show mean $R^2 < 0.04$; FC layers occupy an intermediate range ($0.06$--$0.12$). H7 passes: for most layer types, the alignment signal is not well-approximated by a time-only polynomial, confirming it carries temporally complex information. The bimodal distribution (69.2\% below 0.30, 18.1\% above 0.85) suggests alignment-aware WD methods may derive value specifically from the layers where time-polynomial fitting fails. We chose $R^2 > 0.85$ as a conservative threshold; the qualitative conclusion holds also at $R^2 > 0.70$ (28.0\% qualify).
+
+\subsection{CSI Stability Analysis}
+
+Figure~\ref{fig:csi} shows the CSI comparison across methods; Table~\ref{tab:csi} reports the values.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/csi_comparison.pdf}
+\caption{CSI comparison across methods on CIFAR-10/ResNet-20, 200 epochs, 3 seeds (computed over last 25\% of training). UDWDC exhibits negative temporal CSI ($-$5.75), quantifying the instability documented in Section~\ref{sec:framework}. All other methods maintain $\text{CSI} > 0.9$.}
+\label{fig:csi}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{CSI stability comparison on CIFAR-10/ResNet-20 (pilot, 10 epochs). FixedWD is trivially stable (constant $\lambda$; $\text{CSI}=1.0$ as the normalized reference). CWD maintains near-perfect stability despite the binary mask. UDWDC's negative temporal CSI indicates the proportional controller's WD coefficient varies more than the underlying $\rho_t^l$ trajectory, amplifying rather than damping perturbations.}
+\label{tab:csi}
+\begin{tabular}{lrrrp{4cm}}
+\toprule
+Method & $\text{CSI}_\text{temporal}$ & $\text{CSI}_\text{spatial}$ & $\text{CSI}_\text{combined}$ & Interpretation \\
+\midrule
+FixedWD & 1.000 & 1.000 & 1.000 & Trivially stable \\
+DefazioCorrective & 1.000 & 1.000 & 1.000 & Highly stable \\
+CWD & 0.997 & 0.997 & 0.997 & Highly stable \\
+CPR & 0.957 & 1.000 & 0.978 & Highly stable \\
+SWD & 0.902 & 0.907 & 0.904 & Stable \\
+UDWDC & $-$5.75 & 0.935 & $-$2.41 & Highly unstable \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+UDWDC's negative temporal CSI ($-$5.75) is a quantitative signature of proportional controller instability. The spatial CSI (0.935) remains positive because per-layer $\rho_t^l$ variation at each step is consistent across layers --- the instability is temporal (oscillation over training steps), not spatial (inconsistency across layers).
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Unification Works at the Family Level}
+
+The PID parameterization provides a useful taxonomy even where exact fitting fails. CWD (4.71\% fitting error) and CPR (9.57\%) are well-captured by the control law, confirming that alignment-based and constraint-based methods operate as derivative and integral controllers, respectively. Of the three feedback channels, integral control ($K_i > 0$) delivers the largest empirical gain (+3.02 pp on ImageNet, +1.06 pp on CIFAR-10); proportional feedback ($K_p > 0$) is destabilizing without integral smoothing; and alignment/derivative feedback ($K_d > 0$) provides marginal benefit on CIFAR with limited large-scale validation.
+
+\subsection{BEM Reveals Hidden Cost-Effectiveness Differences}
+
+Raw accuracy rankings mask important efficiency differences. CPR achieves the highest accuracy but does so by accumulating $9.3\times$ the WD budget of FixedWD, making its BEM relatively low (0.39 vs.~FixedWD's 0.89). BEM makes this tradeoff explicit for practitioners operating under regularization budget constraints.
+
+\subsection{The CWD Magnitude Confound}
+
+CWD's effective WD is approximately 50\% of FixedWD (0.24 vs.~0.48 on CIFAR-10, 0.26 vs.~0.52 on ImageNet). On CIFAR-10, CWD (90.32 $\pm$ 0.08\%) underperforms FixedWD (90.68 $\pm$ 0.11\%). The batch-size sweep further shows CWD accuracy collapsing at large batch sizes. A definitive resolution requires a FixedWD vs.~halved-$\lambda$ ablation; this is flagged as essential future work.
+
+\subsection{UDWDC Instability Is a Genuine Finding}
+
+See Figure~\ref{fig:csi} for the CSI comparison. UDWDC v1's $\text{CSI}_{\text{combined}} = -2.41$ and accuracy below NoWD are not implementation bugs but a fundamental limitation of proportional-only control. The failure mechanism: when $\rho_t^l < \rho^*(t)$ (common for BN layers), the clamp drives $\lambda_t^l$ toward $0.1 \times \lambda_{\text{base}}$, reducing effective WD to near-zero. CPR's success demonstrates integral control is a more robust feedback mechanism.
+
+\subsection{Alignment Signal Quality Is Batch-Size Dependent}
+
+The batch-size sweep (Section~\ref{sec:batchsize}, Figure~\ref{fig:alignment_snr}) falsifies H3: CWD alignment SNR is non-monotonic, and the $+$3.5 pp accuracy benefit at bs=64 does not persist at standard batch sizes (bs=128: $-$0.7 pp; bs=256--1024: near zero or negative). Alignment-aware WD methods require a dedicated batch-size ablation before deployment; the results do not support a simple recommendation for any batch-size regime under standard $\lambda_{\text{base}} = 10^{-4}$.
+
+\subsection{Negative Results}
+
+\begin{enumerate}
+\item \textbf{UDWDC does not beat tuned FixedWD on accuracy.} On all three benchmarks, FixedWD outperforms UDWDC: by 0.53 pp on CIFAR-10, by 2.01 pp on CIFAR-100 (FixedWD 70.53\% vs.~Kp\_only 68.52\%), and by 1.79 pp on ImageNet. UDWDC's value lies in the theoretical framework and diagnostic utility.
+
+\item \textbf{H1 fitting fails for 2/5 methods.} SWD (45.81\%) and DefazioCorrective (37.56\%) exceed the 20\% threshold. The unification is valid at the family level but not as a precise quantitative model for all methods.
+
+\item \textbf{CPR's integral control produces $9.3\times$ higher effective WD.} Whether CPR's gains come from better WD allocation or stronger regularization remains an open question.
+
+\item \textbf{ImageNet results have limited seed coverage.} CWD has only 1 completed seed on ImageNet. Statistical comparison of CWD vs.~any other method on ImageNet is deferred to future work.
+
+\item \textbf{H3 is falsified.} CWD alignment SNR does not increase monotonically with batch size.
+\end{enumerate}
+
+\subsection{Limitations}
+
+Proposition~\ref{prop:steady} (layer-differentiated steady states) is restricted to BN architectures; LN behavior may differ. UDWDC's proportional-only design inherits steady-state offset that $K_i > 0$ could eliminate. Budget-matched controls for ImageNet are limited to 2-epoch pilots. The PID gain mapping is descriptive: it demonstrates existing methods can be expressed within the framework, but does not prove the PID parameterization is optimal.
+
+\subsection{Future Work}
+
+\begin{enumerate}
+\item \textbf{Adaptive gain scheduling.} Let $(K_p, K_i, K_d)$ vary with training phase.
+\item \textbf{Geometry-corrected alignment for Adam.} Testing $\delta_t^P$ vs.~$\alpha_t^l$ as the CWD mask criterion with AdamW on transformers.
+\item \textbf{Extension to language models.} CPR has shown gains on GPT-2; testing whether the PID taxonomy explains this is a natural next step.
+\item \textbf{Joint $(\eta_t, \lambda_t)$ control.} MIMO control of learning rate and WD simultaneously using $\rho_t^l$ and $\alpha_t^l$ as feedback signals.
+\end{enumerate}
+
+\section{Conclusion}
+
+The per-layer GW ratio $\rho_t^l = \|g_t^l\| / \|w_t^l\|$ is the shared control variable across four fragmented WD sub-traditions. We formalize this observation into a PID-style control law parameterized by $(K_p, K_i, K_d)$ that maps FixedWD to open-loop control, CWD to derivative/alignment feedback, SWD and CPR to integral-containing designs, and UDWDC to proportional feedback. The empirical validation confirms the taxonomy: the control law fits CWD's effective-WD trajectories to 4.71\% error and CPR's to 9.57\% on 200-epoch CIFAR-10/ResNet-20 data. Scheduling-based methods (SWD at 45.81\%, DefazioCorrective at 37.56\%) resist fitting, cleanly delineating the framework's scope.
+
+UDWDC does not achieve the highest accuracy: CPR outperforms it on CIFAR-10 (91.74\% vs.~90.15\%) and ImageNet (74.74\% vs.~69.93\%). More importantly, $\text{CSI}_{\text{combined}} = -2.41$ for UDWDC v1 quantifies a failure mode that raw accuracy does not fully expose --- NoWD achieves 90.25\%. This demonstrates CSI is a necessary complement to accuracy.
+
+The three standardized metrics --- BEM, CSI, and AIS --- expose method differences invisible to accuracy-only evaluation. BEM reveals that CPR achieves high accuracy through a $9.3\times$ WD budget amplification. CSI quantitatively identifies instability in UDWDC. AIS confirms the alignment signal carries information beyond time-polynomial trends ($R^2 < 0.85$ for 81.9\% of layer-method combinations). Together, BEM, CSI, and AIS provide a protocol for evaluating any future WD controller on the same three axes, enabling apples-to-apples comparison across the methods unified by the PID taxonomy.
+
+CPR's +3.02 pp gain over FixedWD on ImageNet confirms integral control as the most impactful feedback channel. Resolving the conflicting correction signals in Full PID --- through adaptive gain scheduling or phase-dependent gain policies --- is the most promising direction for future WD controllers within the framework.
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}

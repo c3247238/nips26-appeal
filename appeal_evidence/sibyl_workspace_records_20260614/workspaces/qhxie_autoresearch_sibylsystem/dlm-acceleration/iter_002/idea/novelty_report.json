@@ -1,0 +1,161 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_composeaccel",
+      "novelty_score": 6,
+      "collisions": [
+        {
+          "paper": "Wei et al., 2025. Accelerating Diffusion Large Language Models with SlowFast Sampling: The Three Golden Principles. arXiv:2506.10848",
+          "overlap": "SlowFast explicitly composes adaptive step scheduling with dLLM-Cache (KV caching), achieving 34.22x combined speedup on LLaDA. This is a 2-axis composition with empirical evaluation of combined speedup.",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "Wu et al., 2025. Fast-dLLM: Training-free Acceleration of Diffusion LLM by Enabling KV Cache and Parallel Decoding. arXiv:2505.22618 (ICLR 2026)",
+          "overlap": "Combines block-wise KV caching with confidence-aware parallel decoding, reporting 27.6x combined speedup. Explicitly claims the two methods are 'highly complementary.'",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "dInfer, 2025. An Efficient Inference Framework for Diffusion Language Models. arXiv:2510.08666",
+          "overlap": "Decomposes dLLM inference into four modular components and tests different combinations. Partial composition framework at system level.",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "Kim et al., 2025. KLASS: KL-Guided Fast Inference in Masked Diffusion Models. arXiv:2511.05664 (NeurIPS 2025 Spotlight)",
+          "overlap": "Uses token-level KL divergence between consecutive timesteps for acceleration. IGSD uses inter-step KL divergence for step scheduling. Same core insight (KL as temporal stability signal), different granularity.",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "Sedykh et al., 2026. Not All Denoising Steps Are Equal: Model Scheduling for Faster Masked Diffusion Language Models. arXiv:2604.02340",
+          "overlap": "Measures step importance via KL divergence between small/large models across timesteps. Identifies 'inverted-U' profile matching IGSD's H6 hypothesis. Same core signal, different application (model swap vs. step skip).",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "TORS, 2026. Analyzing and Improving Training-Free Fast Sampling of Text-to-Image Diffusion Models. arXiv:2603.00763",
+          "overlap": "Identical methodology for text-to-image domain: systematic design space analysis of training-free acceleration methods, composition compatibility evaluation. Same framing, different domain.",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "arXiv:2510.18480. How Efficient Are Diffusion Language Models? A Critical Examination of Efficiency Evaluation Practices.",
+          "overlap": "Systematic benchmarking of DLM efficiency claims. Notes diminishing gains at larger batch sizes. Relevant evaluation context.",
+          "severity": "related_work"
+        },
+        {
+          "paper": "EntropyCache, 2026. Decoded Token Entropy Guided KV Caching for Diffusion Language Models. arXiv:2603.18489",
+          "overlap": "Achieves 15.2-26.4x speedup with entropy-guided KV caching. Stronger M1 axis candidate than what the proposal uses.",
+          "severity": "related_work"
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "No existing paper provides all four: (a) controlled 3-way factorial design, (b) quantified orthogonality metric for method pairs, (c) task-specific Pareto frontiers, (d) speedup decomposition framework. However, the 'no composition study' framing is weakened by SlowFast+cache (34.22x) and Fast-dLLM (27.6x) which already combine 2 axes. IGSD novelty weakened by KLASS. Must reframe: acknowledge existing 2-axis compositions, differentiate via systematic 3+ axis factorial design and orthogonality quantification. Should rename IGSD more modestly and update method pool to include EntropyCache, LogicDiff, Saber as candidates."
+    },
+    {
+      "candidate_id": "cand_convergence_theory",
+      "novelty_score": 4,
+      "collisions": [
+        {
+          "paper": "Chen & Cai, 2025. A Convergence Theory for Diffusion Language Models: An Information-Theoretic Perspective. arXiv:2505.21400",
+          "overlap": "Establishes convergence guarantees for DLMs from information-theoretic perspective. Proves KL divergence decays as O(1/T), scales linearly with mutual information. Matching upper and lower bounds. This is the exact core contribution claimed.",
+          "severity": "exact_match"
+        },
+        {
+          "paper": "Chen et al., 2025. Optimal Inference Schedules for Masked Diffusion Models. arXiv:2511.04647",
+          "overlap": "Provides optimal scheduling bounds in terms of total correlation and dual total correlation. Shows O(log n) step sampling possible. Directly addresses optimal scheduling from information-theoretic perspective.",
+          "severity": "exact_match"
+        },
+        {
+          "paper": "Kim et al., 2025. KLASS: KL-Guided Fast Inference in Masked Diffusion Models. arXiv:2511.05664 (NeurIPS 2025 Spotlight)",
+          "overlap": "Empirically demonstrates KL divergence as per-token convergence signal. Validates H5 (entropy/KL as proxy for convergence budget) empirically.",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "DyLLM (2603.08026), ES-dLLM (2603.10088), Dynamic-dLLM — Per-token adaptive compute frameworks",
+          "overlap": "All implement per-token adaptive compute allocation based on various convergence signals. The methods the proposal claims to 'unify' already work without the theory.",
+          "severity": "partial_overlap"
+        }
+      ],
+      "recommendation": "drop",
+      "differentiation_notes": "Core contribution (information-theoretic convergence bounds for masked diffusion LMs) has been published by Chen & Cai (2505.21400) with matching upper/lower bounds. Optimal scheduling bounds also published (2511.04647). Remaining novelty limited to specific water-filling allocation and formal proof of entropy optimality among proxies, which is incremental over existing work."
+    },
+    {
+      "candidate_id": "cand_order_first",
+      "novelty_score": 5,
+      "collisions": [
+        {
+          "paper": "Ni et al., 2026. The Flexibility Trap: Why Arbitrary Order Limits Reasoning Potential in Diffusion Language Models. arXiv:2601.15165",
+          "overlap": "Directly identifies the same problem: confidence-based unmasking order is fundamentally flawed for reasoning. Shows order flexibility narrows reasoning boundary. This IS the core thesis of cand_order_first.",
+          "severity": "exact_match"
+        },
+        {
+          "paper": "Shaik et al., 2026. LogicDiff: Logic-Guided Denoising Improves Reasoning in Masked Diffusion Language Models. arXiv:2603.26771",
+          "overlap": "Proposes logic-role-guided unmasking. Achieves +38.7pp on GSM8K (22.0% to 60.7%) with <6% speed overhead. SOLVES the problem cand_order_first proposes to address, with massive empirical results far exceeding the proposal's H8 target (>10pp).",
+          "severity": "exact_match"
+        },
+        {
+          "paper": "Olausson et al., 2025. Learning Unmasking Policies for Diffusion Language Models. arXiv:2512.09106 (ICLR 2026 DeLTa Workshop Oral)",
+          "overlap": "Trains unmasking policies via RL. Different approach (RL vs. training-free entropy inversion) but same problem (learning better unmasking order).",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "Ground-Truth-Guided Unmasking Order Learning, 2026. arXiv:2602.09501",
+          "overlap": "Addresses train-inference mismatch in unmasking order. Same problem framing, training-based solution.",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "TRIMS: Trajectory-Ranked Instruction Masked Supervision, 2026. arXiv:2604.00666",
+          "overlap": "Provides explicit supervision over token reveal order during training. Same gap identified, training-based solution.",
+          "severity": "partial_overlap"
+        }
+      ],
+      "recommendation": "drop",
+      "differentiation_notes": "The Flexibility Trap identifies the exact problem. LogicDiff solves it with +38.7pp on GSM8K, far exceeding the proposal's >10pp target. Multiple concurrent works (RL policies, ground-truth-guided, TRIMS) attack the same problem. The remaining angle (does corrected order improve acceleration composition?) is thin and would be a follow-up study dependent on LogicDiff."
+    },
+    {
+      "candidate_id": "cand_multigrid",
+      "novelty_score": 8,
+      "collisions": [
+        {
+          "paper": "Various classical works. Multigrid methods for PDE-based image denoising (Rudin-Osher-Fatemi 1992, etc.)",
+          "overlap": "Classical multigrid V-cycle inspiration. Well-established for continuous PDEs, not for discrete masked diffusion.",
+          "severity": "related_work"
+        },
+        {
+          "paper": "DyLLM, 2026. Efficient Diffusion LLM Inference via Saliency-based Token Selection and Partial Attention. arXiv:2603.08026",
+          "overlap": "Identifies salient tokens via cosine similarity, recomputes only those while caching the rest. Functionally similar to restrict-correct cycle (identify uncertain tokens, compute only those, cache rest). Achieves 9.6x throughput. But lacks multigrid framing and principled hierarchical decomposition.",
+          "severity": "partial_overlap"
+        },
+        {
+          "paper": "ES-dLLM, 2026. Efficient Inference for Diffusion Large Language Models by Early-Skipping. arXiv:2603.10088",
+          "overlap": "Skips tokens in early layers based on estimated importance. Related to restriction concept but at layer level, not V-cycle.",
+          "severity": "related_work"
+        },
+        {
+          "paper": "Token merging / hierarchical attention in DiT literature (CVPR 2025, NeurIPS 2024 works)",
+          "overlap": "Token merging and hierarchical processing for text-to-image Diffusion Transformers. Different domain and mechanism.",
+          "severity": "related_work"
+        }
+      ],
+      "recommendation": "proceed",
+      "differentiation_notes": "No existing work frames DLM denoising as a multigrid V-cycle. DyLLM achieves similar practical outcome (selective token compute + caching) but lacks the theoretical multigrid framework and principled smooth/restrict/correct/prolongate/post-smooth decomposition. Highest genuine novelty among all candidates. Main risk is feasibility (score 5) and whether the V-cycle adds practical value beyond DyLLM."
+    }
+  ],
+  "overall_novelty": "medium",
+  "search_summary": {
+    "arxiv_queries": 12,
+    "web_searches": 10,
+    "papers_read_in_detail": 15,
+    "total_collisions_found": 22,
+    "exact_matches": 4,
+    "partial_overlaps": 13,
+    "related_work": 5
+  },
+  "critical_findings": [
+    "SlowFast Sampling (Jun 2025) already composes step scheduling + KV caching achieving 34.22x on LLaDA — weakens ComposeAccel's 'no composition study' framing",
+    "KLASS (NeurIPS 2025 Spotlight) uses the same KL divergence signal for DLM acceleration that IGSD claims as novel — must acknowledge and differentiate",
+    "Convergence theory candidate is directly preempted by Chen & Cai (2505.21400) with tight information-theoretic bounds",
+    "LogicDiff achieves +38.7pp on GSM8K via unmasking order correction — completely supersedes cand_order_first with far stronger results",
+    "The field has moved extremely fast: 20+ training-free DLM acceleration papers in Q1 2026 alone",
+    "EntropyCache (Mar 2026) achieves 15-26x speedup — should be included in ComposeAccel's method pool",
+    "No paper yet provides a controlled factorial composition study with quantified orthogonality metrics across 3+ axes — this gap still holds for ComposeAccel"
+  ],
+  "timestamp": "2026-04-14"
+}

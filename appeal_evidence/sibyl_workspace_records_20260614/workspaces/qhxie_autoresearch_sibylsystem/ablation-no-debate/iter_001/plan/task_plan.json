@@ -1,0 +1,176 @@
+{
+  "tasks": [
+    {
+      "id": "h_safe_pilot",
+      "name": "H_Safe pilot: Safety-critical feature absorption on Gemma Scope",
+      "description": "Test H_Safe: safety-critical features show elevated absorption vs matched non-safety features. Load Gemma Scope SAEs from HuggingFace, select 20 safety-relevant features via Neuronpedia, match 20 non-safety features, measure absorption via overlap method. No training needed.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/h_safe_pilot.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Gemma Scope SAEs loaded, safety features identified, absorption scores computed for both groups"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Safety vs non-safety absorption rate comparison",
+          "x": "feature_type",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h3_fix_pilot",
+      "name": "H3_fix pilot: Debug and validate steering implementation",
+      "description": "Fix broken steering implementation from pilot. Verify ||steered - baseline|| > 0. Test alpha scaling produces proportional changes. Use simpler test cases first. Alternative: measure logit-level steering effect (Basu et al. 2026).",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/h3_fix_pilot.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "||steered - baseline|| > 1e-6, absorbed vs non-absorbed show different steering response"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Steering effect by feature type (absorbed vs non-absorbed)",
+          "x": "feature_type",
+          "y": "steering_effect",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Steering effect vs alpha",
+          "x": "alpha",
+          "y": "sensitivity_delta",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "multichild_multiseed_pilot",
+      "name": "Multi-seed validation for H1 (address zero-variance concern)",
+      "description": "Validate H1 with multiple seeds (42, 43, 44) to address zero-variance concern from pilot (std=0.0 for trained SAE). Measure multi-child proportional absorption for each seed. Expected: non-zero variance across seeds if absorption is not purely deterministic.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/multiseed_pilot.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seeds": [42, 43, 44],
+        "timeout": 900,
+        "pass_criteria": "Non-zero variance across seeds, all seeds show absorption > 0.3 for trained SAE"
+      },
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Multi-seed absorption distribution by condition",
+          "x": "condition",
+          "y": "absorption_k5",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h_mech_factorial",
+      "name": "H_Mech: 2x2 factorial decomposition (geometric vs learned)",
+      "description": "Decompose absorption into geometric vs learned contributions via 2x2 factorial: (A) random encoder + random decoder, (B) trained encoder + random decoder, (C) random encoder + trained decoder, (D) trained encoder + trained decoder. Expected: Condition C ≈ D ≈ 0.48, Condition A ≈ 0.06.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/h_mech_factorial.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 4 conditions measured, Condition C ≈ D (within 0.1)"
+      },
+      "visualizations": [
+        {
+          "type": "grouped_bar_chart",
+          "description": "2x2 factorial decomposition: absorption by encoder/decoder type",
+          "x": "encoder_type",
+          "y": "absorption_k5",
+          "group_by": "decoder_type",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h_safe_full",
+      "name": "H_Safe full: Extended safety-critical feature analysis",
+      "description": "Extended safety analysis with more safety-relevant features (40 total) and multiple Gemma Scope layers. Include deception, jailbreak, harm, manipulation categories separately. Match non-safety controls per category.",
+      "type": "experiment",
+      "depends_on": ["h_safe_pilot"],
+      "expected_output": "exp/results/h_safe_full.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption by safety category",
+          "x": "safety_category",
+          "y": "mean_absorption",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "visualize_results",
+      "name": "Generate paper figures and summary",
+      "description": "Generate all figures for paper: (1) safety vs non-safety bar chart (H_Safe), (2) steering effect bar chart (H3), (3) multi-seed box plot, (4) 2x2 factorial grouped bar chart, (5) main results summary table.",
+      "type": "analysis",
+      "depends_on": ["h_safe_pilot", "h3_fix_pilot", "multichild_multiseed_pilot", "h_mech_factorial"],
+      "expected_output": "exp/results/figures/",
+      "candidate_id": "cand_p1",
+      "gpu_count": 0,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Main results summary table",
+          "columns": ["Hypothesis", "Metric", "Result", "p-value", "Pass?"],
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "front_runner": "cand_p1",
+    "total_tasks": 6,
+    "estimated_hours": 2.75,
+    "pilot_tasks": 4,
+    "pilot_estimated_minutes": 90,
+    "gpu_requirements": "1 GPU (A100 80GB or equivalent)",
+    "key_changes_from_prior": [
+      "H_Safe pilot as top priority (highest novelty, no training needed)",
+      "H3_fix pilot to debug broken steering implementation",
+      "Multi-seed pilot to address zero-variance concern",
+      "H_Mech factorial to decompose geometric vs learned contributions",
+      "Drop H2 (archived as negative result - wrong direction)"
+    ]
+  }
+}

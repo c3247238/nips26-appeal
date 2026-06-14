@@ -1,0 +1,65 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "FABRICATED OR ERRONEOUS HEDGING NUMBER AT L0=82. Section 5.2 states: 'At the more conservative base L0=82 with target L0=176 (2.1x multiplier), strict hedging rises to 12.3% while compensatory resolution drops to 78.4%.' The raw data file (hedging_decomposition_full.json, field L0_82_to_176) reports: strict_hedging=0, strict_hedging_pct=0.0%, compensatory=58, compensatory_pct=78.4%, persistent=16, persistent_pct=21.6%, total_fn=74. There is ZERO strict hedging at L0=82, not 12.3%. The 78.4% compensatory figure is correct. The persistent rate is 21.6%, not implied to be (100-12.3-78.4)=9.3%. The pilot phase0 data shows 3.66% strict hedging at L0=82 (3/82 FNs), which is also not 12.3%. The 12.3% figure appears in no source data file and may be a hallucination from writing generation.",
+    "suggestion": "Replace the L0=82 sentence with: 'At the more conservative base L0=82 with target L0=176 (2.1x multiplier), strict hedging drops to 0.0% (0/74 FNs), compensatory resolution is 78.4%, and persistent false negatives rise to 21.6%. The absence of any strict hedging at this base sparsity indicates that parent feature recovery becomes increasingly rare as the SAE operates closer to its designed L0.' This correction actually strengthens the paper's argument that loose hedging is near-tautological."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "PROBE QUALITY CONFOUND UNRESOLVED FOR CROSS-DOMAIN CLAIMS. The paper's central cross-domain contribution is that absorption rates differ significantly across hierarchy types (Kruskal-Wallis p=0.005). However, probe quality also differs substantially: first-letter F1=0.971, city-continent F1=0.843, city-country F1=0.789, city-language F1=0.823. Probe quality correlates with false negative rate at rho=-0.756 (p<0.001). The degraded-probe ablation described in Section 8.5 -- injecting calibrated label noise into first-letter probes to simulate RAVEL-level quality -- would resolve this and requires minimal compute.",
+    "suggestion": "Execute the degraded-probe ablation before submission. Inject label noise into the first-letter probes at levels targeting F1=0.70, 0.80, 0.85, 0.90 and measure absorption rates at each level."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "ACTIVATION PATCHING RESTRICTED TO FIRST-LETTER AT L12, MISSING THE HIGH-ABSORPTION REGIME. The causal evidence (32.5% recovery, d=1.33) is strong but limited to first-letter spelling at layer 12 (5.7% absorption). The dominant signal is at layer 24 (34.5%). The paper's strongest causal evidence comes from its weakest absorption regime.",
+    "suggestion": "Extend activation patching to L24 with the high-quality first-letter probe (F1=0.97)."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "LETTER G DOMINATES STRICT HEDGING BUT IS NOT ADEQUATELY INVESTIGATED. Letter G accounts for 9/24 strict hedging cases (37.5%) at L0=22, with a per-letter strict rate of 64.3% (9/14 FNs). Mean strict hedging excluding G and A is approximately 2.9%.",
+    "suggestion": "Report strict hedging excluding letter G as a robustness check. Investigate G's anomaly."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "ARCHITECTURE COMPARISON UNDERPOWERED AND DOUBLY CONFOUNDED. N=16 at L12, no significant effect (p=0.87), RAVEL probes at F1=0.52-0.69, sparsity confound (BatchTopK L0=20 vs JumpReLU L0=75-87).",
+    "suggestion": "Downgrade Section 6 to a subsection or test at L24."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "CROSS-DOMAIN ABSORPTION MEASURED AT L24 ONLY; LAYER-HIERARCHY INTERACTION UNCHARACTERIZED. Pilot L12 data suggested semantic > first-letter; L24 data shows the opposite. This crossover interaction cannot be resolved with current data.",
+    "suggestion": "Be more precise in claims: the cross-domain finding is established at L24 only."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "SINGLE MODEL FAMILY (Gemma 2 2B). All experiments use one model with one SAE family.",
+    "suggestion": "State falsifiable predictions about how the pattern should generalize to other models."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "minor",
+    "description": "ABSORPTION RATE METRIC IS CLASS-LEVEL, INFLATABLE FOR LARGE K. For city-country (K=80), a single false positive per class can inflate AR.",
+    "suggestion": "Report instance-level absorption rates alongside class-level AR."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "ACTIVATION PATCHING WORD SELECTION BIAS. 18/25 words discovered via IG-guided search biases toward finding absorption.",
+    "suggestion": "State more prominently that recovery rate is conditional on the biased sample."
+  }
+]

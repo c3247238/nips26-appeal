@@ -1,0 +1,198 @@
+\documentclass{article}
+
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{enumitem}
+
+\title{A Stronger Sham Control Rewrites a Small-Gain Story in Training-Free DLM Revision}
+
+\author{Anonymous Authors}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Training-free revision in diffusion language models (DLMs) can produce small gains that are easy to over-interpret when the control structure is weak. We report an audited negative case in which an entropy-guided revision arm, \texttt{CARD-84}, appears promising against a compute-matched active control but fails to cleanly separate from a budget-matched sham control. On a current-only audited slice of 100 examples, \texttt{CARD-84} improves GSM8K accuracy from 0.18 to 0.32 relative to \texttt{DNB-84}, yielding a net repaired margin of +7, yet reaches only a +1 net repaired margin against the sham arm \texttt{RAND-84}, which reaches 0.30 accuracy on the same slice. On MBPP, \texttt{CARD-84} and \texttt{RAND-84} tie at 0.04 accuracy, constraining any mechanism-forward interpretation to a harm-profile reading rather than controller efficacy. The resulting contribution is not a new winning inference method. Instead, we document a minimal audit template for small-gain DLM revision claims: a compute-matched active control, a budget-matched sham control, sample-level repair/harm accounting, and current-only artifact closure. The main lesson is interpretive. In a small-gain regime, compute-matched baselines alone are not sufficient when a stronger sham control can still rewrite the story.
+\end{abstract}
+
+\section{Introduction}
+
+Training-free DLM inference has shifted from proving that non-autoregressive denoising can work to asking which test-time interventions are worth trusting in practice \citep{radd2023,dpad2025,prophet2025}. In this regime, modest gains are common, but their meaning is often unstable. A method can outperform a lower-budget or compute-matched baseline and still fail to justify a stronger controller claim once more demanding controls are introduced. The present paper is about that failure mode.
+
+Our starting point was a plausible positive result. On an audited GSM8K slice, the entropy-guided revision arm \texttt{CARD-84} reaches 0.32 accuracy, compared with 0.18 for the compute-matched active control \texttt{DNB-84}. At the sample level, this corresponds to 10 fixes and 3 harms relative to \texttt{DNB-84}, or a net repaired margin of +7. Had the analysis stopped there, the natural interpretation would have been that an observer-side entropy signal can be converted into a successful training-free revision controller. The stronger audit performed in this iteration shows that such a write-up would be overstated.
+
+The decisive comparison is to a budget-matched sham control. On the same GSM8K slice, \texttt{RAND-84} reaches 0.30 accuracy, and the net repaired margin of \texttt{CARD-84} over \texttt{RAND-84} is only +1. Once this sham control is introduced, the earlier positive story no longer survives. The right object is therefore not a method paper, a protocol manifesto, or a ``near-win'' rescue narrative. It is an audited negative case showing that a localized signal against an active control can still fail the stronger question of attribution.
+
+This paper makes three contributions:
+\begin{enumerate}[leftmargin=1.5em]
+\item It documents an audited negative case in which a localized reasoning-side signal survives a compute-matched comparison but not a budget-matched sham control.
+\item It packages that negative case through a minimal audit template: compute-matched active control, sham control, sample-level repair/harm accounting, and current-only artifact closure.
+\item It turns the empirical lesson into a claim ceiling for training-free DLM revision: entropy may be treated here as a risk marker for vulnerable samples, but not as a validated targeting rule \citep{actcabcodec2024,confidenceovertime2026}.
+\end{enumerate}
+
+This framing matters because recent DLM and test-time-control literature increasingly operates in small-gain settings where implementation, stopping, and targeting choices can move the headline \citep{dpad2025,prism2026,samplercentric2026}. In those settings, a compute-matched baseline is necessary but insufficient. It rules out the trivial explanation that more budget alone caused the gain, yet it does not rule out the possibility that a generic or weakly structured perturbation would have produced nearly the same effect.
+
+The rest of the paper proceeds accordingly. Section~\ref{sec:template} defines the audited slice and the minimal audit template. Section~\ref{sec:related} positions the paper against DLM inference, uncertainty-guided control, and sampler-centric evaluation. Section~\ref{sec:results} reports the main audited results with Table~\ref{tab:main-results}, Figure~\ref{fig:audit-template}, Figure~\ref{fig:repair-harm}, and Figure~\ref{fig:mbpp-harm}. Section~\ref{sec:discussion} states the claim ceiling and explains why the result remains scientifically useful even as a negative case. Section~\ref{sec:conclusion} concludes. Appendix~\ref{app:artifacts} provides a compact artifact-integrity checklist for the current-only evidence bundle.
+
+\section{Audited Slice and Minimal Audit Template}
+\label{sec:template}
+
+The paper studies a fixed audited slice rather than a benchmark-wide estimate. The slice contains 100 current-only samples, with 50 GSM8K reasoning problems and 50 MBPP coding problems, all traced through \texttt{sample\_manifest.json}. The selection policy combines a high-entropy prescan with a balanced mid/low-entropy remainder, making the slice suitable for bounded interpretive auditing rather than for estimating population-level benchmark performance. All claims in this manuscript are restricted to that audited slice.
+
+We compare four fixed inference arms: \texttt{DNB-64} as a lower-budget reference arm, \texttt{DNB-84} as the compute-matched active control, \texttt{CARD-84} as the audited entropy-guided revision arm, and \texttt{RAND-84} as the budget-matched sham control. The arm roles matter more than the raw metrics. \texttt{DNB-84} tests whether the signal survives a stronger budget than \texttt{DNB-64}. \texttt{RAND-84} tests whether the same signal survives a sham intervention with approximately matched budget. The paper's negative pivot follows from the second test.
+
+Figure~\ref{fig:audit-template} defines the minimal audit template used throughout the manuscript.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/audit_template.pdf}
+\caption{Minimal audit template for small-gain DLM revision claims. A localized gain is first tested against a compute-matched active control, then against a budget-matched sham control, and finally restricted by sample-level audit and current-only artifact closure. In the present case, the positive interpretation fails at the sham-control stage.}
+\label{fig:audit-template}
+\end{figure}
+
+The runtime contract is kept explicit but modest. The setup records a left-padded LLaDA-8B-Instruct configuration with temperature 1.0, a 512-token prompt budget, and 128 generation tokens. The setup probe found a safe batch ceiling of 28 under the eager attention path, but the already-completed audited arms in the current bundle were preserved at batch size 8 rather than rerun at the higher probe ceiling so that the paper would remain tied to a fixed current-only artifact bundle. A compile attempt was recorded during setup, yet the experimental arm metrics remain on the eager path. We treat these runtime details as disclosure objects rather than contributions.
+
+At the outcome level, we use four mutually exclusive sample-level categories for any pairwise comparison: \texttt{fixed}, \texttt{harmed}, \texttt{unchanged\_correct}, and \texttt{unchanged\_wrong}. For dataset $D$, the summary quantity of interest is the net repaired count,
+\[
+\Delta_{\mathrm{repair}}(a,b;D) = \mathrm{Fix}(a,b;D) - \mathrm{Harm}(a,b;D).
+\]
+This quantity is what lets the paper distinguish between an apparently positive contrast and a robustly attributable one. In the present bundle, $\Delta_{\mathrm{repair}}(\texttt{CARD-84}, \texttt{DNB-84}; \text{GSM8K}) = 7$, while $\Delta_{\mathrm{repair}}(\texttt{CARD-84}, \texttt{RAND-84}; \text{GSM8K}) = 1$.
+
+Finally, the method includes a claim policy. \texttt{CARD-84} may be described as an audited intervention arm, not as a winning inference method. Entropy may be described as a risk marker for vulnerable samples, not as a validated targeting rule. The skipped trajectory add-on is a deliberate boundary of the negative pivot, preventing the paper from reopening a rescue narrative that the packaged decision already rejected.
+
+\section{Related Work}
+\label{sec:related}
+
+Early DLM work established the viability of discrete diffusion text generation, while recent work has moved toward inference-time engineering and test-time scaling \citep{radd2023,llada15,dpad2025,prophet2025,prism2026}. This literature provides many ways to reduce denoising cost, alter stopping behavior, or guide revision without retraining. What it provides less often is a reviewer-facing recipe for deciding when a small downstream gain deserves method-forward language.
+
+Uncertainty-guided control makes the gap sharper. In neighboring autoregressive settings, confidence-like signals have been used for guided decoding, critique, and compute allocation \citep{actcabcodec2024,dontthinktwice2025,corea2026}. The consistent lesson is that predictive observer signals do not automatically validate the intervention that consumes them. A signal can be informative and still fail to establish controlled efficacy. That is exactly the distinction our audited negative case makes concrete inside a DLM revision setting.
+
+Sampler-centric evaluation adds a second caution. Recent work asks whether apparent DLM improvements should be attributed to the denoiser, the sampler, or the surrounding runtime and argues that aggregate performance alone can blur those sources \citep{samplercentric2026}. Our paper is aligned with that concern, but its contribution is narrower: we do not propose a general sampler correctness framework. Instead, we show how a minimal evidence bundle can prevent a plausible small-gain result from being written up too aggressively.
+
+The contribution gap of this paper is therefore specific. Relative to DLM inference papers, we do not offer a stronger controller family. Relative to uncertainty-guided decoding papers, we do not offer a new observer. Relative to sampler-evaluation papers, we do not offer broader formalism. We offer a reviewer-facing audit template demonstrating how a sham control can materially rewrite the interpretation of a small claimed gain.
+
+\section{Main Audited Results}
+\label{sec:results}
+
+The audited package fixes one seed and evaluates the four arms on the same current-only 100-sample slice. Table~\ref{tab:main-results} reports the headline numbers. The most tempting positive comparison is \texttt{CARD-84} versus \texttt{DNB-84} on GSM8K: 0.32 versus 0.18 accuracy, corresponding to 16 versus 9 correct solutions on the 50 audited GSM8K examples.
+
+\begin{table}[t]
+\centering
+\caption{Main audited results on the 100-sample current-only slice.}
+\label{tab:main-results}
+\begin{tabular}{lrrrrrccc}
+\toprule
+Arm & GSM8K & MBPP & Total & Avg.\ NFE & Avg.\ tok.\ chg. & Batch & Attn. & Compile \\
+\midrule
+\texttt{DNB-64} & 0.30 & 0.04 & 17 & 64.0 & 0.00 & 8 & eager & False \\
+\texttt{DNB-84} & 0.18 & 0.02 & 10 & 83.5 & 0.00 & 8 & eager & False \\
+\texttt{CARD-84} & \textbf{0.32} & 0.04 & \textbf{18} & 68.0 & \textbf{9.06} & 8 & eager & False \\
+\texttt{RAND-84} & 0.30 & \textbf{0.04} & 17 & 67.0 & 0.62 & 8 & eager & False \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Accuracy alone does not capture the interpretive shift, so Figure~\ref{fig:repair-harm} decomposes the sample-level outcomes. \texttt{CARD-84} repairs 10 GSM8K samples and harms 3 relative to \texttt{DNB-84}, giving a net repaired margin of +7. Against \texttt{RAND-84}, however, it repairs only 1 sample and harms none, giving +1. The localized signal is therefore auditable in the active-control comparison, but it is not strong enough to support a validated controller claim once the sham control is taken seriously.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/repair_harm.pdf}
+\caption{GSM8K repair and harm counts for the key audited comparisons. The decisive comparison is \texttt{CARD-84} against the sham control \texttt{RAND-84}, not just \texttt{CARD-84} against the compute-matched \texttt{DNB-84} arm.}
+\label{fig:repair-harm}
+\end{figure}
+
+The code-side slice further narrows the interpretation. On MBPP, \texttt{CARD-84} and \texttt{RAND-84} both obtain 0.04 accuracy on the 50 audited examples, whereas \texttt{DNB-84} reaches 0.02. This means the code-side bundle does not separate the audited intervention from the sham control, even though \texttt{CARD-84} changes many more tokens on average. The safest reading is therefore boundary-setting rather than mechanism confirmation.
+
+Figure~\ref{fig:mbpp-harm} makes that boundary concrete. \texttt{CARD-84} concentrates MBPP failures in \texttt{NameError} (29), \texttt{SyntaxError} (13), and \texttt{IndentationError} (4), while \texttt{RAND-84} concentrates in \texttt{NameError} (22), \texttt{SyntaxError} (20), and \texttt{IndentationError} (3). These differences are useful for harm localization, but they do not establish a general controller mechanism, especially because the overall MBPP accuracy remains tied.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/mbpp_harm_profile.pdf}
+\caption{MBPP failure-mode counts across the four audited arms. The figure is used to localize harm patterns, not to justify a mechanism-forward success story.}
+\label{fig:mbpp-harm}
+\end{figure}
+
+The result is therefore asymmetrical by construction. There is enough evidence to reject the trivial explanation that only extra denoising budget matters, because \texttt{CARD-84} clearly outperforms \texttt{DNB-84} on the audited GSM8K slice. There is not enough evidence to claim validated entropy-guided revision, because the budget-matched sham control closes almost all of that gap on the same slice.
+
+\section{Discussion and Claim Ceiling}
+\label{sec:discussion}
+
+The most important outcome of this iteration is a clean claim boundary. The current evidence supports the statement that \texttt{CARD-84} shows a localized GSM8K signal against the compute-matched active control. It does not support the stronger statement that entropy-guided revision is validated as a controller, because the decisive sham-control quantity is only +1 net repaired on GSM8K, below the preset gate captured in the packaged decision artifact.
+
+\begin{table}[t]
+\centering
+\caption{Allowed and disallowed interpretations for the current audited bundle.}
+\label{tab:claim-ceiling}
+\begin{tabular}{p{0.22\linewidth}p{0.7\linewidth}}
+\toprule
+Category & Safe statement \\
+\midrule
+Allowed claim & \texttt{CARD-84} shows a localized GSM8K signal against the compute-matched \texttt{DNB-84} baseline. \\
+Allowed claim & That localized signal does not cleanly separate from budget-matched random targeting. \\
+Allowed claim & Entropy is best treated here as a risk marker for vulnerable samples. \\
+Required disclosure & Scope is limited to the audited slice and current-only artifacts. \\
+Required disclosure & \texttt{CARD-84} fails the stricter sham-control gate against \texttt{RAND-84} (+1 net repaired on GSM8K). \\
+Required disclosure & The trajectory add-on was intentionally skipped by the negative pivot. \\
+Forbidden claim & Entropy-guided revision reliably improves DLM reasoning. \\
+Forbidden claim & \texttt{CARD-84} is the winning inference method. \\
+Forbidden claim & The present evidence establishes a new DLM protocol paradigm. \\
+Forbidden claim & The code/reasoning divergence has been mechanistically explained. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This table also explains why the negative result remains useful. The paper blocks a plausible overclaim under realistic DLM conditions \citep{dpad2025,prism2026}. Without the sham control, the present slice would likely have been written up as a modest positive method paper. With the sham control, it becomes a minimal audit template for small-gain DLM revision claims.
+
+MBPP reinforces the same lesson from another direction. The tied code accuracy of \texttt{CARD-84} and \texttt{RAND-84}, combined with different failure distributions, is enough to motivate harm localization but not enough to support cross-task transport of the observer signal. In other words, a risk marker on the reasoning side does not automatically yield a portable revision rule on the coding side.
+
+The future-work boundary is intentionally narrow. Stronger sham controls, external-prior reinterpretation of related DLM papers, and more compressed harm-profile visualizations remain plausible follow-ups. What this iteration explicitly disallows is reopening the abandoned controller-family mainline or writing the current result as if it were one experiment away from becoming a positive method claim.
+
+For reproducibility, the paper is backed by a current-only artifact bundle that already includes the sample manifest, runtime contract, repair/harm tables, and claim-to-asset map. The intended camera-ready package should release this audit bundle together with the LaTeX source and figure-generation scripts.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper reports an audited negative case for training-free DLM revision. On an audited 100-sample slice, \texttt{CARD-84} gains a +7 net repaired margin over \texttt{DNB-84} on GSM8K but only +1 over the budget-matched sham control \texttt{RAND-84}. That contrast is enough to preserve a localized signal and enough to reject a validated controller narrative.
+
+The supporting contribution is a minimal audit template composed of a compute-matched active control, a sham control, sample-level repair/harm accounting, and explicit claim-to-asset lineage. In the present case, that template produces a narrower but more credible paper object: entropy acts as a risk marker for vulnerable samples, while the stronger sham control prevents the result from being written up as a winning inference method.
+
+The broader lesson is simple. In small-gain, test-time-controlled DLM settings, compute-matched baselines alone are not sufficient when a budget-matched sham control can still rewrite the conclusion.
+
+\appendix
+
+\section{Artifact Integrity Checklist}
+\label{app:artifacts}
+
+\begin{table}[h]
+\centering
+\caption{Representative current-only artifacts supporting the audited negative case.}
+\label{tab:artifact-checklist}
+\begin{tabular}{p{0.28\linewidth}ccp{0.34\linewidth}}
+\toprule
+Artifact & Exists & Current-only & Role in the paper \\
+\midrule
+\texttt{sample\_manifest.json} & Yes & Yes & Defines the audited 100-sample slice. \\
+\texttt{runtime\_contract.json} & Yes & Yes & Logs the runtime path and disclosure conditions. \\
+\texttt{per\_sample\_audit.csv} & Yes & Yes & Supports sample-level repair and harm accounting. \\
+\texttt{transition\_matrix.csv} & Yes & Yes & Supports the GSM8K pairwise comparison claims. \\
+\texttt{claim\_to\_asset\_map.json} & Yes & Yes & Maps allowed and forbidden claims to supporting assets. \\
+\texttt{code\_failure\_modes.md} & Yes & Yes & Supports the MBPP harm-profile discussion. \\
+\texttt{decision.json} & Yes & Yes & Records the failed sham-control gate and selected negative pivot. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

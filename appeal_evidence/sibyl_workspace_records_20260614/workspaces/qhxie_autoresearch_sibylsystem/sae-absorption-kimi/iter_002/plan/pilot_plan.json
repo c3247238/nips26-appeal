@@ -1,0 +1,48 @@
+{
+  "pilot_scope": "2 SAEs (MatryoshkaBatchTopK_trainer_0 + TopK_trainer_0) × 3 WordNet hierarchies × 2 non-hierarchy control pairs",
+  "pilot_target_runtime_minutes": 15,
+  "pilot_gpu_count": 1,
+  "pilot_seed": 42,
+  "pilot_timeout_seconds": 900,
+  "pilot_success_criteria": {
+    "numeric_stability": "All absorption scores are finite and non-NaN",
+    "probe_quality": "Probe AUROC > 0.6 for all 3 tested hierarchies",
+    "expected_ordering": "Matryoshka semantic absorption < TopK semantic absorption",
+    "hierarchy_specificity": "Semantic-hierarchy score > non-hierarchy control score for at least 1 of 2 SAEs",
+    "pipeline_validation": "End-to-end pipeline completes without errors on Pythia-160M"
+  },
+  "pilot_hierarchies": [
+    {"parent": "building", "children": ["house", "school"]},
+    {"parent": "container", "children": ["box", "bag"]},
+    {"parent": "tool", "children": ["fork", "comb"]}
+  ],
+  "pilot_control_pairs": [
+    ["big", "large"],
+    ["fast", "quick"],
+    ["begin", "start"]
+  ],
+  "pilot_saes": [
+    {
+      "family": "MatryoshkaBatchTopK",
+      "trainer": "trainer_0",
+      "location": "MatryoshkaBatchTopK_pythia-160m-deduped__0108/resid_post_layer_8/trainer_0",
+      "expected_absorption": "low"
+    },
+    {
+      "family": "TopK",
+      "trainer": "trainer_0",
+      "location": "TopK_pythia-160m-deduped__0108/resid_post_layer_8/trainer_0",
+      "expected_absorption": "high"
+    }
+  ],
+  "go_no_go_decision": {
+    "go": "Pilot meets all success criteria. Proceed to full experiment.",
+    "no_go_probe_quality": "If probe AUROC < 0.6 for any hierarchy, refine concept selection or sentence templates and re-run pilot.",
+    "no_go_ordering": "If absorption ordering inverts (Matryoshka > TopK), investigate probe training or concept selection before scaling.",
+    "no_go_pipeline": "If official SAEBench eval or custom probe pipeline fails, debug and re-run before full experiment."
+  },
+  "pilot_outputs": [
+    "exp/results/pilots/pilot_semantic_probe_results.json",
+    "exp/results/pilots/pilot_firstletter_results.json"
+  ]
+}

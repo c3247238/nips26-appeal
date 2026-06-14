@@ -1,0 +1,103 @@
+{
+  "tasks": [
+    {
+      "id": "setup_env",
+      "name": "Environment Setup",
+      "description": "Install sae-lens, transformer-lens, and dependencies. Verify GPU availability and package versions.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "plan/setup_verified.log",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "shared_resources": [],
+      "visualizations": []
+    },
+    {
+      "id": "setup_data",
+      "name": "Dataset and Token Frequency Preparation",
+      "description": "Download/cache 1,024 sequences of 128 tokens from monology/pile-uncopyrighted. Compute token log-frequencies over the corpus.",
+      "type": "setup",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "shared/pile_1k_128.pt, shared/token_freqs.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "pile_1k_128",
+          "path": "shared/pile_1k_128.pt"
+        },
+        {
+          "type": "dataset",
+          "name": "token_freqs",
+          "path": "shared/token_freqs.json"
+        }
+      ],
+      "visualizations": []
+    },
+    {
+      "id": "baseline_random",
+      "name": "Random Dictionary Controls",
+      "description": "Generate random Gaussian decoder matrices (normalized per column) for dictionary sizes 2K, 4K, 8K, 16K matching GPT-2 d_model=768.",
+      "type": "baseline",
+      "depends_on": [
+        "setup_env"
+      ],
+      "expected_output": "shared/random_decoders_2k.pt, shared/random_decoders_4k.pt, shared/random_decoders_8k.pt, shared/random_decoders_16k.pt",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "random_decoder_2k",
+          "path": "shared/random_decoders_2k.pt"
+        },
+        {
+          "type": "checkpoint",
+          "name": "random_decoder_4k",
+          "path": "shared/random_decoders_4k.pt"
+        },
+        {
+          "type": "checkpoint",
+          "name": "random_decoder_8k",
+          "path": "shared/random_decoders_8k.pt"
+        },
+        {
+          "type": "checkpoint",
+          "name": "random_decoder_16k",
+          "path": "shared/random_decoders_16k.pt"
+        }
+      ],
+      "visualizations": []
+    },
+    {
+      "id": "analysis",
+      "name": "Results Aggregation and Visualization",
+      "description": "Aggregate all experiment outputs, compute summary statistics, generate figures and Table 1. Flag any suspicious improvements >30%.",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "exp/results/summary.json, exp/figures/",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Summary Table 1: hypothesis, metric, result, falsification status",
+          "columns": [
+            "Hypothesis",
+            "Metric",
+            "Result",
+            "Falsified"
+          ],
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

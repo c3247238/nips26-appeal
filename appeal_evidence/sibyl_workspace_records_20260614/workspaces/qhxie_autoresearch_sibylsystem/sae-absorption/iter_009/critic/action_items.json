@@ -1,0 +1,127 @@
+[
+  {
+    "priority": 1,
+    "category": "experiment",
+    "severity": "critical",
+    "action": "Generate the three missing figure PDFs (fig4_patching_comparison.pdf, fig5_pathological_histogram.pdf, fig6_architecture_comparison.pdf) from source data files. These correspond to three of five main contributions and block compilation.",
+    "files_affected": ["writing/figures/"],
+    "estimated_effort": "1-2 hours",
+    "data_sources": [
+      "exp/results/phase2/activation_patching_crossdomain.json",
+      "exp/results/phase2/benign_pathological.json",
+      "exp/results/phase1/architecture_comparison.json"
+    ]
+  },
+  {
+    "priority": 2,
+    "category": "experiment",
+    "severity": "critical",
+    "action": "Create a single authoritative data manifest mapping every number in the paper to exactly one data file and field. Resolve the three known discrepancies: (a) first-letter weighted F1 at L24 (paper says 0.97, full-mode data says 1.0), (b) benign/pathological instance count (paper 1,471 vs. consolidation 1,464), (c) first-letter L24_16k absorption rate (paper 27.1% per-unique-word vs. consolidation 34.5% per-instance).",
+    "files_affected": ["writing/paper.md", "exp/results/"],
+    "estimated_effort": "1 hour"
+  },
+  {
+    "priority": 3,
+    "category": "analysis",
+    "severity": "critical",
+    "action": "Reframe the benign/pathological diagnostic: change 'absorption is always pathological' to 'absorption is pathological across all 1,471 tested instances from city-continent at L24.' Add a paragraph discussing the methodological limitation: the diagnostic ablates decoder geometry, not computational dependence. Acknowledge that this is a measure of absorption magnitude, not a proof of computational harm.",
+    "files_affected": ["writing/paper.md", "writing/sections/"],
+    "estimated_effort": "30 minutes"
+  },
+  {
+    "priority": 4,
+    "category": "analysis",
+    "severity": "critical",
+    "action": "Clarify the Kruskal-Wallis test scope: explicitly state that p=7.4e-66 covers only 3 RAVEL hierarchies (excluding first-letter). Separate the descriptive claim ('rates range from 11.6% to 45.1%') from the inferential claim ('only city-language differs significantly from first-letter after Bonferroni correction at 16k'). Consider running a 4-hierarchy Kruskal-Wallis test if feasible.",
+    "files_affected": ["writing/paper.md"],
+    "estimated_effort": "30 minutes"
+  },
+  {
+    "priority": 5,
+    "category": "experiment",
+    "severity": "major",
+    "action": "Add a sentence to Section 3.3 documenting the aggregation method: 'Absorption rates are computed per unique entity (word or city), averaging across prompt contexts, to prevent entities with more prompt templates from dominating the rate.' Also report the alternative per-instance rate for first-letter (0.3448) in a footnote.",
+    "files_affected": ["writing/paper.md"],
+    "estimated_effort": "15 minutes"
+  },
+  {
+    "priority": 6,
+    "category": "experiment",
+    "severity": "major",
+    "action": "Report the probe-only baseline (control 3 from Section 3.3) numerically for each hierarchy. What is the false negative rate on raw activations alone? This bounds the probe-induced inflation of absorption rates. If this data was collected but not reported, include it. If not collected, acknowledge its absence and estimate the probe-quality-adjusted absorption rates.",
+    "files_affected": ["writing/paper.md", "exp/"],
+    "estimated_effort": "1-2 hours (if experiment needed)"
+  },
+  {
+    "priority": 7,
+    "category": "experiment",
+    "severity": "major",
+    "action": "Run the benign/pathological diagnostic on first-letter (the only hierarchy with F1=1.0 probes) to test whether the 100% pathological finding generalizes. If the finding is 100% pathological for first-letter too, the universality claim is strengthened. If benign instances exist in first-letter (concentrated absorption regime), this is a new and interesting finding about the mechanistic divide.",
+    "files_affected": ["exp/"],
+    "estimated_effort": "1-2 GPU-hours"
+  },
+  {
+    "priority": 8,
+    "category": "analysis",
+    "severity": "major",
+    "action": "For the cross-domain patching failure (Section 5.2), test whether identified child features have above-chance cosine similarity with the parent probe direction. Also test whether zeroing the top-5 or top-10 attributed features improves recovery. This distinguishes 'distributed absorption' from 'broken child identification.'",
+    "files_affected": ["exp/"],
+    "estimated_effort": "1-2 GPU-hours"
+  },
+  {
+    "priority": 9,
+    "category": "writing",
+    "severity": "major",
+    "action": "Convert Table 3 from inline markdown to the same PDF format as other tables. Fix format inconsistency that will break LaTeX compilation.",
+    "files_affected": ["writing/paper.md", "writing/figures/"],
+    "estimated_effort": "30 minutes"
+  },
+  {
+    "priority": 10,
+    "category": "writing",
+    "severity": "major",
+    "action": "Temper the architecture comparison conclusion from 'hierarchy dominates architecture' to 'we could not detect an architecture effect with the available data (p=0.50, n=12).' Acknowledge that the test is underpowered and the width mismatch confounds the comparison.",
+    "files_affected": ["writing/paper.md"],
+    "estimated_effort": "15 minutes"
+  },
+  {
+    "priority": 11,
+    "category": "writing",
+    "severity": "minor",
+    "action": "Clarify first-letter probe F1 ambiguity: if weighted F1 at L24 is 1.0 (as full-mode data shows), report 1.0 instead of 0.97. If 0.97 is correct for a different reason (e.g., including letter x with zero support), add a footnote explaining.",
+    "files_affected": ["writing/paper.md"],
+    "estimated_effort": "10 minutes"
+  },
+  {
+    "priority": 12,
+    "category": "writing",
+    "severity": "minor",
+    "action": "Add a note on multiple testing correction across the 4 Kruskal-Wallis tests conducted (hierarchy at L12, hierarchy at L24, architecture at L12, architecture at L24). State that Bonferroni correction does not affect any conclusion.",
+    "files_affected": ["writing/paper.md"],
+    "estimated_effort": "5 minutes"
+  },
+  {
+    "priority": 13,
+    "category": "reproducibility",
+    "severity": "minor",
+    "action": "Document the token position asymmetry (first-letter: position -6, RAVEL: position -2) and explain why different positions are used. Acknowledge this as a confound if no control is available.",
+    "files_affected": ["writing/paper.md"],
+    "estimated_effort": "10 minutes"
+  },
+  {
+    "priority": 14,
+    "category": "writing",
+    "severity": "minor",
+    "action": "Trim Section 2.6: remove SynthSAEBench and CE-Bench citations (not used in the paper) or explain their relevance to the cross-domain gap.",
+    "files_affected": ["writing/paper.md"],
+    "estimated_effort": "5 minutes"
+  },
+  {
+    "priority": 15,
+    "category": "writing",
+    "severity": "minor",
+    "action": "Standardize the mean logit change number: paper says 3.98, consolidation says 3.992. Use 3.99 for consistency with source data (or 4.0 to two significant figures). Verify the '1000x' claim: 3.99/0.004 = 997.5, which rounds to 1,000x.",
+    "files_affected": ["writing/paper.md"],
+    "estimated_effort": "5 minutes"
+  }
+]

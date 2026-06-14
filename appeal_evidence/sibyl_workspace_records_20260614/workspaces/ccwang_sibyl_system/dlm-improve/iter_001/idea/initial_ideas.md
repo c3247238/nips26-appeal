@@ -1,0 +1,5 @@
+- 从扩散过程的数学公式推导出发，分析现有 sampling strategy 的理论缺陷
+- 从底层机制（noise schedule、transition kernel、denoising dynamics）寻找改进点
+- 探索自适应步数/token 级别的采样策略
+- 结合离散扩散过程的特殊性质设计更高效的 sampler
+- 研究 confidence-based 或 entropy-based 的动态去噪策略

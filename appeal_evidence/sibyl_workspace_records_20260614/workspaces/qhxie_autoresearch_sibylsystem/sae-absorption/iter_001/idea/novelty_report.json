@@ -1,0 +1,222 @@
+{
+  "report_version": "3.0",
+  "generated": "2026-04-14",
+  "agent": "sibyl-novelty-checker",
+  "workspace": "sae-absorption",
+  "proposal_revision": 3,
+  "overall_novelty": "high",
+  "candidates": [
+    {
+      "candidate_id": "cand_eda_crossdomain",
+      "title": "When Encoder-Decoder Misalignment Signals Feature Absorption: Regime-Specific Detection, Cross-Domain Generalization, and the Dominance of Dictionary Coverage Failure",
+      "status": "front_runner",
+      "novelty_score": 7,
+      "per_contribution_scores": {
+        "eda_regime_specific_detector": 7,
+        "early_absorption_dominance_taxonomy": 9,
+        "cross_domain_characterization": 9,
+        "d_eda_secondary": 7,
+        "itac_proof_of_concept": 7
+      },
+      "contributions": [
+        {
+          "id": "contrib_eda",
+          "label": "EDA as regime-specific weight-only absorption screening tool with formal biconvex lower bound",
+          "novelty_score": 7,
+          "collisions": [
+            {
+              "paper": "Chanin et al. (Oct 2024). Toy Models of Feature Absorption in SAEs. LessWrong post.",
+              "overlap": "Informally proposes comparing encoder vs. decoder direction top activations to detect absorption. States 'discrepancies would indicate absorption'. No formal metric definition, no theorem, no AUROC, no regime characterization.",
+              "severity": "partial_overlap",
+              "differentiation": "EDA formalizes this informal heuristic into (1) a precisely defined scalar metric computable from SAE weights alone: EDA(j) = 1 - cos(w_{e,j}, d_j), (2) a formal biconvex lower bound theorem: EDA(j) >= delta^2 * sin^2(theta_{jc}) / (2 + delta^2) for absorbed latent j, (3) AUROC validation against supervised Chanin labels (AUROC = 0.776 at L12-16k), and (4) regime characterization explaining layer-width dependency from first principles: wide SAEs have more early-absorbed latents (decoder-absent), theoretically expected to have low EDA signal, consistent with H4 finding that late > early EDA (KW p=0.0002). The gap from informal heuristic to formal, validated, regime-characterized metric is the contribution."
+            },
+            {
+              "paper": "Tang et al. (Dec 2025). A Unified Theory of Sparse Dictionary Learning. arXiv:2512.05534.",
+              "overlap": "Provides biconvex optimization theory explaining absorption as spurious partial minima. Does NOT propose EDA or any encoder-decoder cosine metric. Complementary theoretical foundation.",
+              "severity": "related_work"
+            }
+          ],
+          "recommendation": "proceed"
+        },
+        {
+          "id": "contrib_crossdomain",
+          "label": "First cross-domain absorption characterization via RAVEL entity-attribute hierarchies",
+          "novelty_score": 9,
+          "collisions": [
+            {
+              "paper": "Karvonen et al. (Mar 2025). SAEBench. arXiv:2503.09532.",
+              "overlap": "SAEBench includes RAVEL evaluation for disentanglement (attribute isolation), NOT feature absorption measurement. These are distinct metrics using the same dataset. SAEBench absorption metric is exclusively first-letter.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "Chanin et al. (NeurIPS 2025). A is for Absorption. arXiv:2409.14507.",
+              "overlap": "All absorption measurements use first-letter spelling task exclusively.",
+              "severity": "related_work"
+            },
+            {
+              "paper": "Luo et al. (Feb 2026). HSAE: From Atoms to Trees. arXiv:2602.11881.",
+              "overlap": "Uses RAVEL for SAEBench disentanglement evaluation, NOT absorption measurement in entity-attribute hierarchies.",
+              "severity": "related_work"
+            }
+          ],
+          "recommendation": "proceed",
+          "differentiation_notes": "No prior paper measures SAE feature absorption in semantic entity-attribute hierarchies. The finding that intra-RAVEL rho = 0.924 and that first-letter vs. RAVEL cross-paradigm correlations are negative (rho = -0.43 to -0.20) are entirely new empirical findings."
+        },
+        {
+          "id": "contrib_taxonomy_early_dominance",
+          "label": "Three-subtype taxonomy with 75% early-absorption dominance insight",
+          "novelty_score": 9,
+          "collisions": [
+            {
+              "paper": "Chanin et al. (Oct 2024). Toy Models of Feature Absorption in SAEs. LessWrong post.",
+              "overlap": "Toy model implicitly shows late absorption (decoder-present, encoder-suppressed). Does not formalize three-way partition. Does not identify early absorption (decoder-absent) or partial absorption. Does not report prevalence.",
+              "severity": "partial_overlap",
+              "differentiation": "The three-subtype partition (early ~75%, late ~13%, partial ~12%) is a primary contribution absent from any prior work. The 75% early-dominance finding — that most absorbed latents correspond to features the SAE dictionary never learned — directly contradicts the implicit assumption of all ITAC-style and inference-time mitigation literature (that late absorption is the dominant case). This reframes the entire mitigation landscape: the primary lever is dictionary coverage (training-time), not encoder alignment (inference-time)."
+            },
+            {
+              "paper": "MP-SAE (Costa et al., arXiv:2506.03093).",
+              "overlap": "Implicitly targets late absorption (decoder-present, iterative encoder corrects encoder suppression). Does not classify subtypes or report early-dominance prevalence.",
+              "severity": "related_work",
+              "differentiation": "The early-dominance finding implies MP-SAE's real-world absorption reduction is bounded by the fraction of late-absorbed latents it can address (~13% of absorbed latents). MP-SAE cannot address the dominant 75% early-absorbed category because those latents lack a decoder direction to use as the basis for matching pursuit selection."
+            }
+          ],
+          "recommendation": "proceed"
+        },
+        {
+          "id": "contrib_d_eda_secondary",
+          "label": "D-EDA residual decomposition (secondary, supplementary)",
+          "novelty_score": 7,
+          "collisions": [],
+          "recommendation": "proceed_as_secondary",
+          "differentiation_notes": "No paper proposes decomposing the SAE encoder residual as a sparse sum of other decoder columns to distinguish absorption from polysemanticity. Demoted to secondary in Round 3 due to numerical conditioning issues at large widths. GPT-2 L10 exception (D-EDA = 0.762 vs EDA = 0.336) shows genuine complementary signal."
+        },
+        {
+          "id": "contrib_itac_proof_of_concept",
+          "label": "ITAC as proof-of-concept for late-absorbed latents (repositioned)",
+          "novelty_score": 7,
+          "collisions": [
+            {
+              "paper": "Costa et al. (Jun 2025). MP-SAE. arXiv:2506.03093.",
+              "overlap": "MP-SAE uses iterative encoder for hierarchical feature handling. Requires training new encoder. ITAC is post-hoc to frozen SAE.",
+              "severity": "partial_overlap",
+              "differentiation": "ITAC requires zero additional training. The 3% vs. 20% target miss is itself publishable as a negative result that confirms early-dominance: ITAC's structural limitation to late-absorbed (~13%) latents explains the gap. ITAC's failure is confirmatory evidence for the taxonomy finding."
+            }
+          ],
+          "recommendation": "proceed_as_proof_of_concept"
+        }
+      ],
+      "overall_candidate_recommendation": "proceed",
+      "key_citation_actions": [
+        "Cite LessWrong 'Toy Models' post (Chanin, Oct 2024) in Related Work; frame EDA as formal theorem + AUROC + regime characterization of the informal seed heuristic",
+        "Cite Tang et al. 2512.05534 as theoretical grounding for EDA biconvex lower bound",
+        "Cite MP-SAE (Costa et al. 2506.03093) in taxonomy and ITAC sections; discuss early-dominance implication for MP-SAE's real-world absorption reduction scope",
+        "Cite O'Neill et al. 2411.13117 as complement: proves amortization gap affects encoder; this work empirically distinguishes which absorbed latents are encoder-limited vs. dictionary-coverage-limited",
+        "Cite SynthSAEBench 2602.14687 for Phase 0 validation (F1 = 0.974 on synthetic ground truth)",
+        "Cite Narayanaswamy et al. 2604.06495 as concurrent mitigation work using first-letter metric; EDA targets detection/characterization",
+        "Cite Feature Hedging paper 2505.11756 noting EDA specifically targets absorption (negative encoder-decoder component) vs. hedging (positive encoder-decoder component)",
+        "Cite Korznikov et al. 2602.14111 in motivation: SAEs recover 9% of true features; this paper characterizes a specific, mechanistically well-understood failure mode"
+      ]
+    },
+    {
+      "candidate_id": "cand_amortization_gap_experiment",
+      "title": "Controlled Dictionary Experiment: Separating Sparsity-Landscape from Amortization-Gap Causes of Feature Absorption",
+      "status": "backup",
+      "novelty_score": 9,
+      "collisions": [
+        {
+          "paper": "O'Neill et al. (Nov 2024 / ICML 2025). Compute Optimal Inference and Provable Amortisation Gap in Sparse Autoencoders. arXiv:2411.13117.",
+          "overlap": "Compares feedforward SAE encoder vs. OMP/SAE+ITO on a fixed decoder dictionary. Measures MCC (feature recovery correlation with synthetic ground-truth features).",
+          "severity": "partial_overlap",
+          "differentiation": "The proposed experiment uses (1) real Gemma Scope L12-16k decoder weights (not synthetic data), (2) SAEBench absorption rate metric (probe-based recall on hierarchical features) rather than MCC, and (3) explicitly tests whether OMP reduces decoder-absent (early) absorption — a question not addressed by O'Neill et al. This directly adjudicates Tang et al. (sparsity landscape causes early absorption) vs. O'Neill et al. (amortization gap causes early absorption)."
+        }
+      ],
+      "recommendation": "high_priority_supplementary",
+      "differentiation_notes": "First controlled experiment using real-world Gemma Scope decoder dictionary, measuring absorption rate (not MCC) under feedforward vs. OMP vs. 2-pass encoding. 1-2 GPU-hours, no new downloads. Provides direct empirical adjudication between the two leading explanations of early absorption causation. If OMP dramatically reduces early absorption with the same dictionary, the encoder is implicated in early absorption causation, strengthening the amortization gap narrative. If absorption rates are similar, the sparsity landscape is the primary cause, supporting the Tang et al. narrative."
+    },
+    {
+      "candidate_id": "cand_lca_sae",
+      "title": "LCA-SAE: Reducing Feature Absorption via Locally Competitive Encoder Dynamics",
+      "status": "backup",
+      "novelty_score": 5,
+      "collisions": [
+        {
+          "paper": "Costa et al. (Jun 2025). MP-SAE. arXiv:2506.03093, 2506.05239.",
+          "overlap": "MP-SAE applies iterative encoder (sequential greedy residual pursuit) for absorption reduction. LCA-SAE uses parallel lateral competition. Both are iterative encoder approaches.",
+          "severity": "partial_overlap"
+        }
+      ],
+      "recommendation": "backup_only",
+      "differentiation_notes": "Activate only if EDA AUROC < 0.60 on all configs with direct Chanin labels AND cross-domain results null. Must differentiate empirically from MP-SAE on absorption rate metric."
+    },
+    {
+      "candidate_id": "cand_scaling_laws",
+      "title": "Scaling Laws for Feature Absorption: Partial Correlation Analysis",
+      "status": "backup",
+      "novelty_score": 6,
+      "collisions": [
+        {
+          "paper": "Chanin et al. (NeurIPS 2025). A is for Absorption. arXiv:2409.14507.",
+          "overlap": "Reports absorption rates across SAE sizes; notes varying size/sparsity insufficient to solve absorption. Does not conduct partial correlation analysis controlling for L0.",
+          "severity": "related_work"
+        }
+      ],
+      "recommendation": "include_as_supplementary",
+      "differentiation_notes": "H6 falsified (partial rho = +0.37, no sign reversal). Include as supplementary negative result. Methodological note that canonical SAEs lack L0 variation to test the confound is useful for the field."
+    }
+  ],
+  "dropped_candidates_confirmed": [
+    {
+      "candidate_id": "cand_hierarchy_coherent_loss",
+      "drop_confirmed": true,
+      "reason": "Crowded by Muchane et al. 2506.01197 and Luo et al. HSAE 2602.11881 and KronSAE 2505.22255."
+    },
+    {
+      "candidate_id": "cand_fisher_information",
+      "drop_confirmed": true,
+      "reason": "Computationally infeasible. EDA addresses same detection need at far lower cost."
+    }
+  ],
+  "concurrent_work_risk": "LOW",
+  "concurrent_work_notes": "April 2026 searches found no paper that: (a) formalizes encoder-decoder angular divergence as a formal absorption lower bound with AUROC validation, (b) measures SAE absorption in entity-attribute hierarchies beyond first-letter, or (c) provides a three-way taxonomy of absorbed latents by decoder occupancy with empirical prevalence. The 75% early-absorption dominance finding is entirely new. Risk: LOW.",
+  "blocking_experiments_required": [
+    {
+      "priority": 1,
+      "description": "Gemma 2B direct Chanin labels for L12-65k and L19-16k EDA evaluation (not Neuronpedia proxy)",
+      "novelty_impact": "Determines whether EDA claim stands as 'regime-specific reliable detector' (>=3/6 configs pass) or weaker 'theoretically grounded diagnostic tool with specific validated regimes'. Both framings are publishable."
+    },
+    {
+      "priority": 1,
+      "description": "RAVEL probes retrained directly on Gemma 2B + shuffled hierarchy control",
+      "novelty_impact": "Determines whether cross-domain claim is confirmed (proper probes show above-baseline rates) or must be weakened to 'existence evidence pending probe validation'. Either is publishable; former is stronger."
+    }
+  ],
+  "search_queries_run": [
+    "sparse autoencoder feature absorption encoder decoder misalignment detection 2024 2025",
+    "SAE feature absorption mechanistic interpretability taxonomy subtypes 2024 2025",
+    "encoder decoder angular divergence absorption detection sparse autoencoder weight-based arXiv 2024 2025",
+    "RAVEL entity attribute hierarchy sparse autoencoder feature absorption cross-domain 2025",
+    "EDA encoder decoder alignment SAE absorption weight-only detector formal bound 2025",
+    "SAE absorption early late partial subtype dictionary coverage encoder failure retraining 2025",
+    "biconvex sparse dictionary learning optimization landscape feature absorption Tang 2025",
+    "SAE absorption dictionary coverage failure versus encoder alignment failure empirical 2025",
+    "SynthSAEBench synthetic benchmark sparse autoencoder absorption ground truth arXiv 2025 2026",
+    "MP-SAE Costa multi-pass iterative encoder hierarchical feature absorption 2025",
+    "OMP sparse autoencoder amortization gap absorption encoder quality O'Neill 2025",
+    "locally competitive algorithm LCA sparse coding neural network lateral inhibition SAE absorption 2024 2025",
+    "LCA-SAE lateral inhibition sparse autoencoder unrolled mechanistic interpretability absorption reduction 2025",
+    "controlled dictionary experiment OMP feedforward encoder absorption rate sparse autoencoder 2025",
+    "feature absorption sparse autoencoder subtype classification geometric early late decoder present absent 2025",
+    "weight-only unsupervised absorption detection sparse autoencoder without probe direction 2024 2025",
+    "Chanin toy models feature absorption LessWrong encoder decoder weight direction detection 2024",
+    "feature absorption scaling wider SAE absorption rate partial correlation dictionary width L0 2025",
+    "OrtSAE KronSAE absorption detection unsupervised weight-based Korznikov 2025 arXiv",
+    "ITAC inference-time absorption correction sparse autoencoder training-free 2025",
+    "SAE feature absorption cross-domain entity attributes generalization beyond spelling task 2025",
+    "select-and-project sparse autoencoder absorption hierarchical features 2025 arXiv",
+    "Narayanaswamy masked regularization SAE absorption 2026 hierarchical features arXiv",
+    "SAE absorption geometric characterization early late dictionary coverage retraining 2026",
+    "sparse autoencoder feature absorption detection classifier weight analysis encoder decoder divergence AUROC 2025 2026",
+    "SAE absorption geometric characterization early late absorption decoder present absent 2025",
+    "feature absorption SAE encoder direction decoder direction misalignment metric detector 2025"
+  ]
+}

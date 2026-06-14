@@ -1,0 +1,72 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Zero statistically significant results after proper multiple comparison correction. The paper presents 12 hypothesis tests with zero survivors. The abstract, introduction, and conclusion all present H1b (layer 8 delta-corrected steering correlation, r=-0.431, p=0.028) as evidence of a real effect, but this p-value does not survive Bonferroni correction (corrected p=0.334) or Benjamini-Hochberg FDR (q=0.107). Presenting uncorrected p-values as evidence of effects is methodologically misleading.",
+    "suggestion": "Remove all claims about H1b representing a real effect. Restate: 'We did not find statistically significant evidence that absorption degrades downstream tasks after rigorous multiple comparison correction.' The framing should be honest null-result reporting, not positive findings."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Statistical power is severely inadequate. With n=26 features, the study has approximately 20% power to detect a medium effect size (r=0.5). This means the study is 4x more likely to miss a real effect than to find it. The null results are uninterpretable: they may reflect true absence of effect OR insufficient sample size. The paper does not acknowledge this limitation prominently.",
+    "suggestion": "Add a prominent limitation section stating: 'Our study has limited statistical power (n=26, ~20% power for medium effects). Non-significant results may indicate either true absence of effect or insufficient sample size. Future work should use larger feature sets or more powerful tests.' This should appear in the main paper, not just the supplementary materials."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "critical",
+    "description": "Post-hoc reframing as 'optimal compression' lacks direct empirical support. H6 (decoder graph predicts absorption) is falsified (precision@20=0.0) and H8 (graph statistics predict at-risk features) is not supported (r=0.12, p=0.55). The 'optimal compression' framing is introduced to explain why absorption is 'benign', but this theoretical framing was not pre-registered and is not directly tested. The paper uses a falsified hypothesis as theoretical motivation.",
+    "suggestion": "Either: (1) remove or substantially weaken the 'optimal compression' claim, framing it as a hypothesis for future work; or (2) run an experiment that directly tests the compression-optimality prediction. Currently, the paper derives a theoretical framework from a falsified hypothesis, which is logically unsound."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Probe quality confound in CMI-absorption analysis. Absorption rate correlates with probe F1 at rho=-0.67 (p<0.001). The CMI-absorption correlation analysis uses data from L0 where mean probe F1=0.817. Low-CMI letters may be inherently harder to probe, causing both low estimated CMI and artificially high absorption rates. The paper never computes partial correlation controlling for probe F1, nor restricts the CMI analysis to quality-gated features (F1>0.85).",
+    "suggestion": "Compute partial correlation of CMI vs. absorption controlling for probe F1. If the correlation disappears, the CMI-absorption relationship is confounded by probe quality. Restrict analysis to features with probe F1>0.85 and report whether the pattern holds. Acknowledge this as a limitation in the current analysis."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "CMI dimension instability: The CMI-absorption correlation at d'=10 (rho=-0.383, p=0.059 uncorrected) reverses sign at d'>=20 (d'=20: rho=+0.048, d'=30: rho=+0.299, d'=50: rho=+0.197). Bonferroni-corrected p=0.236. This qualitative sign reversal across dimensions is a red flag. The paper does not acknowledge this instability.",
+    "suggestion": "Acknowledge the dimension instability in the Discussion. The sign reversal suggests the correlation may be an artifact of specific probing conditions at d'=10. Do not present the d'=10 correlation as a robust finding."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "H2-H4 falsified (near-zero correlations, p > 0.86), yet the paper frames this as a 'reframing' contribution rather than acknowledging that the experiments may be underpowered or the wrong measurement. The narrative framing ('absorption is benign') is presented as a positive contribution when it could equally be 'experiments failed to detect an effect due to insufficient power'.",
+    "suggestion": "Revise framing to be more neutral: 'We did not find evidence that absorption degrades downstream tasks' rather than 'absorption is benign'. The latter is a stronger claim that requires stronger evidence. Use confidence intervals and effect sizes instead of p-values to present results."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The random SAE baseline comparison (H7) uses Hungarian matching with MCC~0.21 across ALL variants including Random control. This suggests chance-level recovery regardless of training. The paper acknowledges MCC failure but does not address the implication: absorption reduction may reflect sparsity-induced suppression rather than genuine hierarchical feature recovery.",
+    "suggestion": "Address the MCC failure explicitly. Either: (1) use a different metric for the random baseline comparison that does not have chance-level recovery; or (2) acknowledge that the MCC failure means the random baseline comparison may not be meaningful and should not be used to support the 'training reduces absorption' claim."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Section 3.6 claims 'approximately 20% power to detect a medium effect size (r = 0.5).' This is a post-hoc power analysis, which is methodologically questionable—power should be computed before the experiment. Post-hoc power analysis is widely considered uninformative.",
+    "suggestion": "Remove post-hoc power analysis entirely. If discussing power, reference an a-priori power analysis that should have been conducted before data collection. Use confidence intervals which are more informative than power calculations."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The OrtSAE ablation comparison is at unmatched L0: without penalty L0~920 vs. with penalty L0~550. The paper uses this to conclude 'the orthogonality penalty does not appear to reduce absorption', but this comparison is confounded by dictionary size.",
+    "suggestion": "Match L0 between conditions before comparing absorption. Or acknowledge this confound explicitly and qualify the conclusion: 'We cannot attribute the absorption difference to the orthogonality penalty alone because L0 differs between conditions.'"
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "The abstract presents multiple claims as established findings ('absorption does not significantly degrade', 'trained SAEs exhibit significantly LOWER absorption') without adequate hedging. These are null results and one correlation, not established facts.",
+    "suggestion": "Use more tentative language in the abstract: 'Our analysis finds no significant correlation', 'trained SAEs show lower absorption on average', etc. Hedge all causal claims."
+  }
+]

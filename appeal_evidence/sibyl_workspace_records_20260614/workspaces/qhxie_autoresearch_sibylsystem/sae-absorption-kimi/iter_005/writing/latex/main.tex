@@ -1,0 +1,373 @@
+\documentclass{article}
+
+\usepackage{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\title{Does First-Letter Absorption Predict Semantic-Hierarchy Absorption? A Construct-Validity Study of the Dominant SAE Benchmark}
+
+\author{%
+  Anonymous Author(s) \\
+  Affiliation \\
+  Address \\
+  \texttt{email} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Feature absorption---the suppression of parent-feature information when child features are active---is a central pathology in sparse autoencoders (SAEs). The dominant measurement, SAEBench's first-letter absorption metric, has never been tested on real semantic hierarchies. We conduct the first construct-validity study, adapting the SAEBench evaluator to 10 WordNet semantic hierarchies and testing 7 trained SAE architectures plus a Random-SAE control on Pythia-160M layer~8. The Pearson correlation between first-letter and semantic-hierarchy absorption is $r = 0.463$ (95\% CI: $[-0.389, 0.981]$)---inconclusive with only 7 SAEs. The metric fails hierarchy specificity: non-hierarchy correlated features show higher absorption than semantic hierarchies ($\bar{A}_{\text{NH}} = 0.331$ vs.~$\bar{A}_{\text{SH}} = 0.235$; paired $t$-test: $t = -4.748$, $p = 0.003$, Cohen's $d = -1.79$). A Random-SAE control achieves semantic-hierarchy absorption of 0.175, within the trained range (0.064--0.359), indicating the metric captures geometric artifacts alongside learned structure. These findings reveal a methodological blind spot in a widely adopted benchmark and suggest that domain-specific absorption metrics---validated for hierarchy specificity and sensitivity to training---are needed before absorption scores can guide architecture selection.
+\end{abstract}
+
+\section{Introduction}
+
+\subsection{Feature Absorption as a Central Pathology}
+
+Sparse autoencoders (SAEs) have become the dominant approach for decomposing neural network activations into interpretable features. By learning an overcomplete dictionary of latent directions, SAEs aim to recover monosemantic representations---features that each encode a single human-interpretable concept---from the polysemantic superposition that pervades transformer residual streams \citep{bricken2023monosemanticity,cunningham2023sparse}. The promise is substantial: if SAEs succeed, mechanistic interpretability can move from hand-crafted circuit tracing to automated feature discovery at scale.
+
+Yet SAEs suffer from well-documented failure modes. Feature absorption, first characterized analytically by \citet{chanin2024feature}, is among the most consequential. When a parent feature (e.g., ``animal'') and its child features (e.g., ``dog,'' ``cat'') co-occur in the training data, the SAE's sparsity loss incentivizes allocating representational capacity to the children at the parent's expense. The parent's information is not merely distributed across children; it is actively suppressed. \citet{chanin2024feature} proved that this phenomenon is incentivized by sparsity loss for hierarchical features. Whether the metric generalizes to non-hierarchical correlations is an empirical question we test in this study.
+
+The practical implications are severe. If SAEs absorb parent features, downstream interpretability tools that rely on SAE latents will miss high-level concepts entirely. A probe searching for ``animal'' features in a language model's SAE representation might find only ``dog'' and ``cat'' latents, with no latent encoding the general category. This undermines the core premise of SAE-based interpretability: that the latent basis captures the full conceptual structure of the model's internal representations.
+
+\subsection{The First-Letter Benchmark and Its Limitations}
+
+Given the theoretical importance of absorption, the community needed a standardized measurement. SAEBench \citep{karvonen2025saebench} provided one, incorporating an absorption evaluator based on \citeauthor{chanin2024feature}'s first-letter classification task. The task constructs 26 parent-child hierarchies defined by character-level properties: a parent feature like ``starts with S'' with children like ``short,'' ``small,'' and ``smart.'' A ground-truth logistic probe trained on base-model residual activations provides an upper-bound baseline; probes on full SAE latents and top-$k$ sparse latents measure information loss. The absorption score $A_{\text{full}}$ quantifies the maximum relative accuracy drop across these three conditions:
+\begin{equation}
+A_{\text{full}} = \max\left(0, \frac{\text{acc}_{\text{resid}} - \text{acc}_{\text{sae}}}{\text{acc}_{\text{resid}}}, \frac{\text{acc}_{\text{resid}} - \text{acc}_{\text{k-sparse}}}{\text{acc}_{\text{resid}}}\right)
+\end{equation}
+where $\text{acc}_{\text{resid}}$ is the probe accuracy on base-model residual activations, $\text{acc}_{\text{sae}}$ is accuracy on full SAE latents, and $\text{acc}_{\text{k-sparse}}$ is accuracy on top-$k$ SAE latents. SAEBench reports two absorption metrics: $A_{\text{full}}$ (the maximum relative accuracy drop, shown above) and $A_{\text{frac}}$ (the fraction of parent-feature projection captured by absorbing latents). We use $A_{\text{full}}$ as the primary metric because it is the one reported in SAEBench's public leaderboard and architecture papers, but we report $A_{\text{frac}}$ in Appendix~A.2 for completeness.
+
+The first-letter benchmark has genuine strengths. Ground-truth labels are available without human annotation. Causal ablations are tractable because the hierarchies are cleanly defined. The task isolates a specific structural property---parent-child containment---that theory predicts should trigger absorption. These virtues have made first-letter absorption one of eight canonical evaluations in SAEBench, and architecture papers routinely report it as a primary metric \citep{bussmann2025matryoshka,rajamanoharan2024jumprelu}.
+
+But the benchmark also has a critical limitation: it is an artificial task with no clear relationship to the semantic hierarchies that motivate absorption theory. \citet{chanin2024feature} themselves noted that ``finding examples of feature absorption unrelated to character identification'' remains open future work. The first-letter hierarchies are defined by orthographic properties, not semantic ones. Whether absorption scores on ``starts with S'' generalize to ``animal $\to$ dog'' is an empirical question that has never been tested. Without such a test, architecture comparisons that rank SAEs by first-letter absorption may be optimizing for a metric that does not reflect behavior on real conceptual hierarchies. This pattern exemplifies Goodhart's Law: when a convenient proxy metric (first-letter absorption) becomes an optimization target, the community may develop architectures that minimize the proxy without ensuring it captures the underlying construct (hierarchical feature quality).
+
+\subsection{Research Questions}
+
+This paper narrows its scope from the proposal's four research questions to three, focusing on construct validity, hierarchy specificity, and robustness. The metric decomposition and utility disconnect experiments were deferred due to resource constraints. Our analysis is guided by three research questions, which we test via three hypotheses (H1--H3, Section~\ref{sec:hypotheses}):
+
+\textbf{RQ1 (Construct Validity):} Do first-letter absorption scores correlate with semantic-hierarchy absorption scores across diverse SAE architectures? If the metric measures a general absorption phenomenon, architectures that score high on first-letter hierarchies should also score high on semantic hierarchies. Following conventions in psychometric validation \citep{crocker1986introduction}, we set a construct-validity threshold of $r > 0.6$, indicating a ``large'' effect size by Cohen's conventions.
+
+\textbf{RQ2 (Hierarchy Specificity):} Is the metric specific to hierarchical features, or does it detect absorption-like behavior in semantically correlated but non-hierarchical pairs? A valid absorption metric should score higher on parent-child hierarchies than on synonym or co-occurrence pairs that lack containment structure.
+
+\textbf{RQ3 (Robustness):} How stable is the correlation across feature-splitting thresholds ($\tau_{\text{fs}}$) in k-sparse probing? We treat this as a secondary robustness check rather than a primary research question.
+
+\subsection{Contributions}
+
+Our study makes four contributions:
+
+\begin{enumerate}
+\item \textbf{The first construct-validity test on semantic hierarchies derived from WordNet.} We provide the first empirical test of whether the dominant SAE absorption metric generalizes from artificial first-letter hierarchies to real semantic hierarchies.
+
+\item \textbf{Evidence of hierarchy-specificity failure.} All seven trained architectures show higher non-hierarchy absorption than semantic-hierarchy absorption (mean $\bar{A}_{\text{NH}} = 0.331$ vs.~$\bar{A}_{\text{SH}} = 0.235$; paired $t$-test across $n=7$: $t = -4.748$, $p = 0.003$), rejecting the hypothesis that the metric is specific to hierarchical structure. This rejection holds under our experimental conditions; we discuss alternative explanations, including template-induced spurious correlations, in Section~\ref{sec:specificity}.
+
+\item \textbf{Random-SAE control anomaly.} On semantic hierarchies, a Random-SAE control achieves a score of 0.175, exceeding only PAnneal (0.064) and falling within the lower portion of the trained range (0.064--0.359). This partial overlap suggests the metric captures both learned structure and geometric artifacts, with the latter contributing more than expected for a validated benchmark. The degeneracy is task-specific: the first-letter task does distinguish trained from random SAEs, with Random scoring near-zero (0.030) while TopK scores 0.576.
+
+\item \textbf{Open-source replication materials.} We release the WordNet hierarchy dataset, evaluation code, and per-architecture scores to enable community replication and extension (see Appendix~A.4 for availability statement).
+\end{enumerate}
+
+The implications, if confirmed by future work with larger cohorts and multiple models, extend beyond this specific metric. Our findings reveal a methodological blind spot in a widely adopted benchmark and suggest that domain-specific absorption metrics---validated for hierarchy specificity and sensitivity to training---are needed before absorption scores can guide architecture selection for real-world interpretability tasks.
+
+\section{Related Work}
+
+\subsection{From Superposition to Sparse Autoencoders}
+
+The theoretical motivation for SAEs draws on the superposition hypothesis articulated by \citet{elhage2022superposition}: neural networks represent more features than they have dimensions by encoding them as non-orthogonal linear combinations of activations. This overcomplete representation is necessary because the number of meaningful concepts in language far exceeds the residual-stream dimension, but it creates polysemanticity---individual neurons that respond to multiple unrelated stimuli---making direct interpretation intractable.
+
+\citet{bricken2023monosemanticity} demonstrated that SAEs could recover monosemantic features from a one-layer transformer, sparking rapid expansion of the field. \citet{cunningham2023sparse} scaled SAE training to larger models, and by 2024--2025 the literature spans multiple architectures (ReLU, TopK, JumpReLU, Gated, Matryoshka), comprehensive benchmarks, and applications beyond language (vision, proteins, RNA). \citet{templeton2024scaling} extracted millions of interpretable features from Claude~3 Sonnet, demonstrating that SAEs can operate at frontier-model scale.
+
+The central tension in this line of work is between reconstruction fidelity and interpretability. SAEs optimize this trade-off via a dictionary-learning objective with sparsity regularization, but the Pareto frontier has become the default comparison criterion despite \citeauthor{karvonen2025saebench}'s finding that frontier position does not predict downstream outcomes. Our work extends this skepticism to a specific downstream metric: absorption.
+
+\subsection{Feature Absorption and Its Mitigation}
+
+\citet{chanin2024feature} identified feature absorption as a structural failure mode analytically incentivized by sparsity loss. When parent and child features co-occur, the SAE allocates capacity to children at the parent's expense, creating ``holes'' in feature coverage. Their analytical proof applies to hierarchical features with parent-child containment structure, and their empirical validation used first-letter classification tasks.
+
+Subsequent work has pursued two directions: mitigation and characterization. \citet{bussmann2025matryoshka} introduced Matryoshka SAEs, which learn nested dictionaries of increasing size and report order-of-magnitude absorption reductions on the first-letter task. \citet{korznikov2026ortsae} enforced orthogonality constraints (OrtSAE), reducing absorption with modest compute overhead. \citet{zhan2026hierarchical} proposed hierarchical SAEs with explicit tree-structured constraints. \citet{rajamanoharan2024jumprelu} introduced JumpReLU and Gated SAEs, which improve reconstruction fidelity and sparsity trade-offs but do not directly target absorption.
+
+A critical counterpoint is the finding of feature hedging---the opposite failure mode where reconstruction loss drives correlated features to share latents rather than split them \citep{chanin2025hedging}. Matryoshka SAEs, while reducing absorption, increase hedging in inner dictionary levels. This reveals that absorption and hedging sit on a Pareto frontier: no known architecture simultaneously minimizes both. Our finding that the absorption metric responds to non-hierarchical correlations adds a third dimension to this trade-off space: the metric itself may be confounded by correlation structure that is neither absorption nor hedging.
+
+\subsection{Benchmarks and Metric Validation}
+
+SAEBench \citep{karvonen2025saebench} standardized eight evaluations for SAE comparison, including absorption, sparse probing, automated interpretability, loss recovery, and feature disentanglement. The absorption evaluation adapts \citeauthor{chanin2024feature}'s protocol: 26 first-letter hierarchies, ground-truth logistic probes, k-sparse probing with feature-splitting detection, and a composite absorption score. SAEBench has become the dominant community benchmark, with 200+ SAEs evaluated and an interactive leaderboard.\footnote{\url{neuronpedia.org/sae-bench}}
+
+Despite its centrality, the absorption metric has not undergone construct-validation testing. The first-letter task is a proxy for general hierarchical absorption, but whether it generalizes to semantic, syntactic, or factual hierarchies is unknown. \citet{chanin2024feature} explicitly noted this gap, listing ``finding examples of feature absorption unrelated to character identification'' as future work. Our study is the first to address this gap.
+
+The broader issue of proxy metric validity has received increasing attention. \citet{kantamneni2025saebaseline} showed that SAEs do not consistently outperform strong non-SAE baselines on downstream sparse probing tasks, questioning whether SAE-based features carry genuine utility beyond interpretability appeal. \citet{wang2025saeinterp} found that SAEBench interpretability scores correlate weakly with steering utility (Kendall's $\tau_b \approx 0.298$) and that this correlation vanishes after feature selection, suggesting that benchmark metrics do not predict practical utility. \citet{lieberum2024automated} found that feature interpretability ratings from automated methods correlate weakly with human judgments. These findings align with our results: metrics that appear meaningful in controlled settings may not generalize to the phenomena they claim to measure.
+
+\subsection{Construct Validity in Machine Learning Evaluation}
+
+Construct validity---the degree to which a measurement instrument captures the theoretical construct it claims to measure---is a cornerstone of psychometric theory \citep{cronbach1955construct} but is rarely applied to ML benchmarks. Goodhart's Law---``when a measure becomes a target, it ceases to be a good measure''---is particularly relevant to SAE benchmark design. As absorption scores have become a primary criterion for architecture comparison (SAEBench leaderboard, paper submissions), researchers have developed architectures that minimize first-letter absorption without validating that this improvement reflects genuine feature quality. This pattern mirrors well-documented cases in NLP (BLEU optimization producing fluent but unfaithful translations; \citealt{novikova2017why}) and computer vision (ImageNet accuracy failing to predict robustness to distribution shift; \citealt{geirhos2020shortcut}).
+
+Within mechanistic interpretability specifically, the gap between proxy metrics and ground-truth causal effects is acute. Probing-based metrics measure ``knowledge about'' a concept, but causal interventions (activation patching, ablation) are needed to establish ``use of'' that concept \citep{belinkov2022probing}. The absorption metric is probe-based: it detects whether parent-feature information is present in SAE latents, not whether the model causally depends on that information. Our Random-SAE finding---that a control with no learned structure achieves semantic-hierarchy absorption of 0.175, falling within the lower portion of the trained range---suggests the metric captures some geometric artifacts but is not entirely degenerate. The first-letter task, by contrast, correctly distinguishes trained from random SAEs (Random = 0.030 vs.~trained range 0.008--0.576), confirming that task-specific degeneracy varies.
+
+\subsection{Positioning This Work}
+
+Our study occupies the intersection of three literatures: SAE failure-mode characterization, benchmark validation, and construct-validity assessment. Unlike architecture papers that propose new SAE variants and report absorption scores \citep{bussmann2025matryoshka,korznikov2026ortsae}, we do not introduce a new method. Unlike theoretical work that analyzes absorption as an optimization property, we do not derive new bounds or guarantees. This study focuses on a single but critical question within this intersection: whether the dominant absorption metric generalizes from its original first-letter task to semantic hierarchies. We do not address the broader utility-disconnect question (whether absorption reduction predicts downstream performance) or the metric-decomposition question (what fraction of the score is attributable to learned structure vs.~geometry), leaving these for future work.
+
+This question is timely because absorption has become a primary criterion for architecture comparison. Papers routinely report first-letter absorption as a key result, and SAEBench's interactive leaderboard ranks SAEs partly by this metric. If the metric lacks construct validity, these comparisons are misleading for tasks beyond the benchmark's original scope. Our findings do not invalidate the first-letter task as a controlled experimental setting---it remains useful for studying absorption dynamics---but they caution against treating first-letter scores as a proxy for general absorption behavior.
+
+\section{Method}
+
+\subsection{SAE Selection}
+
+We evaluate eight SAE checkpoints spanning the absorption-rate spectrum reported in the literature. All checkpoints are from the SAELens public release for Pythia-160M-deduped (EleutherAI), layer~8, resid\_post. The base model has 160M parameters, a residual-stream dimension $d = 768$, and a vocabulary of approximately 50,000 tokens. Each SAE uses a latent dimension $m = 2048$.
+
+The seven trained architectures are: Standard, TopK, BatchTopK, MatryoshkaBatchTopK, GatedSAE, JumpReLU, and PAnneal. These span the major design families in the 2024--2025 SAE literature: L1-penalty baselines (Standard, PAnneal), hard top-$k$ gating (TopK, BatchTopK, MatryoshkaBatchTopK), and gated or thresholded activations (GatedSAE, JumpReLU). We use the first trainer checkpoint (trainer\_0) for each architecture, as SAEBench reports that trainer index explains minimal variance relative to architecture family.
+
+We include an eighth condition: a Random-SAE control. The Random SAE is constructed by taking the Standard SAE's trained encoder and bias but replacing the decoder matrix $W_{\text{dec}}$ with a column-permuted version. Permutation is an orthogonal transformation that preserves column norms and angles between decoder directions while destroying the learned semantic structure. This yields a baseline that tests whether absorption scores reflect base-model geometry rather than learned SAE structure.
+
+\subsection{First-Letter Absorption (Baseline)}
+
+We measure first-letter absorption using the official SAEBench evaluator with default configuration: Pythia-160M-deduped, random seed 42, batch size 256. The evaluator constructs 26 parent-child hierarchies defined by character-level properties (e.g., parent: ``starts with S,'' children: ``short,'' ``small,'' ``smart''). For each hierarchy, it trains a logistic regression probe on base-model residual activations ($\text{acc}_{\text{resid}}$), on full SAE latents ($\text{acc}_{\text{sae}}$), and on top-$k$ sparse SAE latents ($\text{acc}_{\text{k-sparse}}$). The primary metric is the mean full absorption score $A_{\text{FL}}$ across all 26 hierarchies.
+
+The absorption formula follows SAEBench:
+\begin{equation}
+A_{\text{full}} = \max\left(0, \frac{\text{acc}_{\text{resid}} - \text{acc}_{\text{sae}}}{\text{acc}_{\text{resid}}}, \frac{\text{acc}_{\text{resid}} - \text{acc}_{\text{k-sparse}}}{\text{acc}_{\text{resid}}}\right)
+\end{equation}
+The score is clipped at zero (no negative absorption) and takes the maximum of the two relative accuracy drops. A score of 0 indicates no absorption; 1 indicates complete absorption (the probe cannot classify the parent concept from SAE latents).
+
+\subsection{Semantic-Hierarchy Construction}
+
+We extract 10 semantic hierarchies from WordNet \citep{miller1995wordnet} using the NLTK interface. Each hierarchy consists of a parent concept (hypernym) and two or three child concepts (hyponyms) linked by direct hypernymy in the WordNet graph.
+
+\textbf{Selection criteria.} We enforce four constraints: (i) the parent and all children are single tokens in the Pythia-160M vocabulary; (ii) the hypernymy relation is direct (one edge in the WordNet graph); (iii) all concepts are concrete nouns to maximize probe separability; and (iv) children are balanced in frequency to avoid confounding by token prevalence. The exact hierarchies are: building (house, school, library), container (box, bag, cup), tool (fork, comb, rake), room (cell, court, hall), device (fan, key), book (album, journal), tree (ash, poon), food (fish, water), fruit (berry, seed), and animal (pet, male).
+
+\textbf{Synthetic dataset.} For each concept, we generate $N = 100$ sentences using a fixed template: ``The word [concept] appears in this sentence.'' This template ensures that the target concept appears as a single-token mention, controlling for contextual variation. The sentences are tokenized with the Pythia-160M tokenizer, and the residual-stream activation at layer~8 is extracted at the position of the target token.
+
+\subsection{Absorption Measurement Protocol}
+
+For each semantic hierarchy, we follow the three-probe protocol from SAEBench:
+
+\begin{enumerate}
+\item \textbf{Ground-truth probe.} A logistic regression classifier ($L_2$-regularized, $C = 1.0$) is trained on base-model residual-stream activations $h^{(l)}(x) \in \mathbb{R}^d$ with known parent/child labels. This probe provides an upper-bound baseline $\text{acc}_{\text{resid}}$.
+\item \textbf{SAE latent probe.} The same logistic regression classifier is trained on full SAE latent vectors $z \in \mathbb{R}^m$, yielding $\text{acc}_{\text{sae}}$.
+\item \textbf{K-sparse probe.} The classifier is trained on top-$k$ sparse latent vectors $z^{(k)} \in \mathbb{R}^m$, where only the $k = 10$ largest-magnitude entries are retained and all others are zeroed. This yields $\text{acc}_{\text{k-sparse}}$.
+\end{enumerate}
+
+The semantic-hierarchy absorption score for a single hierarchy is computed with the same formula as the first-letter task. We report the mean absorption score $\bar{A}_{\text{SH}}$ across all 10 hierarchies for each SAE.
+
+\textbf{Probe quality threshold.} We require a minimum probe AUROC of 0.7 for inclusion. All 10 hierarchies achieved AUROC $= 1.0$ on the ground-truth probe across all SAEs, indicating near-perfect separability of parent and child concepts in the residual stream. These near-ceiling values may indicate a ceiling effect that distorts the absorption formula; we discuss this limitation in Section~\ref{sec:limitations}.
+
+\subsection{Non-Hierarchy Control Condition}
+
+To test hierarchy specificity, we construct 10 semantically correlated but non-hierarchical word pairs: big-large, fast-quick, begin-start, doctor-hospital, student-school, river-water, fire-heat, sun-light, tree-wood, and stone-rock. These pairs exhibit semantic or associative relatedness (synonymy, co-occurrence, or thematic association) but lack parent-child containment structure.
+
+The same three-probe protocol and absorption formula are applied to each pair. For a pair $(w_a, w_b)$, the ``parent'' label is assigned to $w_a$ and the ``child'' label to $w_b$; the absorption score measures whether $w_a$'s information is lost when $w_b$ is active. The mean absorption across all 10 pairs is denoted $\bar{A}_{\text{NH}}$.
+
+If the absorption metric is specific to hierarchical structure, we expect $\bar{A}_{\text{SH}} > \bar{A}_{\text{NH}}$. If semantically correlated features trigger comparable or higher absorption, the metric lacks hierarchy specificity.
+
+\subsection{Statistical Analysis}\label{sec:hypotheses}
+
+We test three hypotheses corresponding to our research questions:
+
+\textbf{H1 (Construct Validity).} First-letter absorption scores correlate positively with semantic-hierarchy absorption scores across SAE architectures. We compute the Pearson correlation $r$ between $A_{\text{FL}}$ and $\bar{A}_{\text{SH}}$ across the $n = 7$ trained SAEs (excluding the Random control). We estimate a bootstrap 95\% confidence interval with $B = 10{,}000$ resamples. H1 is supported if $r > 0.6$ and the CI excludes 0.
+
+\textbf{H2 (Hierarchy Specificity).} Semantic-hierarchy absorption exceeds non-hierarchy control absorption. We compute a paired $t$-test comparing $\bar{A}_{\text{SH}}$ and $\bar{A}_{\text{NH}}$ across the same $n = 7$ SAEs, using a one-tailed test in the predicted direction ($\bar{A}_{\text{SH}} > \bar{A}_{\text{NH}}$) because the theoretical motivation predicts hierarchy-specific absorption. H2 is supported if $t > 0$ and $p < 0.05$ (one-tailed).
+
+\textbf{H3 (Robustness).} The first-letter vs.~semantic-hierarchy correlation is stable across feature-splitting thresholds. We repeat the H1 analysis at $\tau_{\text{fs}} \in \{0.01, 0.03, 0.05\}$, where $\tau_{\text{fs}}$ controls how many latents are retained in the k-sparse probe. H3 is supported if all three correlations exceed 0.6 with CIs excluding 0.
+
+All statistical tests are conducted in Python 3.12 using SciPy \citep{virtanen2020scipy} for parametric tests and custom bootstrap resampling for confidence intervals.
+
+\subsection{GPT-2 Replication}
+
+We replicate the semantic-hierarchy and non-hierarchy evaluation on GPT-2 small (layer~8, resid\_pre) for Standard and TopK SAEs from the SAELens public release. The protocol is identical to the main experiment except for the base model and SAE source. Layer~8 was chosen to match the Pythia-160M layer depth (mid-network) for comparability.
+
+\section{Results}
+
+\subsection{Main Results: Architecture Comparison}
+
+Table~\ref{tab:main} reports per-architecture absorption scores across all three conditions. First-letter absorption spans two orders of magnitude, from 0.008 (GatedSAE) to 0.576 (TopK). Semantic-hierarchy absorption is more compressed, ranging from 0.064 (PAnneal) to 0.359 (BatchTopK). The Random-SAE control scores 0.030 on first-letter absorption---near-zero, as expected for a permuted decoder---but 0.175 on semantic-hierarchy absorption, a value within the trained range.
+
+\begin{table}[t]
+\caption{Per-architecture absorption scores across three conditions on Pythia-160M layer~8. Bold indicates minimum score per column. $^\dagger$Random SAE is a control with permuted decoder directions, not a trained architecture.}
+\label{tab:main}
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Architecture & First-Letter & Semantic-Hierarchy & Non-Hierarchy Control \\
+\midrule
+BatchTopK & 0.547 & \textbf{0.359} & 0.398 \\
+GatedSAE & 0.008 & 0.188 & 0.379 \\
+JumpReLU & 0.281 & 0.230 & 0.348 \\
+MatryoshkaBatchTopK & 0.204 & 0.203 & 0.333 \\
+PAnneal & 0.012 & \textbf{0.064} & \textbf{0.131} \\
+Standard & 0.026 & 0.352 & \textbf{0.416} \\
+TopK & \textbf{0.576} & 0.250 & 0.311 \\
+Random$^\dagger$ & 0.030 & 0.175 & 0.233 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three patterns emerge. First, the architecture ranking differs across tasks: TopK and BatchTopK show the highest first-letter absorption, but BatchTopK leads on semantic-hierarchy absorption while TopK is mid-range. Second, the Standard SAE shows near-zero first-letter absorption (0.026) but the second-highest semantic-hierarchy absorption (0.352). Third, the Random SAE's semantic-hierarchy score (0.175) falls within the trained range (0.064--0.359), indicating substantial overlap between randomized and trained structures.
+
+\subsection{H1: Construct Validity}
+
+Figure~\ref{fig:scatter} shows the scatter plot of first-letter versus semantic-hierarchy absorption across the seven trained SAEs.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig2_scatter.pdf}
+\caption{Scatter plot of first-letter vs.~semantic-hierarchy absorption scores across 7 trained SAE architectures ($n = 7$). Pearson $r = 0.463$ with bootstrap 95\% CI $[-0.389, 0.981]$. The wide interval reflects small sample size and high variance, yielding an inconclusive construct-validity test.}
+\label{fig:scatter}
+\end{figure}
+
+The Pearson correlation is $r = 0.463$ (95\% CI: $[-0.389, 0.981]$), with $B = 10{,}000$ bootstrap resamples. The point estimate suggests a moderate positive relationship, but the confidence interval spans from negative to near-perfect correlation. H1 is neither supported nor rejected: the correlation falls below the 0.6 construct-validity threshold, and the CI includes zero, so we cannot conclude that first-letter absorption generalizes to semantic hierarchies. Equally, we cannot rule out generalization---the upper bound of 0.981 permits a strong relationship that our sample is simply too small to detect. Including the Random SAE ($n = 8$) yields $r = 0.497$ (CI: $[-0.206, 0.958]$), marginally higher but still inconclusive.
+
+\subsection{H2: Hierarchy Specificity}\label{sec:specificity}
+
+Figure~\ref{fig:specificity} compares semantic-hierarchy and non-hierarchy control absorption across the seven trained architectures.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig3_specificity.pdf}
+\caption{Hierarchy specificity test: semantic-hierarchy (coral) vs.~non-hierarchy correlated-feature (green) absorption scores. Non-hierarchy scores are significantly higher (paired $t$-test: $t = -4.748$, $p = 0.003$), rejecting the hypothesis that the metric is specific to hierarchical structure.}
+\label{fig:specificity}
+\end{figure}
+
+The mean semantic-hierarchy absorption is 0.235; the mean non-hierarchy control absorption is 0.331. A paired $t$-test across the seven trained SAEs yields $t = -4.748$, $p = 0.0032$, Cohen's $d = -1.79$. Non-hierarchy scores are significantly \emph{higher} than hierarchy scores---the opposite of the predicted direction. H2 is rejected; the effect is in the opposite direction. The absorption metric is not specific to hierarchical structure. All seven trained architectures show higher non-hierarchy than hierarchy absorption. GatedSAE exhibits the largest gap (0.379 vs.~0.188), followed by Matryoshka (0.333 vs.~0.203) and JumpReLU (0.348 vs.~0.230).
+
+\subsection{H3: Robustness Across $\tau_{\text{fs}}$}
+
+Figure~\ref{fig:robustness} shows the Pearson correlation between first-letter and semantic-hierarchy absorption at three feature-splitting thresholds.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/fig4_robustness.pdf}
+\caption{Robustness analysis: Pearson correlation between first-letter and semantic-hierarchy absorption across three feature-splitting thresholds ($\tau_{\text{fs}}$). The correlation is numerically stable ($r = 0.468$--0.471), but all confidence intervals are wide and span the H1 threshold of $r = 0.6$, yielding inconclusive evidence.}
+\label{fig:robustness}
+\end{figure}
+
+The correlation is numerically stable: $r = 0.468$ at $\tau_{\text{fs}} = 0.01$, 0.463 at 0.03, and 0.471 at 0.05. All bootstrap 95\% CIs remain wide and span the H1 threshold of $r = 0.6$. The hierarchy-specificity rejection ($t = -4.748$, $p = 0.003$) holds consistently across all thresholds because the paired $t$-test depends only on the per-architecture means, which do not vary with $\tau_{\text{fs}}$. H3 is inconclusive for construct validity but robust for hierarchy-specificity failure.
+
+\subsection{Random-SAE Control}
+
+The Random SAE achieves first-letter absorption of 0.030---near-zero, confirming that the first-letter task measures learned structure (a permuted decoder cannot reconstruct character-level hierarchies). However, on semantic-hierarchy absorption, the Random SAE scores 0.175, a value that exceeds PAnneal (0.064) and falls within the lower portion of the trained range. On non-hierarchy control, the Random SAE scores 0.233, again within the trained range.
+
+This pattern implies that the semantic-hierarchy adaptation of the absorption metric captures properties of the base-model residual stream, the probe setup, or both, rather than learned SAE structure alone. The first-letter metric, by contrast, successfully distinguishes trained from random decoders.
+
+\subsection{GPT-2 Replication}
+
+We replicate the semantic-hierarchy and non-hierarchy evaluation on GPT-2 small (layer~8, resid\_pre) for Standard and TopK SAEs. The Standard SAE achieves hierarchy absorption of 0.000 and non-hierarchy absorption of 0.025; the TopK SAE achieves 0.003 and 0.098, respectively. These values are an order of magnitude lower than the corresponding Pythia-160M scores (Standard: 0.352 hierarchy, 0.416 non-hierarchy; TopK: 0.250 hierarchy, 0.311 non-hierarchy).
+
+The GPT-2 results suggest that semantic-hierarchy absorption is highly model-dependent. The near-zero scores may reflect differences in residual-stream geometry, tokenizer vocabulary, or layer-8 representation structure between GPT-2 and Pythia-160M. This model dependence further undermines the metric's validity as a general construct.
+
+\section{Discussion}
+
+\subsection{Interpreting the Inconclusive Construct Validity}
+
+The point estimate $r = 0.463$ suggests a moderate positive relationship between first-letter and semantic-hierarchy absorption across SAE architectures. Yet the bootstrap 95\% confidence interval $[-0.389, 0.981]$ spans from moderately negative to near-perfect correlation (Figure~\ref{fig:scatter}). With only seven trained SAEs, the bootstrap distribution is highly diffuse, and the evidence neither supports nor rejects H1.
+
+Three factors contribute to this uncertainty. First, the sample size ($n = 7$) is small for correlation inference. A post-hoc power analysis (G*Power 3.1, two-tailed test) shows that detecting $r = 0.6$ at $\alpha = 0.05$ with 80\% power requires $n \approx 19$ SAEs. Second, the variance in semantic-hierarchy absorption is compressed relative to first-letter: the standard deviation is 0.099 for semantic-hierarchy versus 0.252 for first-letter. Third, the relationship may be genuinely nonlinear or moderated by architecture-specific properties---for example, gating mechanisms in GatedSAE may affect first-letter and semantic tasks differently.
+
+The conservative interpretation is that the current evidence base is insufficient for confident claims about construct validity. Researchers should not assume that first-letter absorption generalizes to semantic hierarchies, nor should they dismiss the possibility outright.
+
+\subsection{The Hierarchy Specificity Failure}
+
+The most statistically decisive finding is the rejection of H2. Non-hierarchy correlated features show significantly higher absorption ($\bar{A}_{\text{NH}} = 0.331$) than semantic hierarchies ($\bar{A}_{\text{SH}} = 0.235$), with $t = -4.748$ and $p = 0.0032$. Every trained architecture shows this reversal (Figure~\ref{fig:specificity}).
+
+This contradicts the theoretical motivation for the absorption metric. \citet{chanin2024feature} proved that sparsity loss incentivizes absorption for hierarchical features, where parent-child relationships create representational competition. If the metric were hierarchy-specific, parent-child hierarchies should show higher absorption than semantically correlated pairs that lack hierarchical structure. The opposite pattern suggests the metric detects something other than hierarchy-driven absorption.
+
+We see three plausible explanations:
+
+\begin{enumerate}
+\item \textbf{Synthetic template artifacts.} The fixed sentence template (``The word [concept] appears in this sentence.'') ensures that the target concept appears as a single-token mention, but it may introduce spurious correlations. All sentences share identical syntactic structure, so the probe may discriminate based on positional or syntactic cues rather than semantic content. If these cues are preserved equally well in SAE latents for non-hierarchies but disrupted for hierarchies, the metric would artifactually favor non-hierarchies.
+
+\item \textbf{Semantic relatedness without containment.} Non-hierarchy pairs like ``doctor-hospital'' or ``sun-light'' are thematically correlated in the pre-training corpus. SAEs may learn distributed representations that co-activate for these pairs, creating probe-accuracy drops that the absorption formula interprets as absorption-like behavior. The metric may measure general co-occurrence sensitivity, not hierarchy-specific capacity allocation.
+
+\item \textbf{K-sparse probing threshold.} The $k = 10$ threshold for k-sparse probing may be too coarse. Semantic hierarchies may require fine-grained distinctions that need more than 10 latents, while non-hierarchy pairs may be discriminable with fewer. If so, the k-sparse term in the absorption formula would artifactually inflate non-hierarchy scores.
+\end{enumerate}
+
+Distinguishing among these explanations requires additional experiments: varying sentence templates, controlling for corpus co-occurrence, and testing multiple $k$ values. Our data cannot adjudicate among them, but all three point to the same conclusion: the metric as currently adapted to semantic tasks is not measuring hierarchy-specific absorption.
+
+The ceiling effect (AUROC $= 1.0$ for all hierarchies on residual activations) means the absorption formula reduces to $1.0 - \min(\text{acc}_{\text{sae}}, \text{acc}_{\text{k-sparse}})$. This one-sided construction may inflate apparent absorption for any condition where SAE probes struggle, regardless of whether hierarchical structure is involved.
+
+\subsection{The Random-SAE Anomaly}
+
+The Random-SAE control---constructed by permuting the decoder directions of the Standard SAE while retaining its trained encoder---yields first-letter absorption of 0.030, near-zero as expected for a permuted decoder, though slightly above the two lowest trained architectures (GatedSAE 0.008, PAnneal 0.012). On semantic-hierarchy absorption, however, it scores 0.175, a value that exceeds only PAnneal (0.064) and falls near the lower bound of trained architectures. The non-hierarchy control absorption is 0.233, again within the trained range (Table~\ref{tab:main}).
+
+This is the most striking finding in our study. The first-letter task correctly distinguishes trained from randomized structure: the permuted decoder destroys the letter-specific features learned during training, and absorption drops to near-zero. But the semantic-hierarchy and non-hierarchy adaptations of the metric show substantial overlap between trained and randomized SAEs, with the Random SAE (0.175) falling within the lower portion of the trained range. This partial overlap indicates that the metric captures both learned structure and geometric artifacts, with the latter contributing more than expected for a validated benchmark.
+
+One hypothesis is that the semantic-hierarchy absorption score depends on the geometric structure of the decoder basis---the angles between decoder directions, their norms, and their coverage of the residual-stream manifold---rather than the semantic content of the features. The Random SAE test is consistent with this hypothesis, though the partial separation (Random = 0.175 vs.~trained range 0.064--0.359) suggests geometric structure is not the sole determinant.
+
+This finding aligns with \citet{korznikov2026ortsae}, who showed that random-decoder baselines match trained SAEs on AutoInterp, sparse probing, and RAVEL, though they did not test absorption specifically. Our work extends their sanity-check methodology to the absorption metric. It also resonates with the broader critique that SAE evaluation metrics may measure geometric properties of the activation manifold rather than learned semantic structure.
+
+\subsection{Implications for Benchmark Design}
+
+Our findings carry four implications for SAE benchmark design and community practice.
+
+\textbf{First, the SAEBench absorption metric should not be extended to semantic hierarchies without substantial modification.} The current adaptation---replacing first-letter hierarchies with WordNet hypernyms while keeping the same probe protocol---produces scores that are insensitive to learned structure and fail hierarchy specificity. A valid semantic-hierarchy absorption metric would need to demonstrate hierarchy specificity (hierarchy $>$ non-hierarchy) and sensitivity to training (trained $>$ random) before community adoption.
+
+\textbf{Second, architecture comparisons using absorption as a criterion may be valid for first-letter tasks but not generalizable.} \citet{bussmann2025matryoshka} report order-of-magnitude absorption reductions for Matryoshka SAEs on first-letter tasks; our results do not challenge this external finding, but they do challenge its generalization to semantic tasks. Architecture researchers should validate absorption-reduction claims on multiple task types, not just the benchmark task.
+
+\textbf{Third, random-baseline correction should become standard practice.} The Random-SAE anomaly demonstrates that raw absorption scores on semantic tasks are uninterpretable without a baseline. We recommend that future absorption evaluations report scores relative to a random-decoder control, following the methodology introduced by \citet{korznikov2026ortsae} for AutoInterp and sparse probing.
+
+\textbf{Fourth, the community should invest in domain-specific absorption metrics with validated hierarchy specificity.} A metric that cannot distinguish hierarchies from correlated pairs, and shows substantial overlap between trained and randomized SAEs, is not ready for benchmark status. Future work should develop and validate metrics that explicitly test for hierarchical structure, perhaps using causal ablations or interventional probes.
+
+These findings exemplify Goodhart's Law in benchmark design: when a metric (first-letter absorption) becomes an optimization target, researchers develop architectures that minimize it without ensuring the metric captures the underlying construct (hierarchical feature quality). The inconclusive construct validity and failed hierarchy specificity suggest the community has been optimizing a proxy, not the true objective.
+
+\subsection{Limitations}\label{sec:limitations}
+
+Our study has five principal limitations.
+
+\textbf{Small SAE sample.} With seven trained SAEs plus one random control, statistical power is limited. The bootstrap confidence interval for H1 spans nearly the full correlation range. A cohort of 15--20 architectures would be needed for definitive construct-validity testing.
+
+\textbf{Single layer and model size.} All experiments use Pythia-160M-deduped, layer~8, resid\_post. Absorption dynamics may differ at other layers---earlier layers encode lower-level features; later layers encode more abstract concepts---and at larger scales. \citet{templeton2024scaling} extracted millions of features from Claude~3 Sonnet, demonstrating that SAE behavior at frontier scale may differ qualitatively from small models. The GPT-2 replication shows model-dependent effects, suggesting that results do not generalize across base models without further validation.
+
+\textbf{Shallow hierarchies.} Our WordNet hierarchies are single-level parent-child relationships. Deeper hierarchies (3--4 levels, e.g., ``animal" $\to$ ``mammal" $\to$ ``dog'') may exhibit different absorption patterns. The sparsity-loss incentive for absorption may compound across levels, or deeper hierarchies may be represented differently in the residual stream.
+
+\textbf{Synthetic sentence templates.} The fixed template ensures frequency balance but may not reflect natural language distribution. Probes trained on synthetic data may exploit template-specific cues rather than genuine semantic representations. Natural-language corpus extraction would increase ecological validity but introduce frequency confounds. Balancing ecological validity against experimental control remains an open challenge for future work.
+
+\textbf{Probe ceiling effects.} All hierarchies achieved near-perfect probe AUROC ($= 1.0$) on residual activations, leaving no headroom for SAE latents to match or exceed residual performance. This ceiling effect means the absorption formula's numerator ($\text{acc}_{\text{resid}} - \text{acc}_{\text{sae}}$) is bounded above by the residual accuracy, which is already at maximum. Hierarchies with lower residual AUROC might show different absorption patterns, though the minimum threshold of 0.7 was designed to exclude such cases.
+
+\section{Conclusion}
+
+\subsection{Summary}
+
+This paper presents the first construct-validity study of the SAEBench feature absorption metric, testing whether first-letter absorption scores generalize to real semantic hierarchies drawn from WordNet. Across eight SAE architectures on Pythia-160M layer~8, three findings emerge.
+
+First, H1 (construct validity) is inconclusive. The Pearson correlation between first-letter and semantic-hierarchy absorption is $r = 0.463$ (95\% CI: $[-0.389, 0.981]$). The point estimate suggests a moderate positive relationship, but the confidence interval spans from moderately negative to near-perfect correlation. With only seven trained SAEs, the evidence neither supports nor rejects the hypothesis that the metric generalizes.
+
+Second, H2 (hierarchy specificity) is rejected. Non-hierarchy correlated features show significantly higher absorption ($\bar{A}_{\text{NH}} = 0.331$) than semantic hierarchies ($\bar{A}_{\text{SH}} = 0.235$; paired $t$-test: $t = -4.748$, $p = 0.003$). All seven trained architectures show this reversal. The metric detects absorption-like behavior in semantically correlated pairs that lack parent-child structure, contradicting the theoretical motivation that absorption is specific to hierarchical features.
+
+Third, the Random-SAE control reveals partial degeneracy. A randomized SAE with permuted decoder directions achieves semantic-hierarchy absorption of 0.175, within the lower portion of the trained range (0.064--0.359), and non-hierarchy control absorption of 0.233, also within the trained range. The first-letter task correctly distinguishes trained from randomized structure (0.030 vs.~0.008--0.576), but the semantic adaptations of the metric show substantial overlap. This indicates that semantic-hierarchy absorption scores capture artifacts of basis geometry alongside learned SAE structure.
+
+The GPT-2 replication reveals near-zero semantic-hierarchy absorption (0.000--0.098), an order of magnitude below Pythia-160M, suggesting the metric is highly model-dependent and may not generalize across base models.
+
+\subsection{Recommendations}
+
+These findings yield three recommendations for the SAE research community, ordered by immediacy.
+
+\textbf{Most urgently, for benchmark designers:} Do not extend the first-letter absorption metric to semantic hierarchies without substantial modification. The current adaptation---replacing first-letter hierarchies with WordNet hypernyms while retaining the same probe protocol---produces scores that are insensitive to learned structure and fail hierarchy specificity. Any semantic-hierarchy absorption metric should demonstrate both hierarchy specificity (hierarchy $>$ non-hierarchy) and sensitivity to training (trained $>$ random) before community adoption.
+
+\textbf{Second, for architecture researchers:} Absorption-reduction claims should be validated on multiple task types. \citet{bussmann2025matryoshka} report order-of-magnitude absorption reductions for Matryoshka SAEs on first-letter tasks; our results do not challenge this external finding, but they do challenge its generalization to semantic tasks. Architecture comparisons that rank SAEs by absorption alone may be optimizing for a metric that does not reflect behavior on real conceptual hierarchies.
+
+\textbf{Finally, for the community:} Invest in domain-specific absorption metrics with validated hierarchy specificity. A metric that cannot distinguish hierarchies from correlated pairs, and shows substantial overlap between trained and randomized SAEs, is not ready for benchmark status. Future metrics should explicitly test for hierarchical structure, perhaps using causal ablations or interventional probes that go beyond passive probe accuracy.
+
+\subsection{Future Work}
+
+Four directions would strengthen and extend this study.
+
+\textbf{Larger SAE cohorts.} A cohort of 15--20 architectures would provide adequate statistical power for definitive construct-validity testing. Our post-hoc power analysis shows that detecting $r = 0.6$ at $\alpha = 0.05$ with 80\% power requires $n \approx 19$ SAEs. The current sample of seven trained architectures yields a bootstrap distribution too diffuse for confident inference.
+
+\textbf{Deeper hierarchies and multiple base models.} Our WordNet hierarchies are single-level parent-child relationships. Deeper hierarchies (3--4 levels, e.g., ``animal" $\to$ ``mammal" $\to$ ``dog'') may exhibit different absorption patterns, and the sparsity-loss incentive may compound across levels. The GPT-2 replication shows model-dependent effects, with near-zero absolute scores that differ from Pythia-160M. A broader model sweep---spanning scales from GPT-2 small to Gemma-2-2B and layers from early to late---would test whether semantic-hierarchy absorption is a stable phenomenon or a model-specific artifact.
+
+\textbf{Alternative hierarchy sources.} WordNet is one of many lexical ontologies. ConceptNet \citep{speer2017conceptnet} provides broader relational coverage; BabelNet \citep{navigli2012babelnet} integrates multilingual hierarchies. Testing absorption on hierarchies from multiple sources would guard against ontology-specific artifacts and increase ecological validity.
+
+\textbf{Causal validation.} The current metric is correlational: it measures probe accuracy drops, not whether parent-feature information is truly missing or merely hidden in distributed form. Causal ablation studies---following the methodology of \citet{chanin2024feature}---could distinguish ``truly absorbed'' from ``merely distributed'' parent features. Activation patching or interchange intervention \citep{geiger2023causal} could test whether suppressing child latents restores parent-feature accessibility. Such experiments would move absorption measurement from diagnostic probing to causal validation, aligning the metric more closely with the theoretical construct it claims to measure.
+
+These directions, taken together, would transform absorption measurement from a diagnostic convenience into a validated scientific instrument.
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}

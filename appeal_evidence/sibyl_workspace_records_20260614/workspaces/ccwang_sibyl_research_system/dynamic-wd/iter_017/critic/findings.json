@@ -1,0 +1,136 @@
+{
+  "summary": "Iter_017 paper is a well-structured, honest EqWD method paper with strong ImageNet results, proper statistical caveats, and good figures. The pivot from the unified framework to a focused method paper was successful. However, four blocking issues remain: (1) the budget-matched FixedWD control experiment was flagged as P0 in lessons_learned from iter_016 but was NOT executed -- the paper's core claim (adaptive modulation matters) remains unfalsifiable, (2) ImageNet epoch count (45) is still not stated explicitly in the main text despite being flagged for multiple iterations, (3) the CIFAR-10 table still contains 'DefazioCorrective' (undefined in the paper) and still lacks EqWD/CAWD results, (4) the WD heatmap colorbar shows lambda_t values around 0.00052-0.00062, which is inconsistent with lambda_base=1e-4 stated in the paper -- if the heatmap plots lambda_t (not lambda_t*gamma), these values imply lambda_base~=5e-4, a 5x discrepancy that undermines data integrity. On the positive side: the 'Empirical Observation' reframing of former Proposition 2 is a significant improvement, statistical calibration remains excellent (bootstrap CIs, Cohen's d, 'directional trend' language), the CAWD negative result is well-leveraged, and the limitations section is commendably honest.",
+  "findings": [
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "BUDGET-MATCHED FIXEDWD STILL NOT RUN (FLAGGED P0 IN ITER_016 LESSONS): The iter_016 lessons_learned.md explicitly states this is 'BLOCKING, P0' and 'the first action in iter_017.' It was NOT done. EqWD's phi_l(t) >= 1 means the effective average WD is systematically higher than FixedWD with the same lambda_base. The paper acknowledges this confound (Section 3.2, Section 5.6) and lists it as future work (Section 6). Without running FixedWD at lambda matching EqWD's average effective WD, the paper cannot distinguish 'adaptive modulation improves generalization' from 'applying more regularization improves generalization.' This is the single most damaging missing experiment. It was identified as blocking 2 iterations ago and still not addressed.",
+      "suggestion": "Measure EqWD's mean effective lambda across training (average of lambda_t^l across all layers and steps). Run FixedWD at that value on ImageNet, 3 seeds. ~9 GPU-hours. If budget-matched FixedWD matches EqWD (72.27%), the narrative shifts to 'EqWD automatically discovers better WD strength.' If budget-matched FixedWD underperforms, adaptive modulation is validated. Either way the paper is publishable, but the current state is scientifically incomplete."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "WD HEATMAP COLORBAR VALUES INCONSISTENT WITH STATED LAMBDA_BASE: Figure 5 (WD heatmap) shows lambda_t^l values ranging from ~0.00052 to ~0.00062. The paper states lambda_base = 1 x 10^{-4} (= 0.0001) in both Section 4.1 and Appendix A. If the heatmap plots lambda_t^l = lambda_base * phi_l(t), then even with phi_l(t) = 1 (no modulation), we should see lambda_t^l = 0.0001, not 0.0005. The heatmap's minimum value (0.00052) is 5.2x the stated lambda_base. This implies either: (a) the actual lambda_base used in the experiment was 5e-4, contradicting the paper, (b) the heatmap plots lambda_t^l * gamma (= 0.0001 * 0.1 * phi = 0.00001 * phi, which would give ~0.00001-0.00011, also wrong), or (c) the heatmap data comes from a different experiment than described. This is a potential data integrity issue that must be resolved immediately.",
+      "suggestion": "Trace the exact data source for Figure 5. If the experiment used lambda_base=5e-4, either (a) correct the paper to state the actual value, or (b) rerun with lambda_base=1e-4 and regenerate the figure. Verify that ALL tables and figures use the SAME lambda_base value. Check the code that generated the heatmap to determine what quantity is being plotted."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "IMAGENET EPOCH COUNT (45) STILL NOT STATED IN MAIN TEXT: This was flagged as critical in iter_016. The cross-dataset comparison figure title says '45 epochs' (Figure 1 right panel), and the training curves (Figure 2) x-axis shows epochs up to ~45, but Section 4.1 text says only 'an efficient training regime' and the Appendix says 'step decay (10x reduction at epoch 30)' without stating total epochs. Standard ImageNet ResNet-50 training is 90 epochs (~76%+). EqWD's 72.27% is 3-4% below standard, and readers will be confused or unable to reproduce results. This is a 10-second fix that has been delayed for 2 iterations.",
+      "suggestion": "Add 'trained for 45 epochs' after 'automatic mixed precision (AMP)' in Section 4.1 and in the Appendix A ImageNet configuration. This is a one-line edit."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "CIFAR-10 TABLE (TABLE 6) STILL MISSING EqWD/CAWD, STILL CONTAINS 'DefazioCorrective': This was flagged in iter_016. Table 6 lists CPR, FixedWD, DefazioCorrective, SWD, CWD, NoWD but omits the paper's own method (EqWD) and the CAWD ablation. 'DefazioCorrective' is not defined anywhere in the paper text. In a paper proposing EqWD, having a benchmark table that excludes EqWD is a glaring inconsistency that will immediately be noticed by reviewers.",
+      "suggestion": "Run EqWD and CAWD on CIFAR-10 (3 seeds, 200 epochs, ~0.5 GPU-hours each). Replace 'DefazioCorrective' with proper naming or remove it. Alternatively, remove the CIFAR-10 table entirely if these runs cannot be completed."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "AIS DIAGNOSTIC STILL ONLY VALIDATED ON CIFAR-100, NOT IMAGENET: Contribution 3 ('ratio sufficiency analysis') relies on the AIS diagnostic showing that alignment adds no information beyond norms. This is measured only on CIFAR-100/ResNet-20 and VGG-16-BN -- benchmarks where EqWD does NOT decisively win. The sufficiency claim is validated where it is least needed. On ImageNet, where EqWD actually achieves its primary result (+0.38%), AIS is not measured. The AIS could trivially be near zero on CIFAR-100 (where all methods perform similarly) while being nonzero on ImageNet (where EqWD distinctly wins).",
+      "suggestion": "Run AIS diagnostic on ImageNet/ResNet-50 for a representative subset of layers. This strengthens Contribution 3 substantially if AIS remains near zero, or forces an honest scope limitation if it doesn't."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "90-EPOCH IMAGENET COMPARISON STILL NOT RUN: The 45-epoch regime is dominated by transitional phases (warmup + decay transition at epoch 30), which are exactly where EqWD is designed to excel. At 90 epochs, the ratio of equilibrium-phase to transitional-phase steps roughly doubles, potentially diminishing EqWD's advantage. Without a 90-epoch comparison, the paper cannot claim EqWD generalizes to standard training regimes. This was flagged in lessons_learned as a key action item.",
+      "suggestion": "Run EqWD vs FixedWD vs SWD, 3 seeds each, 90 epochs on ImageNet. ~18 GPU-hours. If advantage persists, report as primary result. If advantage shrinks, discuss honestly and frame EqWD as particularly beneficial for compute-efficient training."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "BETA=5.0 SINGLE-SEED CLAIM (66.07%) STILL NOT MULTI-SEED VALIDATED: The paper highlights beta=5.0 achieving 66.07% on CIFAR-100 as evidence of 'substantial headroom for task-specific tuning.' This is 1.02% above the multi-seed default (65.05%), an enormous gap for CIFAR-100. Without multi-seed validation, this could be a lucky outlier. If it replicates, the default beta=1.0 is suboptimal; if it doesn't, highlighting it is misleading. This was flagged in iter_016 and in lessons_learned.",
+      "suggestion": "Run beta=5.0 on CIFAR-100 with 3 seeds (~30 min). Report multi-seed result. If it replicates, discuss whether the default should be task-dependent. If not, remove or heavily caveat."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "RATIO TRAJECTORY FIGURE CONTRADICTS 'LAYER HETEROGENEITY' CLAIM (UNCHANGED FROM ITER_016): Figure 4 shows that after the initial spike (~first 10 steps), ALL layers converge to nearly identical r_t values (0.01-0.02 range) with minimal differentiation. The text claims 'later layers show larger ratios with higher variance' but the figure shows all layers tightly clustered after the transient. This is the CIFAR-100 figure; the paper's main claim is on ImageNet where heterogeneity may be more pronounced, but no ImageNet ratio trajectory figure is provided.",
+      "suggestion": "Generate and include ImageNet ratio trajectory figure, which presumably shows more layer heterogeneity. Revise CIFAR-100 claims to accurately describe the figure: heterogeneity exists primarily during the initial transient, not during steady-state training."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "VGG-16-BN RESULTS (62.81%) STILL ABNORMALLY LOW WITHOUT BASELINES: Table 5 reports EqWD on VGG-16-BN at 62.81 +/- 1.31% on CIFAR-100. Typical CIFAR-100 VGG-16-BN accuracy is 73-74% with standard training. The cifar_methods_comparison.png figure (which is not in the paper but exists in the workspace) shows all methods on VGG-16-BN performing at 61-63%, suggesting the low accuracy is due to the training regime, not EqWD. But this figure is not referenced in the paper. Without baselines in Table 5, the reader cannot tell if 62.81% is normal for this setup.",
+      "suggestion": "Add FixedWD and NoWD baselines to Table 5, or reference the CIFAR-100 VGG-16-BN comparison figure. The cifar_methods_comparison.png already exists and shows all methods in the 61-63% range -- include it in the paper to contextualize the layer-type ablation."
+    },
+    {
+      "category": "novelty",
+      "severity": "major",
+      "description": "DEFAZIO'S CORRECTIVE TERM DIFFERENTIATION STILL INSUFFICIENT: Defazio (arXiv:2506.02285) proposes a corrective term for WD based on the same gradient-to-weight ratio dynamics that EqWD uses. Section 2.4 cites Defazio for equilibrium theory but does not explicitly discuss how EqWD differs from Defazio's corrective approach algorithmically. The CIFAR-10 table includes 'DefazioCorrective' as a baseline but the main ImageNet comparison does not. Reviewers will inevitably ask: 'How is EqWD different from Defazio's correction?'",
+      "suggestion": "Add 1-2 sentences to Section 2.4 explicitly distinguishing EqWD from Defazio's corrective term. The key difference: Defazio corrects for the LR-schedule interaction (compensating for the time-varying r* = lambda/gamma), while EqWD uses deviation from the empirical equilibrium as a modulation signal to increase WD. Also either add DefazioCorrective to the ImageNet comparison or explain why it is omitted."
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "BAYESIAN OPTIMIZATION ASYMMETRY COULD FAVOR EqWD: The paper frames 50 BO trials as testing EqWD's robustness against 'tuned baselines.' However: (a) 50 trials over multi-dimensional spaces (CPR has target_norm, lr, wd_strength) may be insufficient for convergence -- baselines could be UNDER-tuned, (b) EqWD's 'defaults' of beta=1.0, alpha=0.9 were presumably selected through iterative development across 17 iterations, which is itself implicit tuning. The asymmetry could favor EqWD rather than penalize it.",
+      "suggestion": "At minimum: (a) report the best hyperparameters found for each baseline and verify they are reasonable, (b) add a sentence acknowledging that 50 BO trials may be insufficient for some baselines and that the framing cuts both ways. Ideally, also run EqWD with BO tuning over (beta, alpha, lambda_base) and report the tuned result alongside the default."
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "ABSTRACT AND CONCLUSION STILL SAY 'SEVEN WEIGHT DECAY METHODS' BUT MAIN TABLE SHOWS ONLY SEVEN ROWS (INCLUDING NoWD): Counting the methods in Table 2: NoWD, FixedWD, SWD, CWD, CPR, CAWD, EqWD = 7 rows. If NoWD is not a 'weight decay method,' then there are 6 WD methods. The abstract says 'seven weight decay methods' which counts EqWD itself, which is unusual. The CIFAR-10 table has 6 methods (excluding EqWD). This counting inconsistency will confuse reviewers.",
+      "suggestion": "Clarify: 'six baselines plus EqWD (seven methods total)' or 'five baselines plus our CAWD variant and EqWD.' Be precise about counting."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "major",
+      "description": "BIBLIOGRAPHY STILL HAS PLACEHOLDER AND INCOMPLETE ENTRIES: defazio2025 uses 'arXiv:2501.00001' (placeholder). naganuma2026 has no arXiv ID or venue. Multiple entries use 'and others' instead of proper author lists (xie2023swd, chen2026cwd, franke2024cpr, kosson2023, chou2025, he2025alphadecay, loshchilov2023weightnorm, luo2024cautious). gotmare2018 cites a 2019 venue. These prevent readers from finding cited papers.",
+      "suggestion": "Fix defazio2025 to arXiv:2506.02285. Complete all author lists (at least first 3 + et al.). Add arXiv IDs for naganuma2026, kosson2023, chou2025, he2025alphadecay, loshchilov2023weightnorm. Fix gotmare2018 year to 2019."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "WD HEATMAP CAPTION OVERSTATES VISUAL EVIDENCE: Figure 5 caption says 'EqWD automatically concentrates stronger regularization in the deeper layers and during transitional phases.' The heatmap shows a total range of ~0.0001 around the base value, meaning maximum modulation is about 20% above baseline -- far less than the theoretical maximum of 11x. This is consistent with CIFAR-100 having insufficient deviation signal, but the caption language suggests dramatic modulation.",
+      "suggestion": "Revise caption: 'modest modulation (up to ~20% above baseline) concentrated in deeper layers and early epochs, consistent with CIFAR-100 having small ratio deviations (see Section 5.1).'"
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "CAWD NOT IN METHOD COMPARISON TABLE: CAWD is a key baseline for isolating the modulation signal choice (ratio deviation vs. cosine alignment). It appears in Table 2 (main results) but not in Table 1 (method comparison). A reader encountering CAWD in Table 2 without understanding its signal/granularity/overhead profile will be confused.",
+      "suggestion": "Add a CAWD row to Table 1 with Signal = cos(theta_{g,w}), Granularity = Per-layer, Overhead = ~2%, Theory = Alignment intuition."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "NO CODE RELEASE MENTIONED: For a method paper proposing a practical algorithm, code availability is expected at top venues. The paper does not mention code release.",
+      "suggestion": "Add a 'Code Availability' statement or footnote, either with a GitHub link or a promise to release upon acceptance."
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "NO RAW EXPERIMENT DATA IN ITER_017 WORKSPACE: The iter_017 workspace contains no exp/results/ directory with JSON summaries or per-seed logs. All numerical claims cannot be independently verified from workspace artifacts. This was flagged in iter_016.",
+      "suggestion": "Ensure raw experiment outputs (per-seed accuracy logs, hyperparameter configs) are present in exp/results/ for traceability."
+    },
+    {
+      "category": "writing",
+      "severity": "minor",
+      "description": "CONCLUSION FUTURE WORK NUMBERING: The conclusion lists 'First... Second... Third... Fourth... Finally.' -- this appears corrected from iter_016's skip. Verify the numbering is consistent in the final compiled PDF.",
+      "suggestion": "Double-check the compiled PDF for numbering consistency."
+    }
+  ],
+  "metric_gaming_risks": [
+    "EFFECTIVE WD INFLATION CONFOUND (UNCHANGED, MOST CRITICAL): EqWD's phi_l(t) >= 1 means it systematically applies MORE weight decay than FixedWD with the same lambda_base. Without a budget-matched FixedWD control, the 'adaptive modulation' claim is untestable. This has been the #1 issue for 2 iterations.",
+    "45-EPOCH IMAGENET REGIME SELECTION BIAS: The 45-epoch regime disproportionately emphasizes transitional phases where EqWD is designed to excel. The paper does not state the epoch count explicitly in the main text, though it appears in Figure 1 title.",
+    "BETA=5.0 SINGLE-SEED RESULT: 66.07% highlighted as evidence of 'substantial headroom' could be a variance artifact. 1.02% gap between single-seed and multi-seed default demands resolution.",
+    "AIS VALIDATED ON WRONG BENCHMARK: AIS measured only on CIFAR-100 (where EqWD doesn't decisively win), not ImageNet (where it does).",
+    "WD HEATMAP VALUES INCONSISTENT WITH STATED LAMBDA: If the heatmap data source used a different lambda_base than reported, ALL quantitative claims derived from the same experimental runs are potentially suspect."
+  ],
+  "novelty_risks": [
+    "Defazio (arXiv:2506.02285) proposes a corrective term based on the SAME gradient-to-weight ratio dynamics. The paper must clearly differentiate EqWD's deviation-based modulation from Defazio's LR-schedule correction.",
+    "AdaDecay (Nakamura & Hong, 2019, arXiv:1907.08931) modulates WD per-parameter using sigmoid of layer-normalized gradient norms -- a directly relevant prior work not cited in the paper.",
+    "The individual components (EMA smoothing, ratio monitoring, deviation-based modulation) are all standard. Novelty is in the specific combination, which is reasonable but incremental.",
+    "The ratio sufficiency analysis (formerly Proposition 2, now 'Empirical Observation') has been appropriately downgraded, but AIS validation on CIFAR-100 only limits its evidential value."
+  ],
+  "reproducibility_gaps": [
+    "ImageNet epoch count not stated in main text body (only visible in Figure 1 panel title).",
+    "Lambda_base discrepancy: paper says 1e-4 but WD heatmap colorbar suggests ~5e-4. One of these is wrong.",
+    "No raw experiment data in iter_017 workspace.",
+    "No code release mentioned.",
+    "Bibliography has placeholder arXiv IDs (defazio2025: 2501.00001) and incomplete entries.",
+    "Best hyperparameters for BO-tuned baselines not reported. Impossible to verify tuning quality.",
+    "CIFAR-10 table includes undefined method 'DefazioCorrective' and excludes EqWD.",
+    "Population vs sample std convention undocumented (ddof=0 or ddof=1)."
+  ]
+}

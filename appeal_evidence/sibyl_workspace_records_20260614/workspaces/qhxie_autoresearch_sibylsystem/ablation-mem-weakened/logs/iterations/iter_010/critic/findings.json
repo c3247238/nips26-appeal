@@ -1,0 +1,81 @@
+{
+  "summary": "The paper claims to connect LCA to SAE absorption (H6 falsified, precision@20=0.0) and frames absorption as optimal compression. Critical issues: (1) Title/content mismatch - title emphasizes 'Local Inhibition Graph' but H6 is falsified; (2) Abstract leads with graph predictions that failed; (3) H1b p=0.028 at L8 does not survive Bonferroni correction (p=0.334); (4) Metric validation concern: random SAEs show 8x higher absorption (0.278 vs 0.034), suggesting Chanin metric is structure-sensitive, not pathology-specific; (5) n=4 layers insufficient for inferential statistics on layer-dependence claims; (6) post-hoc power analysis (Section 3.6) is methodologically questionable.",
+  "findings": [
+    {
+      "category": "novelty",
+      "severity": "critical",
+      "description": "Title 'Feature Absorption as Optimal Compression' conflicts with content. The LCA-SAE correspondence is the intellectual centerpiece (Sections 1.2, 3.1, 3.2), but H6 (graph predicts absorption pairs) is falsified with precision@20=0.0. The title should not claim a framework whose primary predictive hypothesis failed.",
+      "suggestion": "Either (a) reframe title around the null result and metric validation (e.g., 'Absorption is Benign: Evidence from Random Baseline Comparison and Null Correlations with Downstream Tasks'), or (b) acknowledge H6 falsification prominently in title/abstract and lead with the mechanistic explanation (precision-recall asymmetry) as the contribution."
+    },
+    {
+      "category": "writing",
+      "severity": "critical",
+      "description": "Abstract overstates success. It says 'precision@20 = 0.0' in the context of H6 falsification, but the framing makes it sound like a minor caveat rather than the primary predictive hypothesis failing. Section 1.3 says 'We test five research questions' but RQ1/H6 is the primary hypothesis, and it failed.",
+      "suggestion": "Rewrite abstract to lead with: (1) H6 falsified: local inhibition graph does NOT predict absorption pairs (precision@20=0.0, p=1.0); (2) Metric validation: random SAEs show 8x higher absorption than trained SAEs (0.278 vs 0.034, p<0.001), suggesting metric sensitivity to dictionary structure; (3) One robust finding: precision=1.0 universally while recall varies (H7 supported); (4) Mechanistic framing as competitive suppression explains prior null results."
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "H1b at layer 8 (Pearson r=-0.431, p=0.028) does NOT survive Bonferroni correction. With 12 tests, Bonferroni-corrected p=0.334, BH-FDR q=0.107. The paper presents this as 'the strongest signal in the dataset' and 'aligns with prior findings' but it is not statistically significant. This is a multiple comparisons problem.",
+      "suggestion": "Remove H1b as evidence of effect. Acknowledge explicitly: 'No hypotheses survived multiple comparison correction (Bonferroni alpha=0.00417, 12 tests). The raw p=0.028 at L8 for delta-corrected steering is non-significant after correction (p=0.334).'"
+    },
+    {
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The Chanin absorption metric may measure dictionary structure rather than learned pathology. Random SAEs show 8x higher absorption than trained (0.278 vs 0.034, p<0.001), yet the paper frames trained SAEs as having 'less absorption' as if it were a success. This is circular: the metric could be detecting structural artifacts that training happens to reduce, not absorption as a phenomenon.",
+      "suggestion": "Add explicit discussion: 'The random SAE baseline result (trained=0.034, random=0.278) reveals that the Chanin metric is sensitive to dictionary structure independently of learned pathology. This raises the possibility that some fraction of measured absorption in trained SAEs is also structural artifact. We cannot distinguish structure-driven from pathology-driven absorption with current metrics.'"
+    },
+    {
+      "category": "experiment",
+      "severity": "major",
+      "description": "H9 (layer-dependent structure) uses n=4 layers. Pearson r=+0.82 is descriptive, not inferential. With 4 data points, any correlation is fragile. The monotonic trend (0.312→0.384→0.367) could be noise. The paper should not claim 'aligns with prior findings' when the statistical evidence is this weak.",
+      "suggestion": "Report H9 as 'descriptive trend observed across 4 layers' not 'statistically significant'. Add explicit caveat: 'With n=4 layers, inferential statistics are not appropriate; the trend is illustrative but not conclusive.'"
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Section 3.6 (page 5 of methodology) performs post-hoc power analysis: 'approximately 20% power to detect a medium effect size (r = 0.5).' This is methodologically questionable—power analysis should be computed before the experiment, not after. Post-hoc power analysis is widely recognized as invalid in statistical literature (Cohen, 1994).",
+      "suggestion": "Remove post-hoc power analysis. Replace with: 'A priori power analysis (alpha=0.05, n=26, medium effect r=0.5) indicates approximately 47% power. The study was designed to detect large effects (r>0.5).'"
+    },
+    {
+      "category": "writing",
+      "severity": "major",
+      "description": "Figure 2 text references 'fig7_precision_recall.pdf' but calls it 'Figure 2'. Table numbering is inconsistent with the figure list at the end (Section 6 says Figure 1 is LCA-SAE diagram, Figure 2 is suppression mechanism, Figure 3 is precision-recall - but text references fig7). The figures directory is referenced but may not exist.",
+      "suggestion": "Verify all figure files exist. Ensure consistent figure numbering: (1) LCA correspondence, (2) suppression mechanism, (3) precision-recall scatter. Remove references to fig7_precision_recall.pdf or clarify it is Figure 3."
+    },
+    {
+      "category": "analysis",
+      "severity": "major",
+      "description": "Section 4.5 (H8) reports 'descriptive r=+0.12, p=0.55' for graph statistics predicting at-risk features. The methodology.md (iteration 10) flags this as 'Missing Data Source - no data file contains this'. If this statistic comes from the h6_inhibition_graph.json, verify it. If not, remove or provide data source.",
+      "suggestion": "Cite the specific data file and row/field for the r=+0.12, p=0.55 statistic. The h6_inhibition_graph.json should contain per-feature graph statistics that can be correlated with absorption rates."
+    },
+    {
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Table 3 reports clustering coefficient (0.002--0.005) and std edge weight (0.089--0.102) but the methodology notes these are 'not from verifiable source'. These appear to be computed from the graph, but the source script or computation is not referenced.",
+      "suggestion": "Add provenance note: 'Computed from decoder correlation graph (top-20 neighbors per latent) using networkx clustering coefficient and pandas describe(). Source: exp/results/full/h6_inhibition_graph.json'"
+    },
+    {
+      "category": "reproducibility",
+      "severity": "minor",
+      "description": "H6 chance baseline is ambiguous. The paper says chance precision = 0.1538 (4/26) but mentions expected ~0.004 (20/24000). These are different denominators—4/26 is the base rate of high-absorption features, while 20/24000 is the probability of randomly selecting a child feature from 24K latents. Clarify which baseline was used.",
+      "suggestion": "Explicitly state: 'Chance-level precision is the base rate of high-absorption features: 4 features with absorption>10% among 26 total = 0.154. This differs from random selection probability (20/24576) because we are testing within the 26 known first-letter features, not across all latents.'"
+    }
+  ],
+  "metric_gaming_risks": [
+    "Chanin absorption metric is structure-sensitive: random SAEs show 8x higher absorption (0.278 vs 0.034) independently of any learned pathology. The metric may conflate dictionary structure artifacts with genuine absorption.",
+    "Delta-corrected steering metrics subtract random baseline, which may introduce noise rather than isolate signal. The correction assumes random features are unsteerable, which may not hold for all cases.",
+    "EC50 analysis uses dose-response curve fitting on 6 steering strengths, which may not capture the true functional form. The extracted EC50 values are sensitive to fitting assumptions."
+  ],
+  "novelty_risks": [
+    "The LCA-SAE correspondence (Section 3.1) is mathematically trivial for tied-weight SAEs: G = W_dec^T W_dec is a standard result in sparse coding literature. The novelty claim of 'first connection' is technically accurate but the correspondence is immediate from the definitions.",
+    "Random SAE baseline comparison (H10) is similar to 'Sanity Checks for SAE Metrics' (Korznikov et al., 2026), which also uses frozen/random baselines. The paper's claim of being 'first demonstration that trained SAEs have lower absorption than random baselines' may overlap with that work.",
+    "The precision-recall asymmetry finding (H5/H7) is consistent with prior work but not novel in form. The novelty is in the LCA framing as explanation, which is mechanistic rather than empirical."
+  ],
+  "reproducibility_gaps": [
+    "Graph construction uses top-k=20 neighbors but the choice of k=20 is not justified. The paper tests k in {10, 20, 50} but only reports k=20 results. Other k values may yield different precision@20.",
+    "Gemma-2-2B pilot experiment was 'not completed due to resource constraints' but is mentioned as future work. Cross-model validation is missing, limiting generalizability claims.",
+    "Homeostatic rebalancing (H10) was not executed. The claimed single-pass correction remains theoretical without empirical validation.",
+    "The 26 first-letter features are a narrow feature set. The paper acknowledges 'semantic hierarchies (e.g., animal→dog→poodle) may exhibit different absorption dynamics' but does not test this."
+  ]
+}

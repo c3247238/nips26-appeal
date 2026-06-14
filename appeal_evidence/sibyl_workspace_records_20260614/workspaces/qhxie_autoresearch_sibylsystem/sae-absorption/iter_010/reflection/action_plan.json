@@ -1,0 +1,261 @@
+{
+  "iteration": 10,
+  "score": 6.5,
+  "prev_score": 7.0,
+  "verdict": "continue",
+  "quality_trajectory": "declining",
+  "issues_classified": [
+    {
+      "id": "CRIT001",
+      "description": "Table 3 confidence intervals are mathematically impossible. In 5 of 7 rows, the 95% CI lower bound exceeds the point estimate (e.g., F1=0.70: absorption=36.1%, CI=[37.9%, 42.1%]). Source JSON confirms the mismatch: absorption_rate=0.3614 but ci_lower=0.3789. Point estimates use per-token aggregation while bootstrap CIs use per-word aggregation. Never documented or reconciled. A CI that does not contain its point estimate is a fundamental statistical error triggering immediate rejection.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Recompute ALL bootstrap CIs in Table 3 using per-token aggregation (matching the point estimates). If per-word CIs are intentional, present matched per-word point estimates alongside per-token values and document the methodological choice explicitly. WHERE: consolidation_summary.json (source data), writing/paper.md Table 3, Section 4.6. EFFORT: 0.5 hours CPU, zero GPU. VERIFY: every CI in Table 3 contains its point estimate; aggregation method documented in Section 3.2.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-a-absorption-absorption_rate-aggregation-aggregation-are-bootstrap:3e8cc95b0db0"
+    },
+    {
+      "id": "CRIT002",
+      "description": "Cross-domain activation patching data provenance unverified. Sign reversal from d=-0.91 (iter_009 pilot, FAILED) to d=+1.50 (iter_009 corrected FULL) has not been independently spot-checked. The phase0_data_integrity task was 'skipped for speed'. The paper's entire 'universal mechanism' claim (Contribution #2) rests on this unverified correction. A reviewer who discovers the sign reversal history will question reliability.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run a 20-entity spot-check: randomly sample 20 city-continent entities, re-execute the full activation patching pipeline, verify recovery rate is consistent with 61.9%. Document the spot-check results and the bug fix in an appendix note. WHERE: new experiment script. EFFORT: 0.5 GPU-hours. VERIFY: spot-check recovery rate within 10pp of 61.9%; bug fix documented.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-activation-been-checked-claim-contribution-corrected-correction:b89bcf3db291"
+    },
+    {
+      "id": "CRIT003",
+      "description": "Probe degradation curve extrapolates from synthetic Gaussian noise on first-letter BINARY probes to predict absorption for RAVEL MULTI-CLASS probes with fundamentally different failure modes (6-77 classes, imbalanced distributions, genuine class confusion vs random misclassification). The claim that city-continent 'matches the curve within 0.6 pp' assumes domain-transferable probe degradation dynamics. No cross-domain probe degradation validation was performed.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Either (a) run city-continent probe degradation (degrade city-continent probes to 3-4 F1 levels, measure absorption -- 1 GPU-hour) to validate domain-transferability, or (b) reframe Section 4.6 claims from 'quantitative decomposition of cross-domain variation' to 'directional evidence that probe quality is a major confound in the right direction and of plausible magnitude.' Option (b) is zero-cost and sufficient for the paper's narrative. WHERE: writing/paper.md Section 4.6 or new experiment. EFFORT: 0-1 GPU-hours. VERIFY: either cross-domain curve exists or Section 4.6 language appropriately hedged.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:absorption-assumes-binary-city-claim-class-class-classes:e681c8813579"
+    },
+    {
+      "id": "CRIT004",
+      "description": "Three different first-letter L24 16k absorption rates coexist in the workspace: 27.1% (iter_009, per-word, paper canonical in Table 2), 21.6% (iter_010 probe degradation F1=1.0 control, per-token, used in Table 3), 34.5% (per-unique-word, earlier iterations). The 21.6% control falls BELOW Table 2's CI [26.3%, 34.7%]. A reader comparing Table 2 (27.1%) with Table 3 (21.6% at F1=1.0) will find contradictory numbers for the same experiment.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Choose per-token as the canonical aggregation method (each token is an independent observation -- most defensible). Recompute ALL absorption rates across ALL hierarchies using this single method. Reconcile Tables 2 and 3 to report consistent numbers. Document the choice prominently in Section 3.2. Report per-word sensitivity analysis in an appendix. WHERE: writing/paper.md Section 3.2, Tables 2 and 3, all numerical claims. EFFORT: 2 hours CPU, zero GPU. VERIFY: Tables 2 and 3 first-letter rates are identical; aggregation method documented.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:16k-a-absorption-at-below-canonical-ci-coexist:e12881c8e476"
+    },
+    {
+      "id": "CRIT005",
+      "description": "The paper's stated primary contribution -- cross-domain absorption characterization -- is substantially undermined by its own probe degradation result. H10 shows 2 of 3 RAVEL hierarchies' rates are explained by probe quality (city-continent within 0.6pp, city-country within 8.5pp). Only city-language is a genuine outlier. Yet the abstract, introduction, and conclusion still frame cross-domain characterization as Contribution #1, and the '4.1x range' (including city-country F1=0.73, below quality gates) remains the headline.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Restructure contributions: (1) Probe degradation methodology as the methodological advance (R^2=0.777), (2) Universal causal mechanism via activation patching as the empirical advance (d=0.75-1.50), (3) Cross-domain characterization with confound decomposition as the application context. Replace '4.1x' headline with '2.7x' quality-gated range (31.4/11.6) in abstract and introduction. Present city-language anomaly (-21.3 pp) as the genuinely novel cross-domain finding. WHERE: writing/paper.md abstract, Section 1, Section 8. EFFORT: 3 hours CPU. VERIFY: probe degradation is listed as Contribution #1; 4.1x replaced throughout.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-absorption-abstract-and-and-are-as-below:41cd3fdac6cd"
+    },
+    {
+      "id": "MAJ001",
+      "description": "City-country (highest absorption at 45.1%) excluded from activation patching without any explanation. Paper claims 'universal' competitive exclusion but omits the highest-absorption hierarchy from causal testing. A reviewer will ask: does competitive exclusion hold for city-country, or does its low probe quality (F1=0.73) break the patching pipeline?",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Either (a) run city-country patching (0.5 GPU-hours) and report the result, or (b) add an explicit paragraph in Section 5.2 explaining the exclusion: 'City-country was excluded from activation patching because its probe quality (F1=0.73) falls below the relaxed gate, and probe-induced false negatives would confound the patching recovery measurement.' Document in Section 5.2 and limitations. WHERE: writing/paper.md Section 5.2, Section 7. EFFORT: 0-0.5 GPU-hours + 15 min CPU. VERIFY: city-country patching either reported or exclusion explicitly explained.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-absorption-absorption-activation-any-ask-at-break:acaa46be8a80"
+    },
+    {
+      "id": "MAJ002",
+      "description": "Figure 4 has unexplained layer mismatch: Panel 1 (first-letter) shows L12 while Panels 2-3 (city-continent, city-language) show L24. A three-panel comparison figure claiming to demonstrate a 'universal mechanism' should use comparable experimental conditions. The layer difference is an uncontrolled confound in the visual comparison.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Strongly preferred: re-run first-letter patching at L24 for the figure (0.5 GPU-hours). Alternative: add a prominent caption note explaining the layer difference and stating that the mechanism is qualitatively identical at both layers. WHERE: writing/figures/fig4_patching_comparison.pdf or caption. EFFORT: 0-0.5 GPU-hours. VERIFY: Figure 4 panels use same layer, or caption explicitly explains the difference.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-a-an-city-city-claiming-comparable-comparison:5c73dd8bfeff"
+    },
+    {
+      "id": "MAJ003",
+      "description": "Layer multiplier inconsistency. Section 4.2 claims '26x increase from L6 (1.0%) to L24 (27.1%).' Discussion 7.4 says '15x higher.' The proposal says '15x variation (0.7% to 42.9%).' The consolidation summary reports L6 rates of 2-2.4%. These multipliers (11x, 15x, 26x, 27x) cannot all be correct.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Trace the correct L6 first-letter absorption rate from source data. Compute L24_rate / L6_rate for first-letter specifically. Use ONE consistent number throughout the paper. If different hierarchies have different multipliers, state the range explicitly. WHERE: writing/paper.md Section 4.2, Section 7.4, abstract. EFFORT: 0.5 hours CPU. VERIFY: one multiplier used consistently; L6 rate cited with source.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:all-be-cannot-claims-consolidation-correct-discussion-from:a3afcfe3ce5b"
+    },
+    {
+      "id": "MAJ004",
+      "description": "The '4.1x descriptive range' headline is stale. With current data (11.6%, 27.1%, 31.4%, 45.1%), the ratio is 45.1/11.6 = 3.89x, not 4.1x. The 4.1x figure used city-continent at 42.9% (the proposal value), not the paper's 31.4%. Appears in abstract, introduction, Section 4.1, Section 7, Section 8.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Recalculate: 45.1/11.6 = 3.89x. Use 3.9x as the descriptive range or 2.7x as the quality-gated range (31.4/11.6). Update all 5+ locations. WHERE: writing/paper.md (5+ instances). EFFORT: 1 hour CPU. VERIFY: grep for '4.1' returns zero hits in paper.md.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:abstract-appears-at-city-continent-current-data-descriptive:2144738d78e3"
+    },
+    {
+      "id": "MAJ005",
+      "description": "Section 7.2 is near-verbatim repetition of Sections 5.1-5.2. All three recovery rates (32.5%, 61.9%, 34.2%), effect sizes (d=1.33, 1.50, 0.75), control rates, and interpretive text are restated word-for-word. The Discussion should synthesize implications, not re-present results. The same numbers appear a fourth time in Section 8.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Section 5: keep full detail. Section 7.2: discuss IMPLICATIONS only (deployment, theory constraints, future experiments), reference Section 5 for numbers ('d=0.75-1.50, all p<10^-3; see Section 5'). Section 8: one-sentence summary without per-hierarchy numbers. WHERE: writing/paper.md Sections 7.2, 8. EFFORT: 1 hour CPU. VERIFY: recovery rates and effect sizes appear in full only in Section 5.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-all-and-appear-are-control-d-discussion:33a2c925b8ff"
+    },
+    {
+      "id": "MAJ006",
+      "description": "Probe degradation curve R^2=0.777 is computed on 7 data points with 2 free parameters (slope + intercept). The quadratic fit R^2=0.942 uses 3 parameters on 7 points (4 degrees of freedom). The paper presents both as evidence of a strong relationship, but R^2 on 7 points with 2-3 parameters is a weak basis for quantitative extrapolation. The quadratic is highly susceptible to overfitting.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Present the linear fit as the primary result and the quadratic as exploratory only. Note the small sample size limitation explicitly. The perfect monotonicity (Spearman rho=-1.0) is the strongest evidence that probe quality affects absorption, not the R^2 values. WHERE: writing/paper.md Section 4.6. EFFORT: 15 min CPU. VERIFY: quadratic labeled as 'exploratory'; monotonicity emphasized over R^2.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-a-as-basis-both-but-computed-curve:f90ceee70759"
+    },
+    {
+      "id": "MAJ007",
+      "description": "Figure 5 caption promises overlaid distributions for first-letter (N=158) and city-continent (N=1,464), but the figure appears to show only one distribution. N=1471 in the figure legend disagrees with N=1,464 in the paper text.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Re-render Figure 5 with both distributions clearly visible (different colors or separate panels). Reconcile N=1471 vs N=1464 by tracing to source data (likely pre- vs post-cleaning count). WHERE: writing/figures/fig5_pathological_histogram.pdf, paper.md Section 5.3 and Figure 5 caption. EFFORT: 0.5 hours CPU. VERIFY: both distributions visible; N count consistent between figure and text.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:and-appears-but-caption-city-continent-disagrees-distribution:6278f7fe0578"
+    },
+    {
+      "id": "MAJ008",
+      "description": "validate_integration.py has been recommended for 10 consecutive iterations and never implemented. The phase0_data_integrity task was 'skipped for speed.' The paper contains at least 5 numerical inconsistencies that an automated cross-check would have caught: Table 3 CI inversion, 42.9% vs 31.4% city-continent, layer multiplier discrepancy, 1471 vs 1464, aggregation-dependent rates.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "Implement validate_integration.py: (1) reads all numerical claims from paper.md via regex, (2) checks each against a manifest JSON mapping claims to source data files, (3) reports mismatches with file:line references. Run BEFORE every paper revision. WHERE: exp/code/validate_integration.py (new), exp/results/data_manifest.json (new). EFFORT: 2 hours CPU. VERIFY: script catches all known discrepancies; zero mismatches after fix.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "pipeline:aggregation-an-and-at-automated-been-caught-check:adf072706623"
+    },
+    {
+      "id": "MIN001",
+      "description": "Figure 6 shows 'Hier: p=0.063' at L24 while the paper text (Section 6) says hierarchy p=0.041. The figure annotation and text disagree on the p-value for the hierarchy effect.",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Check whether the figure and text use different statistical tests or model specifications. Reconcile or explain the difference in the caption. WHERE: writing/figures/fig6 and paper.md Section 6. EFFORT: 15 min CPU. VERIFY: figure p-value matches text or difference explained.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:and-annotation-at-disagree-effect-figure-figure-for:7abc502d2248"
+    },
+    {
+      "id": "MIN002",
+      "description": "The abstract packs approximately 15 distinct quantitative results into ~290 words. Too dense for a first read. Readers encounter 7 statistical results before reaching the end.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Reduce to 5-7 key numbers: the headline range, R^2=0.777, d=0.75-1.50, and one summary of correlational failure. Move remaining numbers to the introduction. WHERE: writing/paper.md abstract. EFFORT: 30 min CPU. VERIFY: abstract contains 7 or fewer distinct numerical results.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-abstract-approximately-before-dense-distinct-encounter-end:c4c57a16441b"
+    },
+    {
+      "id": "MIN003",
+      "description": "SAEBench (Karvonen et al., 2025) already contains both absorption (first-letter) and RAVEL (city hierarchies) as independent metrics. The conceptual leap from 'two metrics in one benchmark' to 'measure absorption on RAVEL hierarchies' is moderate. An SAEBench follow-up could pre-empt the primary contribution.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Acknowledge SAEBench's dual inclusion explicitly in Related Work and execute submission promptly. WHERE: writing/paper.md Section 2. EFFORT: 15 min CPU. VERIFY: SAEBench overlap acknowledged.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:absorption-absorption-al-already-an-and-as-benchmark:c19b7765e248"
+    },
+    {
+      "id": "MIN004",
+      "description": "Code availability is not mentioned anywhere in the paper. The pipeline uses a custom integration across 4 libraries (SAELens, TransformerLens, sae-spelling, RAVEL). Without a reproduction package, independent verification would require substantial reverse-engineering.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Add a code availability statement and plan to release the measurement pipeline. WHERE: writing/paper.md Section 8 or Appendix. EFFORT: 10 min CPU. VERIFY: code availability statement present.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-a-across-anywhere-availability-code-custom-engineering:84ea05e3881b"
+    },
+    {
+      "id": "MIN005",
+      "description": "Section 2.1: 'dominant tool' is an unsupported superlative. Section 7.4: 'amplify' is a hype transition word.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "'dominant' -> 'widely adopted'. 'amplify' -> 'are relevant to'. WHERE: writing/paper.md Section 2.1, Section 7.4. EFFORT: 5 min CPU. VERIFY: grep returns zero hits for 'dominant tool' and 'amplify this concern'.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-amplify-an-dominant-hype-is-is-section:2dbfa311775b"
+    },
+    {
+      "id": "MIN006",
+      "description": "Proposal still reports city-continent absorption as 42.9% (paper says 31.4%), uses 4.1x range (should be 3.9x), 15x variation (inconsistent with paper). Workspace inconsistency confuses reflection and planning agents.",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Update proposal.md to match paper.md for all numerical claims. WHERE: proposal.md. EFFORT: 30 min CPU. VERIFY: proposal and paper agree on all numerical claims.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:absorption-agents-and-as-be-city-confuses-continent:6dceb944d7fb"
+    }
+  ],
+  "issues_fixed": [
+    "SND001 (Section 5.2 stale buggy pilot data): FIXED. Section 5.2 completely rewritten with corrected FULL-mode cross-domain patching data (city-continent d=1.50, city-language d=0.75). 27 corrections applied across abstract, intro, mechanism, discussion, conclusion. Universal mechanism narrative replaces concentrated-vs-distributed dichotomy.",
+    "SND002 (Benign/pathological circularity): FIXED. Reframed from '100% pathological' to 'child decoders carry large-magnitude parent information.' Circularity caveat acknowledged. Section 5.3 renamed to 'Decoder Information Entanglement.'",
+    "EXP001 (Probe degradation ablation): FIXED. H10 FULL probe degradation executed: 7 F1 levels (0.70-1.00), R^2=0.777 (up from pilot 0.077), perfect monotonic rho=-1.0, p=0.009. New Section 4.6 added. City-continent explained by curve, city-language identified as genuine outlier.",
+    "EXP002 (Benign/pathological on first-letter): FIXED. First-letter decoder magnitude: 6.16 nats (N=158), 100% pathological, consistent with city-continent 3.98 nats. Cross-hierarchy consistency confirmed.",
+    "WRI001 (Missing figures 4-6): FIXED. All three figures generated: fig4_patching_comparison.pdf (26 KB), fig5_pathological_histogram.pdf (36 KB), fig6_architecture_comparison.pdf (19 KB). Plus fig_probe_degradation.pdf (27 KB).",
+    "WRI004 (Missing appendix sections): FIXED. 5 appendix sections compiled: GAS (B), CMI (C), Absorption Tax (D), Threshold Sensitivity (E), Rate-Distortion (F).",
+    "SND003 (Headline overclaiming -- '100% pathological'): PARTIALLY FIXED. '100% pathological' removed from headline positions. But '4.1x range' and contribution ordering remain uncorrected (see CRIT005, MAJ004).",
+    "WRI005 (Single-model limitation): FIXED. Acknowledged in Section 7 and conclusion as explicit limitation."
+  ],
+  "success_patterns": [
+    "EXPERIMENT-FIRST STRATEGY VALIDATED (3rd confirmation): H10 probe degradation ablation (R^2 from 0.077 to 0.777) is the strongest new result of iter_010. The FULL-mode execution with 7 F1 levels (vs pilot 5 levels) produced qualitatively better curve fit. Adding F1=0.75 and F1=0.95 levels was critical.",
+    "FULL-MODE EXECUTION REVERSES PILOT ARTIFACTS (3rd confirmation): FULL probe degradation R^2=0.777 vs PILOT R^2=0.077 (10x improvement). FULL decoder magnitude N=158 vs PILOT N=52 (3x more data). Running at full scale produces qualitatively different conclusions.",
+    "HONEST NEGATIVE RESULTS (CONSECUTIVE 10 ITERATIONS): 4 SUPPORTED, 3 DEFINITIVE_NEGATIVE, 1 REFUTED, 1 MIXED, 1 PARTIALLY_SUPPORTED, 1 NOT_SUPPORTED. Table 5 hypothesis verdict summary with transparent reporting is the paper's most consistently praised aspect across all review cycles.",
+    "ZERO EXPERIMENT FAILURES (CONSECUTIVE 5 ITERATIONS): 7/7 executed tasks completed successfully this iteration (2 skipped, 0 failed). Infrastructure fully reliable.",
+    "STATISTICAL RIGOR THROUGHOUT: Bootstrap CIs (10k, seed=42), Bonferroni correction, Cohen's d, Wilcoxon, Mann-Whitney, Kruskal-Wallis consistently and appropriately applied. Methods section is preemptive and bulletproof.",
+    "PROBE DEGRADATION ABLATION AS NOVEL METHODOLOGY: The three-way decomposition (city-continent explained by curve, city-country mostly explained, city-language genuine outlier) is the paper's most creative and scientifically valuable new contribution. This addresses the reviewer's #1 objection (probe quality confound) head-on.",
+    "PREEMPTIVE METHODOLOGY SECTION: Section 3 documents quality gates, aggregation methods, cosine threshold validation, circularity caveats, and activation patching controls BEFORE any results appear. This prevents many reviewer complaints.",
+    "HEDGING THREE-WAY DECOMPOSITION: Strict/compensatory/persistent decomposition with bootstrap CIs is a clean, reusable methodological contribution."
+  ],
+  "systemic_patterns": [
+    "CRITICAL (11 ITERATIONS): Data provenance errors persist. validate_integration.py recommended for 10 consecutive iterations, never implemented. This iteration: Table 3 CI inversion, three different first-letter rates, 42.9% vs 31.4% city-continent discrepancy, layer multiplier inconsistency, N=1471 vs N=1464. Five of these would have been caught by automated cross-checking. The cost of NOT implementing validation now exceeds the cost of implementation.",
+    "CRITICAL (7 ITERATIONS): Headline overclaiming follows whack-a-mole pattern. Iter 10 fixed '100% pathological' and 'concentrated vs. distributed' but left '4.1x range' (stale, includes below-gate data) and contribution ordering (cross-domain #1 when probe degradation undermines it). The system's incentive toward publishable headlines systematically biases claims beyond evidence.",
+    "NEW PATTERN: Score regression (7.0 -> 6.5) partly caused by introducing new errors (Table 3 CI inversion) while fixing old errors (Section 5.2 data update). Net quality did not improve because new data integrity problems were introduced alongside scientific advances.",
+    "IMPROVING: Experiment execution quality consistently high. Zero failures in 5 consecutive iterations. GPU efficiency good (probe degradation completed in 73.5 min of 55 min planned -- modest overrun but acceptable).",
+    "RESOLVED AND HELD: Pilot mode (fixed iter 4), LV framework (abandoned iter 4), GPT-2 fallback (eliminated iter 6), CMI overclaiming (resolved iter 9), hedging tautology (resolved iter 9), stale pilot data in Section 5.2 (resolved iter 10), benign/pathological circularity (resolved iter 10), missing figures (resolved iter 10), missing appendix sections (resolved iter 10). All remain fixed."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 80,
+    "total_gpu_idle_minutes": 20.0,
+    "total_actual_gpu_minutes": 77,
+    "total_planned_gpu_minutes": 115,
+    "bottleneck_stages": [
+      "data_integrity_verification_skipped",
+      "writing_revision_underbudgeted",
+      "cross_domain_probe_degradation_not_planned"
+    ],
+    "suggestions": [
+      "The data integrity validation skip was a false economy: 2 hours CPU work would have prevented 5+ critical/major findings in this review, saving far more revision time downstream.",
+      "Phase 1 probe degradation overran budget (73.5 min vs 55 min planned) due to 7 F1 levels instead of 5 -- but the additional levels (F1=0.75, 0.95) dramatically improved the curve. This was a good overrun.",
+      "Most GPU tasks completed well under budget (decoder magnitude: 2.7 min of 30 planned; rate-distortion: 1 min of 30 planned). Planning estimates were overly conservative for reanalysis tasks.",
+      "Next iteration should front-load the validate_integration.py implementation before ANY paper revisions. This is the single highest-ROI infrastructure investment.",
+      "Writing revision was underbudgeted: the review identifies ~8 hours of CPU writing work vs ~5 hours planned. Budget realistically for iter 11."
+    ]
+  },
+  "recommended_focus": [
+    "P0 (BLOCKING, ZERO GPU, 0.5 hours): Fix Table 3 CI inversion. Recompute CIs using per-token aggregation matching point estimates. This is the most immediately damaging error -- mathematically impossible CIs trigger instant rejection.",
+    "P0 (BLOCKING, ZERO GPU, 2 hours): Reconcile aggregation methods. Choose per-token as canonical. Recompute ALL rates consistently. Reconcile Tables 2 and 3. This eliminates the 27.1% vs 21.6% contradiction.",
+    "P0 (BLOCKING, ZERO GPU, 2 hours): Implement validate_integration.py + data_manifest.json. Eliminates the 11-iteration systemic weakness. Run BEFORE any paper revision.",
+    "P0 (BLOCKING, ZERO GPU, 3 hours): Restructure contributions and replace 4.1x headline. Lead with probe degradation methodology. Use 2.7x quality-gated range. This aligns the framing with the evidence.",
+    "P1 (HIGH-VALUE EXPERIMENT, 0.5 GPU-hours): Run 20-entity cross-domain patching spot-check. Verifies the sign reversal correction. Highest-ROI verification task remaining.",
+    "P1 (HIGH-VALUE EXPERIMENT, 0-1 GPU-hours): Either run city-continent probe degradation (1 GPU-hour) to validate cross-domain extrapolation, or reframe Section 4.6 as directional evidence (0 GPU).",
+    "P1 (EXPERIMENT/WRITING, 0-0.5 GPU-hours): Fix Figure 4 layer mismatch -- re-run first-letter patching at L24 or add caption explanation.",
+    "P1 (EXPERIMENT/WRITING, 0-0.5 GPU-hours): Explain city-country patching exclusion -- run it or document the exclusion.",
+    "P2 (WRITING, ZERO GPU, 1 hour): Eliminate Section 7.2 verbatim repetition. Discuss implications only.",
+    "P2 (WRITING, ZERO GPU, 0.5 hours): Fix layer multiplier to one consistent figure.",
+    "P2 (WRITING, ZERO GPU, 0.5 hours): Fix Figure 5 overlay and N discrepancy.",
+    "P2 (WRITING, ZERO GPU, 0.5 hours): Reduce abstract information density to 5-7 key numbers.",
+    "P3 (MINOR, ZERO GPU): Fix Figure 6 p-value mismatch, hype words, SAEBench acknowledgment, code availability statement, proposal data update."
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

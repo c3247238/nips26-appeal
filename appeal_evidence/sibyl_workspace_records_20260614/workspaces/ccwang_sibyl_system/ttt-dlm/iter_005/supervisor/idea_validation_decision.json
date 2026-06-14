@@ -1,0 +1,66 @@
+{
+  "decision": "REFINE",
+  "selected_candidate_id": null,
+  "confidence": 0.35,
+  "reasons": [
+    "P3 (GSM8K-200) is NO-GO: DaL-MLP at -1.0pp vs vanilla, blocking advancement to full experiments",
+    "Root cause is specific and diagnosable: gate stuck at sigmoid(-5)=0.007, contributing <1% of TTT output to backbone activations",
+    "Failure matrix not exhausted: proposal prescribes 5K-10K training steps and LLaDA-8B backbone trial before pivot; P3 used only 1K steps",
+    "D0c diagnostic (SSL-task alignment correlation) provides definitive binary signal at cost of only 4-6 GPU-hours",
+    "Theoretical foundations validated: P1 (feasibility PASS, -33% to -72% SSL loss), P2 (signal quality PASS, SNR peaks at r=0.6), phase-transition scheduling justified",
+    "Alternative A runs in parallel from day 1, eliminating waste if REFINE fails",
+    "MetaState-GRU also underperforms vanilla (43.75% vs 50.0% at n=16), raising paradigm-level doubt that D0c will resolve"
+  ],
+  "next_actions": [
+    "Gate repair: change init from sigmoid(-5)=0.007 to sigmoid(-2)=0.12; add gate_lr = 10x meta_lr; optional warm-up loss L_gate = -log(gate) for first 500 steps",
+    "D0c target alignment: sweep 10+ configurations (gate_init x meta_lr x steps), measure Pearson r(SSL_loss_delta, accuracy_delta) on GSM8K-50; PIVOT if r < 0.1",
+    "Extended training: 10K steps with phase-transition scheduling (skip TTT at mask ratio > 0.7) on Dream-7B",
+    "Fix Momentum-TTT CUBLAS bf16 bug: use float32 momentum buffer",
+    "Parallel Alternative A pilot: info-gain unmasking on Dream-7B GSM8K-100 on separate GPU",
+    "Re-evaluate on GSM8K-200 after all refinements; PIVOT if still no improvement"
+  ],
+  "dropped_candidates": ["cand_enhanced_optimizer"],
+  "evidence_summary": {
+    "pilots": {
+      "setup_env": "PASS",
+      "impl_ttt_layer": "PASS (12/12 tests)",
+      "P1_feasibility": "PASS (SSL loss -33% raw, -53% meta, -72% post-meta; grad norms <3.5)",
+      "P2_signal_quality": "PASS (SNR peaks at r=0.6; critical zone [0.4-0.6]; degrades at r>0.7)",
+      "P3_quick_eval": "FAIL (DaL 39.5% vs vanilla 40.5%, -1.0pp; gate=0.007)"
+    },
+    "root_cause_analysis": {
+      "primary": "Gate initialization at sigmoid(-5)=0.007 silences TTT output before it reaches backbone",
+      "secondary": "Only 1K meta-training steps; SSL loss still declining at termination",
+      "tertiary": "No phase-transition scheduling applied during inference; noisy updates at high mask ratios"
+    },
+    "paradigm_risk": "MetaState-GRU at 43.75% vs vanilla 50.0% (n=16) raises question of whether any lightweight cross-step memory helps frozen DLMs"
+  },
+  "go_nogo_gates": {
+    "d0c_alignment": {
+      "criterion": "Pearson r(SSL_loss_improvement, accuracy_improvement) > 0.3",
+      "fail_action": "PIVOT to Alternative A immediately",
+      "estimated_hours": 6
+    },
+    "h_gate": {
+      "criterion": "Gate value >= 0.10 within 2K training steps",
+      "fail_action": "Try sigmoid(0) init + warm-up loss; if still <0.05, PIVOT",
+      "estimated_hours": 4
+    },
+    "phase1_eval": {
+      "criterion": "DaL >= vanilla + 2% absolute on >=2/3 benchmarks (GSM8K, HumanEval, ARC-C)",
+      "fail_action": "PIVOT to Alternative A or D",
+      "estimated_hours": 16
+    }
+  },
+  "risk_assessment": {
+    "refine_success_probability": 0.30,
+    "d0c_pass_probability": 0.55,
+    "gate_repair_success_probability": 0.65,
+    "conditional_success_if_both_pass": 0.55,
+    "pivot_to_alt_a_if_refine_fails": true,
+    "estimated_refine_time_days": 2,
+    "estimated_gpu_hours": 16,
+    "parallel_alt_a_gpu_hours": 8
+  },
+  "timestamp": "2026-03-11T12:00:00Z"
+}

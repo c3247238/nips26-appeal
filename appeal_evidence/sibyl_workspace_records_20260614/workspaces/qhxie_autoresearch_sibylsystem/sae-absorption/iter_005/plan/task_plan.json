@@ -1,0 +1,637 @@
+{
+  "iteration": 5,
+  "candidate_id": "cand_causal_chain",
+  "total_estimated_gpu_hours": 7.5,
+  "total_estimated_zero_gpu_hours": 5,
+  "tasks": [
+    {
+      "id": "P1_confound_go_nogo",
+      "name": "L0 Covariate Go/No-Go Test",
+      "description": "Load iter_004 54-SAE dataset (C3A_saebench_corr.json). Add log(L0) as covariate to partial correlations. Compute partial_corr(absorption, quality | log_width, layer, arch_class, log_L0) for all four quality metrics. This is the critical go/no-go for H1. Exclude SAEs with L0=null (canonical SAEs). Report old vs new partial correlations side by side.",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "iter_005/exp/results/full/P1_confound_go_nogo.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "pass_criteria": "At least one quality metric retains |partial_r| > 0.2 after L0 control",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "iter_004_saebench_corr",
+          "path": "iter_004/exp/results/full/C3A_saebench_corr.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Partial correlations before vs after L0 control for 4 quality metrics",
+          "columns": [
+            "Quality Metric",
+            "Partial r (no L0)",
+            "Partial r (with L0)",
+            "Delta",
+            "p-value"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 54,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "At least one quality metric retains |partial_r| > 0.2 after L0 control. Script runs without error on full 54-SAE dataset."
+      }
+    },
+    {
+      "id": "P1_width_stratified",
+      "name": "Width-Stratified Correlation Analysis",
+      "description": "Partition 54 SAEs into width strata (16k, 65k, 1M). Within each stratum, compute Spearman correlation between absorption and each quality metric. BCa bootstrap 95% CIs (10,000 resamples). Report per-stratum n, rho, CI, p-value. The 1M stratum (L0 range 9-207) has best statistical power.",
+      "type": "analysis",
+      "depends_on": [
+        "P1_confound_go_nogo"
+      ],
+      "expected_output": "iter_005/exp/results/full/P1_width_stratified.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "iter_004_saebench_corr",
+          "path": "iter_004/exp/results/full/C3A_saebench_corr.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Within-width Spearman correlations with bootstrap CIs",
+          "columns": [
+            "Width",
+            "n",
+            "Metric",
+            "Spearman rho",
+            "95% CI lower",
+            "95% CI upper",
+            "p-value"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 54,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "At least 2 of 3 width strata show Spearman rho with 95% CI excluding 0 for at least one quality metric"
+      }
+    },
+    {
+      "id": "P1_mediation",
+      "name": "Mediation Analysis: L0 -> Absorption -> Quality",
+      "description": "Formal mediation analysis testing whether absorption mediates L0's effect on downstream quality. Total effect: quality ~ log(L0) + log(width) + layer. Direct effect: quality ~ log(L0) + absorption + log(width) + layer. Indirect effect with Sobel test and bootstrap CI (10,000 resamples). Report proportion mediated for all four quality metrics.",
+      "type": "analysis",
+      "depends_on": [
+        "P1_confound_go_nogo"
+      ],
+      "expected_output": "iter_005/exp/results/full/P1_mediation.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 25,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "iter_004_saebench_corr",
+          "path": "iter_004/exp/results/full/C3A_saebench_corr.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Mediation analysis results per quality metric",
+          "columns": [
+            "Quality Metric",
+            "Total Effect",
+            "Direct Effect",
+            "Indirect Effect",
+            "Proportion Mediated",
+            "Sobel p",
+            "Bootstrap CI"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "diagram",
+          "description": "Mediation path diagram with standardized coefficients",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 54,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Mediation analysis completes without error. At least one metric shows proportion mediated > 0.10 with bootstrap CI excluding 0."
+      }
+    },
+    {
+      "id": "P1_rosenbaum",
+      "name": "Rosenbaum Sensitivity Analysis with Propensity Matching",
+      "description": "Match high-absorption (>0.3) and low-absorption (<0.1) SAEs on width (exact) and L0 (nearest neighbor, caliper 0.2 SD). Wilcoxon signed-rank test on quality differences. Compute Rosenbaum Gamma at which test becomes non-significant. Also compute propensity score matching as robustness check. Report matching quality diagnostics.",
+      "type": "analysis",
+      "depends_on": [
+        "P1_confound_go_nogo"
+      ],
+      "expected_output": "iter_005/exp/results/full/P1_rosenbaum.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "iter_004_saebench_corr",
+          "path": "iter_004/exp/results/full/C3A_saebench_corr.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Rosenbaum sensitivity plot: Gamma vs p-value",
+          "x": "Gamma",
+          "y": "p-value",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 54,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "At least 5 matched pairs formed. Gamma > 1.0 (i.e., result is at least nominally significant under no hidden bias)."
+      }
+    },
+    {
+      "id": "P1_scr_suppression",
+      "name": "SCR Suppression Variable Diagnosis",
+      "description": "Sequentially add covariates (width-only, layer-only, arch-only, L0-only) and track how SCR partial correlation changes from -0.431 (bivariate) to -0.677 (full partial). Identify which covariate produces the suppression jump. Report full decomposition table.",
+      "type": "analysis",
+      "depends_on": [
+        "P1_confound_go_nogo"
+      ],
+      "expected_output": "iter_005/exp/results/full/P1_scr_suppression.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "iter_004_saebench_corr",
+          "path": "iter_004/exp/results/full/C3A_saebench_corr.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "SCR partial correlation under sequential covariate addition",
+          "columns": [
+            "Covariates",
+            "Partial r",
+            "Delta from bivariate"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 54,
+        "seed": 42,
+        "timeout": 120,
+        "pass_criteria": "Script identifies which covariate produces the suppression effect."
+      }
+    },
+    {
+      "id": "P1_clustered_regression",
+      "name": "Clustered SE Regression for C2C PMI",
+      "description": "Rerun iter_004 C2C PMI regression (absorption ~ PMI) with letter-level clustering (26 clusters). Report HC3 and clustered SE side by side. Assess skewness (5.186) and consider beta regression or zero-inflated model. Load iter_004 PMI data from C2C_regression_results.json.",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "iter_005/exp/results/full/P1_clustered_regression.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "iter_004_pmi_regression",
+          "path": "iter_004/exp/results/full/C2C_regression_results.json"
+        },
+        {
+          "type": "dataset",
+          "name": "iter_004_pmi_features",
+          "path": "iter_004/exp/results/full/C2A_pmi_features.json"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Regression comparison: OLS vs HC3 vs Clustered SE vs Beta regression",
+          "columns": [
+            "Model",
+            "Coefficient",
+            "SE",
+            "p-value",
+            "R-squared"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 180,
+        "pass_criteria": "Clustered SE regression completes. Report whether HC3 and clustered SE produce materially different conclusions."
+      }
+    },
+    {
+      "id": "P3_scaling_surface",
+      "name": "Absorption Scaling Surface from SAEBench Data",
+      "description": "Download SAEBench precomputed results from HuggingFace (adamkarvonen/sae_bench_results). Extract absorption score, L0, width, layer for 200+ SAEs. Fit GAM: absorption ~ s(log_width) + s(log_L0) + ti(log_width, log_L0) + layer. Test interaction term significance. Generate 2D contour plot. Detect phase boundaries via gradient analysis. Also fit simple linear and additive models as baselines.",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "iter_005/exp/results/full/P3_scaling_surface.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "saebench_results",
+          "path": "HuggingFace: adamkarvonen/sae_bench_results"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "2D absorption contour plot in (log(width), log(L0)) space",
+          "x": "log2(width)",
+          "y": "log2(L0)",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "heatmap",
+          "description": "Gradient magnitude surface with phase boundary overlay",
+          "x": "log2(width)",
+          "y": "log2(L0)",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Model comparison: linear vs additive vs interaction GAM",
+          "columns": [
+            "Model",
+            "R-squared",
+            "AIC",
+            "Interaction p-value"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "SAEBench data loads successfully with N >= 100 SAEs having both absorption and L0. Linear model R^2 > 0.15 (scaling surface has structure worth characterizing)."
+      }
+    },
+    {
+      "id": "P2_probe_training",
+      "name": "RAVEL Knowledge Probe Training on Gemma 2 2B",
+      "description": "Load Gemma 2 2B via TransformerLens. Load RAVEL city dataset. Construct prompt templates for city-country, city-continent, city-language. Extract residual stream activations at layers 8, 12, 17. Train multi-class logistic regression probes (3 seeds, 80/20 split). Quality gate: accuracy >= 85%. Save probe weights for absorption measurement. If model access fails (gated), fall back to GPT-2 Small.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "iter_005/exp/results/full/P2_probes/",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "google/gemma-2-2b (HuggingFace, gated)"
+        },
+        {
+          "type": "dataset",
+          "name": "ravel_cities",
+          "path": "HuggingFace: ravel-benchmark or manual download"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Probe accuracy per attribute per layer",
+          "columns": [
+            "Layer",
+            "Attribute",
+            "Accuracy",
+            "Seed 1",
+            "Seed 2",
+            "Seed 3"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Gemma 2B loads successfully. City-country probe at layer 12 achieves accuracy > 75% on 200 cities. If model access fails, GPT-2 Small probe achieves > 80%."
+      }
+    },
+    {
+      "id": "P2_absorption_measurement",
+      "name": "Cross-Domain Absorption Measurement on Knowledge Hierarchies",
+      "description": "Using trained probes from P2_probe_training, measure absorption on RAVEL knowledge hierarchies. For each (layer, width, attribute) combo: k-sparse probing for feature splits, false-negative identification, integrated-gradients ablation. Threshold sweep: cosine in {0.01, 0.025, 0.05, 0.1}, dominance in {0.5, 1.0, 2.0}. Report absorption rate per attribute per layer per width.",
+      "type": "experiment",
+      "depends_on": [
+        "P2_probe_training"
+      ],
+      "expected_output": "iter_005/exp/results/full/P2_absorption_knowledge.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "google/gemma-2-2b"
+        },
+        {
+          "type": "checkpoint",
+          "name": "trained_probes",
+          "path": "iter_005/exp/results/full/P2_probes/"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Absorption rates per attribute per layer per SAE width",
+          "columns": [
+            "Attribute",
+            "Layer",
+            "Width",
+            "Absorption Rate",
+            "n_absorbed",
+            "n_total"
+          ],
+          "paper_section": "experiments"
+        },
+        {
+          "type": "bar_chart",
+          "description": "Absorption rates across domains with shuffled controls",
+          "x": "Domain (first-letter, country, continent, language)",
+          "y": "Absorption rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption measurement completes for at least 1 layer x 1 width x 1 attribute. Absorption rate > 3% (non-trivial signal) OR < 3% (informative null)."
+      }
+    },
+    {
+      "id": "P2_controls",
+      "name": "Cross-Domain Controls: Shuffled Hierarchy + Random Probe + First-Letter Baseline",
+      "description": "Three control experiments: (1) Shuffled hierarchy: randomize city-attribute mappings, re-measure absorption. Expect < 5%. (2) Random probe direction: use random unit vectors, expect < 5%. (3) First-letter baseline: replicate Chanin first-letter measurement on same SAEs for direct comparison. Report dead feature statistics separately.",
+      "type": "experiment",
+      "depends_on": [
+        "P2_probe_training"
+      ],
+      "expected_output": "iter_005/exp/results/full/P2_controls.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "model",
+          "name": "gemma-2-2b",
+          "path": "google/gemma-2-2b"
+        },
+        {
+          "type": "checkpoint",
+          "name": "trained_probes",
+          "path": "iter_005/exp/results/full/P2_probes/"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Control experiment absorption rates",
+          "columns": [
+            "Control Type",
+            "Absorption Rate",
+            "Expected Range",
+            "Pass/Fail"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Shuffled control absorption rate < 10%. Random probe control < 10%. Both significantly lower than real measurement (paired test p < 0.05)."
+      }
+    },
+    {
+      "id": "P2_crossdomain_comparison",
+      "name": "Cross-Domain Absorption Comparison and Hierarchy Sharpness Analysis",
+      "description": "Combine results from P2_absorption_measurement and P2_controls. Side-by-side absorption rates: first-letter vs country vs continent vs language. Compute hierarchy sharpness (MI between entity and attribute). Correlate absorption severity with hierarchy sharpness. Run early/late absorption taxonomy on knowledge features with tau sweep 0.2-0.4.",
+      "type": "analysis",
+      "depends_on": [
+        "P2_absorption_measurement",
+        "P2_controls"
+      ],
+      "expected_output": "iter_005/exp/results/full/P2_crossdomain_comparison.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Cross-domain absorption rates with error bars",
+          "x": "Domain",
+          "y": "Absorption rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "scatter",
+          "description": "Absorption rate vs hierarchy sharpness (MI)",
+          "x": "Mutual Information",
+          "y": "Absorption Rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 200,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Comparison table generated. Hierarchy sharpness computed for all attributes."
+      }
+    },
+    {
+      "id": "P4_taxonomy_correction",
+      "name": "Taxonomy Correction with Proper Comparison Tokens",
+      "description": "Load iter_004 taxonomy results (C2D_taxonomy.json). For letters with n_comparison_tokens=0, use frequency-matched sampling from same log-frequency band. Rerun Type II classification with corrected baselines. Report corrected combined rate with bootstrap CI. Mark original 92.3% as upper bound. Use GPT-2 Small SAEs (open-model anchor).",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "iter_005/exp/results/full/P4_taxonomy_correction.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "iter_004_taxonomy",
+          "path": "iter_004/exp/results/full/C2D_taxonomy.json"
+        },
+        {
+          "type": "dataset",
+          "name": "iter_004_absorption_survey",
+          "path": "iter_004/exp/results/full/C2B_absorption_survey.parquet"
+        }
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Original vs corrected taxonomy rates",
+          "x": "Absorption Type (Type I, Type II, Chanin)",
+          "y": "Rate (%)",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Per-letter taxonomy classification with corrected baselines",
+          "columns": [
+            "Letter",
+            "Original Type",
+            "Corrected Type",
+            "n_comparison_tokens",
+            "Baseline Method"
+          ],
+          "paper_section": "appendix"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "Frequency-matched comparison tokens found for >= 20/26 letters. Corrected Type II rate differs from original by > 5 percentage points."
+      }
+    },
+    {
+      "id": "P1_synthesis",
+      "name": "Phase 1 Synthesis: Confound Resolution Summary",
+      "description": "Aggregate all Phase 1 results (go/no-go, width-stratified, mediation, Rosenbaum, SCR suppression, clustered regression). Produce unified summary with H1 verdict. Apply Bradford Hill criteria: strength, consistency, specificity, temporality, biological gradient, plausibility. Generate final Phase 1 figures and tables.",
+      "type": "analysis",
+      "depends_on": [
+        "P1_confound_go_nogo",
+        "P1_width_stratified",
+        "P1_mediation",
+        "P1_rosenbaum",
+        "P1_scr_suppression",
+        "P1_clustered_regression"
+      ],
+      "expected_output": "iter_005/exp/results/full/P1_synthesis.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Bradford Hill criteria assessment for absorption-quality causal claim",
+          "columns": [
+            "Criterion",
+            "Evidence",
+            "Assessment"
+          ],
+          "paper_section": "discussion"
+        },
+        {
+          "type": "diagram",
+          "description": "Full mediation path diagram with all coefficients",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All Phase 1 sub-task results loaded. H1 verdict rendered (supported/falsified/mixed)."
+      }
+    },
+    {
+      "id": "final_integration",
+      "name": "Final Results Integration and Figure Generation",
+      "description": "Combine all phase results into a unified results summary. Generate publication-quality figures for all visualizations. Compute final hypothesis verdicts for H1-H5. Produce machine-readable results.json with all key numbers for the writing stage.",
+      "type": "analysis",
+      "depends_on": [
+        "P1_synthesis",
+        "P2_crossdomain_comparison",
+        "P3_scaling_surface",
+        "P4_taxonomy_correction"
+      ],
+      "expected_output": "iter_005/exp/results/full/final_results.json",
+      "candidate_id": "cand_causal_chain",
+      "gpu_count": 0,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Hypothesis verdict summary",
+          "columns": [
+            "Hypothesis",
+            "Verdict",
+            "Key Evidence",
+            "Effect Size"
+          ],
+          "paper_section": "discussion"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All phase results integrated. All hypothesis verdicts computed."
+      }
+    }
+  ]
+}

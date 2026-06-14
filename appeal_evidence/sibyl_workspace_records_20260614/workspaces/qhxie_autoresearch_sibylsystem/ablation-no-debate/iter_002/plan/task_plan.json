@@ -1,0 +1,295 @@
+{
+  "tasks": [
+    {
+      "id": "h_mech_factorial",
+      "name": "H_Mech Factorial Validation",
+      "description": "2x2 factorial decomposition (random/trained encoder x random/trained decoder) with 5 seeds and 3 L0 sparsity levels to confirm absorption is encoder-driven",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/full/h_mech_factorial.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "synthetic_hierarchy",
+          "path": "shared/datasets/synthetic_hierarchy"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Condition B ≈ D (|diff| < 0.05) AND Condition C ≈ A (|diff| < 0.05) AND t-test C vs D p < 1e-10"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "2x2 factorial absorption rates with error bars",
+          "x": "condition",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "multiseed_validation",
+      "name": "Multi-Seed Stability Validation",
+      "description": "Replicate H1 across 5 seeds with stochastic hierarchy generation to verify absorption stability and address zero-variance concern",
+      "type": "experiment",
+      "depends_on": [
+        "h_mech_factorial"
+      ],
+      "expected_output": "exp/results/full/multiseed_validation.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "synthetic_hierarchy",
+          "path": "shared/datasets/synthetic_hierarchy"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Trained absorption > 0.3 across all seeds AND random absorption < 0.2 for majority AND t-test p < 0.001"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate across seeds for trained vs random",
+          "x": "seed",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h3_steering",
+      "name": "H3 Steering Intervention",
+      "description": "Steer absorbed features toward parent directions and measure sensitivity change; confirm absorbed features are more sensitive to steering",
+      "type": "experiment",
+      "depends_on": [
+        "h_mech_factorial"
+      ],
+      "expected_output": "exp/results/full/h3_steering.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "synthetic_hierarchy",
+          "path": "shared/datasets/synthetic_hierarchy"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Steering changes activations (||delta|| > 0) AND absorbed sensitivity ratio > 1.5x non-absorbed"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Sensitivity by steering alpha for absorbed vs non-absorbed",
+          "x": "alpha",
+          "y": "sensitivity",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h_safe_gemma",
+      "name": "Safety-Critical Feature Analysis on Gemma Scope",
+      "description": "Test whether safety-critical features are disproportionately absorbed in real Gemma Scope SAEs using SAELens",
+      "type": "experiment",
+      "depends_on": [
+        "h_mech_factorial"
+      ],
+      "expected_output": "exp/results/full/h_safe_gemma.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-scope-2b",
+          "path": "shared/checkpoints/gemma-scope-2b"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Mann-Whitney p < 0.05 for safety > non-safety AND effect size > 0.3"
+      },
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Absorption rate distribution: safety vs non-safety features",
+          "x": "feature_type",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "heldout_generalization",
+      "name": "Held-Out Generalization Test",
+      "description": "80/20 train/test split on synthetic data to verify absorption generalizes to unseen hierarchical patterns",
+      "type": "analysis",
+      "depends_on": [
+        "multiseed_validation"
+      ],
+      "expected_output": "exp/results/full/heldout_generalization.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "synthetic_hierarchy",
+          "path": "shared/datasets/synthetic_hierarchy"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Test absorption within 10% of train absorption AND correlation > 0.8"
+      },
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Train vs test absorption correlation",
+          "x": "train_absorption",
+          "y": "test_absorption",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_hierarchy_strength",
+      "name": "Ablation: Hierarchy Strength",
+      "description": "Vary parent-child cosine similarity (0.5, 0.67, 0.8) to test if absorption depends on hierarchy strength",
+      "type": "ablation",
+      "depends_on": [
+        "h_mech_factorial"
+      ],
+      "expected_output": "exp/results/full/ablation_hierarchy_strength.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "synthetic_hierarchy",
+          "path": "shared/datasets/synthetic_hierarchy"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Monotonic increase in absorption with similarity AND ANOVA p < 0.05"
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate vs hierarchy cosine similarity",
+          "x": "cosine_similarity",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "ablation_l0_sparsity",
+      "name": "Ablation: L0 Sparsity Level",
+      "description": "Vary L0 sparsity target (20, 32, 50) to test sparsity effect on encoder-driven absorption",
+      "type": "ablation",
+      "depends_on": [
+        "h_mech_factorial"
+      ],
+      "expected_output": "exp/results/full/ablation_l0_sparsity.json",
+      "candidate_id": "cand_p1",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "synthetic_hierarchy",
+          "path": "shared/datasets/synthetic_hierarchy"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Higher sparsity → higher absorption AND ANOVA p < 0.05"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate by L0 sparsity level",
+          "x": "l0_target",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "visualize_all",
+      "name": "Generate All Visualizations",
+      "description": "Compile results from all experiments and generate publication-ready figures",
+      "type": "analysis",
+      "depends_on": [
+        "h_mech_factorial",
+        "multiseed_validation",
+        "h3_steering",
+        "h_safe_gemma",
+        "heldout_generalization",
+        "ablation_hierarchy_strength",
+        "ablation_l0_sparsity"
+      ],
+      "expected_output": "exp/results/full/figures/",
+      "candidate_id": "cand_p1",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "N/A",
+      "pilot": {
+        "samples": 0,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 5 figures generated and readable"
+      },
+      "visualizations": [
+        {
+          "type": "composite",
+          "description": "Full figure panel for paper",
+          "paper_section": "experiments"
+        }
+      ]
+    }
+  ]
+}

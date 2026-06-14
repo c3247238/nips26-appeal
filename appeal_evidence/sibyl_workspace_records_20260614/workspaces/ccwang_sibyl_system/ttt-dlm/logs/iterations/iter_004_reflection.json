@@ -1,0 +1,34 @@
+{
+  "iteration": 4,
+  "stage": "reflection",
+  "timestamp": "2026-03-10T07:29:47Z",
+  "changes": [
+    "Iteration 4 complete"
+  ],
+  "issues_found": [
+    "A-CFG 在 N=100 决策门中被判定 NO-GO（vanilla 4% vs A-CFG 2%），直接推翻 pilot n=16 的 +12.5pp 假象。但论文标题和摘要仍以 A-CFG 为联合主角。这是迭代 2-4 连续出现的 overclaim 模式（DTA→BSD→A-CFG）。",
+    "BSD 在所有评估中不如其特例 DMI（Countdown 6.2% vs 12.5%, GSM8K 18.8% vs 25.0%）。BSD 的核心概念——连续信念演化——在实际中必须被最小化（k_frac=0.75 即仅 25% 步数用 belief phase）才能工作。泛化版本严格劣于特例。",
+    "compute-fair 实验数据与主 pilot 结果使用了不同种子/样本集（DMI 主 pilot 12.5% vs compute-fair 0%），Table 4 混合了两次不同 run 的数据。",
+    "DMI——唯一经全规模验证的方法（9.3%, p<0.05）——被放在 Appendix D，而未验证且已被证伪的 BSD 获得 Section 3 最详细处理。结构严重倒置。",
+    "DMI 作为论文核心贡献仍缺乏系统消融。alpha 仅测 0.3，tau 仅测 0.5。无负对照（随机 embedding）、无 hard-prediction 基线、无 multi-step lookback。连续 2 轮提出但未执行。",
+    "所有 6 张图仍为文字描述，无渲染图表。连续 4 轮未解决。实验驱动论文无图表是投稿基本门槛问题。",
+    "论文篇幅仍远超 NeurIPS 6,000 词限制。连续 2 轮未解决。可能直接 desk reject。",
+    "Entropy-accuracy 相关性 r=0.784, p<0.001 来自 n=16 样本中仅 1/16 correct。单个数据点可完全左右相关系数。需要方法说明和原始数据公开。",
+    "单模型评估（Dream-7B only）。A-CFG 在 LLaDA-8B 上报告 GSM8K 73.5，在 Dream-7B 上 NO-GO。JSD stability、temporal scheduling 等发现可能是模型特异的。连续 2 轮提出。",
+    "A-CFG 不是原创贡献但被呈现为联合主角。Arriaga et al. (2025) 提出，在 Dream-7B 上无修改应用。"
+  ],
+  "issues_fixed": [
+    "vdta 理论框架为 null result 方法提供 'elbo 单调性证明'——理论声明与实践完全脱节。proposition 1 基于不成立的强凸性假设。abstract 和 contribution 2 仍突出 'theoretical guarantee'。",
+    "dta+remdm degradation (3.6%) 根因未分析。低于 dta (4.8%)、remdm (4.4%) 和 vanilla (4.7%)。section 3.4 '正交互补' 声明被直接证伪。seed 间方差最大 (2.4%, 3.6%, 4.8%)。",
+    "table 4 (scaling) 完全基于 n=16 数据，非单调模式纯粹是采样噪声。整个 section 4.5 展示无信息数据。",
+    "构思阶段系统性低估异见（contrarian 仅 5% 权重，但其核心论点——自监督信号质量不足——是正确的）。dmi 被低估为消融基线。",
+    "缺少计算匹配基线。dta 4-6x 开销。'vanilla with t=512' 或 'best-of-4 vanilla' 是公平对照。",
+    "dta 标题地位与实证证据矛盾残留：标题已改但 contribution 1 仍是 dta，section 3.4 仍声称 '正交互补' 并推荐 'production use'，abstract 仍含 mbpp pilot 声明。论文内部 framing-evidence 矛盾是拒稿首因。",
+    "abstract contribution 列表包含 mbpp pilot result (+12.5pp, n=16)。在 dta 于两个有全规模数据的 benchmark 上均为 null result 的情况下，突出未验证 pilot 结果是不当的。",
+    "规划阶段缺乏早期证伪检查点。n=100 中间验证本可在 phase 2.5 判断 dta 无效，节省 ~40 gpu-hours。",
+    "论文篇幅超限 2.5x：~15,000 词正文 vs neurips 6,000 词限制。可能直接 desk reject。",
+    "dmi 是论文核心贡献但缺乏系统消融。alpha 仅 0.3、tau 仅 0.5。无负对照（随机 embedding 注入）、无 hard-prediction 基线、无 multi-step lookback。"
+  ],
+  "quality_score": 5.0,
+  "notes": "{\"classified_issues\": [{\"description\": \"A-CFG 在 N=100 决策门中被判定 NO-GO（vanilla 4% vs A-CFG 2%），直接推翻 pilot n=16 的 +12.5pp 假象。但论文标题和摘要仍以 A-CFG 为联合主角。这是迭代 2-4 连续出现的 overclaim 模式（DTA→BSD→A-CFG）。\", \"category\": \"writing\", \"severity\": \"high\", \"suggestion\": \"立即从标题移除 A-CFG。重新定位论文为：(1) Information Island Problem 定义 + DMI 实用贡献，(2) 系统性设计空间约束（BSD、A-CFG、DTA 等负面结果），(3) 方法论贡献（pilot 膨胀警示、N=100 决策门）。工作量：1 天。\", \"status\": \"recurring\"}, {\"description\": \"BSD 在所有评估中不如其特例 DMI（Countdown 6.2% vs 12.5%, GSM8K 18.8% vs 25.0%）。BSD 的核心概念——连续信念演化——在实际中必须被最小化（k_frac=0.75 即仅 25% 步数用 belief phase）才能工作。泛化版本严格劣于特例。\", \"category\": \"experiment\", \"severity\": \"high\", \"suggestion\": \"将 BSD 定位为理论分析工具和 instructive negative result，而非实用改进方法。在 Discussion 中诚实讨论为何泛化不如特例，BSD 最大价值在于揭示 MDLM 对连续表示的结构性限制。\", \"status\": \"new\"}, {\"description\": \"compute-fair 实验数据与主 pilot 结果使用了不同种子/样本集（DMI 主 pilot 12.5% vs compute-fair 0%），Table 4 混合了两次不同 run 的数据。\", \"category\": \"experiment\", \"severity\": \"high\", \"suggestion\": \"重新运行所有方法（含 compute-fair vanilla 变体）在同一次评估中、相同种子和相同样本集。明确文档化 pilot 样本选择程序。工作量：2 小时 GPU。\", \"status\": \"new\"}, {\"description\": \"DMI——唯一经全规模验证的方法（9.3%, p<0.05）——被放在 Appendix D，而未验证且已被证伪的 BSD 获得 Section 3 最详细处理。结构严重倒置。\", \"category\": \"writing\", \"severity\": \"high\", \"suggestion\": \"DMI 提升到正文独立 Section。BSD 降级为 Section 5 的 negative result 分析组件。工作量：1 天。\", \"status\": \"new\"}, {\"description\": \"DMI 作为论文核心贡献仍缺乏系统消融。alpha 仅测 0.3，tau 仅测 0.5。无负对照（随机 embedding）、无 hard-prediction 基线、无 multi-step lookback。连续 2 轮提出但未执行。\", \"category\": \"experiment\", \"severity\": \"high\", \"suggestion\": \"DMI 消融是最高优先级实验：alpha={0.1,0.2,0.3,0.5,0.7}, tau={0.1,0.3,0.5,1.0,2.0}, 随机 embedding 负对照, hard top-1 基线。至少 N=200 on Countdown。工作量：1-2 天 GPU。\", \"status\": \"recurring\"}, {\"description\": \"所有 6 张图仍为文字描述，无渲染图表。连续 4 轮未解决。实验驱动论文无图表是投稿基本门槛问题。\", \"category\": \"writing\", \"severity\": \"high\", \"suggestion\": \"至少生成 Figure 1 (teaser/overview), Figure 4 (ablation grid), Figure 6 (failure diagnostics)。数据和描述均已就绪，纯渲染任务。工作量：1 天。\", \"status\": \"recurring\"}, {\"description\": \"论文篇幅仍远超 NeurIPS 6,000 词限制。连续 2 轮未解决。可能直接 desk reject。\", \"category\": \"writing\", \"severity\": \"high\", \"suggestion\": \"将 BSD 详细分析、所有 n=16 消融、Section 5.1-5.3 的机制推测移至附录。正文聚焦 DMI 验证 + 设计空间约束总结。目标 6,000 词正文。工作量：2 天。\", \"status\": \"recurring\"}, {\"description\": \"Entropy-accuracy 相关性 r=0.784, p<0.001 来自 n=16 样本中仅 1/16 correct。单个数据点可完全左右相关系数。需要方法说明和原始数据公开。\", \"category\": \"experiment\", \"severity\": \"high\", \"suggestion\": \"提供原始 (entropy, correctness) 数据对。说明统计方法（point-biserial? permutation test?）。明确标注 1:15 的类别不平衡。如相关性不可靠则降级为描述性观察。\", \"status\": \"new\"}, {\"description\": \"单模型评估（Dream-7B only）。A-CFG 在 LLaDA-8B 上报告 GSM8K 73.5，在 Dream-7B 上 NO-GO。JSD stability、temporal scheduling 等发现可能是模型特异的。连续 2 轮提出。\", \"category\": \"experiment\", \"severity\": \"high\", \"suggestion\": \"至少在 LLaDA-8B 上评估 DMI。如 DMI 在 LLaDA-8B 上也有效，大幅增强贡献可信度。工作量：1 天 GPU（需确认 LLaDA 权重可获取）。\", \"status\": \"recurring\"}, {\"description\": \"A-CFG 不是原创贡献但被呈现为联合主角。Arriaga et al. (2025) 提出，在 Dream-7B 上无修改应用。\", \"category\": \"writing\", \"severity\": \"high\", \"suggestion\": \"在论文中明确重新定位为 'we apply A-CFG (Arriaga et al., 2025) to Dream-7B'，从标题移除。\", \"status\": \"new\"}]}"
+}

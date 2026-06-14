@@ -1,0 +1,629 @@
+{
+  "iteration": 5,
+  "created_at": "2026-03-18",
+  "description": "Iter 5 experiment plan: priority is ImageNet/ResNet-50, NoBN ablation, rho sweep, matched-rho SGD, VGG-16-BN full. All P0 must complete before writing stage.",
+  "reused_data": [
+    {
+      "source": "iter_003/exp/results/full/cifar10/resnet20/",
+      "description": "ResNet-20/CIFAR-10/AdamW, 7 methods x 3 seeds = 21 runs, 200 epochs. COMPLETE.",
+      "covers_tasks": [
+        "adamw_resnet20_cifar10_baseline"
+      ]
+    },
+    {
+      "source": "iter_003/exp/results/full/cifar100/resnet20/",
+      "description": "ResNet-20/CIFAR-100/AdamW, 7 methods x 3 seeds = 21 runs, 200 epochs. COMPLETE.",
+      "covers_tasks": [
+        "adamw_resnet20_cifar100_baseline"
+      ]
+    },
+    {
+      "source": "iter_003/exp/results/sgd_baseline/ + iter_004/exp/results/analysis/sgd_baseline_analysis.json",
+      "description": "ResNet-20 SGD baseline, 7 methods x 3 seeds x 2 datasets = 42 runs. COMPLETE. Note: rho confound exists.",
+      "covers_tasks": [
+        "sgd_baseline_original"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "pilot_nobn_cifar10",
+      "name": "NoBN ResNet-20 CIFAR-10 Pilot",
+      "description": "Quick feasibility pilot: ResNet-20-NoBN on CIFAR-10 with AdamW (lr=5e-4, wd=5e-4), 3 methods (constant, cwd_hard, no_wd), seed=42 only, 5 epochs. Verify NoBN training stability and measure per-epoch time. New model variant requires adding resnet20_nobn to models.py. Accept warning: expect worse accuracy at 5 epochs (convergence not expected at this scale). Main signal: does it train without divergence?",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/nobn_cifar10/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 15,
+      "max_batch_size_hint": "128",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "iter_004/exp/code/data/"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "epochs": 5,
+        "timeout": 900,
+        "pass_criteria": "Training does not diverge (loss < 5.0), model trains on GPU without OOM. No accuracy threshold (5 epochs insufficient for convergence)."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "NoBN pilot training loss curve",
+          "x": "epoch",
+          "y": "train_loss",
+          "paper_section": "appendix"
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "pilot_rho_sweep_cifar10",
+      "name": "Rho Sweep CIFAR-10 Pilot",
+      "description": "Quick feasibility pilot: ResNet-20 on CIFAR-10 with AdamW at two new rho values. rho=0.05 (wd=5e-5), rho=5.0 (wd=5e-3). Methods: constant only. Seed=42, 5 epochs. Check: (1) rho=5.0 does not diverge at 5 epochs; (2) effective rho computed in first epoch matches target. Gradient clipping at max_norm=5.0 for rho=5.0. If rho=5.0 diverges within 5 epochs, fallback to rho=2.0 (wd=2e-3).",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/rho_sweep/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "max_batch_size_hint": "128",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "iter_004/exp/code/data/"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "epochs": 5,
+        "timeout": 600,
+        "pass_criteria": "rho=0.05 run completes with stable loss. rho=5.0 run either completes stably OR triggers fallback to rho=2.0 with stable completion. Measured rho in epoch 1 within 3x of target."
+      },
+      "visualizations": [],
+      "status": "completed"
+    },
+    {
+      "id": "pilot_imagenet_resnet50",
+      "name": "ImageNet ResNet-50 Pilot — Infrastructure Validation",
+      "description": "Critical infrastructure pilot: verify ImageNet data loading works, ResNet-50 trains on 2 GPUs with DataParallel, bf16 mixed precision, and that diagnostics (per-layer rho, alignment cosine, CSI, AIS, BEM) are recorded correctly. Use 1 epoch only (full dataset). Methods: constant only. Seed=42. This is primarily an infrastructure check, not a results pilot. Expected: ~15-20 min for 1 epoch. NOTE: ImageNet data must be available at a valid path. If not present, the pilot script should use torchvision ImageNet with download=True (requires ~150 GB). Alternatively, use a 1% subset (1000 samples per class = 1000 images) for smoke test.",
+      "type": "setup",
+      "priority": "P0",
+      "depends_on": [],
+      "expected_output": "exp/results/pilots/imagenet_infra/",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "256",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "imagenet",
+          "path": "data/imagenet/"
+        }
+      ],
+      "pilot": {
+        "samples": 1281167,
+        "seed": 42,
+        "epochs": 1,
+        "timeout": 1800,
+        "pass_criteria": "1 epoch completes without OOM or crash. Summary.json written with valid values for: best_test_acc (any non-NaN), per_layer_rho (list of layer rho values), alignment_cosine, BEM/CSI/AIS. Total epoch time measured and reported."
+      },
+      "visualizations": [],
+      "status": "failed"
+    },
+    {
+      "id": "full_nobn_cifar10",
+      "name": "NoBN ResNet-20 CIFAR-10 Full Experiment",
+      "description": "Full experiment: ResNet-20-NoBN on CIFAR-10, AdamW lr=5e-4 (reduced for NoBN stability), wd=5e-4, methods=[constant, cwd_hard, no_wd], seeds=[42, 123, 456], 200 epochs. Gradient clipping max_norm=1.0, warmup 10 epochs. New model variant resnet20_nobn required in models.py (replace all BatchNorm with Identity). Expected per-run time: ~20-25 min (constant), ~50 min (cwd_hard). Total: 9 runs * ~35 min avg = ~5.25 GPU-hours. GATE: passes after pilot_nobn shows stable training.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [
+        "pilot_nobn_cifar10"
+      ],
+      "expected_output": "exp/results/full/nobn/cifar10/resnet20_nobn/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 50,
+      "max_batch_size_hint": "128",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "iter_004/exp/code/data/"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "epochs": 5,
+        "timeout": 900,
+        "pass_criteria": "All 3 methods converge stably. Best test_acc > 50% at epoch 5. No divergence."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "NoBN vs BN Phi Spread comparison (Cohen's d)",
+          "columns": [
+            "Architecture",
+            "Dataset",
+            "Method",
+            "best_test_acc",
+            "cohens_d"
+          ],
+          "paper_section": "ablation"
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "full_rho_low_cifar10",
+      "name": "Rho=0.05 Sweep CIFAR-10 Full Experiment",
+      "description": "Full experiment: ResNet-20 on CIFAR-10 with AdamW wd=5e-5 (targeting rho≈0.05), methods=[constant, cwd_hard, half_lambda, no_wd], seeds=[42, 123, 456], 200 epochs. Reuses existing code, only changes wd argument. Existing rho=0.5 data from iter_003 is already complete. Expected time: ~15-20 min per run (no cwd_hard slowdown expected at low wd). Total: 12 runs * ~18 min = ~3.6 GPU-hours.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [
+        "pilot_rho_sweep_cifar10"
+      ],
+      "expected_output": "exp/results/full/rho_sweep/rho_0.05/cifar10/resnet20/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "128",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "iter_004/exp/code/data/"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "epochs": 5,
+        "timeout": 600,
+        "pass_criteria": "Training stable. Measured rho in epoch 1 is in [0.01, 0.2]. Best test_acc > 50% at epoch 5."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Phi Spread vs rho curve (0.05, 0.5, 5.0)",
+          "x": "rho_value",
+          "y": "phi_spread_accuracy",
+          "paper_section": "core_analysis"
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "full_rho_high_cifar10",
+      "name": "Rho=5.0 (or fallback Rho=2.0) Sweep CIFAR-10 Full Experiment",
+      "description": "Full experiment: ResNet-20 on CIFAR-10 with AdamW wd=5e-3 (targeting rho≈5.0), methods=[constant, cwd_hard, half_lambda, no_wd], seeds=[42, 123, 456], 200 epochs. Gradient clipping max_norm=5.0. Early stopping if train_loss > 5.0 after 20 epochs. Fallback: if rho=5.0 diverges in pilot, use wd=2e-3 (rho≈2.0) instead and document. NOTE: This is the most important rho value for testing the trichotomy hypothesis — if spread is > 1% here, it validates Regime II/III existence.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [
+        "pilot_rho_sweep_cifar10"
+      ],
+      "expected_output": "exp/results/full/rho_sweep/rho_5.0/cifar10/resnet20/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "128",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "iter_004/exp/code/data/"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "epochs": 5,
+        "timeout": 900,
+        "pass_criteria": "Training stable (or fallback triggered and documented). Loss < 5.0 at epoch 5. Method converges without NaN gradients."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Phi Spread vs rho (critical point at rho=5.0)",
+          "x": "rho_value",
+          "y": "phi_spread_accuracy",
+          "paper_section": "core_analysis"
+        }
+      ],
+      "status": "failed"
+    },
+    {
+      "id": "full_matched_rho_sgd_cifar10",
+      "name": "Matched-Rho SGD CIFAR-10 Full Experiment",
+      "description": "Full experiment: ResNet-20 on CIFAR-10 with SGDW (momentum=0.9), lr=0.01, wd=5e-3 to achieve rho≈0.5 (matching AdamW default). Methods: [constant, cwd_hard, no_wd], seeds=[42,123,456], 200 epochs. Existing SGD code in optimizers.py (UnifiedSGDW) reused. Purpose: if SGD/AdamW ratio drops from 18.3x to <3x at matched rho, confirms rho is the confounding variable. Record rho_per_layer in epoch 1 to verify matching. Expected: ~25 min per run. Total: 9 runs * 25 min = ~3.75 GPU-hours.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [],
+      "expected_output": "exp/results/full/matched_rho_sgd/cifar10/resnet20/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "128",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "iter_004/exp/code/data/"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "epochs": 5,
+        "timeout": 600,
+        "pass_criteria": "Measured rho_per_layer mean in epoch 1 is in [0.2, 2.0] (within 4x of target rho=0.5). Training stable (loss < 5.0). Best test_acc > 50%."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "SGD vs AdamW Phi Spread at original vs matched rho",
+          "columns": [
+            "Optimizer",
+            "rho_target",
+            "phi_spread",
+            "cohens_d"
+          ],
+          "paper_section": "core_analysis"
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "full_matched_rho_sgd_cifar100",
+      "name": "Matched-Rho SGD CIFAR-100 Full Experiment",
+      "description": "Same as full_matched_rho_sgd_cifar10 but on CIFAR-100 to replicate the analysis on harder task. Same config: SGDW lr=0.01, wd=5e-3. Methods: [constant, cwd_hard, no_wd], seeds=[42,123,456], 200 epochs. Expected: ~30 min per run. Total: 9 runs * 30 min = ~4.5 GPU-hours.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [
+        "full_matched_rho_sgd_cifar10"
+      ],
+      "expected_output": "exp/results/full/matched_rho_sgd/cifar100/resnet20/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 35,
+      "max_batch_size_hint": "128",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar100",
+          "path": "iter_004/exp/code/data/"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "epochs": 5,
+        "timeout": 600,
+        "pass_criteria": "Training stable. Best test_acc > 15% (CIFAR-100 is harder). rho in [0.2, 2.0]."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Cross-dataset matched-rho SGD effect size",
+          "columns": [
+            "Dataset",
+            "Optimizer",
+            "rho_target",
+            "phi_spread"
+          ],
+          "paper_section": "core_analysis"
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "full_vgg16bn_cifar10",
+      "name": "VGG-16-BN CIFAR-10 Full Experiment",
+      "description": "Full experiment: VGG-16-BN on CIFAR-10, AdamW lr=1e-3, wd=5e-4, methods=[constant, cwd_hard, half_lambda, cosine_schedule, swd, random_mask, no_wd], seeds=[42, 123, 456], 200 epochs. Code confirmed working from iter_004 pilot. WARNING: cwd_hard is 2.3x slower (~2.8h per 200 epoch run). Dispatch non-cwd_hard methods first to free up GPUs. Total: 21 runs; fastest methods ~1.2h, cwd_hard ~2.8h. Total wall clock with 7-GPU parallelism: ~5-6h (3 seeds of slowest method sets the lower bound). Override note: This task exceeds 60 min due to confirmed VGG training time — necessary for architecture diversity.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [],
+      "expected_output": "exp/results/full/vgg16_bn/cifar10/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 170,
+      "max_batch_size_hint": "128",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "cifar10",
+          "path": "iter_004/exp/code/data/"
+        }
+      ],
+      "pilot": {
+        "samples": 50000,
+        "seed": 42,
+        "epochs": 5,
+        "timeout": 900,
+        "pass_criteria": "All 7 methods complete without OOM. cwd_hard time < 3x constant time. Best test_acc > 50%."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "VGG-16-BN main results: 7 methods x 3 seeds",
+          "columns": [
+            "Method",
+            "best_mean",
+            "best_std",
+            "phi_spread"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "full_imagenet_resnet50_seed42",
+      "name": "ImageNet ResNet-50 Full Experiment — Seed 42",
+      "description": "Full experiment Phase 1: ResNet-50 on ImageNet-1K, AdamW lr=1e-3, wd=1e-4 (targeting rho≈0.1, closer to deep Regime I), bf16 mixed precision, cosine LR schedule with 5-epoch warmup. Methods: [constant, cwd_hard, cosine_schedule, no_wd]. Seed=42 only. 90 epochs. DataParallel on 2 GPUs (batch 256 per GPU = 512 total). Expected: 2-3h per run, 4 runs = 8-12h with 4 GPUs (2 runs in parallel). GATE: requires pilot_imagenet_resnet50 to succeed. Override note: 90-epoch ImageNet training time ~2-3h per run is unavoidable for meaningful results. Per-layer rho heatmap (50 layers x 90 epochs) is the key novel figure.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [
+        "pilot_imagenet_resnet50"
+      ],
+      "expected_output": "exp/results/full/imagenet/resnet50/seed_42/",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 180,
+      "max_batch_size_hint": "256",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "imagenet",
+          "path": "data/imagenet/"
+        }
+      ],
+      "pilot": {
+        "samples": 1281167,
+        "seed": 42,
+        "epochs": 1,
+        "timeout": 1800,
+        "pass_criteria": "1 epoch completes. top-1 accuracy > 10% at epoch 1 (random baseline 0.1%). Per-layer rho recorded. No OOM on 2x GPU."
+      },
+      "visualizations": [
+        {
+          "type": "heatmap",
+          "description": "Per-layer rho heatmap: 50 layers x 90 epochs x 4 methods",
+          "x": "epoch",
+          "y": "layer_index",
+          "z": "rho_value",
+          "paper_section": "novel_contribution"
+        },
+        {
+          "type": "table",
+          "description": "ImageNet top-1/top-5 accuracy: 4 methods x seed 42",
+          "columns": [
+            "Method",
+            "top1_acc",
+            "top5_acc",
+            "phi_spread"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "failed"
+    },
+    {
+      "id": "full_imagenet_resnet50_seed123",
+      "name": "ImageNet ResNet-50 Full Experiment — Seed 123",
+      "description": "Same as seed_42 but with seed=123. Depends on seed_42 completing and confirming ImageNet infrastructure works correctly. Methods: [constant, cwd_hard, cosine_schedule, no_wd]. 90 epochs, 2 GPUs DataParallel. Expected: 2-3h per run, 4 runs = 8-12h.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [
+        "full_imagenet_resnet50_seed42"
+      ],
+      "expected_output": "exp/results/full/imagenet/resnet50/seed_123/",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 180,
+      "max_batch_size_hint": "256",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "imagenet",
+          "path": "data/imagenet/"
+        }
+      ],
+      "pilot": {
+        "samples": 1281167,
+        "seed": 123,
+        "epochs": 1,
+        "timeout": 1800,
+        "pass_criteria": "1 epoch completes. Reproducibility check: epoch 1 acc within 2% of seed_42 epoch 1."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ImageNet results: 4 methods x 2 seeds (mean ± std)",
+          "columns": [
+            "Method",
+            "top1_mean",
+            "top1_std"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "failed"
+    },
+    {
+      "id": "full_imagenet_resnet50_seed456",
+      "name": "ImageNet ResNet-50 Full Experiment — Seed 456",
+      "description": "Same as seed_42 but with seed=456. Optional: if GPU time allows. Depends on seeds 42 and 123 completing. This provides the third seed for mean ± std reporting. If time-constrained, can be reported as 'N=2 seeds' with a note.",
+      "type": "experiment",
+      "priority": "P0",
+      "depends_on": [
+        "full_imagenet_resnet50_seed123"
+      ],
+      "expected_output": "exp/results/full/imagenet/resnet50/seed_456/",
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DataParallel",
+      "estimated_minutes": 180,
+      "max_batch_size_hint": "256",
+      "shared_resources": [
+        {
+          "type": "dataset",
+          "name": "imagenet",
+          "path": "data/imagenet/"
+        }
+      ],
+      "pilot": {
+        "samples": 1281167,
+        "seed": 456,
+        "epochs": 1,
+        "timeout": 1800,
+        "pass_criteria": "1 epoch completes without OOM."
+      },
+      "visualizations": [],
+      "status": "failed"
+    },
+    {
+      "id": "analysis_cross_architecture",
+      "name": "Cross-Architecture Analysis and Figure Generation",
+      "description": "Comprehensive analysis of all Iteration 5 results. Compute: (1) Phi spread per architecture and dataset, (2) Cohen's d for NoBN vs BN, (3) Rho-Spread curve (3 points: 0.05, 0.5, 5.0), (4) SGD/AdamW ratio at original vs matched rho, (5) Cross-scale comparison table. Generate all 7 planned figures. Run verify_figures.py to confirm data-paper consistency. Output: analysis/iter5_summary.json, figures/*.{png,pdf}.",
+      "type": "analysis",
+      "priority": "P1",
+      "depends_on": [
+        "full_nobn_cifar10",
+        "full_rho_low_cifar10",
+        "full_rho_high_cifar10",
+        "full_matched_rho_sgd_cifar10",
+        "full_matched_rho_sgd_cifar100",
+        "full_vgg16bn_cifar10",
+        "full_imagenet_resnet50_seed42"
+      ],
+      "expected_output": "exp/results/analysis/iter5/",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [],
+      "pilot": null,
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Master results table: all architectures x datasets x methods",
+          "columns": [
+            "Arch",
+            "Dataset",
+            "Optimizer",
+            "Method",
+            "best_mean",
+            "best_std",
+            "phi_spread"
+          ],
+          "paper_section": "experiments"
+        }
+      ],
+      "status": "completed"
+    }
+  ],
+  "execution_waves": {
+    "wave1": {
+      "name": "CIFAR Ablations",
+      "wall_clock_hours": "0-2",
+      "tasks": [
+        "pilot_nobn_cifar10",
+        "pilot_rho_sweep_cifar10",
+        "full_matched_rho_sgd_cifar10"
+      ],
+      "parallel_tasks": 3,
+      "notes": "Run pilots first to validate, then launch full_nobn, full_rho in parallel"
+    },
+    "wave1b": {
+      "name": "CIFAR Ablations Full",
+      "wall_clock_hours": "0.5-2.5",
+      "tasks": [
+        "full_nobn_cifar10",
+        "full_rho_low_cifar10",
+        "full_rho_high_cifar10",
+        "full_matched_rho_sgd_cifar100"
+      ],
+      "parallel_tasks": 4,
+      "notes": "Launch as soon as pilots pass"
+    },
+    "wave2": {
+      "name": "VGG-16-BN Full",
+      "wall_clock_hours": "2-8",
+      "tasks": [
+        "full_vgg16bn_cifar10"
+      ],
+      "parallel_tasks": 7,
+      "notes": "21 runs dispatched across GPUs 0-6; cwd_hard (3 seeds) dispatched last on GPU 7"
+    },
+    "wave3": {
+      "name": "ImageNet Infrastructure",
+      "wall_clock_hours": "8-8.5",
+      "tasks": [
+        "pilot_imagenet_resnet50"
+      ],
+      "parallel_tasks": 1,
+      "notes": "Must validate before committing to 12 long ImageNet runs"
+    },
+    "wave4": {
+      "name": "ImageNet Full Phase 1+2",
+      "wall_clock_hours": "8.5-14.5",
+      "tasks": [
+        "full_imagenet_resnet50_seed42",
+        "full_imagenet_resnet50_seed123"
+      ],
+      "parallel_tasks": 4,
+      "notes": "2 methods in parallel (2 GPUs each) = 4 GPUs total. seed_42 and seed_123 can overlap if 8 GPUs available"
+    },
+    "wave5": {
+      "name": "ImageNet Phase 3 + Analysis",
+      "wall_clock_hours": "14.5-17.5",
+      "tasks": [
+        "full_imagenet_resnet50_seed456",
+        "analysis_cross_architecture"
+      ],
+      "parallel_tasks": 2,
+      "notes": "seed_456 runs while analysis pipeline is being prepared"
+    }
+  },
+  "gate_decisions": {
+    "gate1": {
+      "trigger": "full_nobn_cifar10 + full_rho_low_cifar10 + full_rho_high_cifar10 + full_matched_rho_sgd_cifar10 complete",
+      "decisions": [
+        "Determine trichotomy claim strength (Conjecture vs Theorem vs Empirical Finding)",
+        "Determine if SGD/AdamW ratio collapse confirms rho as primary confounder",
+        "Decide NoBN mechanism: ell_inf path sufficient or BN required"
+      ]
+    },
+    "gate2": {
+      "trigger": "full_vgg16bn_cifar10 complete",
+      "decisions": [
+        "Confirm/deny cross-architecture Phi spread < 0.5%",
+        "Enable cross-architecture comparison table",
+        "Begin preliminary figure generation"
+      ]
+    },
+    "gate3": {
+      "trigger": "full_imagenet_resnet50_seed42 complete",
+      "decisions": [
+        "Determine paper claim scope: Scenario A/B/C/D",
+        "Confirm per-layer rho heatmap quality and novelty",
+        "Decide whether to proceed with seeds 123+456"
+      ]
+    },
+    "writing_gate": {
+      "trigger": "Gate 1 + Gate 2 complete (minimum); Gate 3 strongly preferred",
+      "constraint": "Writing stage BLOCKED until at minimum gate1 + gate2 pass"
+    }
+  }
+}

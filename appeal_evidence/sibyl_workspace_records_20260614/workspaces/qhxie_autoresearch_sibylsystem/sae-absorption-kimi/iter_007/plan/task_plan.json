@@ -1,0 +1,549 @@
+{
+  "tasks": [
+    {
+      "id": "setup_synth_data",
+      "name": "Generate SynthSAEBench Synthetic Data",
+      "description": "Generate ground-truth synthetic data with known feature hierarchies for absorption detection. Include first-letter, syntactic, factual, and safety feature categories.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/data/synth_sae_bench_16k.pt",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Data loads without errors; feature hierarchies are non-empty; all 4 categories (first-letter, syntactic, factual, safety) have >= 10 features each"
+      }
+    },
+    {
+      "id": "setup_gpt2_sae",
+      "name": "Load GPT-2 Small Pretrained SAE",
+      "description": "Load GPT-2 small layer 8 residual stream SAE from SAELens for validation experiments.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/checkpoints/gpt2_sae_layer8.pt",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "gpt2-small-res-jb", "path": "SAELens release"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "SAE loads successfully; L0 and explained variance metrics are within expected ranges (L0 50-200, explained variance > 0.9)"
+      }
+    },
+    {
+      "id": "pilot_rq1_baseline",
+      "name": "Pilot: Train Baseline L1 SAE",
+      "description": "Pilot training of Baseline L1 SAE on synthetic data. 1024 features, 1 seed, target L0=50. Verify convergence and compute absorption rate.",
+      "type": "baseline",
+      "depends_on": ["setup_synth_data"],
+      "expected_output": "exp/results/pilots/pilot_baseline_l1.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Training loss curve",
+          "x": "step",
+          "y": "loss",
+          "paper_section": "appendix"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Converges (loss plateau); L0 within target +/- 20%; absorption rate computable"
+      }
+    },
+    {
+      "id": "pilot_rq1_topk",
+      "name": "Pilot: Train TopK SAE",
+      "description": "Pilot training of TopK SAE on synthetic data. 1024 features, 1 seed, k=50. Verify convergence and compute absorption rate.",
+      "type": "experiment",
+      "depends_on": ["setup_synth_data"],
+      "expected_output": "exp/results/pilots/pilot_topk.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Converges; L0 approximately k; absorption rate computable and different from Baseline"
+      }
+    },
+    {
+      "id": "pilot_rq1_matryoshka",
+      "name": "Pilot: Train Matryoshka SAE",
+      "description": "Pilot training of Matryoshka SAE on synthetic data. 1024 features, 1 seed, 2 nested levels. Verify convergence and compute absorption rate.",
+      "type": "experiment",
+      "depends_on": ["setup_synth_data"],
+      "expected_output": "exp/results/pilots/pilot_matryoshka.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Converges; both levels active; absorption rate computable and lower than Baseline"
+      }
+    },
+    {
+      "id": "pilot_rq1_ort_sae",
+      "name": "Pilot: Train OrtSAE",
+      "description": "Pilot training of OrtSAE on synthetic data. 1024 features, 1 seed, lambda_ortho=1e-3. Verify convergence and compute absorption rate.",
+      "type": "experiment",
+      "depends_on": ["setup_synth_data"],
+      "expected_output": "exp/results/pilots/pilot_ort_sae.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Converges; orthogonality penalty is non-zero; absorption rate computable"
+      }
+    },
+    {
+      "id": "pilot_rq1_random_control",
+      "name": "Pilot: Random SAE Control",
+      "description": "Create untrained random dictionary SAE as control. Compute absorption rate to validate metric discrimination.",
+      "type": "baseline",
+      "depends_on": ["setup_synth_data"],
+      "expected_output": "exp/results/pilots/pilot_random_sae.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate is computable; serves as upper bound reference"
+      }
+    },
+    {
+      "id": "pilot_rq1_l0_match",
+      "name": "Pilot: L0-Matched Baseline Sweep",
+      "description": "Sweep lambda_L1 for Baseline SAE to match each variant's achieved L0 from pilots. This enables fair L0-matched comparison.",
+      "type": "baseline",
+      "depends_on": ["pilot_rq1_baseline", "pilot_rq1_topk", "pilot_rq1_matryoshka", "pilot_rq1_ort_sae"],
+      "expected_output": "exp/results/pilots/pilot_l0_matched_baselines.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 3 L0-matched baselines successfully trained with L0 within +/- 10% of target"
+      }
+    },
+    {
+      "id": "pilot_rq2_dose_response",
+      "name": "Pilot: Dose-Response Sparsity Sweep",
+      "description": "Fix Baseline L1 architecture and vary lambda_L1 across 5 levels (5e-5 to 2e-4). Measure absorption rate and downstream metrics (sparse probing F1, steering efficacy).",
+      "type": "experiment",
+      "depends_on": ["setup_synth_data"],
+      "expected_output": "exp/results/pilots/pilot_dose_response.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 25,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Dose-response curve: absorption vs. downstream metric",
+          "x": "absorption_rate",
+          "y": "sparse_probing_f1",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rate spans >2x range across lambda levels; downstream metrics show monotonic trend"
+      }
+    },
+    {
+      "id": "pilot_rq3_mutual_coherence",
+      "name": "Pilot: Mutual Coherence Computation",
+      "description": "Compute decoder mutual coherence mu(W_dec) for all pilot-trained SAEs. Test correlation with absorption rate.",
+      "type": "analysis",
+      "depends_on": ["pilot_rq1_baseline", "pilot_rq1_topk", "pilot_rq1_matryoshka", "pilot_rq1_ort_sae"],
+      "expected_output": "exp/results/pilots/pilot_mutual_coherence.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Mutual coherence vs. absorption rate",
+          "x": "mu_w_dec",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Correlation computable; |r| > 0.3 for directional signal"
+      }
+    },
+    {
+      "id": "pilot_rq4_semantic_absorption",
+      "name": "Pilot: Semantic Feature Absorption",
+      "description": "Compute absorption rates for syntactic, factual, and safety feature categories on synthetic data. Compare with first-letter absorption.",
+      "type": "experiment",
+      "depends_on": ["setup_synth_data", "pilot_rq1_baseline"],
+      "expected_output": "exp/results/pilots/pilot_semantic_absorption.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate by feature category",
+          "x": "feature_category",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 semantic categories have computable absorption rates; rates differ across categories"
+      }
+    },
+    {
+      "id": "pilot_gpt2_validation",
+      "name": "Pilot: GPT-2 Small SAEBench Validation",
+      "description": "Run SAEBench absorption evaluation on GPT-2 small pretrained SAE. Validate that synthetic findings transfer to real LLM.",
+      "type": "experiment",
+      "depends_on": ["setup_gpt2_sae"],
+      "expected_output": "exp/results/pilots/pilot_gpt2_saebench.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "gpt2-small-res-jb", "path": "SAELens release"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "SAEBench eval completes; absorption score is within published range (0.3-0.7 for GPT-2 small)"
+      }
+    },
+    {
+      "id": "full_rq1_architecture",
+      "name": "Full: L0-Matched Architecture Comparison",
+      "description": "Scale pilot RQ1 to full experiment: 4 variants x 5 seeds x 16k features, L0=50 and L0=200. Include L0-matched baselines, Random control, and shuffled control.",
+      "type": "experiment",
+      "depends_on": ["pilot_rq1_baseline", "pilot_rq1_topk", "pilot_rq1_matryoshka", "pilot_rq1_ort_sae", "pilot_rq1_l0_match"],
+      "expected_output": "exp/results/full/full_rq1_architecture.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "L0-matched absorption comparison",
+          "x": "variant",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "table",
+          "description": "Architecture comparison summary",
+          "columns": ["Variant", "L0", "Absorption_Rate", "Explained_Variance", "Dead_Feature_Ratio"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    },
+    {
+      "id": "full_rq2_dose_response",
+      "name": "Full: Dose-Response Causality Study",
+      "description": "Scale pilot RQ2 to full experiment: 5 sparsity levels x 5 seeds, 3 downstream metrics (sparse probing F1, steering efficacy, circuit-tracing precision). Include architectural manipulation from RQ1 variants.",
+      "type": "experiment",
+      "depends_on": ["pilot_rq2_dose_response", "full_rq1_architecture"],
+      "expected_output": "exp/results/full/full_rq2_dose_response.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 50,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Dose-response: absorption vs. sparse probing F1",
+          "x": "absorption_rate",
+          "y": "sparse_probing_f1",
+          "paper_section": "experiments"
+        },
+        {
+          "type": "line_plot",
+          "description": "Dose-response: absorption vs. steering efficacy",
+          "x": "absorption_rate",
+          "y": "steering_efficacy",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    },
+    {
+      "id": "full_rq3_mutual_coherence",
+      "name": "Full: Mutual Coherence Theory Validation",
+      "description": "Compute mu(W_dec) for all full-experiment SAEs. Test H3a (correlation) and H3b (threshold prediction) with full statistical power.",
+      "type": "analysis",
+      "depends_on": ["full_rq1_architecture"],
+      "expected_output": "exp/results/full/full_rq3_mutual_coherence.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Mutual coherence vs. absorption with regression",
+          "x": "mu_w_dec",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    },
+    {
+      "id": "full_rq4_semantic_generalization",
+      "name": "Full: Semantic Task Generalization",
+      "description": "Compute absorption rates for all semantic categories across all trained SAEs. Test correlation with first-letter absorption (H4a) and ANOVA across categories (H4b).",
+      "type": "experiment",
+      "depends_on": ["full_rq1_architecture", "pilot_rq4_semantic_absorption"],
+      "expected_output": "exp/results/full/full_rq4_semantic.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate by feature category and variant",
+          "x": "feature_category",
+          "y": "absorption_rate",
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    },
+    {
+      "id": "full_gpt2_validation",
+      "name": "Full: GPT-2 SAEBench Validation",
+      "description": "Run full SAEBench absorption evaluation on GPT-2 small. Compare synthetic vs. real-LLM absorption patterns.",
+      "type": "experiment",
+      "depends_on": ["pilot_gpt2_validation"],
+      "expected_output": "exp/results/full/full_gpt2_saebench.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "gpt2-small-res-jb", "path": "SAELens release"}
+      ],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Synthetic vs. real-LLM absorption comparison",
+          "columns": ["Task_Type", "Synthetic_Absorption", "GPT2_Absorption", "Correlation"],
+          "paper_section": "experiments"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    },
+    {
+      "id": "analysis_statistics",
+      "name": "Statistical Analysis and Numerical Audit",
+      "description": "Run all pre-registered statistical tests. Perform data integrity checks. Generate summary tables and figures.",
+      "type": "analysis",
+      "depends_on": ["full_rq1_architecture", "full_rq2_dose_response", "full_rq3_mutual_coherence", "full_rq4_semantic_generalization"],
+      "expected_output": "exp/results/full/analysis_summary.json",
+      "candidate_id": "shared",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [],
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Hypothesis test results summary",
+          "columns": ["Hypothesis", "Test", "Statistic", "p_value", "Decision", "Effect_Size"],
+          "paper_section": "results"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    },
+    {
+      "id": "ablation_matryoshka_flat",
+      "name": "Ablation: Matryoshka without Nesting",
+      "description": "Train Matryoshka SAE with flat dictionary (single level) to isolate the effect of multi-scale nesting on absorption.",
+      "type": "ablation",
+      "depends_on": ["full_rq1_architecture"],
+      "expected_output": "exp/results/full/ablation_matryoshka_flat.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    },
+    {
+      "id": "ablation_ort_sae_no_penalty",
+      "name": "Ablation: OrtSAE without Orthogonality Penalty",
+      "description": "Train OrtSAE with lambda_ortho=0 to isolate the effect of orthogonality penalty on absorption.",
+      "type": "ablation",
+      "depends_on": ["full_rq1_architecture"],
+      "expected_output": "exp/results/full/ablation_ort_sae_no_penalty.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    },
+    {
+      "id": "ablation_topk_as_relu",
+      "name": "Ablation: TopK as ReLU+L1",
+      "description": "Train TopK SAE with k equal to expected L0 from ReLU+L1 baseline to isolate the effect of explicit top-k selection vs. learned sparsity.",
+      "type": "ablation",
+      "depends_on": ["full_rq1_architecture"],
+      "expected_output": "exp/results/full/ablation_topk_as_relu.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "SynthSAEBench-16k", "path": "exp/data/synth_sae_bench_16k.pt"}
+      ],
+      "visualizations": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "N/A - this is the full experiment"
+      }
+    }
+  ]
+}

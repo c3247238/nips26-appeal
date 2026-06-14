@@ -1,0 +1,65 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "The paper presents H1b at layer 8 (p=0.028 uncorrected) as evidence throughout the abstract, introduction, and conclusion despite ZERO statistically significant results after Bonferroni correction (12 tests, corrected alpha=0.00417). The abstract states 'absorption does not significantly degrade' with the p=0.028 result as supporting evidence, but this is factually incorrect after MCP.",
+    "suggestion": "Remove all claims implying statistical significance of H1b. Report all results as descriptive trends only. The abstract should clearly state 'After multiple comparison correction across 12 tests, no hypothesis reached significance.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "MCC~0.21 for random SAE baseline (with orthonormal decoder and random encoder) in h6_inhibition_graph.json suggests Hungarian matching yields chance-level recovery regardless of training. The paper acknowledges this failure in passing but does not address the implication: if the metric fails on a random baseline, the trained-vs-random absorption comparison (H7) may be a metric artifact rather than a genuine difference.",
+    "suggestion": "Add explicit section discussing whether the 8x trained-vs-random difference reflects absorption reduction or metric sensitivity to dictionary structure. Consider computing partial correlation controlling for dictionary geometry metrics."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "H6 (inhibition graph predicts absorption pairs) is the paper's central predictive claim and it fails completely: precision@20=0.0, p=1.0 Fisher exact, enrichment=0.0x across 520 predictions. Yet the paper continues to rely on the LCA framework throughout. The mechanistic framework (Section 3) is undermined by the complete empirical failure of its primary testable prediction.",
+    "suggestion": "The paper must either (a) drop the LCA connection and reframe as a pure empirical null-result paper with metric validation insights, or (b) provide concrete evidence beyond the failed H6 for why the LCA mechanism exists even if graph-based prediction fails. Currently the paper is logically incoherent - it claims the mechanism is supported (via H7 precision-recall asymmetry) while its primary predictive test is falsified."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The Chanin absorption metric itself may be the confound: trained-vs-random comparison (H7) shows random has 8x higher absorption, but this could mean the metric is picking up dictionary structure rather than genuine absorption. The paper does not compute partial correlation controlling for dictionary geometry.",
+    "suggestion": "Compute partial correlation of absorption rate with training status controlling for dictionary geometry metrics (e.g., mean decoder correlation, L0 distribution). If the training effect disappears after controlling for geometry, the 'contribution' is not absorption reduction but metric sensitivity."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The absorption-sensitivity relationship is beta-conditional: effect emerges only at high steering magnitudes (beta=10, 20). At beta=5 (median), zero difference is observed (paper_summary_stats.json high_vs_low_absorption: L8 t_test_p=0.05 at the threshold). The paper presents the delta-corrected L8 correlation (r=-0.431) as evidence of a 'robust' finding without acknowledging the conditional nature.",
+    "suggestion": "State clearly in abstract and results: 'The absorption-steering correlation is only observable at high steering magnitudes (beta>=10), suggesting the practical significance may be limited to extreme interventions.'"
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Post-hoc power analysis (Section 3.6 / paper_summary_stats.json cross_model_pythia) is methodologically questionable. The paper states 'approximately 20% power to detect a medium effect size' but this was computed after seeing null results, which is inappropriate.",
+    "suggestion": "Remove post-hoc power analysis entirely. If discussing power constraints, cite the a-priori power calculation that justified the sample size before running experiments."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "The random SAE baseline construction is underspecified. 'Frozen orthonormal decoder, random encoder' does not specify: the encoder initialization distribution, whether the encoder was trained before freezing, or the exact orthonormalization method (QR vs SVD). Different implementations could yield different absorption rates, undermining reproducibility of the H7 result.",
+    "suggestion": "Provide exact initialization code, random seed, or a link to code that reproduces the random SAE baseline. Confirm encoder was never trained (pure random projection) and specify orthonormalization method."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "The paper uses 'contribution' language throughout for what is predominantly null results. The abstract does not clearly convey that zero hypotheses were supported after correction, instead framing null results as positive evidence ('does not significantly degrade').",
+    "suggestion": "Be explicit in abstract: 'We conducted 12 statistical tests. After multiple comparison correction, no test reached significance. We report these null results with descriptive statistics and discuss implications.' Avoid framing null results as 'evidence that X does not happen' - the correct framing is 'we did not find evidence that X happens.'"
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "The LCA connection (G=W^T W) predates this work by 16 years (Rozell et al. 2008). The paper's novelty is in applying it to SAEs, but without successful empirical validation of the graph-based prediction, the contribution is unclear. The precision-recall asymmetry (H7) confirms prior work - this is not novel to this paper.",
+    "suggestion": "Be more conservative about novelty claims. The LCA-SAE correspondence is a reasonable theoretical contribution but the empirical validation fails. The honest framing is that the theory is interesting but the data do not support the predictive framework."
+  }
+]

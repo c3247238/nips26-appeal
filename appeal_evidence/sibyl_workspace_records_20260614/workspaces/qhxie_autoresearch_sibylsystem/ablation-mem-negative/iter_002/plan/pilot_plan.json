@@ -1,0 +1,121 @@
+{
+  "pilot_config": {
+    "samples": 1000,
+    "seed": 42,
+    "timeout_seconds": 900,
+    "model": "gpt2-small",
+    "layer": 8,
+    "sae_source": "gpt2-small-res-jb",
+    "dataset": "openwebtext",
+    "dataset_samples": 1000,
+    "device": "cuda",
+    "batch_size": 8,
+    "max_sequence_length": 128
+  },
+  "pilots": [
+    {
+      "id": "p1_random_baseline",
+      "name": "Pilot P1: Random Baseline Computation",
+      "description": "Compute random baseline F1 for UAD on GPT-2 Small layer 8. Randomly select N pairs 100 times. Target: random F1 < 0.1, UAD F1 - random F1 > 0.3.",
+      "objective": "Verify random baseline is low enough to make UAD F1 meaningful.",
+      "steps": [
+        "Load GPT-2 Small and SAE (same as full E1)",
+        "Run UAD to get same-cluster pair count N",
+        "Randomly select N pairs from top 500 features 100 times",
+        "Compute mean F1, precision, recall across random selections",
+        "Compare UAD F1 vs random baseline F1"
+      ],
+      "pass_criteria": [
+        "Random F1 < 0.1",
+        "UAD F1 - Random F1 >= 0.3",
+        "Total runtime < 15 minutes"
+      ],
+      "fail_action": "If random F1 >= 0.3, UAD contribution is marginal. Consider pivot to backup candidates.",
+      "expected_output": "current/exp/results/pilots/p1_random_baseline_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 10
+    },
+    {
+      "id": "p2_ablation_quick",
+      "name": "Pilot P2: Quick Ablation Test",
+      "description": "Test 2 key ablations on a subset: (A1) no clustering, (A3) no dead feature filter. Compare F1 degradation. Target: each ablation shows F1 drop >= 0.05.",
+      "objective": "Verify ablations are computationally cheap and show meaningful degradation.",
+      "steps": [
+        "Load GPT-2 Small and SAE",
+        "Run Full UAD on 500 features",
+        "Run A1 (no clustering) on same features",
+        "Run A3 (no dead feature filter) on same features",
+        "Compare F1 across variants"
+      ],
+      "pass_criteria": [
+        "Each ablation shows F1 drop >= 0.05 from Full",
+        "Total runtime < 15 minutes"
+      ],
+      "fail_action": "If ablations show no degradation, design choices may not matter. Still report as robustness.",
+      "expected_output": "current/exp/results/pilots/p2_ablation_quick_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 10
+    },
+    {
+      "id": "p3_dfda_parent_positive",
+      "name": "Pilot P3: DFDA Parent-Positive Protocol",
+      "description": "Test fixed DFDA evaluation on 2-3 absorbed pairs. Collect parent-positive examples, train MLP, evaluate parent-positive MSE improvement. Target: improvement > 10% on >=2/3 pairs.",
+      "objective": "Verify parent-positive DFDA evaluation works and shows genuine improvement.",
+      "steps": [
+        "Load GPT-2 Small and SAE",
+        "Identify 3 absorbed pairs using UAD",
+        "For each pair, collect parent-positive examples",
+        "Train tiny MLP per pair",
+        "Evaluate on parent-positive examples (not child-dominant)",
+        "Report MSE improvement per pair"
+      ],
+      "pass_criteria": [
+        "Parent-positive MSE improvement > 10% on >=2/3 pairs",
+        "No near-zero prediction artifacts",
+        "Total runtime < 15 minutes"
+      ],
+      "fail_action": "If improvement < 5% on all pairs, DFDA metric is genuinely broken. Drop DFDA from paper.",
+      "expected_output": "current/exp/results/pilots/p3_dfda_parent_positive_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 15
+    }
+  ],
+  "pilot_decision_matrix": {
+    "all_pass": "Proceed with all full experiments (E1-E7). Full steam ahead.",
+    "p1_p2_pass_only": "UAD is solid but DFDA parent-positive fails. Proceed with UAD-only experiments (E1-E5, E7). Drop DFDA.",
+    "p1_pass_only": "Random baseline is low but ablations show no degradation. Proceed with UAD but de-emphasize design choices.",
+    "p3_pass_only": "DFDA works but random baseline is high. Re-evaluate UAD contribution; may need to pivot.",
+    "none_pass": "REFINE: Core methods fail. Consider pivot to backup candidates (B, C, D)."
+  },
+  "go_no_go_gates": [
+    {
+      "gate": "G1",
+      "condition": "P1 (Random Baseline) random F1 < 0.1 AND UAD F1 - random F1 >= 0.3",
+      "if_passed": "UAD contribution is meaningful. Proceed to full experiments.",
+      "if_failed": "If random F1 >= 0.3, UAD contribution is marginal. Consider pivot."
+    },
+    {
+      "gate": "G2",
+      "condition": "P3 (DFDA Parent-Positive) improvement > 10% on >=2/3 pairs",
+      "if_passed": "DFDA is viable. Include in paper with parent-positive protocol.",
+      "if_failed": "If improvement < 5% on all pairs, drop DFDA from paper. Focus on UAD only."
+    }
+  ],
+  "shared_pilot_resources": {
+    "model_gpt2": "gpt2-small",
+    "sae_gpt2": "gpt2-small-res-jb",
+    "device": "cuda",
+    "batch_size": 8,
+    "max_sequence_length": 128,
+    "dataset": "openwebtext",
+    "dataset_samples": 1000
+  },
+  "pilot_to_full_scaling": {
+    "tokens": "1k (pilot) -> 10k (full)",
+    "features": "500 (pilot) -> 500 (full, same)",
+    "clusters": "50 (pilot) -> 50 (full, same)",
+    "dfda_pairs": "3 (pilot) -> 8+ (full)",
+    "random_trials": "100 (pilot) -> 1000 (full, for permutation test)",
+    "bootstrap_samples": "100 (pilot) -> 1000 (full)"
+  }
+}

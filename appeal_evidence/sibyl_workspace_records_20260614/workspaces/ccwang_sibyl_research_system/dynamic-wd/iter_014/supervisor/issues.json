@@ -1,0 +1,79 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "ImageNet results are incomplete: only 4 of 7 methods were run (SWD, DefazioCorrective, NoWD missing). CWD has only 1 completed seed. This makes Table 5 a partial comparison, not the 'comprehensive' evaluation promised in the contributions. A NeurIPS reviewer would demand complete coverage or an explicit scope restriction.",
+    "suggestion": "Complete SWD and DefazioCorrective on ImageNet (at least 3 seeds each), or explicitly downscope the ImageNet contribution to 'subset comparison' and move it to supplementary. Add at least 2 more CWD seeds."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "UDWDC, the paper's proposed algorithm, underperforms FixedWD on every single benchmark: -0.53 pp on CIFAR-10, -2.01 pp on CIFAR-100, -1.79 pp on ImageNet. It even underperforms NoWD on CIFAR-10 (90.15% vs 90.25%). The v2 fix recovers to near-FixedWD but with an absurd WD budget (98599x). A method that performs worse than the simplest baseline on all benchmarks is a significant liability, even when framed as a diagnostic tool.",
+    "suggestion": "Reframe UDWDC as a diagnostic probe rather than a proposed method. The paper's value is the PID taxonomy + metrics, not UDWDC itself. Consider either (a) proposing a PI controller that could actually compete, or (b) explicitly titling/framing the paper as a 'unification and diagnostic framework' rather than 'framework + new method'."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The three proposed metrics (BEM, CSI, AIS) are used in a circular manner: they are defined in this paper, computed on this paper's experiments, and evaluated by showing they reveal 'differences invisible to accuracy-only evaluation.' But there is no external validation that these differences matter. BEM's ranking divergence from accuracy is demonstrated but not validated against any downstream task. CSI captures variance but the paper does not show that CSI predicts anything useful beyond what raw std already captures. AIS correlation of 0.566 is moderate but the LOO CV R-squared is -0.18, meaning AIS has negative predictive power out-of-sample.",
+    "suggestion": "Provide at least one external validation for each metric: (1) BEM: show that high-BEM methods generalize better to a held-out task or transfer learning setting; (2) CSI: show that CSI predicts training stability under perturbation (lr change, data corruption); (3) AIS: acknowledge the negative LOO CV R-squared and discuss what it means for the metric's predictive validity."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "Theorem 1, Proposition 2, and Proposition 3 are stated but not formally proved in the paper. The paper provides 'intuition' and 'statements' but no mathematical proofs. For a paper claiming theoretical contributions, this is a significant gap. Theorem 1 claims alignment-modulated WD achieves 'strictly tighter generalization bounds' but the formal statement with all assumptions and the proof are missing.",
+    "suggestion": "Either (a) include full proofs in the appendix with precise assumptions, or (b) demote Theorem 1 to a 'conjecture' and Propositions 2-3 to 'hypotheses', and remove 'Theoretical analysis' from the contribution list."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "The CWD magnitude confound identified in Section 6.3 (CWD's effective WD is ~50% of FixedWD) is acknowledged but not resolved. The paper explicitly states 'A definitive resolution requires a CWD vs. halved-lambda ablation... We did not complete this ablation.' This was listed as a critical experiment in the proposal (Phase 2 plan: 'CWD vs random-50%-mask vs halved-WD'). Without this ablation, the paper cannot distinguish whether CWD's behavior comes from alignment information or WD magnitude reduction.",
+    "suggestion": "Run FixedWD at lambda=5e-5 (half of 1e-4) on CIFAR-10 and ImageNet with 3 seeds. Compare directly with CWD. This is a single-configuration experiment that would take minimal compute."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "FixedWD ImageNet accuracy of 71.72% is far below standard ResNet-50 results (76-77%). The paper acknowledges this is due to minimal augmentation, but this raises a concern: the WD method comparisons may not transfer to realistic training recipes with mixup, cutmix, and RandAugment. The paper's conclusions about CPR dominance and UDWDC instability may be artifacts of the under-augmented regime.",
+    "suggestion": "Either (a) run at least FixedWD+CPR+UDWDC with standard augmentation (mixup, cutmix) on ImageNet to verify the ranking holds, or (b) explicitly discuss this as a limitation and scope the conclusions to 'minimal augmentation regimes.'"
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The unification fitting uses an 'extended model' with additional offset and target-scale parameters beyond the basic PID control law. CWD's basic error is 37.3% (FAIL) but drops to 4.7% with the extended model. The extended model's rho_target_scale=0.50 for CWD essentially encodes the 50% WD reduction, meaning the fit captures CWD's magnitude reduction rather than its control-theoretic structure. The fitted K_p, K_i, K_d values for CWD are all near-zero (~1e-7), meaning the actual PID gains contribute nothing -- the fit is entirely driven by the offset and scale parameters.",
+    "suggestion": "Report both basic and extended fitting errors prominently. Discuss that CWD's good fit comes from the rho_target_scale parameter (capturing magnitude reduction) rather than PID gains. This actually strengthens the confound argument but weakens the 'PID unification' claim for CWD specifically."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "ImageNet std values use population stdev (N denominator) rather than sample stdev (N-1 denominator). FixedWD paper reports 0.36 (population) vs 0.40 (sample); UDWDC reports 0.19 (population) vs 0.24 (sample). With only 3-5 seeds, the choice of stdev formula matters and should be specified.",
+    "suggestion": "Specify whether population or sample standard deviation is used. For small N (3-5 seeds), sample std is more appropriate. Consider switching to sample std throughout."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "No ViT experiments despite being listed in the proposal (Phase 4: 'ViT-S/16/ImageNet, 3 seeds'). Proposition 3's scope limitation to BN architectures cannot be evaluated without LN experiments. The paper mentions ViT in the model list but never runs it.",
+    "suggestion": "Either run ViT-S/16 on ImageNet (even a short-epoch pilot) or remove all references to ViT from the paper and acknowledge the BN-only scope explicitly in the abstract."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Table 4 ablation uses UDWDC-v2 (floor clipping) for all variants, but the paper states this in small print. The Ki_only and Kd_only variants in Table 4 are not pure PID ablations -- they all include floor clipping which is not part of the PID framework. This muddles the ablation interpretation.",
+    "suggestion": "Clarify prominently that all ablation variants include v2 floor clipping. Discuss how this affects interpretation -- the floor clipping guarantees nonzero WD regardless of gain settings, which may mask the true effect of individual gains."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "CSI values in Table 6 are from 10-epoch pilot data, not the full 200-epoch runs. The paper notes this but the difference could be substantial -- early training dynamics differ significantly from late training.",
+    "suggestion": "Compute CSI from the full 200-epoch data (which exists) and report those values instead. Keep the pilot CSI in supplementary if needed."
+  }
+]

@@ -1,0 +1,196 @@
+{
+  "issues_classified": [
+    {
+      "description": "H4 causal conclusion 'dictionary completeness — not absorption level — drives patching fidelity' remains in Abstract, Section 5.3, Section 6.3, and Conclusion despite being flagged critical for 12 iterations. The experiment compares full SAE (100%) vs 10% subsets — this tests reconstruction capacity (dictionary completeness), NOT absorption's causal role. Both absorption subsets yield 0.0 faithfulness, making any comparison impossible. The paper correctly labels H4 as 'uninformative' but the causal conclusion in Abstract/Conclusion contradicts this label.",
+      "category": "soundness",
+      "severity": "critical",
+      "suggestion": "Remove all variants of the causal conclusion from Abstract, Section 5.3, Section 6.3, and Conclusion. Replace with: 'H4 is inconclusive: both absorption subsets yield 0.0 faithfulness, preventing any conclusion about whether absorption level predicts circuit-level causal importance. Full SAE patching (0.289) outperforms subset patching (0.000), but this tests dictionary completeness (reconstruction capacity), not absorption quality. The correctly designed experiment (comparing full SAE representations at layers with different absorption profiles) was not conducted.'",
+      "status": "recurring",
+      "hypothesis": "H4",
+      "iterations_flagged": 12
+    },
+    {
+      "description": "8 perfect-score latents (Af=1.0) each fire on exactly 100 tokens — matching the number of sequences (100). Verified in h5_pilot_output.log: top-5 absorbed latents at ALL dictionary sizes (2K, 8K, 24K) show activations=100. Paper acknowledges 'suspicious uniformity' but discusses only as 'open question' in Section 6.5. Pattern is systematic across all dictionary sizes, ruling out coincidence. Likely positional artifact. 12 iterations deferred.",
+      "category": "experiment",
+      "severity": "critical",
+      "suggestion": "Investigate immediately: (1) Compute token position consistency across sequences for each perfect-score latent — if all fire at same position X across all 100 sequences, confirm positional artifact; (2) Check if encoder outputs exceed threshold only at that consistent position; (3) If confirmed as positional artifacts, exclude from primary analysis and document in Appendix with quantified impact. Estimated 2 hours CPU on existing data. This is NOT an open question — the regularity is dispositive.",
+      "status": "recurring",
+      "hypothesis": "all",
+      "iterations_flagged": 12
+    },
+    {
+      "description": "H2 (token frequency correlation) was never tested. Paper cites 'early termination after H1/H3/H4 falsification' — post-hoc rationalization. Correct justification is 'insufficient absorption variance at layer 8' (46/24,576 latents with Af > 0.5). Critically, layer 4 has 49.3% absorption (~12,000 latents) — 260x more data than layer 8 — and was never attempted. H3 already collected layer 4 data — no new experiments needed, just analysis. 12 iterations deferred.",
+      "category": "experiment",
+      "severity": "critical",
+      "suggestion": "Either: (a) Run H2 at layer 4 using existing H3 data (~12,000 absorbed latents) for Spearman correlation between token frequency and absorption score — CPU only, ~2 hours, OR (b) Formally retire H2 with explicit justification: 'H2 was not tested at layer 8 due to insufficient absorption variance. Layer 4 was identified as the appropriate alternative but experiment was not conducted. H2 is formally retired: insufficient statistical power even at the highest-absorption layer tested.'",
+      "status": "recurring",
+      "hypothesis": "H2",
+      "iterations_flagged": 12
+    },
+    {
+      "description": "H1 hypothesis verdict is internally inconsistent. The hypothesis predicts '>20% of latents at layers 4-10' have Af > 0.5. At layer 8: 0.19% (falsified). At layer 4: 49.3% (CONFIRMS the hypothesis). Table 1 labels H1 as 'Falsified' which is only true for layer 8; layer 4 (49.3%) is NOT falsified. The abstract states 'falsifying the hypothesis at that layer; at layer 4, 49.3% exceeds the >20% threshold' — contradiction since one layer confirms and another falsifies.",
+      "category": "writing",
+      "severity": "critical",
+      "suggestion": "Restate H1 verdict as layer-dependent in Abstract, Section 5.1, and Table 1: 'H1 is falsified at layer 8 (0.19%, below 10% threshold) but confirmed at layer 4 (49.3%, exceeding >20% threshold). Results show strong layer-dependence requiring explanation. The hypothesis cannot be cleanly labeled as falsified when one layer confirms and another contradicts.' Remove 'not falsified at layer 4' phrasing — use 'confirmed at layer 4' instead.",
+      "status": "recurring",
+      "hypothesis": "H1",
+      "iterations_flagged": 12
+    },
+    {
+      "description": "Only pilot experiments (n=100) reported, not full-scale (n=1024) as stated in methodology Section 4.2. The 10x scale gap is material for rare phenomenon characterization — absorption affects <1% of latents. Results at n=100 may differ materially at full scale. No commitment to either pilot scope or full-scale replication has been made. 12 iterations deferred.",
+      "category": "experiment",
+      "severity": "major",
+      "suggestion": "Either: (a) Run full-scale experiments (n=1,024) with pre-committed analysis plan, or (b) Explicitly scope the paper as a pilot study in Abstract and Discussion with commitment to full-scale replication before publication. This decision must be made before next supervisor review.",
+      "status": "recurring",
+      "hypothesis": "all",
+      "iterations_flagged": 12
+    },
+    {
+      "description": "No seed ablation for any experiment. All experiments use seed=42 only. The dramatic layer discrepancy (layer 4 at 49.3% vs layer 8 at 0.19%) is too large to trust without seed confirmation. If layer-dependence is a seed artifact, the primary finding is invalid. 10 iterations deferred.",
+      "category": "experiment",
+      "severity": "major",
+      "suggestion": "Add seed ablation (seeds 42, 43, 44) for key findings: H1 layer comparison (layer 4 vs layer 8) and H3 inverted-U pattern. Report variance across seeds. If not feasible before next milestone, explicitly acknowledge as limitation in the paper.",
+      "status": "recurring",
+      "hypothesis": "all",
+      "iterations_flagged": 10
+    },
+    {
+      "description": "Structural duplications: Sections 5.4 and 5.8 are duplicates (both 'H5: Larger Dictionaries Reduce Absorption' with Table 3). Sections 5.3 and 5.9 are duplicates (both 'H4: Circuit Faithfulness' with Table 4). Computational Resources Section 5.10 placed in wrong location (should be Appendix E per outline).",
+      "category": "writing",
+      "severity": "major",
+      "suggestion": "Delete Section 5.8 and Section 5.9. Renumber Section 5.10 to Section 5.8. Move Computational Resources to Appendix E as originally planned in outline.md.",
+      "status": "recurring",
+      "hypothesis": "H4, H5",
+      "iterations_flagged": 3
+    },
+    {
+      "description": "Figure 2 description mismatch: Text says 'Figure 2 shows the detailed absorption score distribution for layer 4' but Figure 2 (fig1_layer_absorption.pdf) shows the inverted-U pattern across all 6 layers. The layer-4 histogram is Figure 4 (fig4_layer4_histogram.pdf).",
+      "category": "writing",
+      "severity": "major",
+      "suggestion": "Fix Section 5.2 figure reference: change 'Figure 2' to 'Figure 4' for layer-4 histogram description. Alternatively, update text to describe what Figure 2 actually shows (inverted-U across all layers).",
+      "status": "recurring",
+      "hypothesis": "all",
+      "iterations_flagged": 3
+    },
+    {
+      "description": "Abstract line 7: 'only 0.19% do' does not specify the layer. A reader could incorrectly interpret this as a model-wide figure.",
+      "category": "writing",
+      "severity": "major",
+      "suggestion": "Add 'at layer 8' after 'only 0.19%' in the abstract to clarify this is layer-specific result.",
+      "status": "recurring",
+      "hypothesis": "H1",
+      "iterations_flagged": 3
+    },
+    {
+      "description": "W_enc, b_enc, and lambda appear in paper body without definitions. Glossary defines them but paper text does not reference the definitions. A reader unfamiliar with notation table would not know what these symbols represent.",
+      "category": "writing",
+      "severity": "major",
+      "suggestion": "Define W_enc and b_enc explicitly in Section 2.1 when first describing SAE architecture. Define lambda in Section 4.3 or when first using it in Section 5.2.",
+      "status": "recurring",
+      "hypothesis": "all",
+      "iterations_flagged": 3
+    },
+    {
+      "description": "Section 6.4 states 'approximately 79% of latents have Af <= 0.5' at layer 8. From Table 2: 20.9% have Af > 0.5 and 76.8% have Af = 0.0, accounting for 97.7%. The 79% figure (100 - 20.9) conflates 'not clearly absorbed' with 'completely independent' — these are distinct categories.",
+      "category": "writing",
+      "severity": "major",
+      "suggestion": "Clarify decomposition: 'At layer 8, 20.9% of latents show Af > 0.5 (absorbed), 76.8% show Af = 0.0 (completely independent), and 2.3% show 0 < Af <= 0.5 (partial absorption). The two clean categories account for 97.7% of latents.'",
+      "status": "recurring",
+      "hypothesis": "all",
+      "iterations_flagged": 5
+    },
+    {
+      "description": "Interpretive claim overstates evidence: Section 5.3 Analysis states 'shows that dictionary completeness — not absorption level — drives patching fidelity.' Evidence is consistent with but does not prove this interpretation given H4 design flaw (both subsets yield 0.0, comparison tests reconstruction capacity not absorption quality).",
+      "category": "writing",
+      "severity": "minor",
+      "suggestion": "Change 'shows that' to 'suggests that' in Section 5.3. The full-vs-subset comparison suggests dictionary completeness drives patching fidelity, but the design flaw prevents definitive causal conclusions.",
+      "status": "recurring",
+      "hypothesis": "H4",
+      "iterations_flagged": 5
+    },
+    {
+      "description": "Terminology deviations from glossary: (1) 'layer-wise' in Section 5.2 should be 'per-layer'; (2) 'activations' as singular noun in Section 3.1 should be 'activation'; (3) 'significant' without 'statistical' qualifier in Section 5.2.",
+      "category": "writing",
+      "severity": "minor",
+      "suggestion": "Global search-and-replace: 'layer-wise' → 'per-layer', 'activations' → 'activation' (singular), 'significant' → 'statistically significant' where referring to p-values.",
+      "status": "recurring",
+      "hypothesis": "all",
+      "iterations_flagged": 5
+    },
+    {
+      "description": "RVE formula omits decoder bias (b_dec) in Section 3.1. The partial reconstruction formula is missing b_dec, contradicting notation.md which includes it. While the paper claims b_dec cancels in the RVE ratio, this cancellation is not proven in the text. Reviewers will flag this.",
+      "category": "writing",
+      "severity": "critical",
+      "suggestion": "Add b_dec to the formula in Section 3.1 to match notation.md, or add an explicit derivation showing it cancels in the Var(x_t - x_t^partial) / Var(x_t) ratio.",
+      "status": "new",
+      "hypothesis": "all",
+      "iterations_flagged": 1
+    },
+    {
+      "description": "'Sparsest layer' mischaracterization: Section 5.2 calls layer 8 'the sparsest layer' but layer 8 has L0=71.9 (the highest in the dataset), meaning it has the most non-zero activations (LEAST sparse). Higher L0 = less sparse. This error appears in multiple sections.",
+      "category": "writing",
+      "severity": "major",
+      "suggestion": "Change 'the sparsest layer' to 'the layer with the highest L0 (least sparse representation)' or 'the densest layer' consistently throughout the paper.",
+      "status": "new",
+      "hypothesis": "all",
+      "iterations_flagged": 1
+    }
+  ],
+  "issues_fixed": [],
+  "success_patterns": [
+    "Honest negative results reporting with specific falsification criteria and numbers — paper's strongest aspect across ALL iterations",
+    "Random dictionary validation correctly distinguishes real SAE from random controls (0.00% at all dictionary sizes)",
+    "Inverted-U finding (absorption peaks at layer 4) is genuine and worth publishing as a negative result",
+    "Section 3 (The Absorption Score) is the paper's strongest technical writing",
+    "All pilot experiments (H1-H5) completed successfully with structured outputs",
+    "Validated absorption metric (Af) with random dictionary control is sound and reproducible",
+    "Writing quality improved to 8/10 — execution is working at the writing level",
+    "All 5 figures exist in writing/figures/ — do NOT regenerate",
+    "H1 messaging improved: layer 8 (0.19%) and layer 4 (49.3%) both reported correctly",
+    "H4 correctly labeled as uninformative: Paper explicitly acknowledges correct experiment never conducted"
+  ],
+  "systemic_patterns": [
+    "Recurring issues (H4 design, 8 perfect-score latents, untested H2, H1 framing) flagged for 12+ iterations without resolution — no feedback loop closure",
+    "Writing-level fixes execute successfully but experimental execution issues deferred repeatedly",
+    "Quality stagnated at 6.0 for 12 consecutive iterations; writing score improved (8/10) but supervisor score did not follow (6.0)",
+    "H2 analysis and 8-latent investigation require only CPU analysis (2 hours each) but have been deferred for 12+ iterations without technical justification",
+    "No escalation mechanism when same issues persist across 12+ iterations",
+    "New writing issues (RVE formula, 'sparsest layer' mischaracterization) identified this iteration — should have been caught by pilot review",
+    "Divergence between writing quality (8/10, improving) and supervisor score (6.0, stagnant) — writing fixes execute but experimental execution does not",
+    "Zero issues resolved in past 3 iterations — all issues WORSENED or remained stagnant",
+    "Ghost task setup_data still in running state after 5+ days with no completion marker"
+  ],
+  "quality_trajectory": "stagnant",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 25,
+    "total_gpu_idle_minutes": 60,
+    "bottleneck_stages": ["experiment_cycle"],
+    "suggestions": [
+      "Investigate 8 perfect-score latents using existing data (no GPU needed, ~2 hours CPU) — HIGHEST PRIORITY",
+      "Run H2 analysis on layer 4 using existing H3 data (no GPU needed, ~2 hours CPU) — HIGHEST PRIORITY",
+      "Clean up ghost setup_data entry from gpu_progress.json (running 5+ days with no completion)",
+      "These CPU-only analysis tasks have been deferred for 12+ iterations without justification — no resource barrier exists",
+      "Pilot review gate needed to catch design flaws before supervisor review",
+      "Escalation trigger needed when issues persist for 3+ consecutive iterations without resolution",
+      "DO NOT regenerate figures — they already exist in writing/figures/"
+    ]
+  },
+  "recommended_focus": [
+    "Investigate 8 perfect-score latents for positional artifacts (2 hours CPU, zero GPU) — HIGHEST PRIORITY",
+    "Execute H2 analysis at layer 4 using existing H3 data (2 hours CPU, zero GPU) — HIGHEST PRIORITY",
+    "Remove H4 causal conclusion from Abstract/Section 5.3/Conclusion (report as inconclusive, not falsified)",
+    "Fix H1 framing: 'falsified at layer 8; confirmed at layer 4' not 'falsified; not at layer 4'",
+    "Fix Section 6.4 percentage breakdown (explicitly state 20.9% + 76.8% + 2.3% = 100% decomposition)",
+    "Fix Figure 2 reference (layer-4 histogram is Figure 4, not Figure 2)",
+    "Delete duplicate Sections 5.8 and 5.9; renumber Section 5.10 to 5.8",
+    "Move Computational Resources to Appendix E",
+    "Add 'at layer 8' after 'only 0.19%' in abstract",
+    "Define W_enc, b_enc, lambda when first used in paper body",
+    "Add seed ablation for H1 layer comparison and H3 inverted-U pattern OR explicitly acknowledge as limitation",
+    "Commit to full-scale (n=1024) or explicitly scope as pilot study",
+    "Fix RVE formula to include b_dec or prove cancellation in text",
+    "Fix 'sparsest layer' mischaracterization to 'highest L0 (least sparse)'"
+  ],
+  "suggested_threshold_adjustment": 7.0,
+  "suggested_max_iterations": 15
+}

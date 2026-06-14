@@ -1,0 +1,115 @@
+{
+  "pilot_config": {
+    "samples": 100,
+    "seeds": [42],
+    "timeout_sec": 900,
+    "cifar_pilot_epochs": 10,
+    "imagenet_pilot_epochs": 2
+  },
+  "pilots": [
+    {
+      "task_id": "udwdc_v2_fix",
+      "pilot_name": "Verify UDWDC-v2 stability fix",
+      "description": "Run unit tests for UDWDC-v2: EMA-smoothed rho_t, floor clipping at 0.1*lambda_base. Train 10 epochs CIFAR-10/ResNet-20 with UDWDC-v2, verify CSI_temporal > 0.5 and total WD budget > 0. Compare effective WD trajectory against original UDWDC.",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "Unit tests pass; WD budget > 0 over 100 steps; CSI_temporal > 0.5 over 10 epochs; no NaN/Inf in lambda_t",
+      "estimated_minutes": 10,
+      "gpu_count": 1,
+      "priority": "CRITICAL"
+    },
+    {
+      "task_id": "diagnostic_cifar10",
+      "pilot_name": "Quick diagnostic on CIFAR-10 (10 epochs, 8 methods)",
+      "description": "Train ResNet-20/CIFAR-10 for 10 epochs with all 8 methods (including UDWDC-v2). Verify rho_t trajectories differ. Check UDWDC-v2 stability improvement vs original.",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "All 8 methods complete 10 epochs; rho_t differs across methods; UDWDC-v2 WD budget > 0",
+      "estimated_minutes": 12,
+      "gpu_count": 1,
+      "priority": "HIGH"
+    },
+    {
+      "task_id": "ablation_cifar100",
+      "pilot_name": "Quick ablation on CIFAR-100 (10 epochs, 8 variants with v2 floor)",
+      "description": "Train VGG-16-BN/CIFAR-100 for 10 epochs with all UDWDC variants using v2 floor clipping. Verify ALL variants have WD budget > 0 (Kp_only and PD_control had zero in previous pilot).",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "All 8 variants complete 10 epochs; ALL have WD budget > 0; no NaN/Inf; >20% accuracy",
+      "estimated_minutes": 15,
+      "gpu_count": 1,
+      "priority": "HIGH"
+    },
+    {
+      "task_id": "batchsize_sweep",
+      "pilot_name": "Quick batch-size sweep (5 epochs, bs={64, 512})",
+      "description": "Test extreme batch sizes with UDWDC-v2. Verify SNR trend and WD budget stability.",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "4 configs complete 5 epochs; SNR at bs=512 > SNR at bs=64; UDWDC-v2 WD budget > 0 at all batch sizes",
+      "estimated_minutes": 10,
+      "gpu_count": 1,
+      "priority": "MEDIUM"
+    },
+    {
+      "task_id": "alignment_informativeness",
+      "pilot_name": "Quick grid sweep (6 runs at LR=0.1, seed=42)",
+      "description": "Run 6 WD values at LR=0.1, seed=42 on CIFAR-100/ResNet-20 for 200 epochs. Same as before.",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "6 runs complete; alpha_bar varies; generalization gap varies by >2%",
+      "estimated_minutes": 30,
+      "gpu_count": 1,
+      "priority": "MEDIUM"
+    },
+    {
+      "task_id": "imagenet_main",
+      "pilot_name": "Quick ImageNet sanity (2 epochs, FixedWD + UDWDC-v2)",
+      "description": "Train ResNet-50/ImageNet for 2 epochs with FixedWD and UDWDC-v2 using DDP on 2 GPUs. Verify UDWDC-v2 WD budget > 0 on ImageNet. Check no OOM. Verify first-epoch outputs differ between methods.",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "Both methods complete 2 epochs; validation accuracy > 5%; UDWDC-v2 WD budget > 0; first-epoch metrics differ",
+      "estimated_minutes": 20,
+      "gpu_count": 2,
+      "priority": "CRITICAL"
+    },
+    {
+      "task_id": "imagenet_vit",
+      "pilot_name": "Quick ViT-S/16 sanity (2 epochs, FixedWD + UDWDC-v2)",
+      "description": "Train ViT-S/16/ImageNet for 2 epochs with FixedWD and UDWDC-v2. Verify augmentation, diagnostics, WD budget.",
+      "samples": 100,
+      "seed": 42,
+      "timeout_sec": 900,
+      "pass_criteria": "Both methods complete 2 epochs; augmentation correct; UDWDC-v2 WD budget > 0",
+      "estimated_minutes": 25,
+      "gpu_count": 2,
+      "priority": "HIGH"
+    }
+  ],
+  "pilot_execution_order": [
+    "udwdc_v2_fix",
+    "diagnostic_cifar10",
+    "imagenet_main",
+    "ablation_cifar100",
+    "imagenet_vit",
+    "batchsize_sweep",
+    "alignment_informativeness"
+  ],
+  "total_pilot_gpu_hours": 3.0,
+  "estimated_wall_clock_hours": 2.0,
+  "revision_notes": {
+    "iteration": 15,
+    "key_changes": [
+      "Added udwdc_v2_fix as CRITICAL first pilot — must fix zero-WD-budget anomaly before any other experiment",
+      "All UDWDC variants now use v2 floor clipping to prevent WD collapse",
+      "ImageNet pilot includes first-epoch output independence verification to catch data corruption",
+      "Added UDWDC-v2 to all pilots alongside original UDWDC for comparison"
+    ]
+  }
+}

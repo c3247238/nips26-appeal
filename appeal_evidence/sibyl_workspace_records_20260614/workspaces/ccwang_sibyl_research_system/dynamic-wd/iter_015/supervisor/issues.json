@@ -1,0 +1,86 @@
+[
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "CWD gain-mapping in Table 1 claims 'K_d > 0, Derivative only' but the paper's own fitting data (unifying_table.md, 200-epoch, 3-seed) reports K_p=0.0000, K_i=-0.0000, K_d=-0.0000 with offset=-5.014e-5, scale=0.5000. The 4.71% fitting error is achieved entirely via the scale=0.5 parameter (WD magnitude halving), not via any PID gain. This means the PID taxonomy's mapping for CWD is empirically wrong -- CWD does NOT operate as a derivative controller in the fitted model. The paper's central Table 1 contains a claim directly contradicted by its own experiment output. This has been flagged for 2+ iterations without correction.",
+    "suggestion": "Revise Table 1 and Section 3.2 narrative. The honest interpretation: CWD's 4.71% fit is explained by scale=0.5 (effective 50% WD reduction), not by K_d alignment feedback. State: 'CWD's empirical behavior under our per-layer fitting is dominated by WD magnitude reduction (scale=0.5) rather than derivative gain K_d; the alignment mask operates through magnitude halving rather than per-layer error feedback in our model.' This actually reinforces Section 6.3's magnitude confound discussion."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "AIS=0.566 (Section 4.3 and abstract) is computed from only 6 data points (6 WD configurations). The 95% confidence interval for Spearman rho with n=6 is approximately +/-0.71, meaning the CI includes zero. The LOO-CV R^2 is negative (-0.18 from metrics_results.json loo_cv_r2_alpha_bar), confirming zero out-of-sample predictive power. The paper presents AIS as a validated diagnostic metric with a specific numerical value (0.566, r_alpha_gengap=0.698), but these numbers are statistically meaningless at n=6 and fail cross-validation (LOO-CV negative).",
+    "suggestion": "Either: (a) Run the AIS computation on the 200-epoch phase3_alignment/informativeness data with more configurations to get a statistically powered estimate, or (b) report AIS=0.566 with the explicit caveat: 'n=6, 95% CI includes zero, LOO-CV R^2=-0.18; this is preliminary evidence requiring validation at larger sample size.' Remove the r=0.698 claim unless it can be verified against a larger dataset."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "critical",
+    "description": "Section 4.2 contains four contradictory CSI formulas: (1) CSI_temporal = 1/Var_t[lambda_eff^l]; (2) CSI_normalized = CSI_raw / CSI_raw_FixedWD; (3) 'normalization relative to max observed CSI with FixedWD = 1.0'; (4) Table 6 caption: CSI = 1/(1 + Var_t[lambda/mean]). None of these four can produce -5.75 (UDWDC CSI_temporal from metrics_results.json). The paper's central numerical finding about UDWDC instability (CSI_combined=-2.41) rests on a value whose generating formula is undisclosed.",
+    "suggestion": "Identify the actual code that produced the refined CSI values. Standardize to a single formula: CSI = 1/(1 + CV^2) where CV = std/mean of effective WD, computed over last 25% of training. This formula produces values in (0, 1] and FixedWD = 1.0 by construction."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "ImageNet experiments are 12/40 complete. SWD, DefazioCorrective, NoWD have zero 90-epoch results; CWD has 1 seed; UDWDC-v2 has zero ImageNet results. BEM cannot be computed for ImageNet without NoWD baseline. The paper presents Table 5 as 'primary large-scale evidence' with only 4 of 7 methods covered.",
+    "suggestion": "Complete at minimum: NoWD (3 seeds), CWD (2 additional seeds), UDWDC-v2 (3 seeds). This is approximately 8 additional 90-epoch runs (~24 GPU-hours)."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "Theorem 1, Proposition 2, and Proposition 3 are stated without proofs or proof sketches. Theorem 1 claims 'strictly tighter generalization bounds' requiring formal derivation. Proposition 3 claims experimental verification on ResNet-50 but no supporting figure exists in the paper. Flagged for 6+ iterations.",
+    "suggestion": "Demote to 'Conjecture 1' and 'Hypothesis 2-3'. Remove 'Theoretical analysis' from Contribution 4. This is a 30-minute text edit."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "CPR's 3.02 pp ImageNet advantage uses 2.3x the WD budget. Budget-matched FixedWD controls were not run at 90-epoch scale. CPR's gains cannot be attributed to better WD allocation vs. stronger regularization.",
+    "suggestion": "Run FixedWD at lambda=2e-4 and 3e-4 for 90 epochs with 3 seeds each (6 runs, ~18 GPU-hours)."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "CWD vs. halved-lambda ablation flagged P0 for 3+ iterations, never executed. FixedWD at lambda=5e-5 on CIFAR-10 would take ~1 GPU-hour and definitively resolve the alignment vs. magnitude question.",
+    "suggestion": "Execute immediately: FixedWD at lambda=5e-5, CIFAR-10, 200 epochs, 3 seeds."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "UDWDC-v2's WD budget of 98,599 (205,000x FixedWD) is an implementation bug: floor clipping applies to all 65 layers including 41 BN/bias layers. This is a one-line code fix that has been flagged repeatedly.",
+    "suggestion": "Fix UDWDC-v2 to exclude BN/bias from control loop. Rerun CIFAR-10 diagnostic (3 seeds, ~3 GPU-hours)."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Paper title 'Unified Feedback Control Framework' is overstated: only 1/5 methods (CPR) is genuinely captured by PID gains; CWD fit is explained by scale=0.5 not K_d; 2/5 fail fitting entirely.",
+    "suggestion": "Revise title to 'A PID-Style Taxonomy and Diagnostic Benchmark for Dynamic Weight Decay Methods.'"
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "ImageNet std values use population std (ddof=0) rather than sample std (ddof=1). With N=3-5, the difference is meaningful.",
+    "suggestion": "Switch to sample std (ddof=1) throughout."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Figure 1 uses 10-epoch pilot data to illustrate the central claim. Full 200-epoch diagnostic data exists and would provide stronger evidence.",
+    "suggestion": "Regenerate Figure 1 using 200-epoch phase1_diagnostic trajectories."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Batch size 432 with DDP and eta_0=0.1 is non-standard. LR scaling rule not stated.",
+    "suggestion": "Add footnote explaining batch size choice and LR scaling decision."
+  }
+]

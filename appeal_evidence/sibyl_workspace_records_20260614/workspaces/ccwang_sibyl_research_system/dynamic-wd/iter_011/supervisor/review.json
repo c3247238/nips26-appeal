@@ -1,0 +1,84 @@
+{
+  "score": 6.75,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 6.5,
+    "experiments": 6,
+    "reproducibility": 7
+  },
+  "summary": "Iteration 11 resolves ALL data integrity issues that plagued iterations 7-10. The three key fixes are verified: (1) Figure 8 (theorem2_validation.png) now correctly shows 7 methods with PMP-WD removed, N=21 data points, and correlations matching text (rho=-0.161/p=0.485, rho=0.107/p=0.645). (2) Figure 5 (diagnostic heatmap) now shows half_lambda BEM=0.500, matching Table 6 -- the last data integrity bug from iter_010 is fixed. (3) Title changed from 'Why' to 'When', removing the overclaim of causation. All 8 figures visually verified: axes labeled correctly, legends complete with 7 methods, values consistent with tables. The paper is now internally consistent -- no figure-table-text contradictions remain. Score rises from 6.5 to 6.75 because the heatmap fix eliminates the last critical data integrity issue and the title fix addresses an overclaim. However, the fundamental experimental limitations that have persisted for 6+ iterations still prevent reaching 7.0: no ImageNet experiments, N=3 seeds with insufficient TOST power for a null-result paper, CSI listed as a contribution despite zero predictive value, and NoBN ablation data unused. The orphan certified_band.png still contains PMP-WD but is not referenced in the paper text.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "No ImageNet experiments. This has been flagged for 6+ iterations. Project constraints mandate ImageNet. The Phi Invariance Conjecture claims to characterize 'sufficiently overparameterized problems' but evidence is confined to CIFAR-10/100 with ResNet-20 (270K params) and VGG-16-BN (15M params). By 2026 venue standards, CIFAR-only is insufficient for claims about 'modern deep learning'. This is the single biggest barrier to acceptance at a top venue.",
+      "suggestion": "Run ImageNet-100 (100-class subset) with 3 key methods (constant, CWD, no_wd) x 3 seeds x ResNet-50 = 9 runs. Even partial ImageNet results would raise the experiments score by 1 full point and eliminate the most predictable reviewer objection."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "Statistical power remains insufficient for a null-result paper. N=3 seeds gives ~15-20% power to detect delta=0.5% effects. TOST confirms equivalence in only 6/12 comparisons at delta=1.0%. The paper claims 'all methods are statistically equivalent' but the evidence is 'we failed to reject the null at low power' for half the comparisons. A null-result paper requires higher evidentiary burden than a positive-result paper.",
+      "suggestion": "Add 2 seeds (N=5 total) for the 4 key AdamW CIFAR-10 comparisons (constant, CWD, cosine, no_wd). Cost: 8 runs, ~2 GPU-hours. This roughly triples TOST power. Alternatively, revise language: 'We confirmed formal equivalence for 6 of 12 comparisons; the remaining 6 are underpowered rather than falsified.'"
+    },
+    {
+      "stage": "review",
+      "category": "analysis",
+      "severity": "major",
+      "description": "CSI has arbitrary component weights (0.4, 0.3, 0.3), the sensitivity analysis tests only three nearly-identical weight sets, and the paper admits CSI does not predict accuracy (rho < 0.3, p > 0.3). Listing CSI as a primary contribution (Section 1.3, item 2) alongside BEM and AIS overstates its utility.",
+      "suggestion": "Demote CSI from 'contribution' to 'exploratory diagnostic' in Section 1.3. State honestly: 'CSI captures coupling stability differences but does not predict accuracy outcomes in our experiments.' Consider presenting the three CSI components separately."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "NoBN ablation data exists from iter_005 but Section 6.2 only tested 2 of 7 methods without BN. This is insufficient to confirm or refute the BN mechanism hypothesis that Section 6.2 is built around. The existing NoBN spread (0.11pp with 2 methods) is narrower than VGG-16-BN (0.16pp), which would actually complicate the narrative but strengthen overall Phi Invariance.",
+      "suggestion": "Run all 7 methods without BN under SGD on CIFAR-10 (21 runs, ~3 GPU-hours). This directly tests the BN mechanism hypothesis. If invariance still holds without BN, revise Section 6.2 accordingly."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "major",
+      "description": "Abstract claims '105 controlled experiments across 7 methods, 2 optimizers, 2 architectures, 2 datasets' which implies a full factorial design (7x2x2x2x3=168 runs). The actual design is non-factorial: ResNet-20 gets 84 runs; VGG-16-BN gets only 21 (SGD, CIFAR-10 only). A reviewer expecting VGG-16-BN + AdamW or VGG-16-BN + CIFAR-100 results will be disappointed.",
+      "suggestion": "Revise abstract to decompose: '105 controlled experiments: 84 on ResNet-20 (7 methods x 2 optimizers x 2 datasets x 3 seeds) and 21 on VGG-16-BN (7 methods x SGD x CIFAR-10 x 3 seeds).' Make the asymmetry explicit."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "Proposition 1 (composition closure: product of non-negative functions is non-negative) is trivially obvious and does not merit formal proposition status.",
+      "suggestion": "Downgrade to an inline remark."
+    },
+    {
+      "stage": "review",
+      "category": "data_integrity",
+      "severity": "minor",
+      "description": "Orphan figure certified_band.png still contains PMP-WD in its legend. While not referenced in the paper text, it exists in the figures directory and could contaminate LaTeX compilation if accidentally included.",
+      "suggestion": "Either regenerate certified_band.png without PMP-WD or delete it from the figures directory."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "minor",
+      "description": "Section 5.7 (Cumulative Alignment Analysis) presents two non-significant correlations (p=0.485, p=0.645) correctly framed as null results. However, the section occupies substantial space for a double-null finding that adds limited insight beyond AIS invariance.",
+      "suggestion": "Condense to 1-2 paragraphs or move to appendix."
+    }
+  ],
+  "risks": [
+    "Scale limitation is the most likely first reviewer objection. CIFAR-10/100 are toy-scale by 2026 standards.",
+    "Null-result framing requires higher evidentiary standards. N=3 with 50% TOST pass rate is below threshold.",
+    "CSI's zero predictive value undermines the 'three diagnostic metrics' contribution story.",
+    "Quality oscillation risk: next iteration should prioritize experiments, NOT text rewrites.",
+    "Orphan certified_band.png with PMP-WD could contaminate LaTeX compilation."
+  ],
+  "evidence_gaps": [
+    "No ImageNet experiments despite project constraints.",
+    "NoBN ablation only tested 2 of 7 methods.",
+    "TOST equivalence confirmed for only 6/12 comparisons at delta=1.0%.",
+    "CSI does not predict accuracy but is listed as contribution.",
+    "No experiments with non-BN architectures at full method coverage."
+  ],
+  "what_would_raise_score": "Four actions would raise score from 6.75 to ~8.0: (1) ImageNet-100 with 3 methods x 3 seeds x ResNet-50 = 9 runs (~6-8 GPU-hours) -> score to 7.5. (2) Full NoBN ablation (7 methods x 3 seeds = 21 runs, ~3 GPU-hours). (3) Add 2 seeds for 4 key AdamW comparisons (8 runs, ~2 GPU-hours). (4) Demote CSI from contribution. Total: ~13 GPU-hours + 2 hours text work."
+}

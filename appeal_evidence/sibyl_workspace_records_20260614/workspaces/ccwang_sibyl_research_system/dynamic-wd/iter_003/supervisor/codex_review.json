@@ -1,0 +1,20 @@
+{
+  "score": 6,
+  "key_insight": "The Phi Invariance Conjecture may be trivially true at this scale: with λ=5×10⁻⁴, weight decay is already a ~1% second-order perturbation of the AdamW update, making all modulators equivalent not because AdamW subsumes them but because WD barely does anything at this λ. The paper cannot distinguish 'AdamW subsumes WD modulation' from 'WD is too small to matter, so all modulators are equivalent'. The batch normalization scale-invariance confound further complicates the mechanistic interpretation.",
+  "blind_spots": [
+    "Batch normalization scale-invariance confound: ResNet-20 uses BN, under which weight magnitude is provably irrelevant to the network's function (only direction matters). This means WD magnitude and schedule are trivially irrelevant in BN networks regardless of optimizer, potentially explaining the null result without requiring the AdamW subsumption story.",
+    "The λ=5×10⁻⁴ may be in a regime where WD is already a second-order perturbation (paper's own estimate: ~10⁻⁴ vs gradient step ~10⁻²). Testing at λ=5×10⁻³ or 5×10⁻² would reveal whether equivalence holds when WD is actually first-order.",
+    "Fine-tuning vs. scratch training scope mismatch: CWD and SPD were designed for fine-tuning (preventing catastrophic forgetting), not scratch pretraining. The null result on scratch training does not invalidate their fine-tuning motivation, which the paper's claims implicitly extend to.",
+    "The cosine schedule 4× variance reduction (σ=0.07% vs ~0.30%) is a potentially important positive finding being underplayed. Reproducibility gains can matter as much as accuracy in production, and this finding deserves dedicated investigation.",
+    "Citation integrity concern: multiple 2026 references (Chen et al. 2026a/b as ICLR 2026 papers, Ferbach et al. 2026) need verification against actual acceptance lists — the paper may cite papers not yet publicly available or verifiable.",
+    "AIS statistical validity: Spearman correlation computed over 200 autocorrelated epoch-level observations violates independence assumptions; the reported AIS values may be artificially inflated and the confidence intervals understated.",
+    "No test of whether diagnostic metrics (CSI, AIS, BEM) predict anything beyond accuracy: a metric that doesn't correlate with accuracy AND doesn't correlate with other training outcomes has limited diagnostic utility."
+  ],
+  "top_priorities": [
+    "Increase to ≥10 seeds per configuration to achieve adequate statistical power for the equivalence claims — this is the single most important fix before top-tier submission",
+    "Add SGD experiments as the primary boundary condition test — the paper explicitly identifies SGD as where the conjecture should fail but provides no SGD data; this is the clearest gap between the conjecture's scope and its evidential base",
+    "Add experiments at higher λ values (5×10⁻³, 5×10⁻²) to distinguish 'AdamW subsumes WD modulation' from 'WD is too small to matter'",
+    "Add a BN-free architecture (VGG-16 without BN or an MLP) to isolate the batch normalization scale-invariance confound from the AdamW subsumption claim",
+    "Fix reported metric errors (mentioned in known issues) before the CSI/AIS diagnostic analysis can be trusted as supporting evidence for the Phi Invariance Conjecture"
+  ]
+}

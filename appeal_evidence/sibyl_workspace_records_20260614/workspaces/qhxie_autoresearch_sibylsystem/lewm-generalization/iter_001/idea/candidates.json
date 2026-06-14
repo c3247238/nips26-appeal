@@ -1,0 +1,117 @@
+{
+  "synthesis_round": 1,
+  "synthesis_date": "2026-04-14",
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Geometric Factorization Meets Physical Reality: A Systematic Compositional Generalization Benchmark for JEPA World Models",
+      "status": "front_runner",
+      "summary": "First CoGenT-style compositional holdout benchmark for a JEPA world model (LeWM), combining physics factor holdout in DMControl Walker (friction × gravity × mass, 3×3×3 = 27 combinations), multi-level evaluation (probing, geometric analysis, interventional independence scoring, CEM planning), and a novel physics regime analysis to distinguish model-fixable failures from physically irreducible ones. Integrates the strongest elements from all 6 perspectives: the benchmark design (empiricist), the geometric analysis and IIS metric (innovator+theorist), the SIGReg ablation (pragmatist+contrarian), the parallelogram/displacement vector test (interdisciplinary), and the physical coupling regime analysis (interdisciplinary+contrarian). LoRA adaptation diagnostic tests encoder vs. predictor as generalization bottleneck.",
+      "hypotheses": [
+        "H1: LeWM shows ≥20% relative probing R² drop and ≥25% relative CEM drop on held-out factor combinations (compositional generalization gap exists)",
+        "H2: SIGReg model shows higher per-factor latent subspace orthogonality than VICReg model (Gaussian prior promotes factorization)",
+        "H3: Predictor-only LoRA recovers ≥70% in-distribution probing R² with 50 trajectories; encoder-only LoRA recovers ≤40% (predictor is bottleneck)",
+        "H4: Displacement vector consistency is an independent predictor of transfer beyond principal angles (incremental R² > 0.1)",
+        "H5: Physical coupling strength predicts regime-dependent failures that persist across all model variants (LeWM, DINO-WM)"
+      ],
+      "pilot_focus": "Train LeWM on friction levels {0.5x, 2.0x} in Walker, probe on {1.0x} (interpolation) and {3.0x} (extrapolation). Decision: if R² drops <5% on interpolation, proceed to multi-factor/extrapolation holdout; if >15% drop, proceed to full multi-factor study.",
+      "resource_estimate": "~115 GPU-hours total; individual experiments each <1h; ~2 weeks on 1 GPU",
+      "novelty_score": 9,
+      "novelty_justification": "No prior work: (1) applies CoGenT-style holdout to JEPA world model physics parameters, (2) tests SIGReg-orthogonality connection empirically, (3) introduces IIS (interventional independence score) for world model latent spaces, (4) classifies failures as model vs. physically irreducible",
+      "key_risks": [
+        "LoRA underperforms on ViT-Tiny (known limitation) — report as negative result, full fine-tuning as ceiling",
+        "Physical coupling analysis too noisy — use binary regime classification (expert-based) as fallback",
+        "Compositional gap too small on interpolation-type holdouts — extend to extrapolation-type"
+      ],
+      "key_papers": [
+        "LeWorldModel (arXiv:2603.19312)",
+        "Uselis et al. 2026 (arXiv:2602.24264) — geometric conditions for CG",
+        "Knopp et al. 2025 — predictive learning induces compositional structure",
+        "Redhardt et al. 2025 (arXiv:2507.07102) — data diversity drives CG",
+        "Balestriero et al. 2025 (arXiv:2511.08544) — LeJEPA/SIGReg theory",
+        "Delliaux et al. 2025 (arXiv:2506.01529) — group-structured latent space",
+        "Liang & Liu 2024 (arXiv:2408.13256) — diffusion models learn factorized representations",
+        "Guckenheimer & Holmes 1983 — dynamical systems / bifurcation theory"
+      ]
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Group-Structured vs. Isotropic Latent Priors for Compositional Physical Generalization",
+      "status": "backup",
+      "summary": "Extends cand_a by adding a group-structured latent space variant (Delliaux et al., 2025) to the comparison. Tests whether geometric priors explicitly designed for factorization outperform the isotropic Gaussian prior of SIGReg on the ComPhys-LeWM benchmark. Activated as pivot if H2 is falsified (SIGReg neutral/harmful) or as follow-up if H2 is confirmed (showing the benefit is further amplified by explicit geometric structure).",
+      "hypotheses": [
+        "Group-structured LeWM shows higher IIS and principal angle orthogonality than SIGReg-LeWM",
+        "Group-structured LeWM shows better compositional generalization on held-out factor combinations",
+        "Advantage of group structure is larger for physically independent factor combinations than strongly-coupled ones"
+      ],
+      "pilot_focus": "Train group-structured LeWM variant on same 2-factor pilot as cand_a; compare principal angle orthogonality to SIGReg-LeWM baseline",
+      "resource_estimate": "~30 GPU-hours additional beyond cand_a",
+      "novelty_score": 8,
+      "novelty_justification": "First comparison of isotropic Gaussian vs. group-structured latent priors on a physics compositional generalization benchmark",
+      "key_risks": [
+        "Group-structured prior implementation requires modifying le-wm training loop",
+        "Group structure may not improve on already-good factorization from SIGReg if H2 is confirmed"
+      ],
+      "key_papers": [
+        "Delliaux et al. 2025 (arXiv:2506.01529)",
+        "Schwarcz 2026 (arXiv:2603.27134) — RCC architectures"
+      ]
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Physics-Informed Fair Evaluation of World Model Compositional Generalization",
+      "status": "backup",
+      "summary": "Standalone paper focusing on the regime-aware evaluation framework: develop a taxonomy of composable vs. non-composable physical dynamics, demonstrate model-agnostic failure patterns, and propose a fair evaluation protocol that distinguishes model limitations from physical irreducibility. Activated as main pivot if H1 is falsified (LeWM generalizes perfectly) — in that case the interesting question becomes where generalization must fail, not where it does fail.",
+      "hypotheses": [
+        "Physical coupling strength (estimated from trajectory statistics) predicts compositional transfer failure model-agnostically across LeWM, DINO-WM, cRSSM",
+        "Strongly-coupled failures persist even with full fine-tuning (physically irreducible)",
+        "Parallelogram test displacement consistency is a fair, physics-informed compositionality metric"
+      ],
+      "pilot_focus": "Estimate coupling strength for friction-gravity pair in Walker; test whether coupling predicts failure pattern on pilot holdout",
+      "resource_estimate": "~40 GPU-hours (shared with cand_a) + ~10h CPU",
+      "novelty_score": 9,
+      "novelty_justification": "First framework distinguishing model limitations from physical irreducibility in world model compositional generalization; provides fairer benchmarking",
+      "key_risks": [
+        "Physical coupling too weak in Walker/PushT to show irreducible failures — need environment with known bifurcations",
+        "Coupling strength estimation noisy with finite trajectories"
+      ],
+      "key_papers": [
+        "Guckenheimer & Holmes 1983 (dynamical systems)",
+        "Anderson 1972 — 'More Is Different' (emergence)",
+        "Batterman 2001 (physical irreducibility)"
+      ]
+    },
+    {
+      "candidate_id": "cand_d",
+      "title": "The Probing Illusion: Geometric Diagnostics for Compositional Generalization in JEPA World Models",
+      "status": "backup",
+      "summary": "Methodology-focused paper: demonstrate that in-distribution probing accuracy is a poor proxy for compositional generalization in JEPA world models, and propose geometric + interventional metrics (IIS, principal angles, displacement consistency) as the proper diagnostic. Activated as main pivot if a large probing-generalization dissociation is observed, or as a methodological contribution within the primary paper.",
+      "hypotheses": [
+        "In-distribution probing R² and holdout probing R² are weakly correlated (r < 0.3) across model variants and factor combinations",
+        "IIS and principal angle orthogonality are better predictors of holdout accuracy (r > 0.7) than in-distribution probing accuracy",
+        "Dissociation is larger for multi-factor holdouts than single-factor holdouts"
+      ],
+      "pilot_focus": "Compare in-distribution vs. holdout probing accuracy across 3 model variants (SIGReg, VICReg, no-reg) on pilot data; compute correlation",
+      "resource_estimate": "Primarily analysis overhead; ~5 GPU-hours for additional model variants",
+      "novelty_score": 8,
+      "novelty_justification": "Probing-generalization dissociation implicitly critiqued but never quantified for JEPA world models",
+      "key_risks": [
+        "Dissociation may be small if LeWM's probing accuracy does predict transfer (in which case this becomes a positive result validating probing)"
+      ],
+      "key_papers": [
+        "Uselis et al. 2026 (arXiv:2602.24264)",
+        "Representation Engineering Survey (arXiv:2502.17601)",
+        "Liang et al. 2025 (arXiv:2501.18797) — disentangled latents insufficient for CG"
+      ]
+    }
+  ],
+  "perspective_weights": {
+    "innovator": "High — contributed IIS (interventional independence score), phase diagram framing, and the SIGReg-orthogonality theoretical bridge. The merged A+C design became the foundation.",
+    "pragmatist": "High — contributed the critical engineering insight that SWM already exposes physical FoV, the LoRA feasibility analysis (including the ViT-Tiny risk), and the clean experimental timeline. Grounded the proposal in reusable code.",
+    "theoretical": "High — contributed the formal CG bound framework, the LoRA-rank-as-intrinsic-dimensionality connection (Candidate B → H3a), and the PAC-Bayes adaptation theory. Strengthened hypothesis formalization.",
+    "contrarian": "High — contributed the most important reality check: isotropy and factorization are mathematically orthogonal constraints (not aligned). This is incorporated in H2 with explicit falsification conditions for both neutral and negative SIGReg results. Also contributed the visual oracle control.",
+    "interdisciplinary": "Medium-High — contributed the parallelogram test (displacement vector consistency, H4) and the physical regime analysis (H5). Both survived because they add unique variance beyond existing metrics.",
+    "empiricist": "High — contributed the strongest experimental design elements: CoGenT-style holdout, visual oracle control, matched-volume control, multiple random splits, statistical power calculation, and clear falsification criteria. The evaluation protocol backbone comes from this perspective."
+  },
+  "synthesis_reasoning": "The front-runner merges the strongest elements across all perspectives rather than picking a single one. The contrarian's most important contribution (isotropy ≠ factorization) is incorporated as a formal falsification condition rather than an argument against the project — it makes H2 genuinely interesting regardless of outcome. The innovator's IIS concept survived because it adds unique mechanistic insight not available from purely geometric metrics. The interdisciplinary's parallelogram test survived because it captures context-dependence of composition (functorial structure) that principal angles miss. The pragmatist's engineering risk assessment (LoRA on ViT-Tiny) is incorporated as an expected negative result with appropriate controls. The empiricist's controls (visual oracle, matched volume) are critical for preventing confounded conclusions. The theoretical perspective's bounds are used as qualitative guidance (which metrics to measure) rather than quantitative predictions (bounds likely loose)."
+}

@@ -1,0 +1,171 @@
+{
+  "iteration": 2,
+  "project": "ablation-mem-negative",
+  "date": "2026-04-28",
+  "overall_strategy": "Strip all fabricated/unsupported claims and reframe as a concise negative-result paper built around the single honestly-supported finding (UAD F1 = 0.007) plus the conceptual argument (correlation != suppression).",
+  "actions": [
+    {
+      "id": "A1",
+      "priority": "P0",
+      "category": "integrity",
+      "title": "Remove all fabricated claims from paper",
+      "description": "Strip every claim that lacks experimental support. This is non-negotiable for scientific credibility.",
+      "tasks": [
+        "Remove DFDA 21.2% improvement claim from Abstract, Section 4.8, Section 5.5, Conclusion",
+        "Remove statistical testing claims (p = 0.87, bootstrap CIs [0.003, 0.012]) from Section 4.7",
+        "Remove cross-layer validation claims (Section 4.5)---no data was collected",
+        "Remove false positive analysis claims (Section 4.6)---no analysis was performed",
+        "Remove correlation metrics claims---no analysis was performed"
+      ],
+      "acceptance_criteria": "Every numerical claim in the paper must have a corresponding non-empty result file with matching values."
+    },
+    {
+      "id": "A2",
+      "priority": "P0",
+      "category": "integrity",
+      "title": "Fix or remove the 24K extrapolation",
+      "description": "The 24K projection row in Table 2 is trivial extrapolation presented alongside empirical data. Either remove it entirely or move it to a footnote with explicit 'theoretical projection, no empirical data' caveats.",
+      "tasks": [
+        "Remove Table 2 24K row, OR",
+        "Move to a footnote with clear caveats, OR",
+        "Replace with a text-only discussion of O(d^2) scaling without pseudo-quantitative table row"
+      ]
+    },
+    {
+      "id": "A3",
+      "priority": "P0",
+      "category": "writing",
+      "title": "Soften overstated generalization claims",
+      "description": "The paper claims to 'rule out' all unsupervised detection and that findings are 'architecture-independent.' These are stronger than the evidence supports.",
+      "tasks": [
+        "Replace 'rules out unsupervised detection' with 'shows co-occurrence clustering fails for absorption detection'",
+        "Replace 'absorption detection is inherently a causal inference task' with 'absorption detection may require causal inference approaches'",
+        "Remove 'architecture-independent' claim from Conclusion",
+        "Add qualifiers: 'our results suggest,' 'for the tested configuration,' 'further work needed'"
+      ]
+    },
+    {
+      "id": "A4",
+      "priority": "P1",
+      "category": "experiment",
+      "title": "Implement real DFDA or remove entirely",
+      "description": "Either implement a genuine DFDA experiment with actual MLP training and train/validation split, or remove DFDA from the paper entirely.",
+      "tasks": [
+        "Option A: Implement real DFDA with actual MLP training, train/val split, multiple pairs, and bootstrap CIs",
+        "Option B: Remove DFDA section entirely and reframe paper as purely about UAD failure"
+      ],
+      "recommendation": "Option B (remove DFDA) for faster turnaround. The core contribution is the UAD negative result + conceptual argument. DFDA adds little without proper implementation."
+    },
+    {
+      "id": "A5",
+      "priority": "P1",
+      "category": "experiment",
+      "title": "Replace artificial corpus with real data",
+      "description": "The 5-sentence repeated corpus is inadequate. Use 10,000+ tokens from OpenWebText or similar.",
+      "tasks": [
+        "Load OpenWebText sample (10K tokens minimum) via HuggingFace datasets",
+        "Rebuild co-occurrence matrix on real data",
+        "Re-run E1 UAD experiment with real corpus",
+        "Report whether results change materially"
+      ]
+    },
+    {
+      "id": "A6",
+      "priority": "P1",
+      "category": "experiment",
+      "title": "Fix random baseline framing",
+      "description": "The random baseline selects from same-cluster pairs, not all possible pairs. This is not a fair null model.",
+      "tasks": [
+        "Add a proper random baseline selecting from all C(500,2) possible pairs",
+        "Report both baselines (same-cluster-restricted and unrestricted)",
+        "Discuss the difference transparently"
+      ]
+    },
+    {
+      "id": "A7",
+      "priority": "P1",
+      "category": "writing",
+      "title": "Tighten abstract and title",
+      "description": "The abstract is overly long (5 sentences with nested clauses). The title could better reflect the actual contribution.",
+      "tasks": [
+        "Reduce abstract to 3-4 sentences",
+        "Remove 'at scale' from abstract (not supported by 2 ground-truth pairs)",
+        "Consider title: 'Why Co-Occurrence Clustering Cannot Detect Feature Absorption: A Conceptual and Empirical Analysis'"
+      ]
+    },
+    {
+      "id": "A8",
+      "priority": "P2",
+      "category": "writing",
+      "title": "Fix citation issues",
+      "description": "Chen et al. [2025] and Gao et al. [2024] lack sufficient information for verification.",
+      "tasks": [
+        "Validate Chen et al. [2025] citation---find arXiv ID or venue, or remove",
+        "Add paper title and venue for Gao et al. [2024]",
+        "Add page numbers/section references where helpful"
+      ]
+    },
+    {
+      "id": "A9",
+      "priority": "P2",
+      "category": "experiment",
+      "title": "Add at least one figure",
+      "description": "A paper with only tables is visually impoverished. The methodology promised 6 figures; at minimum deliver 1.",
+      "tasks": [
+        "Generate precision-recall curve for UAD at different co-occurrence thresholds, OR",
+        "Generate a figure illustrating the correlation vs. suppression distinction"
+      ]
+    },
+    {
+      "id": "A10",
+      "priority": "P2",
+      "category": "process",
+      "title": "Add pre-writing validation step",
+      "description": "Prevent future fabrication by validating experiment outputs before writing.",
+      "tasks": [
+        "Create a validation script that checks each claimed experiment has non-empty results with expected fields",
+        "Integrate into the writing pipeline: block writing if validation fails",
+        "Log validation results for audit trail"
+      ]
+    },
+    {
+      "id": "A11",
+      "priority": "P3",
+      "category": "experiment",
+      "title": "Expand ground truth (if time permits)",
+      "description": "2 absorbed pairs is very small. More ground truth would strengthen statistical power.",
+      "tasks": [
+        "Identify additional concept hierarchies beyond first-letter features",
+        "Target at least 10-20 known absorption pairs",
+        "Re-run UAD with expanded ground truth"
+      ],
+      "note": "This is P3 because it requires significant additional work and the core finding may not change materially."
+    },
+    {
+      "id": "A12",
+      "priority": "P3",
+      "category": "experiment",
+      "title": "Add multi-seed replication",
+      "description": "Single seed results may not be robust.",
+      "tasks": [
+        "Run E1 UAD with 3-5 different random seeds",
+        "Report mean and standard deviation across seeds",
+        "Use different corpus samples per seed"
+      ]
+    }
+  ],
+  "priority_definitions": {
+    "P0": "Required for any credible revision. Paper cannot be considered without these.",
+    "P1": "Strongly recommended. Significantly improves paper quality and reviewer reception.",
+    "P2": "Important polish. Should be done if time allows.",
+    "P3": "Nice to have. Would strengthen the paper but not essential for basic credibility."
+  },
+  "expected_outcome_if_executed": "A concise, honest negative-result paper with a single supported empirical finding (UAD F1 = 0.007), a clear conceptual argument (correlation != suppression), and no fabricated claims. Target score: 7/10 (Weak Accept) at workshop or short paper track.",
+  "risk_if_not_executed": "Paper will be rejected at any venue due to fabricated claims. Scientific credibility of the entire project is at stake.",
+  "issues_classified": [],
+  "issues_fixed": [],
+  "success_patterns": [],
+  "systemic_patterns": [],
+  "recommended_focus": [],
+  "quality_trajectory": "stagnant"
+}

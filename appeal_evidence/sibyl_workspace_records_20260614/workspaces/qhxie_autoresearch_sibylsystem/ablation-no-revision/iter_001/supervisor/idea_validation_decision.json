@@ -1,0 +1,54 @@
+{
+  "decision": "PIVOT",
+  "selected_candidate_id": "cand_a",
+  "confidence": 0.72,
+  "candidate_scores": {
+    "cand_a": {
+      "weighted_score": 2.70,
+      "verdict": "PIVOT",
+      "notes": "H3 falsified (68.4% < 75%); H5 preempted by ACAR; Yang et al. collision undermines H1-H2 novelty"
+    },
+    "cand_b": {
+      "weighted_score": 2.10,
+      "verdict": "DROP",
+      "notes": "Standard entropy routing, preempted by ACAR finding entropy ineffective"
+    },
+    "cand_c": {
+      "weighted_score": 3.20,
+      "verdict": "REFINE",
+      "notes": "Genuinely novel (first error-depth-targeted training), GPU available via PyTorch 2.11.0, Li 2026 supports calculation error dominance"
+    },
+    "cand_d": {
+      "weighted_score": 3.20,
+      "verdict": "FALLBACK",
+      "notes": "Safe fallback with limited impact; H1-H2 validation paper acknowledging Yang et al. collision"
+    }
+  },
+  "reasons": [
+    "cand_a H3 falsified: Ea-based routing does NOT predict single-pass threshold (68.4% < 75%)",
+    "cand_a H5 HIGH RISK: ACAR 2026 explicitly found entropy routing shows weak correlation with ground truth",
+    "Yang et al. 2025 collision: Exponential saturation formula already published, H1-H2 are replications not novel",
+    "cand_c is genuinely novel: First error-depth-targeted training (EDTT) combining GRPO with depth-aware rewards",
+    "Li 2026 (Error Depth Hypothesis) supports cand_c: calculation errors 62% in low-depth failures",
+    "GPU now available: PyTorch 2.11.0 supports RTX PRO 6000 Blackwell (sm_120), enabling Round 2 CCAR-style training that previously failed"
+  ],
+  "next_actions": [
+    "Abandon Ea-based routing analysis (cand_a)",
+    "Design EDTT pilot experiment: classify errors by depth (L1/L2/L3 per Li 2026 taxonomy)",
+    "Implement depth-aware GRPO rewards targeting L3 (hardest-to-correct) errors",
+    "Run pilot: EDTT vs standard GRPO on Qwen2.5-Math-7B",
+    "Validate H_C1: EDTT reduces L3 error rate more than standard GRPO",
+    "Validate H_C2: Error depth targeting improves over generic training by >5%"
+  ],
+  "dropped_candidates": ["cand_a", "cand_b"],
+  "recommended_next_candidate": "cand_c",
+  "fallback_plan": {
+    "if_edtt_pilot_fails": "Pivot to cand_d (H1-H2 validation paper with H3 negative result)",
+    "fallback_notes": "Acknowledge Yang et al. collision explicitly; focus on empirical validation + per-level accuracy analysis on Qwen2.5-Math-7B"
+  },
+  "pivot_trigger": {
+    "reason": "cand_a H3 falsified; cand_a H5 preempted by ACAR concurrent work",
+    "evidence": "Low-Ea problems: 68.4% accuracy (threshold >75%); ACAR 2026: entropy weak correlation",
+    "alternative_selected": "cand_c EDTT (Error Depth Targeted Training)"
+  }
+}

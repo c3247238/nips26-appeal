@@ -1,0 +1,166 @@
+{
+  "issues_classified": [
+    {
+      "description": "A-CFG 在 N=100 决策门中被判定 NO-GO（vanilla 4% vs A-CFG 2%），直接推翻 pilot n=16 的 +12.5pp 假象。但论文标题和摘要仍以 A-CFG 为联合主角。这是迭代 2-4 连续出现的 overclaim 模式（DTA→BSD→A-CFG）。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "立即从标题移除 A-CFG。重新定位论文为：(1) Information Island Problem 定义 + DMI 实用贡献，(2) 系统性设计空间约束（BSD、A-CFG、DTA 等负面结果），(3) 方法论贡献（pilot 膨胀警示、N=100 决策门）。工作量：1 天。",
+      "status": "recurring"
+    },
+    {
+      "description": "BSD 在所有评估中不如其特例 DMI（Countdown 6.2% vs 12.5%, GSM8K 18.8% vs 25.0%）。BSD 的核心概念——连续信念演化——在实际中必须被最小化（k_frac=0.75 即仅 25% 步数用 belief phase）才能工作。泛化版本严格劣于特例。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "将 BSD 定位为理论分析工具和 instructive negative result，而非实用改进方法。在 Discussion 中诚实讨论为何泛化不如特例，BSD 最大价值在于揭示 MDLM 对连续表示的结构性限制。",
+      "status": "new"
+    },
+    {
+      "description": "compute-fair 实验数据与主 pilot 结果使用了不同种子/样本集（DMI 主 pilot 12.5% vs compute-fair 0%），Table 4 混合了两次不同 run 的数据。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "重新运行所有方法（含 compute-fair vanilla 变体）在同一次评估中、相同种子和相同样本集。明确文档化 pilot 样本选择程序。工作量：2 小时 GPU。",
+      "status": "new"
+    },
+    {
+      "description": "DMI——唯一经全规模验证的方法（9.3%, p<0.05）——被放在 Appendix D，而未验证且已被证伪的 BSD 获得 Section 3 最详细处理。结构严重倒置。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "DMI 提升到正文独立 Section。BSD 降级为 Section 5 的 negative result 分析组件。工作量：1 天。",
+      "status": "new"
+    },
+    {
+      "description": "DMI 作为论文核心贡献仍缺乏系统消融。alpha 仅测 0.3，tau 仅测 0.5。无负对照（随机 embedding）、无 hard-prediction 基线、无 multi-step lookback。连续 2 轮提出但未执行。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "DMI 消融是最高优先级实验：alpha={0.1,0.2,0.3,0.5,0.7}, tau={0.1,0.3,0.5,1.0,2.0}, 随机 embedding 负对照, hard top-1 基线。至少 N=200 on Countdown。工作量：1-2 天 GPU。",
+      "status": "recurring"
+    },
+    {
+      "description": "所有 6 张图仍为文字描述，无渲染图表。连续 4 轮未解决。实验驱动论文无图表是投稿基本门槛问题。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "至少生成 Figure 1 (teaser/overview), Figure 4 (ablation grid), Figure 6 (failure diagnostics)。数据和描述均已就绪，纯渲染任务。工作量：1 天。",
+      "status": "recurring"
+    },
+    {
+      "description": "论文篇幅仍远超 NeurIPS 6,000 词限制。连续 2 轮未解决。可能直接 desk reject。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "将 BSD 详细分析、所有 n=16 消融、Section 5.1-5.3 的机制推测移至附录。正文聚焦 DMI 验证 + 设计空间约束总结。目标 6,000 词正文。工作量：2 天。",
+      "status": "recurring"
+    },
+    {
+      "description": "Entropy-accuracy 相关性 r=0.784, p<0.001 来自 n=16 样本中仅 1/16 correct。单个数据点可完全左右相关系数。需要方法说明和原始数据公开。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "提供原始 (entropy, correctness) 数据对。说明统计方法（point-biserial? permutation test?）。明确标注 1:15 的类别不平衡。如相关性不可靠则降级为描述性观察。",
+      "status": "new"
+    },
+    {
+      "description": "单模型评估（Dream-7B only）。A-CFG 在 LLaDA-8B 上报告 GSM8K 73.5，在 Dream-7B 上 NO-GO。JSD stability、temporal scheduling 等发现可能是模型特异的。连续 2 轮提出。",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "至少在 LLaDA-8B 上评估 DMI。如 DMI 在 LLaDA-8B 上也有效，大幅增强贡献可信度。工作量：1 天 GPU（需确认 LLaDA 权重可获取）。",
+      "status": "recurring"
+    },
+    {
+      "description": "A-CFG 不是原创贡献但被呈现为联合主角。Arriaga et al. (2025) 提出，在 Dream-7B 上无修改应用。",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "在论文中明确重新定位为 'we apply A-CFG (Arriaga et al., 2025) to Dream-7B'，从标题移除。",
+      "status": "new"
+    },
+    {
+      "description": "A-CFG re-masking percentage m=10% 是关键超参但未做消融。",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "添加 m-parameter 消融（5%, 10%, 20%, 30%），至少 N=100。鉴于 A-CFG 已 NO-GO，此消融降级为附录补充材料。",
+      "status": "new"
+    },
+    {
+      "description": "参考文献占位符仍存在。LLaDA 2.0/2.1 缺少 citation。Appendix C (DTA) 和 D (DMI) 被引用但未包含。连续 3 轮。",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "逐一替换占位符。完成 Appendix C 和 D。工作量：2 小时。",
+      "status": "recurring"
+    },
+    {
+      "description": "r=0.784 vs r=0.78 精度不一致；k_frac 表示法不统一；DMI 'immediately deployable in any MDLM' overclaim（GSM8K 上零改善）。",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "统一 notation 和精度。限定 DMI 适用范围为 structured reasoning tasks。",
+      "status": "recurring"
+    },
+    {
+      "description": "实验时间计划严重过估（700 min 计划 vs 125 min 实际，5.6x 偏差）。导致 GPU 利用率仅 ~30%。",
+      "category": "efficiency",
+      "severity": "medium",
+      "suggestion": "使用迭代 4 的校准比（0.18）更新迭代 5 的时间估计。将 agent 推理/调试时间与 GPU 计算时间分开估计。",
+      "status": "new"
+    },
+    {
+      "description": "研究方向 4 轮 3 次转换（PPL→accuracy→DTA→BSD/A-CFG），每次都产生新的 pilot-only 方法，DMI 始终被低估。",
+      "category": "planning",
+      "severity": "high",
+      "suggestion": "迭代 5 冻结方法探索，全部资源投入 DMI 消融 + 论文完善。不再引入新方法。",
+      "status": "new"
+    },
+    {
+      "description": "代码开源计划仍未提及。实验驱动论文无代码开源承诺降低可复现性。",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "添加代码开源承诺（GitHub repo + 复现脚本）。工作量：10 分钟。",
+      "status": "recurring"
+    }
+  ],
+  "issues_fixed": [
+    "引入 N=100 决策门：A-CFG pilot_acfg_repro 正确使用 N=100 判定 NO-GO，验证了上轮提出的'早期证伪检查点'建议",
+    "统计检验执行：statistical_tests 任务已完成（上轮'统计检验零执行'问题已解决）",
+    "不再投入 DTA 方向实验：上轮建议'迭代 4 不应做 DTA 方向新实验'已遵循",
+    "A-CFG NO-GO 后快速止损：没有继续盲目投入全规模实验"
+  ],
+  "success_patterns": [
+    "N=100 决策门高效止损：仅 19 分钟判定 A-CFG NO-GO，避免 ~18 GPU-hours 浪费，是上轮'早期证伪检查点'建议的成功落地",
+    "科学诚实性一以贯之：A-CFG NO-GO、BSD 不如 DMI、pilot 膨胀均如实记录",
+    "实验零失败率：18/18 任务全部成功完成",
+    "Pre-registered hypotheses 验证表格：11 个假设中 4 个 falsified，科学透明性典范",
+    "Information Island Problem 定义被所有审查者一致认可为有价值的概念贡献",
+    "Token-level 诊断框架（Correction Precision/Recall）提供了新的 DLM 分析词汇"
+  ],
+  "systemic_patterns": [
+    "标题/摘要 overclaim 循环（连续 3 轮）：每轮将最新探索的方法放入标题，即使该方法仅有 pilot 证据或已被证伪。根因是'探索偏好 > 呈现纪律'",
+    "图表/篇幅技术债持续累积（连续 4 轮）：实验驱动论文的基础呈现需求始终被排在新方法探索之后",
+    "'泛化优于简单方法'假设反复失败：DTA > vanilla（失败）、BSD > DMI（失败）、A-CFG > vanilla（失败）。MDLM 推理时改进中，简单的信息保留方法（DMI）比复杂的结构性改变更有效",
+    "Pilot-to-full-scale 膨胀制度化不彻底：决策门已引入（进步），但论文叙事仍基于 n=16 数据构建",
+    "DMI 系统性低估（连续 2 轮）：唯一经验证的方法始终在 Appendix 或 baseline 位置，从未获得消融实验优先级"
+  ],
+  "quality_trajectory": "stagnant",
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 30,
+    "total_gpu_idle_minutes": 295,
+    "bottleneck_stages": [
+      "agent 推理/调试（5h of 7h 窗口）",
+      "DMI 消融未排入任务（连续 2 轮缺失）",
+      "图表渲染（零执行）"
+    ],
+    "suggestions": [
+      "使用 0.18 校准比更新迭代 5 时间估计",
+      "将 DMI 消融（alpha/tau sweep + 负对照）排为第一优先 GPU 任务",
+      "并行启动图表渲染（不依赖 GPU）和 DMI 消融（需要 GPU）",
+      "减少单次 agent 调用中的探索性分析，集中于已验证方向"
+    ]
+  },
+  "recommended_focus": [
+    "【最高优先级】论文重新定位：从'BSD+A-CFG 双方法论文'到'MDLM 推理时扩展系统性研究 + DMI 实用贡献 + 设计空间约束'（1 天）",
+    "【最高优先级】DMI 系统消融：alpha/tau sweep + 随机 embedding 负对照 + hard top-1 基线，N=200 on Countdown（1-2 天 GPU）",
+    "【最高优先级】篇幅压缩到 6,000 词：BSD 详细分析、n=16 消融、机制推测全部移至附录（2 天）",
+    "【高优先级】渲染图表：至少 Figure 1 (teaser), Figure 4 (ablation grid), Figure 6 (failure diagnostics)（1 天）",
+    "【高优先级】修复 compute-fair 数据一致性：同一 seed/样本集重新运行（2 小时 GPU）",
+    "【高优先级】LLaDA-8B DMI 评估：验证 DMI 跨模型泛化性（1 天 GPU）",
+    "【中优先级】完成 Appendix C (DTA) 和 D (DMI)（4 小时）",
+    "【中优先级】替换参考文献占位符 + 添加代码开源承诺（2 小时）",
+    "【低优先级】A-CFG m-parameter 消融作为附录补充（如时间允许）"
+  ],
+  "suggested_threshold_adjustment": 7.0,
+  "suggested_max_iterations": 6
+}

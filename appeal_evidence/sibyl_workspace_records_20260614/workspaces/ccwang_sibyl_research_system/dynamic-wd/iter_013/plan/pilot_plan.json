@@ -1,0 +1,133 @@
+{
+  "pilot_config": {
+    "purpose": "Validate EqWD ratio deviation signal and codebase correctness before full experiments",
+    "total_pilots": 3,
+    "max_wall_clock_minutes": 30,
+    "decision_gate": "All 3 pilots must pass for GO; any failure triggers diagnosis and re-pilot"
+  },
+  "pilots": [
+    {
+      "id": "pilot_cifar10_vgg",
+      "task_ref": "pilot_cifar10_vgg",
+      "dataset": "CIFAR-10",
+      "architecture": "VGG-16-BN",
+      "epochs": 50,
+      "batch_size": 128,
+      "lr": 0.1,
+      "lr_schedule": "cosine",
+      "optimizer": "SGD",
+      "momentum": 0.9,
+      "seed": 42,
+      "methods": [
+        {"name": "fixed", "wd": 0.0005},
+        {"name": "swd", "wd_base": 0.0005},
+        {"name": "cwd", "wd": 0.0005},
+        {"name": "eqwd_beta05", "wd_base": 0.0005, "beta": 0.5, "ema_alpha": 0.9},
+        {"name": "eqwd_beta10", "wd_base": 0.0005, "beta": 1.0, "ema_alpha": 0.9},
+        {"name": "eqwd_beta20", "wd_base": 0.0005, "beta": 2.0, "ema_alpha": 0.9}
+      ],
+      "diagnostics": {
+        "log_interval_steps": 10,
+        "per_layer_metrics": ["r_t", "delta_hat_t", "lambda_t", "weight_norm", "grad_norm"],
+        "global_metrics": ["train_loss", "test_accuracy", "test_loss"]
+      },
+      "pass_criteria": {
+        "ratio_deviation_variance_min": 0.01,
+        "max_accuracy_gap_from_baseline_pct": 2.0,
+        "no_divergence": true,
+        "distinct_layer_behavior": "visual inspection of per-layer r_t plots"
+      },
+      "timeout_seconds": 900,
+      "gpu_count": 1,
+      "estimated_minutes": 15
+    },
+    {
+      "id": "pilot_cifar10_resnet",
+      "task_ref": "pilot_cifar10_resnet",
+      "dataset": "CIFAR-10",
+      "architecture": "ResNet-20",
+      "epochs": 50,
+      "batch_size": 128,
+      "lr": 0.1,
+      "lr_schedule": "cosine",
+      "optimizer": "SGD",
+      "momentum": 0.9,
+      "seed": 42,
+      "methods": [
+        {"name": "fixed", "wd": 0.0005},
+        {"name": "swd", "wd_base": 0.0005},
+        {"name": "cwd", "wd": 0.0005},
+        {"name": "eqwd_beta10", "wd_base": 0.0005, "beta": 1.0, "ema_alpha": 0.9}
+      ],
+      "diagnostics": {
+        "log_interval_steps": 10,
+        "per_layer_metrics": ["r_t", "delta_hat_t", "lambda_t", "weight_norm", "grad_norm"],
+        "global_metrics": ["train_loss", "test_accuracy", "test_loss"]
+      },
+      "pass_criteria": {
+        "ratio_deviation_variance_min": 0.01,
+        "max_accuracy_gap_from_baseline_pct": 2.0,
+        "no_divergence": true
+      },
+      "timeout_seconds": 900,
+      "gpu_count": 1,
+      "estimated_minutes": 10
+    },
+    {
+      "id": "imagenet_sanity",
+      "task_ref": "imagenet_sanity",
+      "dataset": "ImageNet-1K",
+      "architecture": "ResNet-50",
+      "epochs": 1,
+      "batch_size": 256,
+      "lr": 0.1,
+      "lr_schedule": "step",
+      "optimizer": "SGD",
+      "momentum": 0.9,
+      "seed": 42,
+      "methods": [
+        {"name": "fixed", "wd": 0.0001}
+      ],
+      "diagnostics": {
+        "log_interval_steps": 50,
+        "per_layer_metrics": ["r_t", "weight_norm"],
+        "global_metrics": ["train_loss", "top1_accuracy", "top5_accuracy"],
+        "system_metrics": ["gpu_memory_mb", "gpu_utilization_pct", "throughput_samples_per_sec"]
+      },
+      "pass_criteria": {
+        "completes_without_oom": true,
+        "ddp_gradient_sync_verified": true,
+        "loss_decreases": true,
+        "throughput_min_samples_per_sec": 500
+      },
+      "timeout_seconds": 900,
+      "gpu_count": 2,
+      "multi_gpu_strategy": "DDP",
+      "estimated_minutes": 10,
+      "oom_fallback": [
+        {"batch_size": 128, "note": "First fallback: halve batch size"},
+        {"batch_size": 64, "note": "Second fallback: quarter batch size"},
+        {"batch_size": 32, "mixed_precision": false, "note": "Last resort: minimal batch, no AMP"}
+      ]
+    }
+  ],
+  "go_nogo_decision": {
+    "GO_conditions": [
+      "pilot_cifar10_vgg passes all criteria",
+      "pilot_cifar10_resnet passes all criteria",
+      "imagenet_sanity completes without errors"
+    ],
+    "NOGO_actions": [
+      "Diagnose failure mode (divergence? OOM? flat signal?)",
+      "If ratio deviation is flat: try larger beta (5.0, 10.0) or different normalization",
+      "If ImageNet OOM: use batch size fallback chain",
+      "If ImageNet DDP fails: fall back to single-GPU with gradient accumulation",
+      "Log all diagnostics to exp/logs/pilot_failure_diagnosis.md"
+    ],
+    "output_on_GO": {
+      "best_beta": "Selected from {0.5, 1.0, 2.0} based on pilot accuracy",
+      "imagenet_batch_size": "Confirmed from sanity check",
+      "imagenet_throughput": "Measured samples/sec for time estimation"
+    }
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "score": 6.5,
+  "verdict": "continue",
+  "dimension_scores": {
+    "novelty": 7,
+    "soundness": 5,
+    "experiments": 6,
+    "reproducibility": 5
+  },
+  "summary": "The paper makes a genuinely useful contribution as a metric audit: the universal control failure (shuffled > measured across all 5 domains on JumpReLU SAEs) and the hedging-dominated confound decomposition are novel, well-executed findings that the SAE interpretability community needs to hear. The L0 phase transition (42.9% -> 0.8%, cross-layer CV < 10%) is the most robust empirical result. However, the paper has three problems that prevent it from reaching accept-level: (1) the CMI rate-distortion pillar -- framed as a co-primary finding -- rests on a correlation that survives at only one of four tested subspace dimensions and does not survive multiple comparison correction; (2) numerical discrepancies between source data files and paper text (absorbed mean CMI 0.649 in cmi_estimation.json vs 0.687 in the paper, arising from inconsistent partitions across experiment files) undermine data integrity; (3) the confound decomposition's operational definition of hedging is permissive enough that its 98.6% figure is near-guaranteed by construction. These are fixable within one iteration, but require honest reframing of the CMI pillar, data pipeline reconciliation, and a tightened hedging definition.",
+  "issues": [
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "The CMI-absorption correlation (rho=-0.383, p=0.059) exists at d'=10 but reverses sign at d'>=20. After Bonferroni correction for 4 dimension tests, p=0.236. A correlation that changes direction with a modest parameter change is not robust evidence for the underlying theory. The paper frames this as a 'primary finding' in the abstract and title, but the data support only 'suggestive directional evidence at one specific dimension.' The d'=10 selection was not pre-registered as the primary analysis dimension. Furthermore, the absorbed vs non-absorbed partition differs between cmi_estimation.json (13 vs 9 letters based on first_letter_improved rates) and phase_transition_prediction.json (which yields the paper's reported U=41, p=0.042, mean=0.687), meaning the paper's primary CMI statistics come from a partition that does not match the CMI estimation's own partition.",
+      "suggestion": "Downgrade the CMI finding from 'primary' to 'exploratory/suggestive.' Report the Bonferroni-corrected p-value (0.236) alongside the uncorrected one in the abstract. Reconcile which partition is canonical (cmi_estimation or phase_transition_prediction) and use it consistently everywhere. Consider restricting CMI analysis to the 10 letters passing the probe F1>0.85 quality gate to control for probe quality confound (rho between probe F1 and absorption = -0.67)."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "critical",
+      "description": "Numerical discrepancies across source data files. The cmi_estimation.json computes absorbed mean CMI = 0.6492 (partition: 13 absorbed letters from first_letter_improved rates). The phase_transition_prediction.json reports absorbed mean CMI = 0.6866 (different partition, yielding U=41, p=0.042). The paper uses the phase_transition_prediction numbers throughout but cites the theoretical framework from cmi_estimation. The absorption rate at L0=82 is reported as both 14.39% (confound_decomposition_multi_l0) and 15.96% (first_letter_improved) in the same paper. The vocabulary size alternates between 1,196 and 1,204 without reconciliation. A reviewer encountering any of these discrepancies will question all reported numbers.",
+      "suggestion": "Define one canonical pipeline and partition. The confound_decomposition_multi_l0 pipeline (which applies the same methodology across all four L0 values with 1,196 words) is the natural choice. Recompute all CMI statistics using this canonical partition. Report the first_letter_improved rates (1,204 words) as a robustness check in a footnote. Add a reconciliation paragraph in the Methods explaining the vocabulary difference (likely letter X exclusion)."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "critical",
+      "description": "The confound decomposition's operational definition of 'hedging' is biased toward over-classification. Any false negative at L0=22 that resolves at ANY higher L0 value (41, 82, or 176) is classified as hedging, regardless of whether the specific parent feature fires at the higher L0 or some other mechanism resolves the false negative. Since L0=176 allows 8x more active features than L0=22, virtually any false negative will resolve simply by having more features fire. The paper claims 98.6% hedging, but this result is near-guaranteed by the permissive classification: it would require 98.6% of tokens to be false negatives at ALL four L0 values (including 176 with near-zero total absorption) for the hedging rate to be anything other than overwhelming.",
+      "suggestion": "Tighten the hedging classification: classify a false negative as hedging only if the specific parent latent (identified by the probe) fires at a higher L0 value. This is computationally cheap -- just check whether the probe-associated latent has activation > 0 at L0=176 for each false-negative token at L0=22. If the tighter definition still shows >90% hedging, the claim is robust. If not, the 98.6% is an artifact of the permissive definition. Report both the permissive and strict definitions."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The probe quality confound is uncontrolled in the CMI analysis. Per-letter absorption rate correlates with probe F1 at rho=-0.67 (p<0.001). Since the CMI-absorption correlation uses absorption rates from L0=82 where only 10/25 letters pass the F1>0.85 quality gate, the CMI correlation may be mediated by probe quality: low-CMI letters might be inherently harder to probe, producing both low estimated CMI and artificially high absorption rates. The paper never computes the partial correlation between CMI and absorption controlling for probe F1.",
+      "suggestion": "Compute the partial Spearman correlation between CMI and absorption rate controlling for probe F1. Alternatively, restrict the CMI analysis to the 10 quality-gated letters and report the correlation on this subset. If the partial correlation is substantially weaker, the CMI result is confounded by probe quality."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The paper's central framing -- 'the metric does not transfer to JumpReLU SAEs' -- conflates two explanations: (a) JumpReLU SAEs genuinely have less hierarchy-driven absorption than L1-ReLU SAEs, or (b) the metric's thresholds are miscalibrated for JumpReLU but absorption is still present. The shuffled-control failure is consistent with BOTH: if true absorption is near-zero on JumpReLU SAEs, shuffled noise naturally exceeds the true signal. The paper cannot distinguish these without causal evidence (activation patching on the 9 core words), which is planned but not executed.",
+      "suggestion": "Explicitly articulate both explanations in the Discussion. Execute the activation patching experiment on the 9 persistent core words before submission. This is the single most valuable experiment remaining: if zeroing child features recovers parent features for those 9 words, it confirms genuine competitive exclusion at a small scale and validates the confound decomposition. If not, the entire absorption narrative on JumpReLU SAEs collapses to 'the metric measures hedging artifacts.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The JumpReLU vs L1-ReLU architecture comparison (Section 5.3) is fully confounded by model differences (Gemma 2 2B vs GPT-2 Small: 2B vs 117M parameters, different architectures, training data, tokenizers). The paper devotes a full subsection with Hartigan dip test results and bimodality coefficients to a comparison that cannot attribute any difference to SAE architecture. Both architectures show bimodal distributions, falsifying H7.",
+      "suggestion": "Compress Section 5.3 to 2-3 sentences noting the comparison exists but is confounded. Move the cross-architecture data to an appendix. Do not present statistical tests (dip test, bimodality coefficient) for a confounded comparison in the main paper."
+    },
+    {
+      "stage": "review",
+      "category": "soundness",
+      "severity": "major",
+      "description": "The phase transition scale prediction (L0_crit = 24.7 vs empirical 22.4, '10.2% relative error') is partially circular because lambda is estimated from the empirical half-max L0. The paper acknowledges this but still frames the scale match as a finding. The non-trivial prediction (rank ordering) has rho=+0.333, p=0.103, which is not significant. The binary classification accuracy is 36%, below the 64% chance baseline. The phase transition prediction provides no predictive power beyond what is already known from the empirical curve.",
+      "suggestion": "Remove the '10.2% relative error' claim or note explicitly that it is tautological. Present only the rank-order correlation as the testable prediction, and note it does not reach significance. The phase transition prediction section should be framed as 'the theory is consistent with the data but does not add predictive power in this study.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "major",
+      "description": "The 9 'persistent core' hierarchy-driven words have not been validated by activation patching. The paper identifies them via cross-L0 persistence and presents them as 'candidates for genuine competitive exclusion,' but without causal evidence this is an unverified operational classification. The strongest evidence for competitive exclusion in the entire paper rests on this unvalidated set.",
+      "suggestion": "Execute activation patching: for each of the 9 words, zero the identified child feature and check whether the parent feature recovers. This is computationally cheap (9 tokens, one model forward pass each with/without intervention). Report precision and recall. This single experiment would dramatically strengthen the paper."
+    },
+    {
+      "stage": "review",
+      "category": "writing",
+      "severity": "major",
+      "description": "The title 'CMI Predicts Absorption Susceptibility' and abstract language overclaim the rate-distortion finding. 'Predicts' implies a reliable, validated relationship. The data show a marginal association at one specific parameter setting (d'=10) that reverses at all other tested settings and does not survive multiple comparison correction. The paper calls this 'the first information-theoretic criterion for absorption susceptibility' -- but a criterion that works at one dimension and fails at all others is not yet a criterion.",
+      "suggestion": "Replace 'predicts' with 'shows a directionally correct negative association with' in the abstract. Replace 'criterion' with 'candidate diagnostic.' In Section 6 title, use 'Suggestive CMI-Absorption Association' or 'CMI Shows Directionally Correct Association with Absorption.'"
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "Letter S is a notable outlier: CMI=0.961 (high, predicting resistance to absorption) but absorption rate=31.43% (high). Letter K has CMI=0.592 (low, predicting susceptibility) but absorption rate=0%. These outliers are not discussed. With n=25 and a marginal correlation, individual high-leverage points could be driving or undermining the result.",
+      "suggestion": "Discuss letter S explicitly as an exception. Run leave-one-out sensitivity analysis: report how rho and p change when each letter is removed. This is essential for a claim based on n=25."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The unsupervised detection pipeline (H4) achieves rho=-0.125, AUROC=0.47 -- worse than random. The paper correctly reports this as a negative result, but 0/25 letters have matching unsupervised pairs, meaning the pipeline produced zero signal. This is not a nuanced failure but a complete one.",
+      "suggestion": "State clearly that the unsupervised pipeline produced zero matching pairs and has no detection capability whatsoever, rather than presenting AUROC and rho statistics that imply some (bad) detection was attempted."
+    },
+    {
+      "stage": "review",
+      "category": "experiment",
+      "severity": "minor",
+      "description": "The CMI estimation uses k-NN MI estimation (k=5) on 3,000 samples projected to a d'=10 subspace. No estimation diagnostics are reported: no bootstrap variance of per-letter CMI, no convergence curves, no comparison with alternative estimators. The sign reversal at d'>=20 may reflect estimator breakdown in higher dimensions rather than a genuine signal difference.",
+      "suggestion": "Report per-letter CMI bootstrap confidence intervals (already cheap to compute). Show a convergence curve (CMI vs sample size) for 2-3 representative letters. Discuss whether k-NN MI estimation is expected to be reliable at d'=10 with n=3,000."
+    }
+  ],
+  "risks": [
+    "The paper's strongest claim (98.6% hedging, 0.75% genuine absorption) depends on the permissive hedging classification. If tightened, the core narrative could collapse or substantially change.",
+    "The CMI pillar occupies significant paper real estate but provides only marginal statistical evidence. Reviewers calibrated to NeurIPS standards will likely dismiss it as insufficient.",
+    "Without activation patching on the 9 core words, the paper cannot make any causal claim about competitive exclusion on JumpReLU SAEs. The metric audit and hedging decomposition are the defensible contributions; the causal interpretation is not.",
+    "The numerical discrepancies between source files, even if caused by different-but-reasonable analysis pipelines, signal a data management problem that will erode reviewer trust."
+  ],
+  "evidence_gaps": [
+    "Activation patching on 9 persistent core words to validate/invalidate competitive exclusion",
+    "Partial correlation between CMI and absorption rate controlling for probe F1",
+    "Tightened hedging classification checking whether the specific parent latent (not just any feature) fires at higher L0",
+    "Leave-one-out sensitivity analysis for the CMI-absorption correlation",
+    "CMI estimation diagnostics: per-letter bootstrap CIs, convergence curves",
+    "Reconciliation of cmi_estimation.json vs phase_transition_prediction.json partitions and statistics"
+  ],
+  "what_would_raise_score": "Three specific actions would move this paper from 6.5 to 7.5-8.0: (1) Execute activation patching on the 9 core words -- positive results confirm competitive exclusion exists at small scale, negative results strengthen the hedging narrative, either way the paper gains causal evidence. (2) Reconcile all numerical discrepancies by choosing one canonical pipeline and recomputing all statistics consistently; add the Bonferroni-corrected p-value for CMI to the abstract and downgrade the CMI finding from 'primary' to 'suggestive.' (3) Implement the tightened hedging definition (check whether the specific parent latent fires at higher L0) and report both permissive and strict definitions. Together these address the three critical issues and would make the paper a solid methods-audit contribution with two robust pillars (control failure, L0 phase transition) and one promising-but-preliminary pillar (CMI diagnostic)."
+}

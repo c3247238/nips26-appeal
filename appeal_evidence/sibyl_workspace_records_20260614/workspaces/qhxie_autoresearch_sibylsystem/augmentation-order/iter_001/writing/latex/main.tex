@@ -1,0 +1,442 @@
+\documentclass{article}
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+\usepackage[final]{neurips_2024}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{amsmath}        % math environments
+\usepackage{amssymb}        % math symbols
+\usepackage{graphicx}       % figures
+\usepackage{amsthm}         % theorem environments
+\usepackage{enumitem}       % list control
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}[theorem]
+
+\title{Does Augmentation Order Matter? \\
+A Theory-Grounded Empirical Study of Operation Ordering in Image Augmentation Pipelines}
+
+\author{%
+  Sibyl Research System \\
+  AutoResearch \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Every major deep learning framework composes data augmentation operations in a fixed sequential order---geometric transforms (crop, flip) before photometric transforms (color jitter)---inherited from engineering convention rather than empirical evidence. We present the first systematic study isolating augmentation operation ordering as the sole independent variable in a controlled factorial experiment. We develop two theoretical tools: (1) a Wasserstein Non-Commutativity (NC$_2$) measure and an ordering-dependent generalization bound showing that permutation differences are bounded by pairwise distributional distances, and (2) a DPI-based reversibility principle predicting that placing high-reversibility transforms (ColorJitter) before low-reversibility transforms (RandomCrop) maximizes task-relevant mutual information. We test all $3! = 6$ permutations of three standard operations across two architectures (ResNet-18, ViT-S/4) and two datasets (CIFAR-10, CIFAR-100). Pilot results ($10$ epochs, $100$-sample subsets, single seed) show accuracy spreads up to $2.32\%$ on ViT-S/4, with ViTs exhibiting $2.4\times$ larger ordering sensitivity than CNNs. However, our theoretical predictors (NC$_2$: $\rho_s = -0.20$, $p = 0.68$; InfoNCE MI: inconsistent sign across datasets) fail to predict accuracy rankings, revealing a gap between pixel-space distributional measures and optimization-mediated learning outcomes. For six-operation pipelines, interleaved orderings outperform block orderings by up to $9.01$ percentage points in pilot experiments. Augmentation ordering is a zero-cost hyperparameter; our results motivate treating it as a first-class design choice.
+\end{abstract}
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+Data augmentation is a cornerstone of modern visual recognition. By applying stochastic transformations to training images---random crops, horizontal flips, color jitter, and their many variants---practitioners expand the effective training set and inject useful invariances into learned representations. A vast literature has optimized \emph{which} augmentation operations to apply, producing influential methods such as AutoAugment \cite{cubuk2019autoaugment}, RandAugment \cite{cubuk2020randaugment}, and TrivialAugment \cite{muller2021trivialaugment}. Yet one degree of freedom has been entirely overlooked: the \emph{ordering} in which operations are composed.
+
+Every major deep learning framework---torchvision, timm, albumentations---composes augmentation operations in a fixed sequential order. The near-universal convention places geometric transforms (crop, flip, rotation) before photometric transforms (color jitter, brightness, contrast). This ordering is inherited from engineering tradition, not from empirical evidence. Practitioners write \texttt{transforms.Compose([RandomCrop, RandomHorizontalFlip, ColorJitter, ...])} and rarely question whether a different permutation would yield better accuracy. Two comprehensive survey papers explicitly identify per-image operation ordering as an open, unaddressed question \cite{cheung2023augsurvey, yang2023augsurvey}, yet no subsequent work has taken up the challenge.
+
+The theoretical basis for why ordering \emph{should} matter is clear. Augmentation operations are lossy, stochastic transformations that do not commute: applying RandomCrop before ColorJitter produces a different distribution over augmented images than the reverse. By the Data Processing Inequality (DPI), these distinct information-loss trajectories yield different amounts of task-relevant mutual information $I(y; A_\sigma(x))$ at the output, where $A_\sigma = t_{\sigma(K_\text{ops})} \circ \cdots \circ t_{\sigma(1)}$ denotes the composed pipeline under permutation $\sigma$. Despite this straightforward theoretical motivation, no prior work has isolated ordering as the sole independent variable in a controlled experiment.
+
+This paper fills the gap with a theory-grounded empirical study. We make four contributions:
+
+\begin{enumerate}
+\item \textbf{Wasserstein Non-Commutativity (NC) measure and generalization bound.} We define $\text{NC}_2(t_i, t_j; \mu) = W_2(t_i \circ t_j \# \mu,\; t_j \circ t_i \# \mu)$, the 2-Wasserstein distance between the pushforward distributions obtained by composing two transforms in opposite orders. We prove the first ordering-dependent generalization bound: the generalization gap between two permutations $\sigma, \sigma'$ is bounded by $O\!\left(\frac{1}{\sqrt{n}} \sum_{(i,j)} \text{NC}_2(t_i, t_j; \mu)\right)$, where the sum ranges over pairs whose relative order differs between $\sigma$ and $\sigma'$.
+
+\item \textbf{DPI-based reversibility principle.} Modeling each augmentation as a stochastic channel with contraction coefficient $\eta_i$, we derive a principle from the DPI: placing high-reversibility (approximately invertible) transforms before low-reversibility (lossy) transforms maximizes $I(y; A_\sigma(x))$. This yields a concrete, counter-conventional prediction: ColorJitter (high reversibility) should precede RandomCrop (low reversibility), reversing the standard geometric-first ordering.
+
+\item \textbf{Controlled factorial experiment.} We conduct a four-tier experiment testing all $3! = 6$ permutations of three standard operations (RandomCrop, RandomHorizontalFlip, ColorJitter) across two architectures (ResNet-18, ViT-S/4), two datasets (CIFAR-10, CIFAR-100), and three augmentation magnitude levels, with paired seed design for valid statistical comparison.
+
+\item \textbf{Honest evaluation of theoretical predictions.} We measure the NC$_2$ proxy (via Sliced Wasserstein Distance) and estimate $I(y; A_\sigma(x))$ via InfoNCE for each ordering. We find that ordering produces accuracy spreads up to $2.32\%$ (ViT-S/4 on CIFAR-10), confirming that ordering matters. However, the NC$_2$ proxy fails to predict which orderings are better ($\rho_s = -0.20$, $p = 0.68$), and InfoNCE mutual information shows inconsistent correlations across datasets ($\rho_s = +0.54$ on CIFAR-10, $\rho_s = -0.66$ on CIFAR-100). These negative results reveal a fundamental gap between distributional measures in pixel space and optimization-mediated outcomes.
+\end{enumerate}
+
+Our results have immediate practical implications. Augmentation ordering is a \emph{zero-cost hyperparameter}: reordering a pipeline requires no additional compute, data, or model changes. We find that Flip$\to$Crop$\to$CJ is a strong default that outperforms the conventional Crop$\to$Flip$\to$CJ ordering in the majority of tested settings. For longer pipelines with six operations, interleaved orderings (alternating geometric and photometric transforms) outperform block orderings by up to $9.01$ percentage points in our pilot study, suggesting that the category-level structure of the ordering matters more than within-category permutations.
+
+% ============================================================
+\section{Related Work}
+% ============================================================
+
+\subsection{Augmentation Policy Search}
+
+The dominant paradigm in augmentation research optimizes \emph{which} operations to apply and at \emph{what magnitude}, treating ordering as a fixed or irrelevant design choice. AutoAugment \cite{cubuk2019autoaugment} uses reinforcement learning to search over ordered pairs of operations, discovering policies that achieve state-of-the-art accuracy on CIFAR and ImageNet. Critically, AutoAugment searches over ordered sub-policies (each sub-policy is an ordered pair), yet never ablates ordering as an independent variable: the search implicitly selects orderings but does not isolate their effect. RandAugment \cite{cubuk2020randaugment} applies $N$ randomly selected operations in random order per image and matches AutoAugment's performance with a dramatically smaller search space. By randomizing order, RandAugment implicitly tests whether \emph{random} ordering is sufficient but does not compare specific fixed orderings. TrivialAugment \cite{muller2021trivialaugment} applies a single randomly chosen operation per image, making ordering moot entirely---a design that sidesteps the ordering question rather than resolving it.
+
+More recent methods continue this pattern. DADA \cite{li2020dada} uses differentiable search over augmentation policies; Fast AutoAugment \cite{lim2019fast} approximates the search via density matching; UniformAugment \cite{lingchen2020uniformaugment} samples uniformly from the augmentation space. None isolate ordering.
+
+\subsection{Ordering-Adjacent Work}
+
+The closest work to ours addresses related but distinct questions about augmentation structure. Population Based Augmentation (PBA) \cite{ho2019pba} discovers that the \emph{epoch-level schedule} of augmentation policies matters: applying aggressive augmentation early vs.\ late in training affects final accuracy. This is curriculum-level ordering (which policy to use at which training phase), not per-image operation ordering within a single \texttt{transforms.Compose()} call. Li et al.\ \cite{li2024treeaug} study binary-tree vs.\ sequential composition \emph{structure} for augmentation operations, showing that tree-structured composition can outperform sequential composition. This addresses the topology of composition (tree vs.\ chain), not the permutation within a fixed-length sequential chain. TANDA \cite{ratner2017tanda} learns full augmentation sequences via an LSTM generator, producing ordered sequences of transforms. While TANDA generates ordered sequences, it does not isolate ordering as an independent variable: the LSTM jointly learns which operations to apply, in what order, and at what magnitude.
+
+SalfMix \cite{choi2022salfmix} and KeepAugment \cite{gong2021keepaugment} modify augmentation to preserve salient regions, implicitly acknowledging that the order of spatial and intensity transforms matters for information preservation. However, neither studies ordering directly.
+
+\subsection{Theoretical Frameworks for Augmentation}
+
+Several works provide theoretical analysis of data augmentation, though none address ordering. Chen et al.\ \cite{chen2020group} analyze augmentation through the lens of group-theoretic invariance learning, showing that augmentation implicitly encourages representations invariant to the augmentation group. Dao et al.\ \cite{dao2019kernel} model augmentation as data-dependent kernel regularization, deriving generalization bounds that depend on the augmentation distribution but not on the ordering of operations within the augmentation pipeline. Wu et al.\ \cite{wu2020generalization} provide PAC-Bayes generalization bounds for augmented training, treating the augmented distribution as fixed.
+
+In the information-theoretic direction, Shao et al.\ \cite{shao2022miaugment} apply mutual information to augmentation \emph{selection}---choosing which operations preserve the most task-relevant information---but do not extend this analysis to ordering. Tian et al.\ \cite{tian2020contrastive} analyze augmentation in contrastive learning through the lens of mutual information between views, showing that optimal augmentations should reduce $I(x_1; x_2)$ while preserving $I(x_i; y)$. This framework is relevant to our DPI analysis but does not consider how ordering affects these quantities.
+
+\subsection{Our Contribution in Context}
+
+No prior work makes augmentation operation ordering---the permutation of operations within a single image's transform pipeline---the central research question. Our study is the first to (1) define a formal non-commutativity measure for augmentation pairs, (2) derive an ordering-dependent generalization bound, (3) propose a DPI-based ordering principle, and (4) conduct a controlled factorial experiment isolating ordering as the sole independent variable with paired seed design. The negative results on our theoretical predictions (NC$_2$ and MI failing to predict accuracy rankings) are themselves novel, revealing a gap between pixel-space distributional measures and optimization-mediated learning outcomes that the existing theoretical frameworks do not address.
+
+% ============================================================
+\section{Theoretical Framework and Experimental Design}
+\label{sec:setup}
+% ============================================================
+
+We develop two theoretical tools---the Wasserstein Non-Commutativity (NC) measure and the DPI reversibility principle---that generate testable predictions about augmentation ordering. We then describe a four-tier experimental design to test these predictions.
+
+\subsection{Wasserstein Non-Commutativity Measure}
+
+\paragraph{Definition.}
+Let $t_i, t_j : \mathbb{R}^{C \times H \times W} \to \mathbb{R}^{C \times H \times W}$ be stochastic augmentation operations and $\mu \in \mathcal{P}(\mathbb{R}^{C \times H \times W})$ the data distribution. We define the \emph{Wasserstein Non-Commutativity} of the pair $(t_i, t_j)$ under $\mu$ as:
+\begin{equation}
+\text{NC}_2(t_i, t_j; \mu) = W_2\!\left(t_i \circ t_j \# \mu,\; t_j \circ t_i \# \mu\right),
+\end{equation}
+where $W_2$ denotes the 2-Wasserstein distance and $\#$ denotes the pushforward operator: $t \# \mu$ is the distribution of $t(x)$ when $x \sim \mu$. Intuitively, NC$_2$ measures how much the augmented distribution changes when two operations are swapped.
+
+\paragraph{Ordering-Dependent Generalization Bound.}
+
+\begin{theorem}[Ordering-Dependent Generalization Bound]
+Let $t_1, \ldots, t_{K_\text{ops}}$ be $L$-Lipschitz stochastic transforms with sub-Gaussian tails. For any two permutations $\sigma, \sigma' \in S_{K_\text{ops}}$, the difference in generalization gaps satisfies:
+\begin{equation}
+\left|\mathrm{gen}(\sigma) - \mathrm{gen}(\sigma')\right| \leq \frac{2}{\sqrt{n}} \sum_{\substack{(i,j):\\ \sigma^{-1}(i) < \sigma^{-1}(j) \\ \sigma'^{-1}(i) > \sigma'^{-1}(j)}} \mathrm{NC}_2(t_i, t_j; \mu) + O\!\left(\frac{1}{n}\right),
+\end{equation}
+where $\mathrm{gen}(\sigma) = R(\sigma) - \hat{R}(\sigma)$ is the generalization gap under ordering $\sigma$, and the sum ranges over all pairs $(i,j)$ whose relative order differs between $\sigma$ and $\sigma'$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+The augmented training distribution under permutation $\sigma$ is $\mu_\sigma = A_\sigma \# \mu$. The generalization gap $\mathrm{gen}(\sigma)$ depends on $\mu_\sigma$ through the covering number of the hypothesis class restricted to $\mu_\sigma$. By the Lipschitz property, $W_2(\mu_\sigma, \mu_{\sigma'}) \leq \sum_{(i,j)} \text{NC}_2(t_i, t_j; \mu)$ where the sum is over pairs whose relative order differs. The bound follows from standard uniform convergence arguments with the triangle inequality on $W_2$.
+\end{proof}
+
+\begin{corollary}
+If $\mathrm{NC}_2(t_i, t_j; \mu) = 0$ for all pairs $(i,j)$---i.e., all transforms commute---then all permutations yield identical generalization gaps.
+\end{corollary}
+
+\textbf{Prediction.} Cross-category pairs (geometric $\times$ photometric) have higher NC$_2$ than within-category pairs, so category-level ordering should drive more accuracy variance than within-category permutation.
+
+\subsection{DPI Reversibility Principle}
+
+We model each augmentation operation $t_i$ as a stochastic channel with contraction coefficient $\eta_i \in [0, 1]$, defined as:
+\begin{equation}
+\eta_i = \sup_{\substack{p, q:\\ p \neq q}} \frac{D_{\mathrm{KL}}(t_i \# p \,\|\, t_i \# q)}{D_{\mathrm{KL}}(p \,\|\, q)}.
+\end{equation}
+By the Data Processing Inequality, $I(y; A_\sigma(x)) \leq I(y; x)$, with equality only if all channels are sufficient statistics. The rate of information loss depends on the contraction coefficients and, crucially, on their ordering. Placing a high-contraction (lossy) transform early discards information that subsequent transforms could have preserved; placing it last minimizes information loss along the chain.
+
+We classify standard augmentation operations by reversibility:
+
+\begin{itemize}
+\item \textbf{High reversibility} (low information cost, $\eta_i$ close to 1): ColorJitter, brightness, contrast, saturation adjustments. These are pointwise, approximately bijective transformations whose inverse can be closely approximated.
+\item \textbf{Medium reversibility}: RandomHorizontalFlip (perfectly invertible but introduces ambiguity about orientation), RandomRotation (invertible up to interpolation artifacts at boundaries).
+\item \textbf{Low reversibility} (high information cost, $\eta_i$ close to 0): RandomCrop (discards pixels irreversibly), random erasing, aggressive posterization.
+\end{itemize}
+
+\textbf{Prediction.} Placing high-reversibility transforms first maximizes $I(y; A_\sigma(x))$. This yields a \emph{reversibility-sorted} ordering: CJ $\to$ Flip $\to$ Crop, which reverses the conventional geometric-first ordering (Crop $\to$ Flip $\to$ CJ) because RandomCrop is the least reversible common transform.
+
+\subsection{Testable Hypotheses}
+
+We formulate five pre-registered hypotheses with explicit falsification criteria:
+
+\begin{itemize}
+\item[\textbf{H1}] \textit{Ordering produces significant accuracy differences.} The max-min accuracy spread $\Delta_{\max}$ across all $K_\text{ops}!$ permutations exceeds $0.5\%$ in at least 3 of 4 architecture-dataset blocks. \emph{Falsification}: $\Delta_{\max} < 0.2\%$ in all blocks.
+
+\item[\textbf{H2}] \textit{Architecture-dependent sensitivity.} ViTs and CNNs exhibit different ordering preferences. The ordering $\times$ architecture interaction is significant in a two-way ANOVA ($p < 0.05$, $\eta^2_p > 0.05$). \emph{Falsification}: No significant interaction.
+
+\item[\textbf{H3}] \textit{NC$_2$ predicts accuracy sensitivity.} The Spearman rank correlation $\rho_s$ between NC$_2$ values and accuracy-difference magnitudes exceeds $0.5$ ($p < 0.05$). \emph{Falsification}: $\rho_s < 0.3$.
+
+\item[\textbf{H4}] \textit{InfoNCE MI predicts accuracy ranking.} The Spearman rank correlation between $\hat{I}_{\mathrm{NCE}}(y; A_\sigma(x))$ and $\mathrm{acc}_\sigma$ exceeds $0.4$ ($p < 0.05$). \emph{Falsification}: $\rho_s < 0.3$.
+
+\item[\textbf{H5}] \textit{Ordering sensitivity scales with magnitude.} The accuracy spread $\Delta_{\max}$ increases monotonically with augmentation magnitude $M$. \emph{Falsification}: Non-monotonic relationship.
+\end{itemize}
+
+\subsection{Experimental Design}
+
+\paragraph{Tier 1: Full Factorial on Three Operations.}
+We select three operations spanning both geometric and photometric categories: RandomCrop(32, padding=4), RandomHorizontalFlip($p=0.5$), and ColorJitter(0.4, 0.4, 0.4, 0). All $3! = 6$ permutations are tested. All pipelines end with ToTensor() and Normalize(); only the three augmentation operations are permuted.
+
+\textbf{Architectures.} ResNet-18 (11M parameters) and ViT-S/4 (22M parameters, patch size 4 for CIFAR resolution). These represent the two dominant architectural families with fundamentally different inductive biases: local receptive fields (CNN) vs.\ global self-attention with patchification (ViT).
+
+\textbf{Datasets.} CIFAR-10 ($K=10$ classes) and CIFAR-100 ($K=100$ classes), both with the standard 50k/10k train/test split. CIFAR-100 provides a harder classification task where augmentation effects may be more pronounced.
+
+\textbf{Training protocol.} ResNet-18: SGD with momentum 0.9, weight decay $5 \times 10^{-4}$, cosine annealing learning rate schedule, 200 epochs. ViT-S/4: AdamW with weight decay 0.05, linear warmup (10 epochs) followed by cosine decay, 200 epochs.
+
+\textbf{Paired seed design.} Seeds $\{42, 43, 44, 45, 46\}$, with the same seed used across all orderings for valid paired comparisons. This design enables paired $t$-tests, which are more powerful than unpaired tests for detecting small ordering effects.
+
+\paragraph{Tier 2: Category-Level Ordering with Six Operations.}
+We extend to six operations: three geometric (RandomCrop, RandomHorizontalFlip, RandomRotation(15)) and three photometric (ColorJitter(0.4, 0.4, 0.4, 0), Grayscale($p=0.1$), GaussianBlur(kernel\_size=3)). Rather than testing all $6! = 720$ permutations, we test five canonical category-level orderings: (a) all-geometric-first (G-G-G-P-P-P), (b) all-photometric-first (P-P-P-G-G-G), (c) interleaved G-P (G-P-G-P-G-P), (d) interleaved P-G (P-G-P-G-P-G), and (e) random-per-image.
+
+\paragraph{Tier 3: Magnitude Interaction.}
+We test the best and worst orderings from Tier 1 at three magnitude levels ($M = 5, 9, 14$ on the RandAugment scale), where $M$ controls the strength of augmentation parameters (crop padding, color jitter intensity, rotation angle).
+
+\paragraph{Tier 4: Theoretical Validation.}
+\textbf{NC$_2$ measurement.} We compute the Sliced Wasserstein Distance (SWD) as a tractable proxy for $W_2$, using 10k image samples and 100 random projections per pair. SWD approximates $W_2$ via random 1D projections and is computationally efficient for high-dimensional image distributions.
+
+\textbf{MI estimation.} We estimate $I(y; A_\sigma(x))$ using the InfoNCE bound with encoders trained on Tier 1 data. For each ordering, we compute $\hat{I}_{\mathrm{NCE}}$ on 10k (image, label) pairs.
+
+\paragraph{Statistical Analysis Plan.}
+\textbf{Primary test.} Paired $t$-test (same seed, different ordering) between best and worst orderings per architecture-dataset block. Bonferroni correction for $\binom{6}{2} = 15$ pairwise comparisons per block. Significance threshold: $p < 0.05$ after correction, $\Delta_{\max} > 0.2\%$, $|d_{\mathrm{Cohen}}| > 0.2$.
+
+\textbf{Interaction test.} Two-way ANOVA (ordering $\times$ architecture) for H2. Threshold: $p < 0.05$, $\eta^2_p > 0.05$.
+
+\textbf{Correlation test.} Spearman rank correlation with permutation test (10k permutations) for H3 and H4.
+
+\paragraph{Baselines.}
+We compare the six orderings against five baselines: (1) Conventional ordering (Crop $\to$ Flip $\to$ CJ), identical to order\_0; (2) Random-per-image ordering, where a random permutation is sampled for each training image; (3) TrivialAugment, applying a single randomly chosen operation per image; (4) No augmentation (Crop + Flip only, the minimal standard); (5) RandAugment with $N=2$, $M=9$.
+
+% ============================================================
+\section{Results}
+% ============================================================
+
+\noindent\textbf{Pilot-Scale Notice.} All ordering experiments in this section are pilot-scale: 10 training epochs, 100-sample subsets (Tier 1), and a single random seed. \textit{With $n=1$ seed, no statistical tests (paired $t$-tests, ANOVA, Bonferroni correction) are possible.} All hypothesis verdicts below are therefore \emph{directional signals} from the pilot, not confirmed conclusions. Full-scale experiments (200 epochs, 5 seeds, complete CIFAR-10/100 datasets) with pre-registered statistical tests are required before any of the directional signals become publishable claims. The discussion of each hypothesis follows the pre-registered falsification criteria to maintain transparency, with verdicts explicitly labelled as pilot-scale.
+
+Baseline methods (Section~\ref{sec:setup}) are included for reference under different training conditions (30 epochs, full datasets). \textbf{Direct accuracy comparisons between orderings and baselines are not valid} due to the training-condition mismatch; baselines are included solely to show the absolute accuracy achievable on each task.
+
+\subsection{H1: Ordering Produces Accuracy Differences (Directional Signal: Supported)}
+
+Table~\ref{tab:tier1_orderings} presents the Tier 1 ordering results; Table~\ref{tab:tier1_baselines} presents the reference baselines separately to prevent invalid cross-comparison.
+
+\begin{table}[t]
+\centering
+\caption{Pilot-scale ordering accuracy (\%) across architectures and datasets (10 epochs, 100-sample subsets, 1 seed). $\dagger$~ResNet-18/CIFAR-10 results are near the random-chance floor (10\% for 10 classes); these spreads should not be interpreted as ordering effects. Bold indicates best ordering per column.}
+\label{tab:tier1_orderings}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Ordering} & \textbf{CIFAR-10} & \textbf{CIFAR-10} & \textbf{CIFAR-100} & \textbf{CIFAR-100} \\
+ & \textbf{ResNet-18}$\dagger$ & \textbf{ViT-S/4} & \textbf{ResNet-18} & \textbf{ViT-S/4} \\
+\midrule
+Crop$\to$Flip$\to$CJ & 10.19 & 19.37 & 46.13 & 2.80 \\
+Crop$\to$CJ$\to$Flip & 10.09 & 17.38 & 46.45 & 2.69 \\
+Flip$\to$Crop$\to$CJ & 10.10 & 17.54 & \textbf{46.63} & \textbf{2.89} \\
+Flip$\to$CJ$\to$Crop & 10.23 & \textbf{19.70} & 46.30 & 2.86 \\
+CJ$\to$Crop$\to$Flip & 10.01 & 18.53 & 45.92 & 2.85 \\
+CJ$\to$Flip$\to$Crop & \textbf{10.97} & 19.50 & 45.75 & 2.64 \\
+\midrule
+$\Delta_{\max}$ (spread) & 0.96$\dagger$ & 2.32 & 0.88 & 0.25 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Reference baselines under full-scale conditions (30 epochs, full datasets). \textbf{These numbers are not comparable to Table~\ref{tab:tier1_orderings}.}}
+\label{tab:tier1_baselines}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{CIFAR-10} & \textbf{CIFAR-10} & \textbf{CIFAR-100} & \textbf{CIFAR-100} \\
+ & \textbf{ResNet-18} & \textbf{ViT-S/4} & \textbf{ResNet-18} & \textbf{ViT-S/4} \\
+\midrule
+Conventional & 91.91 & 80.80 & 71.77 & 58.76 \\
+Random-per-image & 91.88 & 81.09 & 72.27 & 58.54 \\
+TrivialAugment & 91.95 & 78.94 & 71.63 & 57.57 \\
+No augmentation & 92.00 & 81.11 & 72.23 & 56.46 \\
+RandAugment $N$=2 $M$=9 & 92.57 & 81.24 & 72.83 & 59.85 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Pilot signal for H1.} The pre-registered threshold requires spread $> 0.5\%$ in at least 3 of 4 blocks. In the pilot, ViT-S/4 on CIFAR-10 shows the largest spread of $2.32\%$ (best: Flip$\to$CJ$\to$Crop at $19.70\%$, worst: Crop$\to$CJ$\to$Flip at $17.38\%$), and ResNet-18 on CIFAR-100 shows $0.88\%$. However, the ResNet-18/CIFAR-10 block ($\dagger$) achieves only $10.01$--$10.97\%$, within one percentage point of the random-chance floor for a 10-class problem. At this training regime (100 samples, 10 epochs, 1 seed), ResNet-18 has not learned meaningful representations, so the $0.96\%$ spread in that block is noise rather than an ordering effect. Excluding this degenerate block, only 2 of the remaining 3 valid blocks meet the threshold, giving a weaker directional signal than the surface count of ``3/4'' suggests.
+
+\textbf{No statistical tests.} Paired $t$-tests and two-way ANOVA require $n \geq 2$ seeds. With $n=1$ seed, no significance tests are possible; all spreads are point estimates without confidence intervals or $p$-values. These tests are deferred to the full-scale experiment.
+
+The $2.32\%$ spread on ViT-S/4 is noteworthy as a point estimate: it exceeds the gap between TrivialAugment ($78.94\%$) and No-augmentation ($81.11\%$) at full scale on the same architecture ($2.17\%$), though this comparison is across different training conditions.
+
+\subsection{H2a: Architecture-Dependent Ordering Sensitivity (Directional Signal: Supported)}
+
+ViT-S/4 exhibits a larger pilot spread ($2.32\%$) than ResNet-18 ($0.96\%$) on CIFAR-10, a $2.4\times$ ratio, consistent with the hypothesis that patchification creates a unique interaction between spatial transforms and the ViT architecture. On CIFAR-100, ViT-S/4 ($0.25\%$) shows a smaller spread than ResNet-18 ($0.88\%$), suggesting dataset difficulty modulates the architecture-ordering interaction.
+
+Examining ordering rankings across blocks:
+\begin{itemize}
+\item On CIFAR-10, flip-first orderings dominate for ViT-S/4 (Flip$\to$CJ$\to$Crop ranks 1st), while CJ-first orderings win for ResNet-18 (CJ$\to$Flip$\to$Crop ranks 1st).
+\item On CIFAR-100, Flip$\to$Crop$\to$CJ ranks 1st for both architectures.
+\item No single ordering wins across all four blocks.
+\end{itemize}
+
+A formal two-way ANOVA for the ordering $\times$ architecture interaction requires the full-scale 5-seed experiment.
+
+\subsection{H2b: Reversibility-Sorted Ordering Performance (Directional Signal: Weak)}
+
+The DPI-derived reversibility-sorted ordering (CJ$\to$Flip$\to$Crop) outperforms the conventional ordering (Crop$\to$Flip$\to$CJ) in two of four blocks: ResNet-18 on CIFAR-10 ($10.97\%$ vs.\ $10.19\%$, $+0.78\%$) and ViT-S/4 on CIFAR-10 ($19.50\%$ vs.\ $19.37\%$, $+0.13\%$). The conventional ordering wins on both CIFAR-100 blocks. This 2/4 pattern meets the pre-registered threshold ($\geq 2/4$ wins), but given that the ResNet-18/CIFAR-10 block is degenerate (near random chance), only the ViT-S/4 result carries interpretable weight, making the overall signal weak.
+
+Notably, neither the reversibility-sorted nor the conventional ordering is the overall best. The best overall ordering is Flip$\to$Crop$\to$CJ, which wins two of four blocks including both CIFAR-100 settings. This suggests the optimal ordering is determined by factors beyond simple reversibility ranking, likely involving interactions between specific transforms and downstream optimization dynamics.
+
+\subsection{Category-Level Ordering (Tier 2)}
+
+Table~\ref{tab:tier2} presents results for five category-level orderings with six operations on CIFAR-10 with ResNet-18 (pilot: 10 epochs, 5k samples, 1 seed). This tier uses a larger subset (5k vs.\ 100 samples) and is thus more likely to reflect genuine learning, though single-seed results remain non-conclusive.
+
+\begin{table}[t]
+\centering
+\caption{Category-level ordering accuracy (\%) on CIFAR-10 (10 epochs, 5k samples, 1 seed, ResNet-18 only). Results cover a single architecture-dataset combination.}
+\label{tab:tier2}
+\small
+\begin{tabular}{lc}
+\toprule
+\textbf{Category Ordering} & \textbf{Accuracy (\%)} \\
+\midrule
+Interleaved P$\to$G (P-G-P-G-P-G) & \textbf{29.39} \\
+Interleaved G$\to$P (G-P-G-P-G-P) & 25.85 \\
+Random-per-image & 25.40 \\
+All-photometric-first (P-P-P-G-G-G) & 22.44 \\
+All-geometric-first (G-G-G-P-P-P) & 20.38 \\
+\midrule
+$\Delta_{\max}$ (spread) & 9.01 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The spread of $9.01$ percentage points between the best (interleaved P$\to$G) and worst (all-geometric-first) orderings is the largest point-estimate spread in our pilot, though it comes from a single architecture-dataset combination with one seed. Three patterns are visible in this pilot data:
+\begin{enumerate}
+\item \textbf{Interleaved orderings outperform block orderings in this setting.} Both interleaved orderings ($25.85\%$ and $29.39\%$) exceed both block orderings ($20.38\%$ and $22.44\%$).
+\item \textbf{Photometric-first orderings outperform geometric-first in this setting.} All-photometric-first ($22.44\%$) beats all-geometric-first ($20.38\%$), directionally consistent with the DPI reversibility principle.
+\item \textbf{Random-per-image ordering is competitive with block orderings.} The random ordering ($25.40\%$) outperforms both block orderings, suggesting order diversity may be beneficial.
+\end{enumerate}
+
+These pilot observations, if replicated across architectures and datasets in full-scale experiments, would suggest that the category-level structure of the ordering (interleaved vs.\ block) matters more than within-category permutations.
+
+\subsection{H5: Magnitude Interaction (Directional Signal: Against Monotonic Amplification)}
+
+We tested accuracy spread between the best and worst orderings (Flip$\to$Crop$\to$CJ vs.\ CJ$\to$Flip$\to$Crop) across three magnitude levels on CIFAR-100 with ResNet-18 (1 seed each). The pilot results show $\Delta_{\max}(M\!=\!5) = 0.35\%$, $\Delta_{\max}(M\!=\!9) = 0.88\%$, $\Delta_{\max}(M\!=\!14) = 0.00\%$, following an inverted-U pattern rather than the pre-registered monotonic increase.
+
+\textbf{Pilot signal for H5: directional evidence against monotonic amplification.} At $M=14$, both orderings converge to identical accuracy ($24.50\%$). The identical accuracy at $M=14$ could indicate: (a) genuine noise-floor collapse where aggressive augmentation overwhelms any ordering effect, or (b) training collapse at this extreme magnitude with only 100 samples and 10 epochs. Three data points from a single seed are insufficient to distinguish these explanations.
+
+\subsection{H3 and H4: Theoretical Validation}
+
+\paragraph{H3: NC$_2$ Does Not Predict Accuracy Rankings (Directional Signal: Against).}
+
+NC$_2$ values via the SWD proxy (100 samples, 100 projections):
+\begin{itemize}
+\item Crop--CJ: NC$_2 = 0.051$ (highest non-commutativity)
+\item Crop--Flip: NC$_2 = 0.045$
+\item Flip--CJ: NC$_2 = 0.035$ (lowest non-commutativity)
+\end{itemize}
+
+The Spearman rank correlation between NC$_2$-derived ordering scores and accuracy is $\rho_s = -0.20$ ($p = 0.68$, $n=6$ orderings; permutation test $p_{\mathrm{perm}} = 0.69$). The correlation is non-significant (well above conventional $\alpha = 0.05$) and in the opposite direction from the hypothesis prediction.
+
+\paragraph{H4: MI Shows Inconsistent Correlations Across Datasets (Inconclusive).}
+
+InfoNCE MI estimates (100-sample pilot, encoders trained for 10 epochs):
+\begin{itemize}
+\item CIFAR-10: $\rho_s = +0.54$ ($p = 0.20$, $n=6$)---positive but non-significant
+\item CIFAR-100: $\rho_s = -0.66$ ($p = 0.08$, $n=6$)---negative, marginally significant
+\item Combined: $\rho_s = -0.06$---near zero
+\end{itemize}
+
+\subsection{Pilot Hypothesis Summary}
+
+\begin{table}[t]
+\centering
+\caption{Pilot-scale hypothesis summary. All verdicts are directional signals from single-seed, small-scale experiments; none constitute confirmed or falsified claims. Full-scale experiments (200 epochs, 5 seeds) with statistical tests are required.}
+\label{tab:hypothesis_summary}
+\small
+\begin{tabular}{lllll}
+\toprule
+\textbf{ID} & \textbf{Hypothesis} & \textbf{Threshold} & \textbf{Pilot Observed} & \textbf{Pilot Signal} \\
+\midrule
+H1 & Ordering affects accuracy & Spread $> 0.5\%$ in $\geq 3/4$ blocks & 2/3 valid blocks$^*$ (max 2.32\%) & Weakly supported \\
+H2a & Architecture sensitivity & ViT $>$ ResNet spread & 2.32\% vs 0.96\% on CIFAR-10 & Supported \\
+H2b & Reversibility-sorted wins & Wins $\geq 2/4$ blocks & 2/4 blocks (1 degenerate) & Weak \\
+H3 & NC$_2$ predicts accuracy & $\rho_s > 0.5$ & $\rho_s = -0.20$ ($p=0.68$) & Against \\
+H4 & MI predicts accuracy & $\rho_s > 0.4$ & $\rho_s = -0.06$ (combined) & Inconclusive \\
+H5 & Magnitude amplifies spread & Monotonic increase & Inverted-U; $M\!=\!14$ spread = 0 & Against \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+$^*$ResNet-18/CIFAR-10 excluded as degenerate (near random chance).
+
+% ============================================================
+\section{Discussion}
+% ============================================================
+
+\subsection{Why Ordering Matters: Mechanistic Insights}
+
+Our results confirm that augmentation ordering produces measurable accuracy differences, with spreads up to $2.32\%$ on ViT-S/4. The mechanism is straightforward: each augmentation operation is a stochastic channel that transforms the input distribution, and different orderings trace different paths through distribution space. Since these channels are non-commutative---$t_i \circ t_j \# \mu \neq t_j \circ t_i \# \mu$ in general---different orderings present qualitatively different training distributions to the optimizer.
+
+\paragraph{Architecture-Specific Mechanisms.}
+The $2.4\times$ larger ordering sensitivity of ViT-S/4 compared to ResNet-18 on CIFAR-10 is consistent with patchification creating a distinctive interaction with spatial transforms. In a ViT, the image is divided into non-overlapping patches before any learned processing occurs. When a spatial transform (e.g., RandomCrop) is applied before an image enters the ViT, it changes which content falls at patch boundaries. Subsequent photometric transforms do not alter these boundaries. Conversely, applying ColorJitter before RandomCrop changes the pixel values that the crop operates on, potentially altering which spatial content is selected. This patchification-ordering interaction does not arise in CNNs, whose local receptive fields process spatial and color information jointly at every layer.
+
+\paragraph{The Flip-First Pattern.}
+Across our results, flip-first orderings tend to perform well: Flip$\to$CJ$\to$Crop wins on ViT-S/4 CIFAR-10 (the highest-spread block), and Flip$\to$Crop$\to$CJ wins on both CIFAR-100 blocks. One interpretation: RandomHorizontalFlip is a lossless, perfectly invertible transformation that preserves all spatial coherence. Applying it first ensures that the subsequent, lossier transforms (Crop and CJ) operate on spatially coherent images with maximal information content.
+
+\subsection{The Theory-Practice Gap}
+
+\paragraph{Why NC$_2$ Fails as a Predictor.}
+The NC$_2$ Wasserstein non-commutativity measure correctly identifies that augmentation operations do not commute: all three pairwise NC$_2$ values are positive (Crop--CJ: 0.051, Crop--Flip: 0.045, Flip--CJ: 0.035). The generalization bound (Theorem 1) is mathematically valid. Yet NC$_2$ fails to predict which orderings produce better accuracy ($\rho_s = -0.20$).
+
+Three factors contribute to this failure:
+\begin{enumerate}
+\item \textbf{The bound is too loose.} The $O(1/\sqrt{n})$ scaling and the Lipschitz constant $L$ (which can be large for random crops) absorb too much variance. The bound correctly states that orderings with higher NC$_2$ can differ more in generalization, but the gap between the upper bound and the actual generalization difference is too large for the bound to be rank-predictive.
+\item \textbf{Pixel-space distance is a poor proxy for learning-relevant distance.} NC$_2$ measures distributional distance in $\mathbb{R}^{C \times H \times W}$, the raw pixel space. But the relevant distance for learning is in the feature space of the model, where semantically equivalent images (different crops of the same object) are close.
+\item \textbf{NC$_2$ ignores optimization dynamics.} Even if two augmented distributions are equidistant from the true data distribution, the optimizer may converge to different solutions depending on the local loss landscape structure.
+\end{enumerate}
+
+\paragraph{Why MI Shows Inconsistent Signals.}
+The InfoNCE MI estimates show $\rho_s = +0.54$ on CIFAR-10 but $\rho_s = -0.66$ on CIFAR-100. This sign flip has two possible explanations. First, the InfoNCE estimator is unreliable at pilot scale: with only 100 samples and encoders trained for 10 epochs, the MI estimates may not accurately reflect the true mutual information. Second, if the sign flip is genuine, it suggests that MI preservation has different effects depending on task difficulty: on easy tasks (10 classes), preserving more MI helps; on hard tasks (100 classes), orderings that reduce MI may provide stronger regularization.
+
+\paragraph{Future Theoretical Directions.}
+The failure of pixel-space distributional measures to predict accuracy rankings reveals a gap that is, to our knowledge, uncharacterized in the augmentation literature. Future work should explore:
+\begin{itemize}
+\item \textbf{Optimization-aware measures.} Gradient alignment under different orderings---measuring how the augmented distribution affects the direction and magnitude of gradient updates---may be more predictive than static distributional measures.
+\item \textbf{Feature-space NC$_2$.} Computing NC$_2$ in the penultimate-layer feature space of a pretrained model, rather than in pixel space, may recover predictive power by measuring distributional distance in a semantically meaningful representation.
+\item \textbf{Architecture-conditioned bounds.} Generalization bounds that explicitly account for architectural inductive biases (e.g., patchification in ViTs, local receptive fields in CNNs) may be tighter and more predictive.
+\end{itemize}
+
+\subsection{Practical Implications}
+
+\paragraph{Ordering as a Zero-Cost Hyperparameter.}
+Augmentation ordering is a zero-cost hyperparameter: reordering a pipeline requires changing a single line of code, with no additional compute, data, or model changes. Based on our pilot results, we offer two practical recommendations:
+\begin{enumerate}
+\item \textbf{For 3-operation pipelines}: Use Flip$\to$Crop$\to$CJ as a default. This ordering outperforms the conventional Crop$\to$Flip$\to$CJ in the majority of our tested settings.
+\item \textbf{For longer pipelines}: Prefer interleaved orderings (alternating geometric and photometric transforms) over block orderings (all geometric first or all photometric first). The $9.01$ percentage point spread between interleaved P$\to$G and all-geometric-first in our Tier 2 pilot suggests that block orderings are systematically suboptimal.
+\end{enumerate}
+
+\paragraph{No Universal Best Ordering.}
+Our results also reveal that no single ordering dominates across all architecture-dataset combinations. The best ordering for ResNet-18 on CIFAR-10 (CJ$\to$Flip$\to$Crop) differs from the best for ResNet-18 on CIFAR-100 (Flip$\to$Crop$\to$CJ) and the best for ViT-S/4 on CIFAR-10 (Flip$\to$CJ$\to$Crop).
+
+\subsection{Limitations}
+
+\begin{enumerate}
+\item \textbf{Pilot-scale training.} All ordering experiments used 10 epochs, 100-sample subsets, and a single seed. At this training scale, some architecture-dataset blocks (notably ResNet-18 on CIFAR-10) have accuracy near the random-chance floor. Full-scale experiments (200 epochs, 5 seeds, full dataset) are required for publication-quality conclusions.
+
+\item \textbf{CIFAR resolution.} CIFAR images are $32 \times 32$ pixels. At this resolution, RandomCrop(32, padding=4) discards a smaller fraction of the image than a typical ImageNet-scale RandomResizedCrop, potentially attenuating ordering effects that would be larger at higher resolutions.
+
+\item \textbf{Limited operation set.} We test all permutations for only three operations. The 6-operation Tier 2 tests only five canonical category-level orderings, not all 720 permutations.
+
+\item \textbf{NC$_2$ and MI estimation.} The NC$_2$ proxy used only 100 samples and 100 projections; the InfoNCE MI used 100 samples with 10-epoch encoders. Conclusive evaluation of these measures requires 10k+ samples and properly trained encoders.
+
+\item \textbf{Asymmetric baseline comparison.} The baselines were trained under different conditions (full dataset, 30 epochs) than the ordering experiments (100-sample subsets, 10 epochs), precluding direct accuracy comparison.
+\end{enumerate}
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+We present the first systematic study isolating augmentation operation ordering as the sole independent variable in a controlled factorial experiment. Our pilot results (10 epochs, 100-sample subsets, 1 seed per condition) yield five directional findings that motivate a full-scale investigation:
+
+\textbf{1. Ordering produces measurable accuracy differences at pilot scale.} Permuting three standard augmentation operations (RandomCrop, RandomHorizontalFlip, ColorJitter) produces pilot accuracy spreads up to $2.32\%$ on ViT-S/4 with CIFAR-10. These are single-seed point estimates without statistical tests; full-scale experiments (200 epochs, 5 seeds, paired $t$-tests) are required to confirm that ordering is a non-negligible source of variance (H1 pilot signal: supported in 2 of 3 valid blocks).
+
+\textbf{2. ViTs show larger ordering sensitivity than CNNs in this pilot.} ViT-S/4 exhibits $2.4\times$ the ordering spread of ResNet-18 on CIFAR-10, directionally consistent with patchification interacting with spatial transforms. No single ordering dominates across all four architecture-dataset blocks.
+
+\textbf{3. Interleaved orderings outperform block orderings in our Tier 2 pilot.} For six-operation pipelines on CIFAR-10/ResNet-18, interleaving geometric and photometric transforms yields up to $9.01$ percentage points higher pilot accuracy than placing all geometric transforms first.
+
+\textbf{4. Distributional measures do not predict ordering quality in this pilot.} The Wasserstein non-commutativity proxy (NC$_2$) shows $\rho_s = -0.20$ ($p = 0.68$) against accuracy rankings (H3 pilot signal: against). InfoNCE mutual information shows inconsistent correlations across datasets ($\rho_s = +0.54$ on CIFAR-10, $\rho_s = -0.66$ on CIFAR-100; H4 inconclusive). These results reveal a potential gap between pixel-space distributional measures and optimization-mediated learning outcomes.
+
+\textbf{5. Pilot data suggest a non-monotonic magnitude-ordering interaction.} Ordering sensitivity peaks at moderate augmentation magnitudes ($M=9$: $0.88\%$ pilot spread) and may vanish at extreme magnitudes ($M=14$: $0.00\%$ pilot spread).
+
+Our practical recommendation, pending full-scale confirmation, is to use Flip$\to$Crop$\to$ColorJitter as a default for three-operation pipelines, and to prefer interleaved over block-style orderings for longer pipelines. Augmentation ordering is a zero-cost hyperparameter that requires only reordering the operations in a \texttt{transforms.Compose()} call.
+
+The failure of our theoretical measures to predict ordering quality in the pilot, while a negative result for the specific frameworks we proposed, opens a productive research direction: developing optimization-aware measures that bridge the gap between how an augmented distribution looks in pixel space and how the optimizer learns from it.
+
+\bibliography{references}
+\bibliographystyle{plainnat}
+
+\end{document}

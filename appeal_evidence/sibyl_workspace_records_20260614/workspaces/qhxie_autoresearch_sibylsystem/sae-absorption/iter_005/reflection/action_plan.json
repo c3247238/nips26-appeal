@@ -1,0 +1,286 @@
+{
+  "iteration": 5,
+  "score": 6.0,
+  "verdict": "revise",
+  "quality_trajectory": "improving",
+  "issues_classified": [
+    {
+      "id": "SND001",
+      "description": "Causal overclaiming from observational cross-sectional data. Paper uses 'causally mediates,' 'causal chain,' and 'causal status of absorption' based on Baron-Kenny mediation from 48 cross-sectional observations. The paper's own within-width matching null (Table 4) shows Gamma=1.0 for ALL metrics under all three within-width strategies (4, 23, and 16 pairs). The causal evidence vanishes when width is held constant by design. An alternative common-cause explanation (SAE feature quality drives both low absorption and high quality) is consistent with all data and indistinguishable from mediation in this design.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Replace 'causally mediates' with 'statistically mediates' throughout. Change Section 5.1 heading to 'The Statistical Case for Absorption as a Quality Predictor.' Move within-width matching null from end of Section 5.1 to prominent position in Section 4.1 Results (new paragraph immediately after Table 4). Add paragraph in Section 5.4 naming 'feature quality' as alternative common-cause explanation. State that an interventional study (OrtSAE, Matryoshka) is required to establish causation. Move Bradford Hill table (Table 7) to supplementary material. WHERE: writing/paper.md (Sections 1, 4.1, 5.1, 5.4, 6). EFFORT: 2 hours writing. VERIFY: grep -c 'causally mediates' paper.md returns 0; within-width null paragraph is in Section 4.1 before Discussion.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:absorption-absorption-all-all-all-alternative-an-and:cd552639a41b"
+    },
+    {
+      "id": "SND002",
+      "description": "Table 3 mixes standardized and unstandardized coefficients without consistent labeling. Paths a,b labeled '(std)' match standardized values (P1_mediation.json: path_a_std, path_b_std). Direct effect c' for SCR = -0.029 (standardized: -0.0291) in Table 3 but -0.003 (unstandardized: -0.00290) in abstract and Section 5.1. Indirect effect ab = 0.025 matches unstandardized (0.02469) not standardized (0.2478). Arithmetic check a*b = ab FAILS across coefficient types. Any reviewer checking this will immediately identify the error.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Choose ONE coefficient type for Table 3. RECOMMENDED: all unstandardized with footnote 'All path coefficients are unstandardized; standardized values in Supplementary Table S1.' Update abstract to use unstandardized c'=-0.003 consistently. Verify arithmetic: a*b = ab and c - c' = ab hold numerically for the chosen type. WHERE: writing/paper.md (Table 3, abstract, Section 5.1). EFFORT: 1 hour. VERIFY: Table 3 has single-type footnote; abstract coefficient matches table; hand-check a*b = ab passes.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-a-ab-ab-abstract-across-and-and:d1191ce3ee46"
+    },
+    {
+      "id": "EXP001",
+      "description": "H2 cross-domain absorption classified as 'PARTIALLY_SUPPORTED' in abstract, final_results.json, and final_results_summary.md. By the paper's own pre-registered falsification criterion (absorption must exceed 3x shuffled baseline), H2 is falsified: shuffled baseline = 100%, so 3x threshold impossible. Cosine-calibrated metric detects 0% across all thresholds. Dominance-based absorption rate equals false-negative rate at tau_dom=1.0 (confirmed: Table 5 R_abs column = FN Rate column in every row). Paper body (Section 4.2) correctly describes the result but framing metadata contradicts it.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Reclassify H2 as 'FALSIFIED (metric invalid on GPT-2 Small)' in final_results.json and final_results_summary.md. Rewrite abstract: 'A first attempt to measure absorption on knowledge hierarchies conclusively falsifies the dominance-based metric on GPT-2 Small: shuffled controls produce 100% absorption, and a cosine-calibrated alternative detects 0%.' Add qualifier: 'This negative result is specific to the model-SAE combination tested and should not be interpreted as evidence against knowledge-hierarchy absorption in general.' Add boxed warning in Section 4.2. WHERE: exp/results/full/final_results.json, exp/results/full/final_results_summary.md, writing/paper.md (abstract, Section 4.2, Section 6). EFFORT: 1 hour writing + 15 min JSON fixes. VERIFY: no instance of 'PARTIALLY_SUPPORTED' for H2 anywhere; abstract uses 'falsified' or equivalent.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:absorption-absorption-absorption-abstract-across-all-and-as:59d6b8aec649"
+    },
+    {
+      "id": "EXP002",
+      "description": "Data pipeline integrity failure: final_results.json reports WRONG values for 4+ fields. (1) H5 corrected_rate=0.923 (actual: 0.192 from P4_taxonomy_correction.json), delta=0.0 (actual: -0.731), verdict='CORRECTION_MINIMAL' (should be 'CORRECTION_LARGE'). (2) All four Sobel z values from alternative_direction_test (reverse path Quality->Absorption->L0) not primary mediation path: TPP z=2.632 (should be 2.083, p=0.037), SCR z=3.886 (should be 3.621, p=0.00029), SP-F1 z=4.334 (should be 4.083, p=4.4e-5), Unlearning z=0.449 (should be from primary path). (3) n_full_mediations=0 (should be 2: SCR + TPP both satisfy all Baron-Kenny steps). (4) phase_boundary_detected=false (P3_scaling_surface.json source: true). Root cause: integration code reads from results_by_metric[metric].alternative_direction_test instead of results_by_metric[metric].sobel_test, and fails to propagate Phase 4 corrected values.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Fix final_results.json fields: H5 corrected_rate=0.192, delta=-0.731, verdict='CORRECTION_LARGE'. Sobel z values: TPP=2.083 (p=0.037), SCR=3.621 (p=0.00029), SP-F1=4.083 (p=4.4e-5). n_full_mediations=2. phase_boundary_detected=true. Fix final_results_summary.md: H5 corrected rate=19.2%, delta=-73.1 pp. Audit integration code to read from correct JSON paths. Add post-integration validation script that cross-checks every field in final_results.json against source phase JSONs and fails loudly on any discrepancy exceeding rounding tolerance (1e-3). WHERE: exp/results/full/final_results.json, exp/results/full/final_results_summary.md, exp/code/final_integration*.py. EFFORT: 1 hour. VERIFY: diff validation script produces zero discrepancies.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "system:4e-absorption-actual-actual-all-all-alternative_direction_test-alternati:344b0ff5dedf"
+    },
+    {
+      "id": "EXP003",
+      "description": "Phase 2 conducted on GPT-2 Small (124M) with 24k SAE having 98% dead features on city prompts. Original plan: Gemma 2 2B with Gemma Scope SAEs (16k-1M features). GPT-2 Small has ~500 live features for 3,552 cities across 5 attribute types -- categorically incapable of testing cross-domain absorption. The 0% cosine-calibrated rate is an inevitable consequence of the model choice. Abstract and Contribution 2 framing still implies the experiment answers the cross-domain question.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Add boxed warning in Section 4.2: 'Caution: This experiment was conducted on GPT-2 Small due to Gemma 2B access restrictions. Results characterize metric behavior on a model with insufficient SAE capacity for knowledge features, not whether cross-domain absorption exists in adequately-sized SAEs.' In abstract: 'on GPT-2 Small, where SAE features are too sparse to represent knowledge concepts as dedicated latents.' Elevate Conclusion's recommendation about 2B+ models to a boxed limitation. WHERE: writing/paper.md (abstract, Section 4.2, Section 6). EFFORT: 45 min writing. VERIFY: abstract and conclusion explicitly state cross-domain question remains open.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:124m-16k-1m-24k-2b-absorption-abstract-across:1272f428d254"
+    },
+    {
+      "id": "EXP004",
+      "description": "Phase 3 GAM (420 SAEs) omits architecture as covariate despite 360 standard (L1/TopK from sae_bench) + 54 JumpReLU (Gemma Scope) + 6 unknown spanning different width/L0 ranges. JumpReLU uses different sparsity mechanism (trained L0 via straight-through estimator) and is concentrated at specific width-L0 points. The width-L0 interaction term may partly capture architecture differences rather than genuine interaction physics.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Add architecture_class as categorical covariate in the GAM. Report interaction p-value with and without architecture covariate. Run interaction GAM separately on 360 standard SAEs alone (sufficient power at n=360). If interaction remains significant within-architecture, finding is robust and should be stated prominently. If not, this is a critical caveat. Code: modify P3_scaling_surface.py to add architecture factor. WHERE: exp/code/P3_scaling_surface*.py, exp/results/full/P3_scaling_surface.json, writing/paper.md (Section 4.3). EFFORT: 30 min CPU analysis + 30 min writing. VERIFY: paper reports both with/without-architecture p-values; within-architecture subset analysis present.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:and-architecture-architecture-as-at-capture-concentrated-covariate:6ce768172955"
+    },
+    {
+      "id": "SND003",
+      "description": "SP-F1 suppression effect (partial r strengthening from -0.664 to -0.746) is presented as 'central finding' but interpretation is fragile. SP-F1 total effect c is NON-SIGNIFICANT (p=0.45) -- Baron-Kenny step 3 fails. This is 'indirect-only mediation' per Zhao et al. (2010), weaker than classical mediation. A competing explanation is equally valid: L0 has a direct beneficial effect on SP-F1 through better reconstruction (c'=-0.270, p=0.001) partially canceling the harmful indirect effect via absorption. The paper acknowledges this in one sentence but does not give proportional treatment. By contrast, SCR shows full mediation where all Baron-Kenny steps are satisfied.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Expand Section 5.1 to present both interpretations side by side with equal weight. State explicitly: 'The SP-F1 total effect is non-significant (p=0.45), precluding classical Baron-Kenny mediation (step 3 fails). The significant indirect effect with non-significant total effect could reflect either (a) opposing causal pathways (indirect-only mediation per Zhao et al. 2010) or (b) a non-causal suppression artifact where L0 correlates with both absorption and a latent feature-quality variable.' DEMOTE SP-F1 from 'central finding' and PROMOTE SCR full mediation as the headline result. WHERE: writing/paper.md (Section 5.1, abstract). EFFORT: 1 hour writing. VERIFY: Section 5.1 presents competing explanation with equal weight; SCR is the primary mediation claim in abstract.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-a-absorption-acknowledges-al-all-are-as:cf400432d816"
+    },
+    {
+      "id": "SND004",
+      "description": "No multiple comparison correction despite 50+ tests on n=48 SAEs: 4 metrics x (partial correlation + 3 width-stratified strata + mediation Sobel + 5 Rosenbaum matching strategies). At alpha=0.05, 2-3 false positives expected by chance. TPP partial r (p=0.022) and TPP Sobel z (p=0.037) are borderline. SP-F1 (p=1.2e-9) and SCR (p=6.6e-5) will survive any reasonable correction.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Apply Benjamini-Hochberg FDR correction to the set of partial correlation p-values (4 tests) and the set of mediation Sobel p-values (4 tests). Report both corrected and uncorrected p-values. If TPP loses significance after correction, acknowledge transparently: 'After FDR correction, only SP-F1 and SCR retain significance for both partial correlation and mediation.' WHERE: exp/code/P1_synthesis*.py, writing/paper.md (Table 1, Section 4.1). EFFORT: 30 min analysis + 30 min writing. VERIFY: FDR-corrected p-values present in paper; text states which results survive.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:2e-6e-alpha-and-and-any-are-at:36e17622aaa6"
+    },
+    {
+      "id": "SND005",
+      "description": "Rosenbaum Gamma=2.65 (Mahalanobis matching, 17 pairs) vs Gamma=1.0 (all three within-width strategies: exact-width 4 pairs, median 23 pairs, tertile 16 pairs) is not adequately problematized. Mahalanobis matching on log(width), layer, log(L0) allows cross-width matches. Since absorption is strongly confounded with width, cross-width matched pairs may match on L0 but still differ substantially on width-correlated features, inflating Gamma.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Add explicit discussion of why Mahalanobis and within-width matching diverge. State: 'The absorption-quality association is robust in cross-width comparisons (Gamma=2.65) but undetectable within fixed width (Gamma=1.0 across all within-width strategies). The Gamma=2.65 should be interpreted as robustness conditional on matching covariates that permit cross-width pairs, not as evidence of a within-width causal effect.' This is a core limitation, not a caveat. WHERE: writing/paper.md (Section 4.1 Results paragraph after Table 4, Section 5.1). EFFORT: 30 min writing. VERIFY: discussion explicitly interprets Gamma divergence as limitation.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:absorption-adequately-all-allows-but-confounded-correlated-cross:83b1fcc27ce4"
+    },
+    {
+      "id": "WRI001",
+      "description": "Figure numbering jumps from 3 to 5 (no Figure 4). Sections 4.3 (gradient analysis with phase boundary detection) and 4.4 (taxonomy correction) have zero visual support. Three generated figures (fig4_hypothesis_verdicts, fig6_taxonomy_correction, fig7_crossdomain_by_layer) are not referenced in paper text. Section 4.3 reports '443 points with gradient magnitude exceeding the 70th percentile threshold (0.69), with maximum gradient magnitude of 0.99' entirely in text without visualization. 'Figures and Tables' section after Conclusion lists raw filenames (fig1_partial_correlations.pdf) -- production artifact.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Include gradient surface figure in Section 4.3 (critical for a 'scaling surface' contribution). Include taxonomy correction figure in Section 4.4. Renumber all figures sequentially (1, 2, 3, 4, 5, 6). Remove 'Figures and Tables' artifact section. Consider adding a method overview figure at top of Section 3. WHERE: writing/paper.md. EFFORT: 1 hour. VERIFY: no figure number gaps; Sections 4.3 and 4.4 each have at least one figure; no raw filenames in paper.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:70th-after-analysis-and-and-are-artifact-boundary:c1ded7dae3bb"
+    },
+    {
+      "id": "WRI002",
+      "description": "Abstract is 230 words dense with 7 quantitative values (partial r, p-values, c', Sobel z, Gamma, R^2, percentage points). Reader must process five separate statistical claims before reaching the summary sentence. Structure buries the qualitative take-home message.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Restructure abstract: (1) Problem statement (2 sentences), (2) Qualitative contribution summary (3 sentences stating what we found, not how), (3) Key quantitative highlights (3-4 numbers max: SP-F1 partial r, SCR Sobel z, interaction p, corrected taxonomy rate), (4) Practical implications (1 sentence). WHERE: writing/paper.md (abstract). EFFORT: 30 min. VERIFY: abstract leads with qualitative take-home; no more than 4 quantitative values before the summary sentence.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:abstract-before-buries-c-claims-dense-five-gamma:e811fb74f8a8"
+    },
+    {
+      "id": "WRI003",
+      "description": "Section 5.1 is ~800 words including a 9-row Bradford Hill criteria table (Table 7). Bradford Hill is an informal epidemiological heuristic, not a rigorous causal framework. Its prominence in main text may irritate reviewers familiar with causal inference who know it cannot establish causation. This is especially problematic given SND001 (causal overclaiming).",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Move Table 7 (Bradford Hill) to supplementary material. Summarize in one sentence: 'A systematic Bradford Hill assessment yields 3 strong, 5 moderate, 0 weak criteria (Supplementary Table S2), consistent with but not sufficient for a causal interpretation.' WHERE: writing/paper.md (Section 5.1). EFFORT: 15 min. VERIFY: Table 7 not in main text; reference to supplementary present.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-a-an-bradford-bradford-cannot-causal-causal:b559aea0e3a4"
+    },
+    {
+      "id": "WRI004",
+      "description": "'Super-absorber' terminology introduced in Section 4.2, reused in Sections 5.2 and 6, but never formally defined. Not in glossary.md. Feature 8213 is cited as example but term used generically for a class of polysemantic SAE latents.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Define on first use in Section 4.2: 'polysemantic SAE latents that activate across most city-related tokens regardless of the specific geographic attribute being probed, which we term super-absorbers.' Add to glossary.md. WHERE: writing/paper.md (Section 4.2), writing/glossary.md. EFFORT: 10 min. VERIFY: definition present on first use; term in glossary.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-absorber-and-as-but-but-cited-class:32ebb7a98b63"
+    },
+    {
+      "id": "WRI005",
+      "description": "Conclusion says 'The epidemiological causal inference methods introduced here...' implying the methods are novel. Baron-Kenny (1986), Rosenbaum (2002), and partial correlation are textbook methods in social science. The novelty is their first APPLICATION to SAE evaluation, not their introduction.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Change 'introduced here' to 'applied here for the first time to SAE evaluation.' WHERE: writing/paper.md (Conclusion). EFFORT: 5 min. VERIFY: no instance of 'introduced here' without 'to SAE evaluation' qualifier.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:and-application-are-are-baron-causal-conclusion-correlation:7981e4e7ad05"
+    },
+    {
+      "id": "ANL001",
+      "description": "Taxonomy correction dual-rate confusion: corrected Type II comprehensive rate = 19.2% vs Chanin false-negative rate = 73.1%. The 54 percentage-point gap means the two operational definitions of 'absorption' disagree on the majority of letters. Paper reports both as complementary when they are in deep tension. Conclusion simultaneously says 'the original 92.3% is an artifact' and 'Chanin independently validates 73.1%.' A reader will be confused about which rate to trust.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Add reconciliation paragraph in Section 4.4 or 5.4: 'The magnitude-ratio metric (Type II) measures whether parent features fire at REDUCED magnitude in absorption contexts. The Chanin false-negative metric measures whether parent features FAIL TO FIRE entirely. The 54-percentage-point gap reveals that most absorption in GPT-2 Small is complete suppression (false negatives on specific inputs) rather than systematic magnitude reduction across all inputs. The corrected 19.2% measures how many letters show CONSISTENT magnitude suppression; the 73.1% measures how many letters have ANY instances of COMPLETE absorption.' Explicitly declare which rate is the validated primary metric for downstream use. WHERE: writing/paper.md (Section 4.4 or 5.4). EFFORT: 30 min. VERIFY: reconciliation paragraph present; primary metric declared.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-about-absorption-an-and-are-artifact-as:4002fcd69993"
+    },
+    {
+      "id": "ANL002",
+      "description": "Mediation analysis assumes causal ordering L0->Absorption->Quality. The alternative_direction_test (Quality->Absorption->L0) produces STRONGER Sobel z values: TPP 2.632 vs 2.083, SCR 3.886 vs 3.621, SP-F1 4.334 vs 4.083. Paper does not report or discuss the reverse direction despite it being computed in source data. The fact that final_results.json accidentally reported the reverse values (EXP002) proves the data exists but was misrouted.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Report reverse-direction Sobel z values in Discussion or supplementary material. Note that reverse path produces stronger mediation statistics. Discuss why forward path is preferred despite weaker statistics: 'L0 is a training hyperparameter set before SAE training begins, establishing temporal precedence that supports the forward path L0->Absorption->Quality. The reverse path's stronger Sobel z suggests the Quality->Absorption association is tighter than L0->Absorption, which is consistent with absorption being a proximal mechanism rather than L0 being a distal cause.' WHERE: writing/paper.md (Section 5.1 or supplementary). EFFORT: 30 min. VERIFY: reverse direction values reported; temporal ordering argument present.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:absorption-absorption-accidentally-alternative_direction_test-analysis-a:e2ec5ad35011"
+    },
+    {
+      "id": "PLAN001",
+      "description": "No power analysis for within-width correlations was pre-specified or reported. With n=15-18 per stratum, power to detect rho=0.3 at alpha=0.05 is only 24-45%. The within-width null (Gamma=1.0) is the expected outcome from insufficient power alone, even if a real effect exists. This weakens the interpretation of the within-width null as strong evidence against within-width causal effects.",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "Compute minimum sample size for 80% power to detect rho=0.3 at alpha=0.05 (result: n~84). Report in Discussion/Limitations: 'Within-width strata contain n=15-18 observations, providing only 24-45% power to detect a medium-effect correlation at alpha=0.05. The within-width null may reflect insufficient power rather than genuine absence of effect. Definitive within-width evidence requires n>=84 per stratum.' WHERE: writing/paper.md (Section 5.4 Limitations). EFFORT: 30 min. VERIFY: power analysis paragraph present with specific n and power figures.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "planning:a-against-alone-alpha-analysis-as-at-causal:857c4a9fbe28"
+    },
+    {
+      "id": "PLAN002",
+      "description": "GPT-2 Small as Gemma 2B fallback was not pre-validated. A 5-minute pilot checking (1) fraction of active SAE features on city prompts and (2) cosine similarity between SAE features and probe directions would have revealed the 98% dead feature problem before committing to the full Phase 2 experiment. The 0% cosine-calibrated result was predictable from model capacity alone.",
+      "category": "planning",
+      "severity": "medium",
+      "suggestion": "For iteration 6: if any model fallback is planned, run a 5-minute capacity check BEFORE committing to full experiment. Check: (a) fraction of active SAE features on task-relevant prompts (threshold: >5%), (b) whether any feature aligns with probe directions above cosine threshold 0.05. If both fail, do not proceed with fallback model. WHERE: plan/task_plan.md. EFFORT: 5 min at planning stage. VERIFY: fallback validation pilot present in task plan for any experiment using a non-primary model.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "planning:2b-a-active-alone-and-and-as-before:a24eef1c3ce9"
+    },
+    {
+      "id": "PIPE001",
+      "description": "No integration cross-check was pre-specified. The data pipeline failure (4+ wrong fields in final_results.json) would have been caught by a pre-specified consistency check between phase-level JSONs and the summary JSON. Root cause of EXP002.",
+      "category": "pipeline",
+      "severity": "medium",
+      "suggestion": "Add explicit integration validation step: after final_integration produces final_results.json, run a cross-check script that compares every numerical field against its source phase JSON. Fail loudly if any discrepancy exceeds rounding tolerance (1e-3 relative error). Include check for verdict consistency (e.g., if corrected_rate < original_rate by >10pp, verdict cannot be 'CORRECTION_MINIMAL'). WHERE: exp/code/validate_integration.py (new file), plan/task_plan.md. EFFORT: 1 hour to write validation script. VERIFY: validation script exists, runs as part of final_integration, and would have caught all 4 EXP002 errors.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "pipeline:a-and-been-between-by-caught-cause-check:e442ce50010f"
+    },
+    {
+      "id": "SND006",
+      "description": "GAM fitted with Gaussian response on absorption rates bounded in [0,1]. Distribution is heavily right-skewed (mean=0.077, range 0.0001-0.896). A Gaussian GAM can predict negative absorption values or values > 1. Paper does not report smoothing basis, number of knots, penalty parameter, or GAM software version.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Report GAM specification in Section 3.3.2 or supplementary: pyGAM package version, number of spline basis functions per smooth term, smoothing penalty lambda, link function. Run Beta-GAM (logit link) sensitivity check on same data. If interaction p-value is similar order of magnitude, note as robustness check. If materially different, report as caveat. WHERE: writing/paper.md (Section 3.3.2 or supplementary), exp/code/P3_scaling_surface*.py. EFFORT: 45 min. VERIFY: GAM specification details present in paper.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-absorption-absorption-basis-bounded-can-distribution-does:5eb081dd3eec"
+    },
+    {
+      "id": "REPR001",
+      "description": "48-SAE dataset from Phase 1 derived from prior iteration's C3A_saebench_corr.json (iter_004). Paper does not specify how to reconstruct from SAEBench raw data. Absorption scores used in Phase 1 (iter_004 derived) and Phase 3 (SAEBench precomputed) may use different measurement protocols. Consistency not confirmed in paper.",
+      "category": "experiment",
+      "severity": "low",
+      "suggestion": "Add sentence in Section 3.1.1: 'Phase 1 and Phase 3 absorption scores are both derived from SAEBench v[X] precomputed data using the Chanin et al. (2024) absorption measurement protocol. The 48-SAE Phase 1 subset is the intersection of Gemma Scope 2B SAEs with available L0 metadata from the sae_bench_results repository.' If protocols differ, note the methodological difference and discuss potential impact. WHERE: writing/paper.md (Section 3.1.1). EFFORT: 15 min. VERIFY: sentence present in Methods confirming measurement protocol consistency or noting difference.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:absorption-and-c3a_saebench_corr-confirmed-consistency-data-dataset-deri:eaf5790cf880"
+    }
+  ],
+  "issues_fixed": [
+    "ITER4-EXP001 (FIXED): H3 width-L0 confound fully resolved. Iteration 5 redesigned Phase 1 to add L0 as covariate in partial correlations, compute within-width-tier correlations, and perform suppressor diagnosis. 3/4 metrics retain |partial_r| > 0.2 after L0 control. SP-F1 shows suppression effect (strengthening from -0.664 to -0.746). This was the primary blocker from iter_004.",
+    "ITER4-EXP002 (FIXED): 92.3% taxonomy rate audited. Phase 4 taxonomy correction directly addresses the inflated rate, reducing to 19.2% via frequency-matched comparison baselines. Paper body correctly reports 19.2% (though final_results.json has the wrong value -- see EXP002).",
+    "ITER4-EXP006 (FIXED): PMI regression now uses letter-level clustered SEs (26 clusters). L0 significance drops from p=0.012 (HC3) to p=0.206 (clustered), revealing the HC3 result was an artifact of correlated residuals. Hurdle model and beta regression also reported.",
+    "ITER4-WRI001 (FIXED): 'Validated quality indicator' language replaced with 'quality-correlated' and 'quality predictor' throughout. Explicit acknowledgment that causal evidence requires intervention experiments.",
+    "ITER4-WRI003 (FIXED): Figure generation completed during experiment phase. 7 PNG + 4 PDF figures generated, 4 included in paper. This resolves the chronic 3-iteration figure generation lag (iter_001-003 had zero generated figures).",
+    "ITER4-PLAN001 (FIXED): Confound control analyses pre-specified in experimental plan as explicit tasks. The four-method convergent design (partial correlation, stratification, mediation, Rosenbaum) was planned from the start, not discovered in post-analysis.",
+    "ITER4-EXP005 (PARTIALLY FIXED): Cross-model gap managed through explicit model separation per phase. But GPT-2 Small fallback undermines Phase 2 validity.",
+    "PILOT-TO-FULL (FIXED): All 14 iter_005 experiments ran at FULL scale with mode='FULL'. This resolves the 3-iteration systemic PILOT mode blocker (iter_001-003).",
+    "ITER4-WRI002 (PARTIALLY FIXED): Title no longer references failed LV competitive exclusion framework."
+  ],
+  "success_patterns": [
+    "METHODOLOGICAL INNOVATION: Epidemiological causal inference methods (partial correlation with confound control, Baron-Kenny mediation, Rosenbaum sensitivity analysis, Bradford Hill criteria) applied to SAE evaluation for the FIRST TIME in the literature. This methodological transplant is the paper's primary novelty source.",
+    "FOUR-METHOD CONVERGENT DESIGN: Same hypothesis (H1) tested via 4 independent methods with different assumptions. Cross-method convergence (SP-F1 and SCR significant across partial correlation, mediation, and partial matching strategies) substantially strengthens conclusions.",
+    "SP-F1 SUPPRESSION EFFECT: Controlling for L0 STRENGTHENED the absorption-quality correlation (from -0.664 to -0.746). This is the opposite of what the confound hypothesis predicted and is the single most informative finding in the paper.",
+    "420-SAE SCALING SURFACE: N=420 with interaction p=3.1e-15 is the most statistically powerful result. R^2=0.693 with detected phase boundary at L0~7-14. First formal 2D characterization of absorption in the SAE literature. Immediately actionable (target L0 > 14).",
+    "HONEST NEGATIVE RESULT REPORTING (CONSECUTIVE 5 ITERATIONS): Within-width matching null (Gamma=1.0), 0% cosine-calibrated cross-domain rate, non-significant unlearning, model fallback, GPT-2 Small limitations -- all reported transparently with specific numbers and root cause analysis. CONSISTENTLY PRAISED by all reviewers as the paper's strongest aspect.",
+    "PRE-REGISTERED FALSIFICATION CRITERIA: |partial_r| > 0.2 threshold enables GO decision in 1 minute. All hypotheses have explicit go/no-go quantitative thresholds declared before analysis.",
+    "TAXONOMY CORRECTION (92.3% to 19.2%): Genuine measurement audit contribution. Prior rate was artifact of feature specificity, not absorption.",
+    "ZERO-GPU ANALYSIS PARADIGM: Phase 1 (48 SAEs CPU analysis) and Phase 3 (420 SAEs from SAEBench cache) demonstrate highest impact/cost ratio. Most impactful findings required zero GPU compute.",
+    "PAPER BODY CLAIM-EVIDENCE INTEGRITY: 12 cross-checks between paper.md numbers and source JSON files all match. Data integrity maintained at the writing level despite summary JSON corruption.",
+    "ZERO EXPERIMENT FAILURES: 14/14 tasks completed successfully (iter_005), 13/13 (iter_004). Infrastructure fully reliable."
+  ],
+  "systemic_patterns": [
+    "PERSISTENT: Data pipeline integration is the weakest link. final_results.json had 4+ corrupted fields in iter_005 (wrong Sobel z from reverse path, wrong taxonomy rate, wrong n_full_mediations, wrong phase_boundary). Iter_001-003 had PILOT mode propagation issues. Root cause across iterations: no automated cross-check between source JSONs and summary JSON. REQUIRES: automated validation script.",
+    "PERSISTENT: Figure integration lags behind generation. Iter_001-003: zero figures. Iter_004: 4/5 referenced. Iter_005: 4/7 referenced. Improving trend but still not at 100%. REQUIRES: write-then-check workflow where first writing pass must reference all generated figures.",
+    "PERSISTENT (ESCALATING): Framing bias toward overclaiming. Iter_004: 'validated quality indicator.' Iter_005: 'causal mediation' from observational data. Common root: stronger causal language makes a more publishable narrative, creating systematic incentive to overclaim. REQUIRES: explicit anti-overclaiming check in writing agent prompt.",
+    "RESOLVED: Pilot-to-full escalation now works (fixed since iter_004). All experiments in iter_005 at FULL scale.",
+    "RESOLVED: Confound control pre-specification (fixed since iter_005). Four-method convergent design planned from the start.",
+    "IMPROVING: Writing quality on upward trajectory across 5 iterations. Statistical reporting is now a strength. Intellectual honesty consistently praised."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 85,
+    "total_gpu_idle_minutes": 15.0,
+    "total_actual_gpu_minutes": 9.5,
+    "total_actual_cpu_minutes": 8.0,
+    "total_planned_minutes": 425,
+    "total_actual_minutes": 17.7,
+    "bottleneck_stages": [
+      "writing_revision",
+      "data_integration",
+      "review_feedback_cycle"
+    ],
+    "suggestions": [
+      "Add automated cross-check validation between phase-level JSONs and final_results.json as the LAST integration task -- would have prevented the data pipeline failure at zero cost",
+      "Include all generated figures in the paper during FIRST writing pass, not as a revision afterthought -- prevents recurring figure integration lag",
+      "Pre-compute architecture-stratified GAM during the P3_scaling_surface task (30 seconds extra CPU time) to avoid needing a separate analysis task later",
+      "Run FDR correction as part of the P1_synthesis task rather than discovering the need during review",
+      "Generate standardized AND unstandardized coefficient tables simultaneously in mediation output, with explicit labels, to prevent Table 3-type confusion",
+      "Add anti-overclaiming check to writing agent: any sentence containing 'causal', 'cause', 'mediate' must cite interventional evidence or use 'statistical' qualifier"
+    ]
+  },
+  "recommended_focus": [
+    "PRIORITY 1 (PUBLICATION-BLOCKING): Fix data pipeline integrity -- correct final_results.json and final_results_summary.md. Add validation script. ZERO GPU, 1 HOUR.",
+    "PRIORITY 2 (PUBLICATION-BLOCKING): Downgrade causal language throughout paper. Replace 'causally mediates' with 'statistically mediates.' Move within-width null to prominent Results position. Add competing common-cause explanation. Move Bradford Hill table to supplementary. ZERO GPU, 2 HOURS.",
+    "PRIORITY 3 (PUBLICATION-BLOCKING): Fix Table 3 coefficient confusion. Choose one type (unstandardized recommended), label clearly, verify arithmetic consistency (a*b = ab). ZERO GPU, 1 HOUR.",
+    "PRIORITY 4 (PUBLICATION-BLOCKING): Reclassify H2 as FALSIFIED. Reframe Phase 2 as metric-validity finding with boxed warning. Update abstract and conclusion. ZERO GPU, 1 HOUR.",
+    "PRIORITY 5 (MAJOR): Add architecture as GAM covariate. Run within-architecture interaction GAM on 360 standard SAEs. Report both p-values. ZERO GPU, 1 HOUR.",
+    "PRIORITY 6 (MAJOR): Apply FDR correction (Benjamini-Hochberg) to partial correlations and mediation tests. Report which results survive. ZERO GPU, 1 HOUR.",
+    "PRIORITY 7 (MAJOR): Fix figure numbering. Add gradient surface figure to Section 4.3. Add taxonomy correction figure to Section 4.4. Remove production artifact section. ZERO GPU, 1 HOUR.",
+    "PRIORITY 8 (MAJOR): Expand suppression effect discussion with competing interpretation. Demote SP-F1, promote SCR full mediation as headline. ZERO GPU, 1 HOUR.",
+    "PRIORITY 9 (MODERATE): Add power analysis for within-width tests (n~84 needed for 80% power). ZERO GPU, 30 MIN.",
+    "PRIORITY 10 (MODERATE): Reconcile 19.2% vs 73.1% taxonomy rates with explanatory paragraph. ZERO GPU, 30 MIN.",
+    "PRIORITY 11 (MODERATE): Report reverse-direction mediation Sobel z values + temporal ordering argument. ZERO GPU, 30 MIN.",
+    "PRIORITY 12 (FUTURE, HIGH IMPACT): Repeat Phase 2 on Gemma 2 2B with Gemma Scope SAEs. REQUIRES MODEL ACCESS + 4-6 GPU HOURS."
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

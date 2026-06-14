@@ -1,0 +1,304 @@
+{
+  "tasks": [
+    {
+      "id": "e1_pca_construction",
+      "name": "E1: Construct PCA-Basis SAE",
+      "description": "Compute top-k principal components of Pythia-160M layer 8 activations (2k tokens) and construct a PCA-basis SAE by replacing the decoder with these PCs. Match L0 to Standard SAE. Save checkpoint.",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/checkpoints/pca_sae/config.json and ae.pt",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "pythia-160m-deduped", "path": "iter_002/downloaded_saes/Standard_pythia-160m-deduped__0108"}
+      ],
+      "pilot": {
+        "samples": 2048,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "PCA SAE loads successfully; decoder columns are orthonormal; L0 within 20% of Standard SAE"
+      },
+      "visualizations": []
+    },
+    {
+      "id": "e1_absorption_eval",
+      "name": "E1: Absorption Evaluation on All Conditions",
+      "description": "Run SAEBench absorption evaluator and custom semantic-hierarchy pipeline on: (a) 3 trained SAEs (Standard, TopK, Matryoshka), (b) existing Random SAE, (c) new PCA-basis SAE. Compute first-letter, semantic-hierarchy, and non-hierarchy absorption.",
+      "type": "experiment",
+      "depends_on": ["e1_pca_construction"],
+      "expected_output": "exp/results/e1_decomposition_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "all-pythia-saes", "path": "iter_002/downloaded_saes/"},
+        {"type": "checkpoint", "name": "pca-sae", "path": "exp/checkpoints/pca_sae/"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All conditions return finite absorption scores; PCA score within 0.1 of trained SAEs on semantic hierarchies"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Mean absorption by condition (trained, random, PCA) per task type",
+          "x": "condition",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e1_anova",
+      "name": "E1: Statistical Analysis (ANOVA)",
+      "description": "Compute one-way ANOVA across conditions (trained, random, PCA) for each task type. Report F-statistic, p-value, and effect size (eta-squared).",
+      "type": "analysis",
+      "depends_on": ["e1_absorption_eval"],
+      "expected_output": "exp/results/e1_anova_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "ANOVA results by task type",
+          "columns": ["Task_Type", "F_statistic", "p_value", "eta_squared"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e2_downstream_collection",
+      "name": "E2: Collect Downstream Utility Metrics",
+      "description": "For all 8 SAEs, collect or compute: sparse probing F1, RAVEL Cause/Isolation (if available), PW-MCC feature consistency, and steering efficacy proxy. Also collect L0 and reconstruction loss. Use SAEBench public data where available; compute via SAELens otherwise.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/e2_downstream_metrics.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {"type": "checkpoint", "name": "all-pythia-saes", "path": "iter_002/downloaded_saes/"}
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Metrics collected for >= 6 SAEs; sparse probing F1 in [0, 1]; L0 values consistent with configs"
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Downstream metrics by architecture",
+          "columns": ["Architecture", "Sparse_Probing_F1", "RAVEL_Cause", "PW_MCC", "L0", "Reconstruction_Loss"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e2_partial_correlation",
+      "name": "E2: Partial Correlation Analysis",
+      "description": "Compute partial Pearson correlation between first-letter absorption and each downstream metric, controlling for L0 and reconstruction loss. Bootstrap 95% CI (B=10,000). Test against null of r=0.",
+      "type": "analysis",
+      "depends_on": ["e2_downstream_collection"],
+      "expected_output": "exp/results/e2_partial_correlation.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "Absorption vs downstream utility with regression line",
+          "x": "absorption_score",
+          "y": "downstream_metric",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e3_low_cooccurrence",
+      "name": "E3: Low Co-occurrence Non-Hierarchy Control",
+      "description": "Create 5 random unrelated word pairs with low semantic co-occurrence (e.g., zebra-quantum, volcano-piano). Run custom absorption pipeline on all 8 SAEs. Compare with existing hierarchy and high co-occurrence results.",
+      "type": "experiment",
+      "depends_on": [],
+      "expected_output": "exp/results/e3_low_cooccurrence_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "multi_gpu_strategy": "single",
+      "max_batch_size_hint": "auto-detect",
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All pairs return finite absorption scores; probe AUROC < 0.8 for at least 3/5 pairs (verifying low co-occurrence)"
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption by condition: hierarchy vs high co-occurrence vs low co-occurrence",
+          "x": "condition",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e3_statistical_test",
+      "name": "E3: Paired t-tests Across Conditions",
+      "description": "Run paired t-tests: hierarchy vs high co-occurrence (replication), hierarchy vs low co-occurrence (new). Report t-statistic, p-value, and Cohen's d.",
+      "type": "analysis",
+      "depends_on": ["e3_low_cooccurrence"],
+      "expected_output": "exp/results/e3_ttest_results.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Paired t-test results",
+          "columns": ["Comparison", "t_statistic", "p_value", "Cohens_d"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e4_margin_computation",
+      "name": "E4: Random-Baseline Margin Computation",
+      "description": "For all 8 SAEs, compute margin = (trained_score - random_score) / trained_score for semantic-hierarchy absorption. Use existing iter_002 data for trained and random scores.",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "exp/results/e4_margins.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Random-baseline-corrected margins by architecture",
+          "x": "architecture",
+          "y": "margin",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "e4_welch_test",
+      "name": "E4: Welch's t-test on Architecture Groups",
+      "description": "Compare random-baseline margins between low-absorption (Matryoshka, Gated, PAnneal) and high-absorption (BatchTopK, TopK, JumpRelu) architecture groups using Welch's t-test.",
+      "type": "analysis",
+      "depends_on": ["e4_margin_computation"],
+      "expected_output": "exp/results/e4_welch_test.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Welch's t-test results for architecture group comparison",
+          "columns": ["Group_1", "Group_2", "t_statistic", "p_value", "Cohens_d"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h5_h7_ranking_analysis",
+      "name": "H5/H7: Ranking Consistency and Correlation",
+      "description": "Compute Pearson correlation between first-letter and semantic-hierarchy absorption (H5). Compute Kendall's tau between raw ranking and random-baseline-corrected ranking (H7). Bootstrap 95% CI.",
+      "type": "analysis",
+      "depends_on": ["e4_margin_computation"],
+      "expected_output": "exp/results/h5_h7_ranking.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "scatter_plot",
+          "description": "First-letter vs semantic-hierarchy absorption scatter",
+          "x": "first_letter_absorption",
+          "y": "semantic_hierarchy_absorption",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h6_model_divergence",
+      "name": "H6: Model-Specific Metric Behavior (GPT-2 vs Pythia)",
+      "description": "Compare semantic-hierarchy absorption for the same architecture (Standard) on GPT-2 small vs Pythia-160M. Use existing iter_002 GPT-2 replication data and Pythia data. Run paired t-test across hierarchies. Report divergence statistics.",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "exp/results/h6_model_divergence.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "shared_resources": [
+        {"type": "dataset", "name": "gpt2-replication", "path": "iter_002/exp/results/full/gpt2_replication_results.json"},
+        {"type": "dataset", "name": "pythia-semantic", "path": "iter_002/exp/results/full/semantic_hierarchy_pythia_results.json"}
+      ],
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Standard SAE absorption: GPT-2 vs Pythia per hierarchy",
+          "x": "hierarchy",
+          "y": "absorption_score",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "h8_ceiling_effect",
+      "name": "H8: Probe Difficulty Ceiling Effect",
+      "description": "Report distribution of probe AUROCs across all hierarchies, SAEs, and conditions. Compute mean, std, min, max. Test whether mean > 0.95.",
+      "type": "analysis",
+      "depends_on": [],
+      "expected_output": "exp/results/h8_ceiling_effect.json",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 5,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {
+          "type": "box_plot",
+          "description": "Probe AUROC distribution across all conditions",
+          "x": "condition",
+          "y": "auroc",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "final_figures",
+      "name": "Generate All Paper Figures",
+      "description": "Generate all figures and tables for the paper using matplotlib/seaborn. Save as high-resolution PNG and PDF.",
+      "type": "analysis",
+      "depends_on": ["e1_anova", "e2_partial_correlation", "e3_statistical_test", "e4_welch_test", "h5_h7_ranking_analysis", "h6_model_divergence", "h8_ceiling_effect"],
+      "expected_output": "exp/figures/",
+      "candidate_id": "cand_a",
+      "gpu_count": 0,
+      "estimated_minutes": 10,
+      "multi_gpu_strategy": "single",
+      "visualizations": [
+        {"type": "bar_chart", "description": "Figure 2: Decomposition results", "paper_section": "experiments"},
+        {"type": "scatter_plot", "description": "Figure 3: Utility disconnect", "paper_section": "experiments"},
+        {"type": "bar_chart", "description": "Figure 4: Random-baseline margins", "paper_section": "experiments"},
+        {"type": "box_plot", "description": "Figure 5: Ceiling effect", "paper_section": "experiments"}
+      ]
+    }
+  ]
+}

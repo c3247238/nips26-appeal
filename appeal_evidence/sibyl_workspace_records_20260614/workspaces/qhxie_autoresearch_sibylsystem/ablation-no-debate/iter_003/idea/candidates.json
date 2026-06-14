@@ -1,0 +1,148 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_p1",
+      "title": "Encoder-Driven Feature Absorption: Mechanism and Safety Implications",
+      "status": "front_runner",
+      "summary": "Feature absorption in SAEs is driven by the encoder's learned alignment with hierarchical structure, not decoder geometry. A 2x2 factorial decomposition shows trained encoder + random decoder achieves 0.49 absorption (matching full training at 0.484), while random encoder + trained decoder drops to 0.299. This opens the critical question: are safety-critical features disproportionately absorbed in real SAEs?",
+      "hypotheses": [
+        "H1: Trained SAEs show higher multi-child proportional absorption than random baselines (PASSED)",
+        "H_Mech: Absorption is driven by encoder alignment, not decoder geometry (PASSED)",
+        "H3: Steering absorbed features improves sensitivity (PASSED - 1.62x ratio)",
+        "H2: Absorption correlates with feature frequency (FAILED - wrong direction: +0.171)"
+      ],
+      "pilot_focus": "H_Mech 2x2 factorial validation with stochastic hierarchy (5 seeds), H_Comp hierarchy strength sweep, H_Pareto sensitivity-absorption frontier, H_Safe on Gemma Scope",
+      "key_papers": [
+        "Chanin et al. 2024",
+        "Korznikov et al. 2026",
+        "Tang et al. 2512.05534",
+        "Basu et al. 2603.18353"
+      ],
+      "merge_contributions": {
+        "pragmatist": "Multi-child proportional ablation fixes measurement saturation.",
+        "innovator": "Safety-critical absorption as highest-novelty sub-hypothesis (9/10).",
+        "theoretical": "Absorption-sensitivity uncertainty relation predicts Pareto frontier.",
+        "interdisciplinary": "Phase-transition framing for hierarchy strength dependence (H_Comp).",
+        "contrarian": "Decoder determinism challenge directly addressed by H_Mech factorial.",
+        "empiricist": "Strict 2x2 factorial design; Pareto frontier measurement methodology."
+      },
+      "novelty_flag": "none",
+      "estimated_runtime_hours": 3.5,
+      "drop_trigger": "If stochastic hierarchy shows absorption is purely random (no structure)"
+    },
+    {
+      "candidate_id": "cand_safe",
+      "title": "Safety-Critical Features Are Disproportionately Absorbed",
+      "status": "front_runner (priority 1)",
+      "summary": "SAEs systematically fail to represent rare, safety-critical features due to absorption. SAE-based safety analysis is unreliable precisely for the cases that matter most. No prior work examines absorption in safety-critical features. Synthetic pilot failed (p=0.665) because synthetic features lack semantics -- real Gemma Scope SAEs required.",
+      "hypotheses": [
+        "H_Safe: Safety-critical features have higher absorption rates than matched non-safety features (Mann-Whitney p < 0.05)"
+      ],
+      "pilot_focus": "Gemma Scope SAE (gemma-2b, layer 12), 20 safety + 20 control features from Neuronpedia, multi-child proportional absorption measurement",
+      "key_papers": [
+        "Basu et al. 2603.18353",
+        "Chanin et al. 2024",
+        "Bhargav & Zhu 2511.00029"
+      ],
+      "novelty_flag": "novel_application",
+      "novelty_note": "No prior work examines whether safety-critical features are systematically more absorbed. Genuinely novel (9/10).",
+      "estimated_runtime_hours": 1,
+      "drop_trigger": "If safety-relevant features do not show elevated absorption rates on real SAEs (p > 0.3)"
+    },
+    {
+      "candidate_id": "cand_encreg",
+      "title": "Encoder Regularization to Reduce Absorption",
+      "status": "backup",
+      "summary": "If H_Mech confirms encoder-driven absorption, modifying the encoder architecture or training objective could reduce absorption. This is a constructive intervention target opened by the H_Mech finding -- prior work (OrtSAE) modifies both encoder and decoder, but encoder-only modification is a cleaner intervention.",
+      "hypotheses": [
+        "H_EncReg: Encoder regularization penalizing parent-child activation correlation reduces absorption >30% with <5% reconstruction degradation"
+      ],
+      "pilot_focus": "Not yet tested. Would require modifying SAE training loss.",
+      "key_papers": [
+        "Korznikov et al. 2025 (OrtSAE)",
+        "Tang et al. 2512.05534"
+      ],
+      "novelty_flag": "novel_methodology",
+      "novelty_note": "First encoder-targeted intervention for absorption reduction (prior work modifies both encoder and decoder).",
+      "estimated_runtime_hours": 1.5,
+      "drop_trigger": "If regularization degrades reconstruction >10% or reduces absorption <10%"
+    },
+    {
+      "candidate_id": "cand_geom",
+      "title": "Encoder Geometry Diagnostic for Training-Free Absorption Prediction",
+      "status": "backup",
+      "summary": "Training-free proxy for absorption prediction using encoder direction geometry. DEPRIORITIZED because H_Mech shows decoder geometry is irrelevant to absorption -- geometry-based prediction would need to operate on encoder directions instead.",
+      "hypotheses": [
+        "H_Geom: Encoder direction containment ratio predicts absorption (AUC > 0.75)"
+      ],
+      "pilot_focus": "DEPRIORITIZED -- H_Mech shows decoder geometry contributes nothing. Would need to validate on encoder directions.",
+      "key_papers": [
+        "Tang et al. 2512.05534",
+        "Blumenthal & Mehta 2023"
+      ],
+      "novelty_flag": "deferred",
+      "novelty_note": "Would need to operate on encoder directions instead of decoder directions.",
+      "estimated_runtime_hours": 0.5,
+      "drop_trigger": "If AUC < 0.60 on validation set"
+    },
+    {
+      "candidate_id": "cand_ens",
+      "title": "Multi-Resolution SAE Ensemble for Hierarchical Feature Recovery",
+      "status": "backup",
+      "summary": "Train ensemble of SAEs with varying L0 targets (16, 64, 256) to collectively recover hierarchical features. High-sparsity SAEs capture coarse parent features; low-sparsity SAEs capture fine child features.",
+      "hypotheses": [
+        "H_Ens: High-L0 SAE captures child features that low-L0 SAE has absorbed"
+      ],
+      "pilot_focus": "Not yet tested. High cost (2 hours).",
+      "key_papers": [
+        "Muchane et al. 2025",
+        "Gadgil et al. 2025"
+      ],
+      "novelty_flag": "partial_overlap",
+      "novelty_note": "Overlaps with Gadgil et al. on ensemble concept but differentiated by L0 diversity mechanism.",
+      "estimated_runtime_hours": 2,
+      "drop_trigger": "If ensemble recovery rate < 20%"
+    },
+    {
+      "candidate_id": "cand_eco",
+      "title": "Efficient Coding Framing (Replaces Competitive Exclusion)",
+      "status": "deferred",
+      "summary": "H2 failure (positive frequency correlation) undermines competitive exclusion framing. New interpretation: absorption is efficient coding (Barlow 1961) -- the encoder compresses redundant parent representations into child subspaces for efficiency, not due to competitive exclusion.",
+      "hypotheses": [
+        "H_Eco: Absorption rate increases with hierarchy strength but via efficient coding, not competitive exclusion"
+      ],
+      "pilot_focus": "DEFERRED -- H2 failure undermines original theoretical foundation. Efficient coding interpretation motivated by H_Mech result.",
+      "key_papers": [
+        "Barlow 1961 (efficient coding)",
+        "Tang et al. 2512.05534"
+      ],
+      "novelty_flag": "reframing",
+      "novelty_note": "Reinterpretation of mechanism, not new empirical contribution.",
+      "estimated_runtime_hours": 0,
+      "drop_trigger": "N/A - reframing only"
+    }
+  ],
+  "pool_status": {
+    "front_runner": "cand_p1",
+    "priority_queue": ["cand_safe", "cand_encreg"],
+    "backups": ["cand_geom", "cand_ens"],
+    "deferred": ["cand_eco"],
+    "dropped": [],
+    "pivot_priority": ["cand_safe", "cand_encreg"],
+    "dropped_notes": "cand_asym (encoder-decoder norm ratio asymmetry) dropped from prior iteration -- pilot data shows no separation (0.487 vs 0.471). Decoder geometry (cand_geom) dropped -- H_Mech shows decoder contributes nothing."
+  },
+  "novelty_assessment": {
+    "cand_safe": "9/10 - No prior work on safety-critical feature absorption",
+    "cand_p1": "8/10 - Novel factorial decomposition methodology",
+    "cand_encreg": "7/10 - Novel encoder-targeted intervention",
+    "cand_geom": "6/10 - Deferred due to decoder geometry finding",
+    "cand_ens": "5/10 - Partial overlap with Gadgil et al.",
+    "cand_eco": "3/10 - Reframing, not new empirical contribution"
+  },
+  "critical_findings_from_prior": [
+    "H_Mech: encoder-driven, not decoder (2x2 factorial)",
+    "H1: trained SAE absorption significantly higher than random (delta=0.353)",
+    "H3: absorbed features MORE sensitive to steering (1.62x ratio)",
+    "H2: positive frequency correlation (rho=+0.171) contradicts competitive exclusion"
+  ]
+}

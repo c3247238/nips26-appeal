@@ -1,0 +1,72 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Post-hoc criterion revision for H_Mech: The original pass criteria (B approx D and C approx A) failed on 14 of 15 runs (93.3%). Criteria were revised to encoder effect > 0.5 and decoder effect < 0.1 after observing the data. This revision was not pre-registered and the paper itself acknowledges it should be interpreted as exploratory rather than confirmatory.",
+    "suggestion": "Either (a) acknowledge the H_Mech result as exploratory/pre-registered-hypothesis-failed and reframe as pilot-scale evidence for the encoder hypothesis, or (b) pre-register the revised criteria in a public registry before running the full experiment."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Three different absorption metrics used across experiments without established equivalence: factorial decomposition uses 'overlap fraction', multi-seed validation uses 'Jaccard overlap', and safety analysis uses 'cosine-based proportional absorption'. Section 3.3 acknowledges this but does not resolve it. The paper presents Table 1 as a unified summary despite metric incompatibility.",
+    "suggestion": "Either (a) pick one canonical metric and recompute all experiments, or (b) explicitly separate Table 1 into metric-specific sections and remove the cross-experiment comparisons."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Random SAE baselines show zero variance (std ~0 across all 5 seeds in multiseed_validation.json), meaning the random absorption rate is deterministic for a given initialization. This is highly suspicious and suggests either (a) the random SAE produces identical activation patterns regardless of seed, or (b) the absorption measurement itself has no sensitivity to the random SAE's actual state. The paper uses this zero-variance baseline to compute effect sizes (Cohen's d > 10), which is misleading when one distribution has zero variance.",
+    "suggestion": "Investigate why random SAEs produce zero-variance absorption. If this is a measurement artifact, recalculate effect sizes with appropriate variance estimates. If it is genuine determinism, acknowledge it explicitly and discuss implications for the effect size interpretation."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Safety-critical feature analysis (H_Safe) uses a saturating metric: both safety and non-safety groups show ~97% absorption (0.967 vs 0.968). At 97%, there is essentially no dynamic range to detect differences. The Mann-Whitney p=0.989 null result is uninterpretable as evidence of 'no safety-specific absorption' because the metric cannot distinguish between safety and non-safety even if differences existed.",
+    "suggestion": "Use a different absorption metric with better dynamic range for the safety analysis. Alternatively, analyze whether the 3% non-absorbed features are systematically non-safety features, which would indicate a real (if small) safety specificity."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The held-out generalization correlation (r=0.998) is based on only 5 data points (n=1 held-out hierarchy per seed). With 5 seeds, the correlation coefficient has at most 3 degrees of freedom and a mathematically fragile point estimate. The paper presents this as 'perfect generalization' but the confidence interval could be wide given the tiny sample.",
+    "suggestion": "Increase the number of held-out hierarchies per seed (e.g., n=3-5) to obtain a more reliable correlation estimate. Report the confidence interval explicitly for the r=0.998 claim."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "Section 3.5 (methodology) promises a one-way ANOVA across all completed variants in the Results, but this is never reported. With only 3 variants and 5 replicates each, the ANOVA would have 2,12 df and low power. The paper focuses on pairwise effect sizes instead, which is more appropriate, but the unfulfilled promise undermines credibility. Readers who look for Section 3.5's promised analysis will not find it.",
+    "suggestion": "Either (a) add the ANOVA to the Results section and report it with appropriate caveats about low power, or (b) remove the promise from Section 3.5 methodology."
+  },
+  {
+    "stage": "review",
+    "category": "soundness",
+    "severity": "major",
+    "description": "The capacity-pressure mechanism (lower L0 -> higher absorption) is a genuinely interesting finding, but the paper does not distinguish between two explanations: (a) encoder capacity pressure forces absorption, versus (b) the TopK activation at lower L0 creates a different sparsity pattern that incidentally resembles absorption. The mechanism claim is post-hoc and the paper acknowledges it requires future validation.",
+    "suggestion": "Add a diagnostic test distinguishing capacity-pressure absorption from TopK artifact. For example, compare with a JumpReLU SAE at equivalent L0 to see if the L0 relationship holds."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "The paper uses d_model=128 throughout all synthetic experiments. This is far below real LLM residual stream dimensions (768 to 12,288). The factorial decomposition finding (encoder effect >> decoder effect) may not replicate at scale: encoder-decoder dynamics could fundamentally change when the overcomplete dictionary is orders of magnitude larger than the model dimension.",
+    "suggestion": "At minimum, add a d_model=512 validation point to establish whether the encoder dominance finding scales. Explicitly acknowledge this as the primary limitation and justify d_model=128 as a pilot-scale choice."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "minor",
+    "description": "The paper claims the core contribution is 'first factorial decomposition' and 'encoder dominance,' but these claims appear in multiple prior works: Oursland (2026) theoretically derives encoder-decoder asymmetry, and the encoder-decoder decomposition is implicit in how SAEs are trained. The paper's contribution is the empirical quantification, not the discovery itself.",
+    "suggestion": "Restate the contribution more precisely as 'first empirical quantification of encoder-decoder asymmetry via controlled factorial decomposition' to avoid overclaiming novelty."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "minor",
+    "description": "The synthetic hierarchy generator is not open-sourced. Without the exact code for hierarchy generation (GMM parameters, noise settings, cosine similarity configuration), independent reproduction is not possible. The paper describes the generator but does not provide an implementation reference.",
+    "suggestion": "Release the synthetic hierarchy generator code and absorption measurement code as open source."
+  }
+]

@@ -1,0 +1,137 @@
+{
+  "pilot_id": "iteration4_bsr_espd_screening_v1",
+  "workspace": "/Users/cwan0785/sibyl-system/workspaces/dlm-improve/current",
+  "created_on": "2026-03-13",
+  "planning_detail": {
+    "samples": 100,
+    "seeds": [
+      42
+    ],
+    "timeout_seconds": 900
+  },
+  "policy": {
+    "mode": "phase1_screening_only",
+    "reason": "Iteration 4 already pivoted away from MGCD/DSG. Phase 1 schedules only the new screening tasks needed to compare cand_bsr_v1 and cand_espd fairly before any conditional extension.",
+    "allowed_work": [
+      "artifact alignment",
+      "runtime contract refresh",
+      "gsm8k shared controls",
+      "mechanism sham controls",
+      "cand_bsr_v1 pilot",
+      "cand_espd pilot"
+    ],
+    "forbidden_work": [
+      "full benchmark scheduling before phase1 signal",
+      "MGCD or DSG resurrection",
+      "dropping RAND-84",
+      "running cand_ugr before BSR or ESPD shows signal"
+    ]
+  },
+  "candidate_priority": [
+    {
+      "candidate_id": "cand_bsr",
+      "status": "front_runner",
+      "activation_rule": "Run in phase 1 as the only quality-first candidate, but freeze it as cand_bsr_v1 before pilot execution."
+    },
+    {
+      "candidate_id": "cand_espd",
+      "status": "parallel_backup",
+      "activation_rule": "Run in phase 1 as the speed-first line under the same runtime contract and with a fixed-frontier sham control."
+    },
+    {
+      "candidate_id": "cand_ugr",
+      "status": "conditional_backup",
+      "activation_rule": "Do not schedule in phase 1. Only activate if cand_bsr_v1 or cand_espd shows real signal."
+    }
+  ],
+  "phase_1_scheduled_tasks": [
+    "freeze_iteration4_pivot_contract",
+    "setup_runtime_contract_v2",
+    "refresh_gsm8k_controls_v2",
+    "build_bsr_sham_controls",
+    "build_espd_fixed_frontier_control",
+    "implement_bsr_v1",
+    "implement_espd",
+    "bsr_gsm8k_pilot_v1",
+    "espd_gsm8k_pilot_v1",
+    "screening_decision_bundle_v1"
+  ],
+  "phase_2_conditional_tasks": [
+    "bsr_mbpp_syntax_guard_pilot",
+    "ugr_conditional_gsm8k_pilot"
+  ],
+  "pilot_config": {
+    "model": "LLaDA-8B",
+    "primary_benchmark": "GSM8K audited slice",
+    "secondary_benchmark": "MBPP audited slice (conditional)",
+    "shared_controls": [
+      "CARD-84",
+      "RAND-84"
+    ],
+    "mechanism_controls": [
+      "RandSpan-84",
+      "EntropySpan-NoBoundary",
+      "BoundaryLock-RandomSpan",
+      "ESPD-FixedFrontier",
+      "SyntaxGuard-only"
+    ],
+    "candidate_arms": [
+      "cand_bsr_v1",
+      "cand_espd"
+    ],
+    "conditional_arms": [
+      "cand_ugr"
+    ],
+    "budget_policy": "quality must be reported at equal compute; speed must be reported at equal quality band",
+    "runtime_requirements": [
+      "probe max-safe batch size before formal runs",
+      "prefer flash_attention_2, otherwise log matched fallback",
+      "compile parity across candidates and controls",
+      "log auxiliary compute overhead separately"
+    ]
+  },
+  "gates": {
+    "bsr_pass": [
+      "cand_bsr_v1 beats RAND-84 on the GSM8K confirm split",
+      "At least one BSR sham control fails to match the gain",
+      "Harm containment improves rather than simply expanding rewrites"
+    ],
+    "espd_pass": [
+      "cand_espd shows clear speed gain under the unified runtime contract",
+      "Quality does not collapse against RAND-84",
+      "ESPD-FixedFrontier cannot explain the same gain"
+    ],
+    "phase2_activation": [
+      "Only trigger MBPP or UGR if bsr_pass or espd_pass is satisfied"
+    ],
+    "overall_no_go": [
+      "If both cand_bsr_v1 and cand_espd fail to show signal, return to idea_debate instead of launching any full benchmark"
+    ]
+  },
+  "reporting_contract": {
+    "tables": [
+      "quality_at_equal_compute",
+      "speed_at_equal_quality_band"
+    ],
+    "required_metrics": [
+      "repair_count",
+      "harm_count",
+      "harmed_stable_tokens",
+      "wall_clock_sec",
+      "tokens_per_sec",
+      "peak_vram_mb",
+      "backend",
+      "compile_enabled"
+    ]
+  },
+  "full_scale_trigger": {
+    "enabled": true,
+    "rule": "Instantiate full benchmark tasks only after idea_validation_decision selects a surviving candidate from the new pool.",
+    "requirements": [
+      "complete benchmark coverage",
+      "unified runtime contract retained",
+      "maximum feasible batch size",
+      "candidate-specific multi-GPU review at full scale"
+    ]
+  }
+}

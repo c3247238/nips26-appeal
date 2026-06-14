@@ -1,0 +1,292 @@
+{
+  "iteration": 5,
+  "date": "2026-03-19",
+  "overall_quality_score": 7.0,
+  "quality_trajectory": "improving",
+  "suggested_threshold_adjustment": 7.5,
+  "suggested_max_iterations": 20,
+  "issues_classified": [
+    {
+      "id": "E1",
+      "description": "PMP-WD (Theorem 3) is derived but completely unvalidated. The paper's primary algorithmic contribution -- a state-feedback WD controller from PMP with independent RG beta function derivation -- has zero experimental evaluation. Section 1.2 explicitly defers to future work. ~30 LOC implementation. Both supervisor (critical) and critic (critical) flag this as the paper's biggest reputational risk.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Implement PMP-WD: lambda*(t) = clip(kappa*(rho*-rho_hat_t)+, 0, lambda_max). Run on ResNet-20 CIFAR-10 AdamW at rho=0.5 (should match constant, validates theory) and rho=2.0 (should outperform constant if Theorem 3 is correct). 3 seeds each = 6 runs, ~2 GPU-hours. Even null result validates theory.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-algorithmic-and-as-beta-biggest-both-but:22c009ceba09"
+    },
+    {
+      "id": "E2",
+      "description": "rho-high regime (rho >= 2.0) has ZERO completed runs. Only a 5-epoch pilot at 77.69%. The paper's three-zone regime diagram (Figure 1) and Theorem 1's most interesting prediction (method sensitivity increases at elevated rho) are entirely unvalidated in the differentiation zone. gpu_progress.json shows full_rho_high_cifar10 as FAILED.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run rho-high with stabilization: 5-epoch linear warmup for LR and WD, gradient clipping at 1.0-5.0, try rho=2.0 first (lambda=2e-3) as intermediate. 4 methods (constant, CWD, cosine, no_wd) x 3 seeds = 12 runs. If rho=5.0 diverges, report rho=2.0 as empirical boundary. ~3 GPU-hours.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-and-are-as-at-at-completed-diagram:0d28fd3d8648"
+    },
+    {
+      "id": "E3",
+      "description": "Statistical power at N=3 insufficient for null-result paper. TOST at delta=0.5% has only 15-20% power. VGG-16-BN spread of 0.16% with sigma up to 0.32 means individual differences could be 0.7% and undetectable. Both supervisor and critic flag this as a fundamental evidentiary weakness for the equivalence claim.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Add 2 seeds (789, 999) for 4 key methods (constant, CWD, cosine, no_wd) on CIFAR-10 AdamW for ResNet-20 and VGG-16-BN. 16 additional runs, ~4 GPU-hours. N=5 raises TOST power at delta=0.5% to ~55% and MDE drops to ~0.5%.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-and-and-as-at-at-be-bn:b4a70f6e9fd0"
+    },
+    {
+      "id": "E4",
+      "description": "Matched-rho SGD critically incomplete. constant seed_42 has only 5 epochs (76.12%), cwd_hard seed_456 MISSING, no_wd entirely MISSING. Cannot compute Phi spread without at least 3 methods. The 3.7x SGD/AdamW spread ratio remains a mixed-effects confound. Supervisor rates this as 'major'.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Complete: (1) re-run constant seed_42 full 200 epochs with stabilization (current 76.12% suggests early divergence); (2) run cwd_hard seed_456; (3) run no_wd 3 seeds. Total: 5 new runs, ~2.5 GPU-hours. Then compute matched-rho Phi spread to compare against AdamW (0.25%).",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-adamw-as-at-cannot-compute-confound-constant:f904f5b21b98"
+    },
+    {
+      "id": "E5",
+      "description": "NoBN ablation incomplete: no_wd has only 1 seed (seed_42: 87.79%), seeds 123 and 456 MISSING. Cannot compute proper statistics or spread for the BN-vs-NoBN mechanistic comparison. Current NoBN Phi spread estimate is unreliable with 2 complete + 1 partial methods.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Run no_wd seed_123 and seed_456 for NoBN ResNet-20 CIFAR-10. 2 runs, ~0.5 GPU-hours. Enables proper 3-method spread calculation and BN confound resolution.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:ablation-and-bn-cannot-comparison-complete-compute-current:f66b824ffe9e"
+    },
+    {
+      "id": "E6",
+      "description": "rho_low incomplete: half_lambda has only 1 seed (seed_42: 90.05%), seeds 123 and 456 MISSING. rho_low is a key regime in the spread-vs-rho curve but only has 2 complete methods (constant, CWD) for spread calculation. Spread = 0.18% across constant (90.13) and CWD (89.95).",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Run half_lambda seed_123 and seed_456 for rho_low. 2 runs, ~0.5 GPU-hours. Provides a third method for the rho_low spread estimate.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-across-and-and-but-calculation-complete-constant:4325f48e648e"
+    },
+    {
+      "id": "E7",
+      "description": "ImageNet experiments all FAILED (pilot + 3 full seeds). gpu_progress.json lists pilot_imagenet_resnet50, full_imagenet_resnet50_seed42/123/456 as failed. No ImageNet data despite it being in the project constraints as a mandatory dataset.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Diagnose ImageNet failure root cause from experiment logs. If infrastructure issue (OOM, data loading), fix and retry. If scope issue, defer ImageNet to next iteration with explicit justification. CIFAR-only results are a known scale limitation flagged by supervisor as a risk.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "experiment:a-all-as-as-being-constraints-data-dataset:9a9469545974"
+    },
+    {
+      "id": "E8",
+      "description": "Paper claims '105 completed 200-epoch runs' but supervisor audit gives 122. Actual iter_005 DONE count is 40 runs (verified). With iter_003's 84 runs, total should be ~124. The abstract number is stale and understates evidence.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Run comprehensive audit script counting all epoch_metrics.jsonl files with exactly 200 epochs across iter_003 and iter_005. Update abstract with exact verified count.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:abstract-actual-and-audit-be-but-claims-completed:bfb12d339555"
+    },
+    {
+      "id": "W1",
+      "description": "CRITICAL DATA-PAPER INCONSISTENCY: Supervisor and critic DISAGREE on VGG-16-BN Table 3 accuracy. Supervisor cross-validation says numbers MATCH (constant=92.05+/-0.06, half_lambda=92.15+/-0.13, spread=0.16%). Critic says ALL numbers are WRONG and reports different values. Independent verification from summary.json confirms supervisor is CORRECT: constant=92.05+/-0.06, spread=0.16%. The critic's 'actual data' appears sourced from epoch_metrics.jsonl best-epoch values which differ from summary.json best_test_acc. This is a source-of-truth conflict between summary.json and epoch_metrics.jsonl.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Resolve the source-of-truth conflict: (1) Verify that summary.json best_test_acc matches the actual best epoch in epoch_metrics.jsonl for each run; (2) If they disagree, determine which is correct and regenerate the other; (3) Paper should cite summary.json as canonical. This meta-issue must be resolved before any table corrections.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-accuracy-actual-all-and-and-and-appears:f0739c3d8228"
+    },
+    {
+      "id": "W2",
+      "description": "NoBN Table 5 numbers may use single-seed maxima rather than 3-seed means. Critic reports constant mean should be 87.49 (not 87.74) and CWD should be 87.46 (not 87.64). Verified from summary.json: constant seeds=[87.97, 87.66, 87.58], mean=87.74. Critic used different source data. The supervisor reports constant=87.74+/-0.21, CWD=87.62+/-0.12. Need to reconcile which numbers are in the paper vs which source files they come from.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Cross-check paper Table 5 against both summary.json and epoch_metrics.jsonl for NoBN. If discrepancy exists between these two sources, document and resolve. Constant from summary.json: mean=87.74+/-0.20 (seeds: 87.97, 87.66, 87.58).",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "analysis:and-are-be-be-come-constant-constant-constant:0a794b68b492"
+    },
+    {
+      "id": "W3",
+      "description": "Cohen's d formula mislabeled in Section 5.3: text claims paired formula but tables use unpaired pooled formula. Flagged in iterations 4 and 5, still unresolved.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Fix Section 5.3 to state unpaired pooled formula explicitly. Either relabel as 'unpaired pooled Cohen's d' throughout, or recompute using paired formula for consistency with paired t-tests. 30-minute text fix.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:and-but-claims-cohen-d-flagged-formula-formula:8723b6222f73"
+    },
+    {
+      "id": "W4",
+      "description": "Four missing appendices cited in main text: B.1 (Theorem 1 proof), B.3 (PMP-WD derivation), B.4 (RG derivation), A.3 (CSI weight sensitivity). Reviewer checking any theorem proof will find nothing. Flagged since iteration 3.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Write at minimum B.1 (Theorem 1 full proof) and B.3 (Theorem 3 derivation) before submission. These are essential for a theory-heavy paper. Alternatively, remove appendix references. Estimated effort: 4-8 hours for all four.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:a-any-appendices-b-b-b-checking-cited:3c827e1f3ca0"
+    },
+    {
+      "id": "W5",
+      "description": "Figure 1 (ratio regime diagram) missing from body text. Listed in Figures section but never inserted into Sections 1-7. This is the paper's central organizing visual. Writing review rates this as critical.",
+      "category": "writing",
+      "severity": "high",
+      "suggestion": "Insert Figure 1 in Section 1 after contributions list with image tag, caption, and explicit text reference. Also add prominent note indicating which regime zones have complete, partial, or no experimental data.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:as-body-but-central-critical-diagram-figure-figures:d932ac784650"
+    },
+    {
+      "id": "W6",
+      "description": "Title uses 'Dynamic Weight Decay' but glossary and outline use 'Adaptive Weight Decay'. These are defined as distinct concepts in the glossary. Writing review flags this as a major consistency issue.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Pick one title and update consistently. 'When Does Adaptive Weight Decay Help?' (from outline) is sharper since the paper asks whether state-feedback adaptation helps. 15-minute global find-replace.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:a-adaptive-and-are-as-as-but-concepts:9c91cbf837c1"
+    },
+    {
+      "id": "W7",
+      "description": "Phi_spread symbol used in Table 1 without prior definition in body text. Notation.md defines it but the paper body does not introduce it before first use.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Define Phi_spread in Section 3.2 or 4.5 as 'the max-min accuracy range across all 7 WD methods for a given configuration.' 5-minute text addition.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "writing:before-body-body-but-defines-definition-does-first:4f40f8d27452"
+    },
+    {
+      "id": "W8",
+      "description": "Naming inconsistencies persist: cosine_schedule/Cosine-WD/cosine annealing, no_wd/No-WD/no weight decay mixed throughout. Flagged since iteration 2.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Standardize: 'Cosine-WD' in prose, 'cosine_schedule' in code/tables; 'No-WD' in prose, 'no_wd' in code/tables. Use find-replace script across all writing files.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:annealing-cosine-cosine-cosine_schedule-decay-flagged-inconsistencies-mi:dbfa0df29e6f"
+    },
+    {
+      "id": "A1",
+      "description": "CSI metric not validated under SGD. CSI fails to predict accuracy under AdamW (r_s < 0.3) which the paper uses as evidence for invariance. But without SGD cross-validation, CSI could be a vacuous metric that predicts nothing anywhere. Flagged since iteration 4.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "Compute Spearman rank correlation between CSI and accuracy under SGD CIFAR-10 and CIFAR-100 (data exists in iter_003). If CSI predicts SGD rankings (r_s > 0.5), validates CSI. If not, demote CSI from primary diagnostic. Estimated: 2 hours analysis scripting.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-accuracy-adamw-anywhere-as-be-but-could:17cb5d0ce952"
+    },
+    {
+      "id": "A2",
+      "description": "Theorem 1 proof relies on assumption A3 (independence of alignment events and stability effects) which is likely violated in BN networks. BN creates dependency between gradient direction (alignment) and effective learning rate (stability). No sensitivity analysis provided. Appendix B.1 (full proof) does not exist.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Option 1 (cheapest): Empirically estimate cross-term correlation from logged alignment cosine and weight norm CV per epoch. Option 2: Weaken theorem statement to 'sufficient condition under A3' with remark about BN violation. Option 3: Provide full proof with explicit cross-term treatment. Estimated: 2-4 hours.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:a3-alignment-alignment-analysis-and-and-appendix-assumption:eec56029f9e1"
+    },
+    {
+      "id": "A3",
+      "description": "CWD phi formula uses u_t (preconditioned update) but framework signature uses g_t (raw gradient). sign(u_t) and sign(g_t) can differ after Adam normalization. Flagged in multiple reviews and evolution lessons, still unresolved.",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Define u_t explicitly in Section 3.1 and clarify CWD uses u_t not g_t. Update phi framework signature if needed. 15-minute text fix.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:adam-after-and-and-but-can-cwd-differ:759a846154ad"
+    },
+    {
+      "id": "A4",
+      "description": "CSI weights (w1=0.4, w2=0.3, w3=0.3) unjustified. Paper claims robustness 'within +/-0.1' per Appendix A.3 but appendix does not exist. CSI has no within-architecture predictive value (r_s=0.03 for ResNet-20, -0.05 for VGG-16-BN).",
+      "category": "analysis",
+      "severity": "low",
+      "suggestion": "Either add Appendix A.3 sensitivity analysis or remove reference. Consider demoting CSI from primary to secondary metric given lack of predictive value. BEM and AIS have cleaner interpretations.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:a-appendix-appendix-architecture-bn-but-claims-csi:80517337574d"
+    },
+    {
+      "id": "P1",
+      "description": "Writing-experiment decoupling continues. Writing finalized with stale data in multiple places (rho_low CWD '1 seed' when actually 3 seeds, NoBN '2 methods' when 3, run count '105' when ~122). Fifth consecutive iteration with this issue.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "Enforce experiment_gate stage: writing_sections cannot begin until all P0 experiment _DONE markers exist AND an automated data audit script verifies all paper tables match summary.json. Return to experiment_cycle if gate fails.",
+      "status": "recurring",
+      "requires_system_change": true,
+      "issue_key": "pipeline:actually-consecutive-continues-count-cwd-data-decoupling-experiment:31bb4ca3ec7e"
+    },
+    {
+      "id": "EF1",
+      "description": "rho_high FAILED but was not retried with stabilization. gpu_progress.json shows failure but no recovery attempt with gradient clipping or warmup. The system recorded failure and moved on without adaptive retry.",
+      "category": "efficiency",
+      "severity": "medium",
+      "suggestion": "Implement failure-retry-with-modification protocol: when an experiment fails, automatically generate a retry config with (1) gradient clipping, (2) warmup, (3) reduced learning rate. Retry once before declaring permanent failure.",
+      "status": "new",
+      "requires_system_change": true,
+      "issue_key": "efficiency:adaptive-and-attempt-but-but-clipping-failed-failure:d09f5a51e573"
+    },
+    {
+      "id": "EF2",
+      "description": "ImageNet experiments failed without recovery. 4 ImageNet runs in gpu_progress.json show failed status but no diagnosis or retry. ImageNet is explicitly required in project constraints.",
+      "category": "efficiency",
+      "severity": "medium",
+      "suggestion": "Check ImageNet failure logs for root cause (OOM, data not downloaded, path error). Fix and retry or document why deferral is acceptable.",
+      "status": "new",
+      "requires_system_change": false,
+      "issue_key": "efficiency:but-constraints-diagnosis-experiments-explicitly-failed-failed-gpu_progr:2604a0d42610"
+    }
+  ],
+  "issues_fixed": [
+    "VGG-16-BN full experiment complete: 7 methods x 3 seeds x 200 epochs, Phi spread = 0.16%. Resolves E1 from iteration 4 (single-architecture weakness).",
+    "NoBN ablation partially complete: constant (3 seeds) and CWD (3 seeds) done. Resolves the infrastructure component of E3 from iteration 4.",
+    "rho_low partially complete: constant (3 seeds) and CWD (3 seeds) done, providing 2-method spread estimate of 0.18%.",
+    "Matched-rho SGD partially complete: constant (2 of 3 seeds), CWD (2 of 3 seeds). Infrastructure validated.",
+    "BEM metric bug for half_lambda corrected (from iteration 4 fix).",
+    "Phi Invariance Conjecture scope narrowed with explicit falsification criteria maintained.",
+    "Statistical honesty maintained: TOST power limitations stated, data gaps table present."
+  ],
+  "success_patterns": [
+    "VGG-16-BN execution: all 21 runs completed successfully with consistent results (Phi spread 0.16%), confirming cross-architecture robustness of null result.",
+    "NoBN experiment design correct: constant 87.74+/-0.20 vs CWD 87.62+/-0.12 shows larger absolute drop than BN versions, suggesting BN does contribute to invariance.",
+    "Supervisor cross-validation of VGG-16-BN data against summary.json confirms Table 3 is accurate. Data integrity pipeline working for this configuration.",
+    "Statistical honesty consistently maintained across 5 iterations: explicit power limitations, data gap disclosure, hedged language.",
+    "Falsification criteria framing (Predictions 1-3) praised by all reviewers as rare and valuable.",
+    "Three-stage review pipeline catches distinct issues: supervisor (data completeness, cross-validation), critic (metric validity, proof gaps), writing review (figure placement, notation consistency).",
+    "Stability-optimal control theory framework (Theorems 1-3) receives consistent praise as genuinely novel contribution."
+  ],
+  "systemic_patterns": [
+    "Writing-experiment decoupling: 5th consecutive iteration where paper text is finalized with incomplete or stale experiment data. The pipeline allows writing_integrate to proceed without verifying data currency.",
+    "Failed experiments not retried with modifications: rho_high and ImageNet both failed but system recorded failure and moved on without adaptive retry strategies (gradient clipping, warmup, reduced LR).",
+    "Incomplete experiments accumulate: rho_low half_lambda (1/3 seeds), NoBN no_wd (1/3 seeds), matched-rho constant seed_42 (diverged), matched-rho cwd_hard seed_456 (missing) -- each individually small but collectively creating a fragile evidence base.",
+    "Source-of-truth conflict between summary.json and epoch_metrics.jsonl causes reviewer confusion: critic flags data as 'fabricated' when supervisor confirms it matches summary.json. The pipeline needs a single canonical source.",
+    "Missing appendices accumulate without resolution: 4 appendices cited since iteration 3 still do not exist. Each iteration flags this but no writing time is allocated."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 60,
+    "total_gpu_idle_minutes": null,
+    "bottleneck_stages": [
+      "rho_high_failure_not_retried",
+      "imagenet_failure_not_diagnosed",
+      "incomplete_experiments_not_prioritized",
+      "writing_without_data_currency_check"
+    ],
+    "suggestions": [
+      "Implement failure-retry-with-modification: when experiment fails, auto-generate stabilized config and retry once before declaring permanent failure",
+      "Prioritize completing partial experiments (NoBN no_wd 2 seeds, rho_low half_lambda 2 seeds, matched-rho completions) -- each is <1 GPU-hour",
+      "Add automated data currency check before writing: script verifies all paper tables match summary.json and flags stale numbers",
+      "Diagnose ImageNet failures from logs before planning next batch"
+    ]
+  },
+  "recommended_focus": [
+    "P0: Implement and run PMP-WD (6 runs, ~2 GPU-hours) -- transforms the paper's primary contribution from thought experiment to validated algorithm",
+    "P0: Run rho-high with stabilization (12 runs, ~3 GPU-hours) -- validates or falsifies the regime diagram",
+    "P0: Complete matched-rho SGD (5 runs, ~2.5 GPU-hours) -- resolves the 3.7x ratio confound",
+    "P1: Complete partial experiments: NoBN no_wd 2 seeds, rho_low half_lambda 2 seeds (4 runs, ~1 GPU-hour)",
+    "P1: Add N=5 seeds for key methods (16 runs, ~4 GPU-hours) -- strengthens TOST power",
+    "P1: Resolve summary.json vs epoch_metrics.jsonl source-of-truth conflict before any table regeneration",
+    "P1: Write missing appendices B.1 and B.3 (Theorem 1 and 3 proofs) -- essential for theory-heavy paper",
+    "P2: Fix writing issues: insert Figure 1, resolve title, define Phi_spread, standardize naming, fix Cohen's d label",
+    "P2: Diagnose ImageNet failures and plan retry strategy"
+  ]
+}

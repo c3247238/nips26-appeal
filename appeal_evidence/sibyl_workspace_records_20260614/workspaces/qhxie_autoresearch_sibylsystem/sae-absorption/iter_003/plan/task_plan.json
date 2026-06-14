@@ -1,0 +1,266 @@
+{
+  "version": "iter_003_v2_post_experiment",
+  "created": "2026-04-14",
+  "updated": "2026-04-14",
+  "candidate_id": "cand_ars_amortization_crosshierarchy",
+  "round": "post-experiment (Round 5 pending tasks before writing)",
+  "notes": "All Round 3 tasks (A1-F1) are COMPLETE. Results are in exp/results/full/. This plan records the remaining experiments needed before the writing phase. Key pivot: ARS multiplicative product is weaker than encoder_norm alone; paper frames around encoder_norm + sparsity landscape + TopK architecture finding.",
+
+  "completed_tasks": [
+    "task_A1_encoder_norm_replication",
+    "task_A2_encoder_norm_theory",
+    "task_A3_encoder_norm_cross_arch",
+    "task_B1_cooccurrence_graph",
+    "task_B2_ars_v2_validation",
+    "task_C1_omp_pilot",
+    "task_C2_amortization_gap_full",
+    "task_D1_crosshier_probe_training",
+    "task_D2_crosshier_absorption",
+    "task_E1_gemma_scope_validation",
+    "task_F1_successive_refinement"
+  ],
+
+  "confirmed_findings": {
+    "encoder_norm_detection": {
+      "auroc_standard_l1_l6": 0.757,
+      "auroc_topk_32k_l6": 0.837,
+      "best_single_detector": true,
+      "beats_eda_delong_p": 0.0012,
+      "note": "encoder_norm = ||W_enc[:, j]||_2. Higher in absorbed latents (mean 3.26 vs 2.58 non-absorbed, Cohen d=0.97)."
+    },
+    "o_jaccard_complementary": {
+      "auroc": 0.721,
+      "independent_of_encoder_norm": "partial (spearman ~0.45 expected)",
+      "note": "O_jaccard alone outperforms EDA (0.721 vs 0.650). Multiplicative combination with encoder_norm degrades to 0.528."
+    },
+    "sparsity_landscape_dominance": {
+      "omp_reduction_ratio": 0.0,
+      "interpretation": "OMP does not reduce absorption. Encoder improvements (MP-SAE, ITAC, LCA) are insufficient. Training objectives or dictionary width are the necessary lever.",
+      "caveat": "Ceiling effect in measurement method (proxy check); proper IG measurement pending."
+    },
+    "topk_architecture_zero_absorption": {
+      "absorption_rate": 0.0,
+      "architecture": "TopK k=32, d_sae=32768, gpt2-small-resid-post-v5-32k L6",
+      "label_method": "proxy (probe_decoder_alignment cos>=0.3)",
+      "standard_l1_rate": "0.97-1.0",
+      "status": "PENDING_VALIDATION with exact IG labels"
+    },
+    "decoder_recovery": {
+      "fraction_recovered_in_wider_sae": 0.667,
+      "recovery_threshold_cosine": 0.8,
+      "note": "67% of absorbed features in 24k Standard SAE have matching direction in 32k TopK SAE."
+    },
+    "encoder_norm_layer_peak_at_l6": {
+      "ratios": {"L2": 0.877, "L4": 1.055, "L6": 1.267, "L8": 0.891, "L10": 0.933},
+      "note": "Signal peaks at L6 — consistent with absorption being most active at mid-layers."
+    }
+  },
+
+  "falsified_hypotheses": {
+    "H2_amortization_gap_dominant": {
+      "status": "FALSIFIED (OMP reduction_ratio = 0.0)",
+      "caveat": "Ceiling effect possible; IG-based measurement pending confirmation"
+    },
+    "H3_cross_hierarchy_generalization": {
+      "status": "FALSIFIED at pilot scale (entity-type AR=0.0%, negative control AR=5.0% at 100 tokens)",
+      "caveat": "100 tokens may be insufficient. Scale-up to 500 tokens needed."
+    },
+    "ARS_multiplicative_product": {
+      "status": "FALSIFIED (ARS product AUROC=0.528 vs encoder_norm 0.757)"
+    }
+  },
+
+  "tasks": [
+    {
+      "id": "task_R5A_topk_ig_validation",
+      "name": "R5-A: TopK SAE Zero Absorption Validation with Exact IG Labels",
+      "description": "Validate the TopK 32k SAE 0% absorption finding using the exact Chanin et al. FeatureAbsorptionCalculator (IG method) rather than proxy labels. Pipeline: (1) Load gpt2-small-resid-post-v5-32k SAE at blocks.6.hook_resid_post (d_sae=32768, TopK k=32). (2) Run sae_spelling FeatureAbsorptionCalculator on the same 5 letters (a, e, i, o, t) as the Standard L1 SAE. (3) Compute absorption_rate per letter. (4) Compare to Standard L1 SAE absorption rates on the same letters. (5) Report n_pos (number of IG-labeled absorbed features) in TopK SAE. Decision gate: if TopK absorption < 5% vs Standard L1 ~0.07%, report as primary architecture finding. If TopK absorption is similar to Standard L1, report proxy-label result as a false positive. Note: the hook point is resid_post (after MLP) vs resid_pre for Standard; acknowledge this as a confound in paper.",
+      "type": "experiment",
+      "candidate_id": "cand_ars_amortization_crosshierarchy",
+      "depends_on": [],
+      "expected_output": "exp/results/full/R5A_topk_ig_validation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gpt2-small-resid-post-v5-32k",
+          "path": "cached via SAELens"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "IG absorption measurement completes for at least 3 of 5 letters. Per-letter absorption rates computed. Comparison table generated: TopK vs. Standard L1 per letter."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Absorption rate per letter and architecture: Standard L1 24k vs TopK 32k (proxy and IG labels)",
+          "columns": ["Letter", "Standard_L1_n_pos", "Standard_L1_AR", "TopK_n_pos_proxy", "TopK_AR_proxy", "TopK_n_pos_IG", "TopK_AR_IG"],
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_R5B_combination_detector",
+      "name": "R5-B: Non-Multiplicative encoder_norm + O_jaccard Combination",
+      "description": "Test non-multiplicative combinations of encoder_norm and O_jaccard that may outperform encoder_norm alone (AUROC 0.757). Both are strong independent signals (encoder_norm=0.757, O_jaccard=0.721). The multiplicative ARS product (0.528) failed — try: (1) max(normalized_encoder_norm_j, normalized_O_jaccard_j) where normalization is z-score; (2) linear combination 0.6*enc_norm_z + 0.4*O_jaccard_z (weights from AUROC-weighted combination); (3) concatenated features as input to logistic regression with 5-fold CV on the 24576 latents × 2 features; (4) also test rank-based combination: rank_average(rank_encoder_norm, rank_O_jaccard). For each: compute AUROC, AUPRC, 95% bootstrap CI on GPT-2 L6 (n_pos=18, exact IG labels). Run DeLong test: combination vs. encoder_norm alone. Primary hypothesis: at least one non-multiplicative combination achieves AUROC > 0.780. Note: O_jaccard requires the B1 co-occurrence graph cached at exp/results/full/B1_*.npy.",
+      "type": "analysis",
+      "candidate_id": "cand_ars_amortization_crosshierarchy",
+      "depends_on": [],
+      "expected_output": "exp/results/full/R5B_combination_detector.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [
+        {
+          "type": "cache",
+          "name": "B1_O_jaccard_letter.npy and B1_activation_freq.npy",
+          "path": "exp/results/full/"
+        },
+        {
+          "type": "labels",
+          "name": "gpt2-l6-chanin-exact",
+          "path": "iter_001/exp/results/r4/r4a_direct_labels.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 3 combination formulations tested with AUROC reported. DeLong test run between best combination and encoder_norm alone."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "AUROC for each combination formulation vs. encoder_norm alone baseline",
+          "x": "formulation",
+          "y": "AUROC",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_R5C_omp_ig_measurement",
+      "name": "R5-C: OMP Amortization Gap with Proper IG-Based Absorption Measurement",
+      "description": "Address the C2 ceiling effect by measuring OMP absorption reduction using the exact Chanin IG pipeline rather than 'main feature fires on letter token'. Design: (1) Select 5 absorbed features from the 18 IG-labeled absorbed latents at GPT-2 L6 (ids: 19444, 2406, 15451, 11270, 22408 — the 5 with highest encoder_norm from A2, all late-absorbed type). (2) For each absorbed feature j, use sae_spelling to identify parent-positive tokens: tokens where letter probe succeeds AND feature j is NOT fired by standard encoder (absorption-active tokens). (3) For same tokens: apply OMP encoder (K=53) and check if feature j fires under OMP. (4) Measure delta: fraction of absorption-active tokens where OMP fires j (reduction in absorption). (5) If OMP fires j on > 20% of tokens where standard fails, report as partial amortization gap. If < 5%, confirm sparsity landscape dominance. This is a PILOT — 5 features × 30 tokens = 150 evaluation points. Save result as confirmation or refutation of C2.",
+      "type": "experiment",
+      "candidate_id": "cand_ars_amortization_crosshierarchy",
+      "depends_on": [],
+      "expected_output": "exp/results/full/R5C_omp_ig_measurement.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "labels",
+          "name": "gpt2-l6-chanin-exact",
+          "path": "iter_001/exp/results/r4/r4a_direct_labels.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "At least 3 of 5 target absorbed features have absorption-active tokens identified. OMP absorption rate measured for each. Direction of effect (reduction or no change) reported."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Per-feature OMP absorption reduction: n_parent_positive tokens, standard_AR, OMP_AR, delta",
+          "columns": ["feature_id", "subtype", "n_tokens", "standard_AR", "OMP_AR", "delta_pct"],
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "task_R5D_crosshier_scaleup",
+      "name": "R5-D: Cross-Hierarchy Scale-Up (500 tokens, animate/inanimate)",
+      "description": "Scale the D2 cross-hierarchy experiment to 500 tokens and add animate/inanimate hierarchy (known to have clean probe at L6 with F1=1.0). Goal: determine whether entity-type absorption = 0.0% at 100 tokens is a sample-size artifact or a genuine finding. Pipeline: (1) Animate/inanimate hierarchy: use words with clear animate (dog, cat, horse, bird, lion) vs. inanimate (table, chair, computer) distinction. 500 templates from OpenWebText. Train LR probe at L4 (best layer from D1). (2) Entity-type hierarchy (ANIMAL ⊃ specific animals): same as D1/D2 but with 500 tokens. (3) Negative control: same as D2 with 500 tokens. (4) For each hierarchy: run Chanin IG absorption measurement (k-sparse, k=3) on 3 probe seeds. Report mean ± std. (5) Statistical test: paired t-test entity-type vs. negative control (500 tokens). (6) Report conclusion: if entity-type AR > 10pp above negative control, H3 partially supported. If still 0%, report H3 as falsified at this scale and interpret as: cross-hierarchy absorption may require probes on the same-model SAE (same limitation as RAVEL in iter_001).",
+      "type": "experiment",
+      "candidate_id": "cand_ars_amortization_crosshierarchy",
+      "depends_on": [],
+      "expected_output": "exp/results/full/R5D_crosshier_scaleup.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Animate/inanimate probe trained at L4/L6 with accuracy > 80%. Absorption measurement runs for 3 seeds. At minimum 1 hierarchy type reports non-zero absorption rate."
+      },
+      "visualizations": [
+        {
+          "type": "bar_chart",
+          "description": "Absorption rate by hierarchy type at 500 tokens: animate/inanimate, entity-type, negative control, first-letter baseline",
+          "x": "hierarchy_type",
+          "y": "absorption_rate_mean",
+          "paper_section": "experiments"
+        }
+      ]
+    },
+    {
+      "id": "task_R5E_summary",
+      "name": "R5-E: Aggregate Round 5 Results and Writing Gate",
+      "description": "Aggregate all Round 5 results and finalize the writing gate decision. CPU-only. Steps: (1) Compile final detector table: encoder_norm, O_jaccard, best combination, EDA with exact IG labels. (2) Document TopK absorption rate: IG-labeled rate vs. proxy rate. (3) Confirm or update OMP result with IG measurement. (4) Summarize cross-hierarchy findings. (5) Generate writing_gate_r5.json with confirmed/falsified status for each hypothesis and final framing recommendation. The paper can proceed to outline/writing with any framing outcome — the story adjusts.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [
+        "task_R5A_topk_ig_validation",
+        "task_R5B_combination_detector",
+        "task_R5C_omp_ig_measurement",
+        "task_R5D_crosshier_scaleup"
+      ],
+      "expected_output": "exp/results/full/R5E_writing_gate.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 10,
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Writing gate JSON generated with all hypothesis statuses populated and framing_recommendation set. go_write must be true regardless of individual hypothesis outcomes."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Final hypothesis status table: all hypotheses with R5 evidence update",
+          "columns": ["Hypothesis", "R3_status", "R5_update", "Final_status", "Framing"],
+          "paper_section": "introduction"
+        }
+      ]
+    }
+  ],
+
+  "execution_order": [
+    ["task_R5A_topk_ig_validation", "task_R5B_combination_detector", "task_R5C_omp_ig_measurement", "task_R5D_crosshier_scaleup"],
+    ["task_R5E_summary"]
+  ],
+
+  "total_gpu_hours_estimate": "1.5-2.0 GPU-hours",
+  "priority_order": "R5A (TopK IG validation — highest impact) > R5B (combination detector — CPU) > R5C (OMP IG — confirms C2) > R5D (cross-hierarchy scale-up) > R5E (writing gate)",
+
+  "pivot_condition": "If R5A confirms TopK zero absorption with IG labels: paper lead contribution becomes 'TopK k=32 eliminates letter absorption; encoder_norm detects absorbed latents in Standard SAE; sparsity landscape confirmed as root cause.' If R5A shows TopK has similar absorption to Standard (i.e., proxy result was false positive): pivot to 'encoder_norm best detector + sparsity landscape dominance + decoder recovery finding (67% recovery in wider SAE).'",
+
+  "fallback_decisions": {
+    "if_topk_ig_shows_absorption": "Accept that TopK proxy result was a measurement artifact. Paper becomes a two-contribution paper: (1) encoder_norm detector (AUROC 0.757, beats EDA) + (2) sparsity landscape dominance (OMP null result). Both are publishable and clean.",
+    "if_combination_detector_fails": "Use encoder_norm alone as the primary detector. O_jaccard as secondary with note that combination is architecture-dependent.",
+    "if_omp_ig_shows_reduction": "Update C2 interpretation: amortization gap plays a partial role (consistent with mixed mechanism). OMP reduces absorption ~20-40% — split causation between encoder and sparsity landscape. Does not change recommendation significantly.",
+    "if_crosshier_still_null": "Report H3 as definitively falsified for entity-type semantic hierarchies. Paper's cross-hierarchy claim drops. Consistent with iter_001 RAVEL failure. Final paper is: encoder_norm detector + sparsity landscape + early-absorption dominance (from iter_001). Still publishable."
+  },
+
+  "paper_title_options": [
+    "Encoder Weight Norm as an Unsupervised Absorption Fingerprint: Detecting SAE Feature Absorption Without Probe Labels",
+    "Diagnosing SAE Feature Absorption: Weight-Only Detection, Sparsity Landscape Root Cause, and the TopK Architecture Solution",
+    "The Sparsity Landscape as Root Cause: Controlled Evidence Against the Amortization Gap Explanation of SAE Feature Absorption"
+  ]
+}

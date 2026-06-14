@@ -1,0 +1,269 @@
+{
+  "iteration": 8,
+  "score": 6.5,
+  "verdict": "continue",
+  "quality_trajectory": "stagnant",
+  "issues_classified": [
+    {
+      "id": "PIPE001",
+      "description": "CRITICAL STAGNATION: ZERO EXPERIMENTS OR REVISIONS FOR 2 CONSECUTIVE ITERATIONS. The paper is byte-identical to iter_007. The score has been 6.5 for 3 consecutive reviews (iter 6, 7, 8). The system is consuming review cycles without making scientific progress. The 3 highest-value experiments (activation patching, tightened hedging, CMI at L0=22) have been recommended for 3 consecutive reviews and never executed. The writing-review loop is running without experimental input -- a self-perpetuating stagnation cycle.",
+      "category": "planning",
+      "severity": "high",
+      "suggestion": "MANDATORY EXPERIMENT-FIRST EXECUTION IN ITER 9. The task plan MUST enforce: (1) Gate 0: validate_integration.py + zero-GPU analyses (2 hours). (2) Gate 1: Three critical experiments -- activation patching, tightened hedging, CMI at L0=22 (3 GPU-hours). (3) Gate 2: Writing revision incorporating ALL new results. (4) Gate 3: Review cycle. Writing MUST NOT proceed before Gate 1 completes. The planner agent must explicitly encode this dependency. WHERE: plan/task_plan.md. EFFORT: 0 (planning only). VERIFY: task plan shows experiments as hard blocking dependencies; no writing task can start until all 3 experiments report results.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "planning:stagnation-no-experiments-3-iterations"
+    },
+    {
+      "id": "EXP001",
+      "description": "ACTIVATION PATCHING ON 9 CORE WORDS UNEXECUTED (3rd consecutive review requesting). The ONLY metric-independent causal evidence for competitive exclusion. Resolves the central two-interpretation ambiguity: does JumpReLU genuinely lack absorption (interpretation a) or is the metric miscalibrated (interpretation b)? The 9 persistent core words have identified child features (e.g., feature_idx 6740 for 'eight', 5021 for 'lower'). Zeroing each child feature and checking parent recovery takes ~1 GPU-hour. Without this, the paper cannot make any causal claim. This has been the highest-information-gain experiment since iter_006.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Execute FIRST in iter 9. For each of 9 persistent core words: (1) identify child feature from confound_decomposition_multi_l0.json hierarchy_details, (2) zero its activation in SAE forward pass, (3) check if parent feature (probe-associated latent with cosine >= 0.025) recovers (activation > 0). Report per-word table: word, letter, child_feature_idx, parent_recovery_status, parent_activation_magnitude. If 7+/9 recover: genuine competitive exclusion confirmed at small scale, headline finding. If <3: 'all hedging' narrative validated, also publishable. Either outcome moves score. WHERE: exp/code/activation_patching_9_words.py (new). EFFORT: 1 GPU-hour. VERIFY: per-word recovery table present in paper Section 4.2 or new subsection.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:activation-patching-9-core-words"
+    },
+    {
+      "id": "EXP002",
+      "description": "TIGHTENED HEDGING CLASSIFICATION UNEXECUTED (3rd consecutive review requesting). The 98.6% hedging figure -- the paper's headline number -- is an upper bound biased by design. The operational definition classifies ANY false negative that resolves at ANY higher L0 as hedging. At L0=176, only 10/1,195 tokens remain FN, so 99.2% trivially resolve with 8x more features. The classification never checks whether the SPECIFIC parent latent fires. The maximum possible hierarchy-driven fraction is capped at ~10/657=1.5% regardless of mechanism. The supervisor calls this 'near-tautological.'",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "For each of 657 false negatives at L0=22, check whether the specific parent-associated latent (probe-identified latent with cosine >= 0.025 to probe direction) has activation > 0 at L0=176. Classify as hedging ONLY if parent latent fires. Report BOTH permissive (98.6%) and strict classifications side-by-side. If strict >80%, headline validated. If strict <50%, narrative must change. Activation data already exists -- computationally cheap. WHERE: exp/code/confound_decomposition_strict.py (new). EFFORT: 1 GPU-hour. VERIFY: both permissive and strict rates reported in paper; strict definition described in Methods Section 3.4.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:tightened-hedging-classification"
+    },
+    {
+      "id": "EXP003",
+      "description": "CMI REPLICATION AT L0=22 UNEXECUTED (3rd consecutive review requesting). At L0=22, all 25 probes achieve F1=1.0 -- this eliminates the probe quality confound entirely (rho=-0.67 between absorption rate and probe F1). Absorption variance is maximal (0% to 66%), giving maximum statistical power. Pre-registering d'=10 as primary dimension resolves the post-hoc selection criticism. This is the cleanest possible test of the CMI theoretical pillar.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Run CMI estimation using L0=22 activations and absorption rates from confound_decomposition_multi_l0.json. Pre-register d'=10 as primary dimension BEFORE running. Report Spearman rho, Mann-Whitney test, Cohen's d at d'=10 as primary. Report d'={20,30,50} as sensitivity. If rho < -0.3 at p < 0.05, theoretical pillar substantially strengthened. If not, downgrade CMI to appendix. WHERE: exp/code/cmi_l0_22_replication.py (new). EFFORT: 1 GPU-hour. VERIFY: L0=22 CMI results reported with pre-registered d'=10.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:cmi-replication-l0-22"
+    },
+    {
+      "id": "SND001",
+      "description": "HEDGING CLASSIFICATION NEAR-TAUTOLOGICAL (3rd consecutive review). Linked to EXP002. The 98.6% is not a measured hedging rate but a design-guaranteed upper bound. Any token that stops being a false negative at L0=176 (99.2% do) is classified as hedging. Alternative resolution mechanisms (compensatory features, incidental cosine alignment, probe behavior change) are indistinguishable from genuine hedging. Four of nine 'hierarchy-driven' words have no identified absorbing features in the source data.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Two actions: (1) Execute EXP002 (tightened hedging with parent-specific latent check). (2) In Methods Section 3.4, explicitly acknowledge the current classification is an upper bound on hedging / lower bound on hierarchy-driven. Add paragraph explaining compensatory resolution mechanisms cannot be distinguished from genuine hedging under current definition. WHERE: writing/paper.md Section 3.4. EFFORT: 30 min writing + 1 GPU-hour experiment. VERIFY: limitation paragraph in Section 3.4; strict rate reported alongside permissive.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "soundness:hedging-tautological-definition"
+    },
+    {
+      "id": "SND002",
+      "description": "CMI THEORETICAL OVERCLAIMING PERSISTS (4th iteration with overclaiming in theoretical sections). Section 6 title: 'CMI Predicts Absorption Susceptibility' -- from evidence: rho=-0.383, p=0.059 uncorrected, p=0.236 Bonferroni-corrected, sign reversal at d'>=20. Abstract: 'predicts absorption susceptibility.' Introduction: 'first information-theoretic criterion.' This overclaiming pattern is whack-a-mole: iter 4 'validated quality indicator' -> fixed. Iter 5 'causal mediation' -> fixed. Iter 6-8: 'CMI predicts' -> NOT fixed for 3 reviews. The incentive structure (stronger claims = more publishable) systematically biases writing toward overclaiming.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Systematic language downgrade across 7+ locations: (1) Section 6 title -> 'Exploratory CMI-Absorption Association'. (2) Abstract 'predicts' -> 'shows a directionally consistent negative association with'. (3) Introduction 'first criterion' -> 'preliminary information-theoretic diagnostic signal'. (4) Report Bonferroni p=0.236 alongside uncorrected p=0.059 in EVERY citation of CMI result (Abstract, Section 1, 6.2, 7.3, 8). (5) Remove or label '10.2% relative error' as circular. (6) Note successive refinement connection is analogy, not formal derivation. WHERE: writing/paper.md (7+ locations). EFFORT: 45 min. VERIFY: grep for 'predicts absorption' returns 0; Bonferroni p appears alongside uncorrected in all locations.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "soundness:theoretical-overclaiming-persistent"
+    },
+    {
+      "id": "SND003",
+      "description": "TWO-INTERPRETATION AMBIGUITY STILL UNRESOLVED (3rd review). The paper's 'metric does not transfer to JumpReLU' conflates two distinct interpretations: (a) JumpReLU SAEs genuinely have minimal hierarchy-driven absorption (metric correct, near-zero true absorption), or (b) metric thresholds miscalibrated for JumpReLU activation geometry (metric wrong, absorption may exist). Section 7.2 discusses threshold explanations but implicitly favors (b) without discriminating evidence. Activation patching is the ONLY experiment that can distinguish these.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Add explicit two-interpretation paragraph in Discussion (Section 7.2). Frame both interpretations with equal weight. State that activation patching is the discriminating experiment. Use neutral language: 'metric output inconsistent with hierarchy-driven absorption on JumpReLU SAEs' rather than 'miscalibrated for JumpReLU feature geometry.' WHERE: writing/paper.md Section 7.2. EFFORT: 30 min. VERIFY: Section 7.2 contains both interpretations articulated with equal weight, activation patching framed as discriminating test.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "soundness:two-interpretation-ambiguity"
+    },
+    {
+      "id": "SND004",
+      "description": "FOUR OF NINE PERSISTENT CORE WORDS UNIDENTIFIABLE FROM RAW DATA. confound_decomposition_multi_l0.json hierarchy_details arrays contain only 5 named words (eight, lower, liked, offer, often) at ALL four L0 values. But hierarchy_driven=9 at every L0. The remaining 4 words are FN at all four L0 values but lack identified absorbing features (not classified as is_absorbed=true). Paper claims '9 candidates for genuine competitive exclusion' but only 5 are verifiable. This is both a data pipeline gap and a transparency vulnerability -- a reviewer checking source data finds 5, not 9.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Two actions: (1) Fix data pipeline to record all 9 words in hierarchy_details. For the 4 without absorbing features, classify as 'persistent reconstruction failure' rather than 'hierarchy-driven absorption.' (2) Create table in Section 5.4 with all 9 words: word, letter class, child feature index (where available), absorption status at each L0. WHERE: exp/code/ (pipeline fix), writing/paper.md Section 5.4. EFFORT: 1 hour. VERIFY: all 9 words named in paper; table present; pipeline records all 9.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "soundness:unnamed-core-words-data-gap"
+    },
+    {
+      "id": "SND005",
+      "description": "CONFOUND_DECOMPOSITION.JSON vs CONFOUND_DECOMPOSITION_MULTI_L0.JSON CONTRADICTION STILL UNADDRESSED. Earlier single-L0 experiment: 96.9% hierarchy-driven at L0=22. Multi-L0 experiment: 1.4% hierarchy-driven at L0=22. The OPPOSITE result. Caused by different classification criteria (within-L0 vs cross-L0 persistence). If a reviewer discovers both files, the apparent contradiction is devastating without explicit reconciliation. Section 7.4 mentions the pilot reversal but Sections 3.4/4.2 do not connect this to the data files.",
+      "category": "system",
+      "severity": "high",
+      "suggestion": "Add explicit paragraph in Section 3.4 or 4.2 explaining: (1) the methodological difference between single-L0 classification (within-L0 only) and multi-L0 classification (cross-L0 persistence), (2) why multi-L0 is methodologically superior, (3) that the pilot's 96.9% was a methodological artifact from single-L0 classification. WHERE: writing/paper.md Section 3.4 or 4.2. EFFORT: 20 min. VERIFY: explicit reconciliation paragraph present; both files referenced.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "soundness:confound-decomposition-contradiction"
+    },
+    {
+      "id": "EXP004",
+      "description": "THRESHOLD SENSITIVITY RESULTS STILL UNREPORTED (3rd review requesting). ablation_threshold_sensitivity.json (141KB, 5x4 grid: cosine thresholds {0.01, 0.02, 0.025, 0.03, 0.05} x magnitude gaps {0.5, 1.0, 1.5, 2.0}) computed in iter_006. Never reported in any paper version. Directly answers: is the control failure threshold-dependent (fixable by recalibration) or structural (fundamental to JumpReLU)? Omitting a completed, directly relevant experiment is selective reporting.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Analyze ablation_threshold_sensitivity.json. Key question: at cosine >= 0.05, does measured absorption exceed shuffled controls in ANY domain? Report the 5x4 grid as table (paper or appendix). Compute rate stability across grid cells. This COSTS ZERO -- data already exists. WHERE: writing/paper.md Section 4.1 or new appendix. EFFORT: 1 hour analysis + writing. VERIFY: threshold sensitivity table/figure present in paper; zero-cost selective reporting concern eliminated.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:threshold-sensitivity-unreported"
+    },
+    {
+      "id": "EXP005",
+      "description": "NO DIAGNOSIS OF WHY CONTROLS FAIL (3rd review requesting). The headline finding (shuffled > measured across all 5 domains) lacks mechanistic explanation. Three candidates: (1) cosine threshold tau_cos=0.025 too permissive for 2304-dimensional space, (2) JumpReLU dead-feature concentration reduces active candidates for true probes, (3) shuffled probes systematically find more candidate features by chance. An analytical computation (cosine distribution of random unit vectors vs 16k decoder columns) costs zero GPU.",
+      "category": "experiment",
+      "severity": "high",
+      "suggestion": "Sample 1,000 random unit vectors in R^2304, count decoder columns with cosine >= 0.025 for each. Compare with true probe and shuffled probe candidate counts from experiment data. Also compute expected count analytically from the beta distribution of cosine similarities. If random directions find comparable numbers of candidates, the cosine threshold is too permissive -- this IS the diagnosis. WHERE: exp/code/control_failure_diagnosis.py (new). EFFORT: 1 hour. VERIFY: mechanistic diagnosis in paper Section 4.1 or 7.2.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:control-failure-undiagnosed"
+    },
+    {
+      "id": "ANL001",
+      "description": "PROBE QUALITY CONFOUND IN CMI ANALYSIS STILL UNCONTROLLED (3rd review requesting). Absorption rate vs probe F1: rho=-0.67 (p<0.001). CMI analysis uses L0=82 rates where only 10/25 letters pass F1>0.85. Letters hard to probe may have both inflated absorption rates AND noisier CMI estimates. Paper never computes partial correlation controlling for probe F1. This is ZERO GPU, 30 minutes.",
+      "category": "analysis",
+      "severity": "high",
+      "suggestion": "Compute: (1) partial Spearman rho(CMI, absorption_rate | probe_F1) using all 25 letters, (2) Spearman rho restricted to 10 letters with F1>0.85, (3) if CMI replication at L0=22 is done (EXP003), confound eliminated entirely. If partial rho drops below -0.2, CMI result is substantially confounded and Section 6 must be further downgraded. WHERE: exp/code/cmi_partial_correlation.py. EFFORT: 30 min, ZERO GPU. VERIFY: partial correlation value reported in paper Section 6.2.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:probe-quality-confound-cmi"
+    },
+    {
+      "id": "ANL002",
+      "description": "LEAVE-ONE-OUT SENSITIVITY NOT COMPUTED (3rd review requesting). Letters S (CMI=0.961, absorption=31.4%) and K (CMI=0.592, absorption=0%) directly contradict the CMI theory. With n=25 and marginal significance, individual high-leverage observations can drive the result. No sensitivity analysis reported.",
+      "category": "analysis",
+      "severity": "medium",
+      "suggestion": "For each of 25 letters, compute Spearman rho with that letter removed. Identify which letters substantially change significance. Discuss S and K explicitly as notable exceptions. Report most-influential and least-influential letters. WHERE: writing/paper.md Section 6.2 and 7.5. EFFORT: 30 min, ZERO GPU. VERIFY: leave-one-out results reported; S and K discussed.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "analysis:leave-one-out-sensitivity"
+    },
+    {
+      "id": "DATA001",
+      "description": "validate_integration.py STILL NOT IMPLEMENTED (8th iteration recommending). This automated source-to-summary cross-check has been recommended every iteration since iter_001. It is the project's oldest unresolved systemic issue. Each iteration discovers NEW pipeline errors of the same structural type. Additionally, residual inconsistencies remain in companion documents (outline.md: p=0.042 x3, gen_cmi_vs_absorption.py: p=0.042). Two L0=82 absorption rates (14.39% vs 15.96%) from different pipelines never reconciled with a canonical choice.",
+      "category": "pipeline",
+      "severity": "high",
+      "suggestion": "Implement validate_integration.py as ABSOLUTE FIRST task of iter 9. Script: (1) extract numerical claims from paper.md via regex, (2) load source JSONs (cmi_estimation.json, confound_decomposition_multi_l0.json, etc.), (3) cross-check with tolerance 1e-3, (4) report mismatches as errors. Run after every paper revision. Choose ONE canonical L0=82 absorption rate (14.39% from confound_decomposition_multi_l0). Add reconciliation footnote in Methods. Clean companion documents. WHERE: exp/code/validate_integration.py (new). EFFORT: 1.5 hours, ZERO GPU. VERIFY: script catches known discrepancies; grep for wrong numbers returns 0.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "pipeline:validate-integration-8-iterations"
+    },
+    {
+      "id": "WRI001",
+      "description": "TITLE STILL MISLEADING (3rd review). 'Beyond Competitive Exclusion' implies CE is disproven. Paper shows the Chanin METRIC conflates hedging with CE on JumpReLU SAEs; whether CE genuinely occurs is undetermined pending activation patching.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Revise title after activation patching results. If patching shows <3/9 recovery: 'Auditing Feature Absorption: Hedging Dominates the Chanin Metric on JumpReLU SAEs'. If patching shows 7+/9 recovery: 'Decomposing SAE Feature Absorption: Metric Audit Reveals Hedging Dominance with Residual Competitive Exclusion'. WHERE: writing/paper.md title. EFFORT: 15 min. VERIFY: title matches empirical findings.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:title-misleading"
+    },
+    {
+      "id": "WRI002",
+      "description": "CROSS-DOMAIN NOVELTY SELF-CONTRADICTION PERSISTS (3rd review). Section 4.4 simultaneously claims 'first absorption measurements on geographic, linguistic, and taxonomic hierarchies' and admits 'all rates fall below their own shuffled controls, so absolute rates cannot be interpreted.'",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Reframe novelty as 'first systematic cross-architecture and cross-domain metric audit of the Chanin absorption metric on JumpReLU SAEs.' Cross-domain measurements are the vehicle for discovering universal control failure, not an independent contribution. WHERE: writing/paper.md Section 4.4, Abstract. EFFORT: 30 min. VERIFY: no simultaneous novelty + invalidity claim.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:cross-domain-novelty-contradiction"
+    },
+    {
+      "id": "WRI003",
+      "description": "SECTION 5.3 PRESENTS FORMAL TESTS ON CONFOUNDED COMPARISON (3rd review). Hartigan dip test and bimodality coefficients on JumpReLU (Gemma 2B) vs L1-ReLU (GPT-2 Small) -- different model sizes, architectures, training data, tokenizers, d_model. Statistical tests are meaningless for architecture attribution. Paper acknowledges confound but still presents formal tests taking ~200 words.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Compress Section 5.3 to 2-3 sentences noting directional difference without formal tests. Move dip test/bimodality details to appendix. Use freed ~200 words for threshold sensitivity table or two-interpretation discussion. WHERE: writing/paper.md Section 5.3. EFFORT: 20 min. VERIFY: Section 5.3 compressed; formal test statistics removed from main text.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:section-5.3-confounded-tests"
+    },
+    {
+      "id": "WRI004",
+      "description": "ABSTRACT STILL ~290 WORDS (target 200-220). Includes geometric constant degeneration (secondary finding), specific per-domain numbers declared uninterpretable, and statistics from wrong partition in companion docs.",
+      "category": "writing",
+      "severity": "medium",
+      "suggestion": "Cut to ~220 words. Remove geometric constant sentence. Replace per-domain numbers with 'all five tested domains.' Focus on three pillars: metric audit, hedging dominance, exploratory CMI association. WHERE: writing/paper.md Abstract. EFFORT: 20 min. VERIFY: abstract under 230 words.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:abstract-length"
+    },
+    {
+      "id": "EXP006",
+      "description": "CMI ESTIMATION DIAGNOSTICS MISSING (3rd review). No per-letter bootstrap CIs, no convergence curves, no k-sensitivity analysis (k=3,5,10,20). The sign reversal at d'>=20 may reflect k-NN estimator breakdown with n=3,000 samples rather than genuine signal property.",
+      "category": "experiment",
+      "severity": "medium",
+      "suggestion": "Report: (1) per-letter bootstrap 95% CIs (10k resamples), (2) CMI vs sample size convergence for 3 representative letters (one absorbed, one non-absorbed, one boundary), (3) k-sensitivity (k=3,5,10,20). If bootstrap CIs for absorbed vs non-absorbed groups overlap substantially, flag Mann-Whitney test as unreliable. WHERE: appendix. EFFORT: 1 hour. VERIFY: diagnostics present in appendix.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "experiment:cmi-estimation-diagnostics"
+    },
+    {
+      "id": "WRI005",
+      "description": "STRUCTURAL REDUNDANCY: ~300 words wasted. Control failure stated near-verbatim in 4 places (Introduction paragraph 2, Section 4.1 opening, post-Table-2 summary, Section 4.4 opening). The same sentence about shuffled > measured appears in both Introduction and Section 4.1.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Keep control failure in exactly 2 places: Introduction summary + Section 4.1 detail. Cut post-Table-2 editorial and Section 4.4 restatement. Free ~300 words for threshold sensitivity table and two-interpretation discussion. WHERE: writing/paper.md. EFFORT: 20 min. VERIFY: control failure stated in exactly 2 locations.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:structural-redundancy"
+    },
+    {
+      "id": "WRI006",
+      "description": "NOTATION INCONSISTENCIES IN COMPANION DOCUMENTS: notation.md has inverted hedging/hierarchy-driven definitions. Glossary cites 'Rajamanickam' instead of 'Rajamanoharan.' C4 naming mismatch. Alpha variable undefined in Section 3.5.",
+      "category": "writing",
+      "severity": "low",
+      "suggestion": "Swap hedging/hierarchy-driven definitions in notation.md. Fix author name in glossary. Fix C4 naming. Define alpha in Section 3.5. WHERE: writing/notation.md, writing/glossary.md, writing/paper.md Section 3.5. EFFORT: 30 min. VERIFY: all fixed.",
+      "status": "recurring",
+      "requires_system_change": false,
+      "issue_key": "writing:notation-inconsistencies"
+    }
+  ],
+  "issues_fixed": [
+    "ITER7-DATA001 (PARTIALLY FIXED, HELD): Paper.md and main.tex CMI numbers correctly use cmi_estimation.json values (absorbed mean=0.649, U=28, p=0.045). This was fixed in iter 7 and remains fixed. Companion documents still contain residual wrong numbers.",
+    "ITER4-ALL through ITER6 structural fixes (HELD): PILOT mode resolved (iter 4), LV framework abandoned (iter 4), GPT-2 fallback eliminated (iter 6). All remain fixed.",
+    "NO NEW FIXES IN ITER 8: Zero changes between iter 7 and iter 8. Paper is byte-identical. All 20 issues from iter 7 reflection remain open."
+  ],
+  "success_patterns": [
+    "HONEST NEGATIVE RESULTS (CONSECUTIVE 8 ITERATIONS): H2 falsified (96.9% pilot -> 1.4% full), H4 falsified (zero matching pairs), H6 underpowered, H7 falsified (both bimodal). Specific expected vs. observed values reported. Consistently the paper's highest-rated aspect across ALL reviews.",
+    "L0 PHASE TRANSITION REMAINS MOST ROBUST FINDING: 42.9% -> 0.8% across four L0 values, cross-layer CV < 10%, bootstrap CIs. Zero reviewer challenges across 4 review cycles. Monotonic, cross-layer stable, directly actionable for practitioners.",
+    "COMPREHENSIVE CONTROL SUITE: 4 controls x 5 hierarchy domains. Universal control failure (shuffled > measured in ALL domains) is devastating and well-evidenced. The most thorough control suite in any absorption study.",
+    "ZERO EXPERIMENT FAILURES (CONSECUTIVE 4 ITERATIONS): Infrastructure fully reliable when experiments ARE executed. 23/23 (iter 6), 14/14 (iter 5), 13/13 (iter 4), 22/22 (iter 1).",
+    "WRITING STRUCTURE AND CLARITY: Evidence-first structure, informative figure captions, clear negative results reporting in Section 7.4. Writing quality is 7/10 -- prose quality is not the bottleneck.",
+    "STRATEGIC PIVOT CAPABILITY: System successfully pivoted from epidemiological-methods to metric audit, from causal mediation to confound decomposition. Pivots were evidence-driven and correct.",
+    "BOOTSTRAP CIs THROUGHOUT: All absorption rates with 95% bootstrap CIs (10k resamples, seed=42). Best practice consistently maintained.",
+    "PER-LETTER GRANULARITY: Per-letter probe F1, absorption rate, CMI estimate. Enabled discovery of probe quality confound (rho=-0.67) -- itself an important methodological observation."
+  ],
+  "systemic_patterns": [
+    "CRITICAL PATTERN (8 ITERATIONS): High-value experiments go unexecuted while writing-review cycles run indefinitely. This is the project's PRIMARY FAILURE MODE. Score improvements are driven exclusively by experiments (iter 4: +1.0). Score stagnation occurs during writing-only iterations (iter 7-8: +0.0 for 2 iterations). The system is evidence-bound, not prose-bound. The writing-review loop has negative marginal returns without new evidence.",
+    "CRITICAL PATTERN (8 ITERATIONS): validate_integration.py recommended every iteration since iter 1, never implemented. The project's oldest unresolved systemic issue. Each iteration discovers NEW pipeline errors of the same structural type. Priority inversion: visible output (writing/review) consistently takes precedence over invisible prevention (validation infrastructure).",
+    "PERSISTENT PATTERN (4 ITERATIONS): Theoretical overclaiming follows whack-a-mole pattern. Iter 4: 'validated quality indicator' -> fixed. Iter 5: 'causal mediation' -> fixed. Iter 6-8: 'CMI predicts' -> unfixed for 3 reviews. The incentive structure (stronger claims -> more publishable) systematically biases toward overclaiming.",
+    "NEW CRITICAL PATTERN: Score stagnation at 6.5 for THREE consecutive reviews (iter 6, 7, 8). The supervisor has provided the same path-to-8.0 analysis for 2 reviews. The binding constraint is 3 GPU-hours of experiments. This is the cheapest possible path to score improvement: 3 GPU-hours + 5 analysis hours = +1.0 to +1.5 points.",
+    "RESOLVED AND HELD: PILOT mode (fixed iter 4), LV framework (abandoned iter 4), proxy model (eliminated iter 1), label cycling (eliminated iter 3), GPT-2 fallback (eliminated iter 6), figure integration (fixed iter 6), paper body CMI numbers (fixed iter 7)."
+  ],
+  "efficiency_analysis": {
+    "gpu_utilization_pct": 0,
+    "total_gpu_idle_minutes": 0.0,
+    "total_actual_gpu_minutes": 0,
+    "total_actual_cpu_minutes": 0,
+    "total_planned_minutes": 0,
+    "bottleneck_stages": [
+      "experiment_execution_completely_skipped_second_consecutive_iteration",
+      "review_cycle_without_new_evidence_third_consecutive",
+      "zero_gpu_analyses_recommended_3x_never_computed"
+    ],
+    "suggestions": [
+      "MANDATORY: Iter 9 must be experiment-first. Execute all 3 critical experiments (3 GPU-hours) BEFORE any writing revision. Enforce via hard gate in task plan.",
+      "MANDATORY: Implement validate_integration.py as absolute first task -- 8th iteration of this recommendation.",
+      "MANDATORY: Compute zero-GPU analyses (partial correlation, leave-one-out, threshold sensitivity reporting) as Gate 0 alongside validate_integration.py. Total: 2 hours, 0 GPU.",
+      "Merge all CMI robustness analyses (partial correlation, leave-one-out, k-sensitivity, bootstrap CIs) into single 'CMI robustness' task.",
+      "Include threshold sensitivity results (already computed in iter_006, zero cost) in first writing pass after experiments.",
+      "TOTAL COST TO REACH 7.5-8.0: 3 GPU-hours experiments + 5 hours analysis/writing. This is the cheapest path from 6.5. The system has spent more time on 2 empty review cycles than these experiments would take."
+    ]
+  },
+  "recommended_focus": [
+    "GATE 0 -- INFRASTRUCTURE (DAY 1, ZERO GPU, 3.5 hours total): (1) Implement validate_integration.py [1.5h]. (2) Compute CMI partial correlation + leave-one-out sensitivity [30min]. (3) Analyze + report threshold sensitivity from existing data [1h]. (4) Control failure analytical diagnosis [30min]. NOTHING ELSE PROCEEDS UNTIL GATE 0 COMPLETE.",
+    "GATE 1 -- CRITICAL EXPERIMENTS (DAY 1-2, 3 GPU-hours total): (1) Activation patching on 9 core words [1 GPU-hr]. (2) Tightened hedging classification with parent-specific latent check [1 GPU-hr]. (3) CMI replication at L0=22 with pre-registered d'=10 [1 GPU-hr]. NO WRITING UNTIL GATE 1 COMPLETE.",
+    "GATE 2 -- WRITING REVISION (DAY 2-3, ZERO GPU, 3 hours total): (1) Downgrade CMI overclaiming throughout [45min]. (2) Add two-interpretation paragraph in Section 7.2 [30min]. (3) Name all 9 core words with table [20min]. (4) Reconcile confound_decomposition contradiction [20min]. (5) Compress Section 5.3, trim abstract, fix notation [45min]. (6) Incorporate all new experiment results [30min].",
+    "GATE 3 -- REVIEW CYCLE: Supervisor review ONLY after Gates 0-2 complete.",
+    "EXPECTED SCORE TRAJECTORY: Gate 0 alone -> 6.75 (marginal improvement from eliminating zero-cost gaps). Gate 0+1 -> 7.5-8.0 (experiments are the binding constraint). Gate 0+1+2 -> 8.0 (Strong Accept if activation patching produces clear result in either direction)."
+  ],
+  "suggested_threshold_adjustment": 8.0,
+  "suggested_max_iterations": 20
+}

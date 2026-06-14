@@ -1,0 +1,356 @@
+{
+  "tasks": [
+    {
+      "id": "task_0a",
+      "name": "环境验证与模型加载",
+      "description": "验证 Dream-7B 加载正常，vanilla 生成可用。确认 mask_token_id=151666。运行 4 个 Countdown prompt 端到端测试（生成 + 准确率评估）。验证 PEFT/LoRA 库可用。",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/results/setup_verification.json",
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "pilot": {
+        "samples": 4,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "4 个 prompt 生成成功，PEFT LoRA 初始化无报错，无 OOM"
+      }
+    },
+    {
+      "id": "task_0b",
+      "name": "评估框架搭建",
+      "description": "搭建 Countdown、GSM8K、MBPP、HumanEval 的标准化评估脚本。Countdown: 解析目标格式，验证等式正确性。GSM8K: 提取 '#### N' 格式答案，exact match。MBPP/HumanEval: pass@1 评估。统一输出格式。",
+      "type": "setup",
+      "depends_on": [],
+      "expected_output": "exp/code/eval_framework.py",
+      "gpu_count": 0,
+      "estimated_minutes": 15,
+      "pilot": {
+        "samples": 4,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "Countdown 4 样本评估成功；GSM8K 答案提取成功；代码评估 sandbox 可用"
+      }
+    },
+    {
+      "id": "task_1a",
+      "name": "Vanilla Baseline: Countdown",
+      "description": "Dream-7B vanilla (origin, 128步, temp=0.4) 在 Countdown 500 题上的 baseline。记录准确率、生成长度、distinct-1/2/3、rep-2/3、推理时间。",
+      "type": "baseline",
+      "depends_on": ["task_0a", "task_0b"],
+      "expected_output": "exp/results/baselines/countdown_vanilla.json",
+      "gpu_count": 1,
+      "estimated_minutes": 90,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "16 样本全部生成成功，准确率 > 0%，评估框架无报错"
+      }
+    },
+    {
+      "id": "task_1b",
+      "name": "Vanilla Baseline: GSM8K",
+      "description": "Dream-7B vanilla 在 GSM8K 全集（1319题）上的 baseline。使用 Dream 论文标准配置。记录 EM 准确率。",
+      "type": "baseline",
+      "depends_on": ["task_0a", "task_0b"],
+      "expected_output": "exp/results/baselines/gsm8k_vanilla.json",
+      "gpu_count": 1,
+      "estimated_minutes": 120,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "16 样本生成成功，答案提取率 ≥ 80%，准确率 > 0%"
+      }
+    },
+    {
+      "id": "task_1c",
+      "name": "Vanilla Baseline: MBPP",
+      "description": "Dream-7B vanilla 在 MBPP 500 题子集上的 baseline。0-shot prompt，Pass@1 评估。",
+      "type": "baseline",
+      "depends_on": ["task_0a", "task_0b"],
+      "expected_output": "exp/results/baselines/mbpp_vanilla.json",
+      "gpu_count": 1,
+      "estimated_minutes": 90,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "16 样本代码生成成功（非空输出），sandbox 执行无崩溃"
+      }
+    },
+    {
+      "id": "task_2a",
+      "name": "DTA 核心实现与 Countdown Pilot",
+      "description": "实现 DTA 核心算法：在 Dream-7B 去噪循环中，每步揭示 token 后，对已揭示 token 计算 masked LM 损失，更新 LoRA 参数（rank=4，最后 2 层 FFN）。初始超参：η=1e-4, γ=0.95, warmup=20%。在 Countdown 16 题上 pilot 验证：(1) 数值稳定性（LoRA 范数不爆炸）(2) 基本有效性（准确率 ≥ vanilla）(3) 无文本退化。",
+      "type": "experiment",
+      "depends_on": ["task_1a"],
+      "expected_output": "exp/code/dta_v1.py",
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "DTA 成功运行无报错，||Δθ||_F 不超过 1.0，Countdown 准确率 ≥ vanilla pilot，distinct-2 ≥ 0.7"
+      }
+    },
+    {
+      "id": "task_2b",
+      "name": "ReMDM-conf Baseline 复现",
+      "description": "复现 ReMDM-conf（基于置信度的 remasking）在 Dream-7B 上。按 ReMDM 论文实现：每步去噪后，将置信度最低的 k% token 重新 mask。在 Countdown 16 题上 pilot 验证。",
+      "type": "baseline",
+      "depends_on": ["task_1a"],
+      "expected_output": "exp/code/remdm_conf.py",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "ReMDM-conf 成功运行，diversity ≥ 0.7，Countdown 结果可与 vanilla 对比"
+      }
+    },
+    {
+      "id": "task_2c",
+      "name": "RCR Baseline 复现",
+      "description": "复现 RCR (Running Confidence Remasking)：将置信度低于运行平均的 token 重遮蔽。在 Countdown 16 题上 pilot。",
+      "type": "baseline",
+      "depends_on": ["task_1a"],
+      "expected_output": "exp/code/rcr_baseline.py",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "RCR 成功运行，diversity ≥ 0.7"
+      }
+    },
+    {
+      "id": "task_3a",
+      "name": "DMI 实现（Level 1 消融）",
+      "description": "实现 Diffusion Memory Injection：每个去噪步，将上一步的 logits 经 softmax 加权后与 token embedding 混合注入当前步输入。混合系数 α=0.3。在 Countdown 16 题上 pilot。",
+      "type": "experiment",
+      "depends_on": ["task_1a"],
+      "expected_output": "exp/code/dmi_v1.py",
+      "gpu_count": 1,
+      "estimated_minutes": 30,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "DMI 成功运行无崩溃，Countdown 准确率 ≥ vanilla pilot"
+      }
+    },
+    {
+      "id": "task_3b",
+      "name": "SCP 实现（Level 2 消融）",
+      "description": "实现 Self-Contradiction Probing：对每个已揭示 token，执行 leave-one-out 遮蔽，用模型重新预测。若预测与当前 token 不一致，则标记为自矛盾。对自矛盾 token 重新 mask 并重预测。在 Countdown 16 题上 pilot。",
+      "type": "experiment",
+      "depends_on": ["task_1a"],
+      "expected_output": "exp/code/scp_v1.py",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "SCP 成功运行，自矛盾检测率在 5%-50% 范围内（非全标记/无标记），Countdown 准确率 ≥ vanilla pilot"
+      }
+    },
+    {
+      "id": "task_4a",
+      "name": "DTA + ReMDM-conf 组合实现",
+      "description": "实现 DTA 与 ReMDM-conf 的组合：每步先执行 DTA 参数更新（M-step），再执行 ReMDM-conf 的置信度重遮蔽。验证 H2（正交互补性）。Countdown 16 题 pilot。",
+      "type": "experiment",
+      "depends_on": ["task_2a", "task_2b"],
+      "expected_output": "exp/code/dta_remdm_v1.py",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "组合方法准确率 ≥ max(DTA alone, ReMDM alone)，表明正交互补"
+      }
+    },
+    {
+      "id": "task_5a",
+      "name": "Countdown 全方法对比（Full-Scale）",
+      "description": "在 Countdown 500 题 × 3 seeds 上运行全部方法：Vanilla, ReMDM-conf, RCR, DMI, SCP, DTA, DTA+ReMDM。McNemar test + Bootstrap 95% CI。验证 H1 和 H4。",
+      "type": "experiment",
+      "depends_on": ["task_2a", "task_2b", "task_2c", "task_3a", "task_3b", "task_4a"],
+      "expected_output": "exp/results/full/countdown_all_methods.json",
+      "gpu_count": 4,
+      "estimated_minutes": 360,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 1800,
+        "pass_criteria": "所有 7 个方法成功运行，DTA 准确率 > vanilla（方向正确即可，不要求显著）"
+      }
+    },
+    {
+      "id": "task_5b",
+      "name": "GSM8K DTA 全集评估",
+      "description": "在 GSM8K 全集（1319题）× 3 seeds 上评估 Vanilla, ReMDM-conf, DTA, DTA+ReMDM。验证 H2。McNemar test。",
+      "type": "experiment",
+      "depends_on": ["task_1b", "task_2a", "task_2b", "task_4a"],
+      "expected_output": "exp/results/full/gsm8k_dta.json",
+      "gpu_count": 4,
+      "estimated_minutes": 480,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "DTA 在 GSM8K pilot 上准确率方向正确"
+      }
+    },
+    {
+      "id": "task_5c",
+      "name": "MBPP DTA 评估",
+      "description": "在 MBPP 500 题上评估 Vanilla, DTA, DTA+ReMDM 的 Pass@1。验证跨任务泛化。",
+      "type": "experiment",
+      "depends_on": ["task_1c", "task_2a", "task_4a"],
+      "expected_output": "exp/results/full/mbpp_dta.json",
+      "gpu_count": 2,
+      "estimated_minutes": 180,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "DTA 在 MBPP pilot 上 Pass@1 ≥ vanilla"
+      }
+    },
+    {
+      "id": "task_6a",
+      "name": "推理时扩展曲线分析",
+      "description": "在 Countdown 200 题上扫描去噪步数 T ∈ {64, 128, 256, 512}，对比 Vanilla, ReMDM-conf, DTA, DTA+ReMDM 的准确率-步数曲线。验证 H3（DTA 不饱和 vs ReMDM 在 T>2L 后饱和）。绘制 Pareto 曲线（准确率 vs 计算量）。",
+      "type": "analysis",
+      "depends_on": ["task_5a"],
+      "expected_output": "exp/results/analysis/scaling_curve.json",
+      "gpu_count": 4,
+      "estimated_minutes": 240,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 1200,
+        "pass_criteria": "4 个步数点全部成功运行，DTA 在 T=256 和 T=512 上准确率仍在提升"
+      }
+    },
+    {
+      "id": "task_7a",
+      "name": "LoRA Rank 消融",
+      "description": "在 Countdown 200 题上扫描 LoRA rank r ∈ {2, 4, 8, 16}，固定其他超参。分析 rank 与准确率/计算开销的 trade-off。",
+      "type": "ablation",
+      "depends_on": ["task_5a"],
+      "expected_output": "exp/results/ablation/lora_rank.json",
+      "gpu_count": 2,
+      "estimated_minutes": 120,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "4 个 rank 值全部成功运行，r=4 准确率接近或最优"
+      }
+    },
+    {
+      "id": "task_7b",
+      "name": "衰减因子 γ 消融",
+      "description": "在 Countdown 200 题上扫描 γ ∈ {0.0, 0.8, 0.9, 0.95, 0.99, 1.0}。验证 H8（最优 γ 在 [0.9, 0.99]）。γ=0 意味着每步重置（无累积记忆），γ=1 意味着无衰减（可能漂移）。",
+      "type": "ablation",
+      "depends_on": ["task_5a"],
+      "expected_output": "exp/results/ablation/decay_gamma.json",
+      "gpu_count": 2,
+      "estimated_minutes": 120,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "6 个 γ 值全部成功运行，γ=0.95 附近准确率最高"
+      }
+    },
+    {
+      "id": "task_7c",
+      "name": "更新频率消融",
+      "description": "在 Countdown 200 题上扫描更新频率：每步 / 每 2 步 / 每 4 步执行 DTA 更新。分析准确率与计算开销的 trade-off。",
+      "type": "ablation",
+      "depends_on": ["task_5a"],
+      "expected_output": "exp/results/ablation/update_freq.json",
+      "gpu_count": 1,
+      "estimated_minutes": 90,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "3 个频率全部成功运行"
+      }
+    },
+    {
+      "id": "task_7d",
+      "name": "插入层数消融",
+      "description": "在 Countdown 200 题上扫描 LoRA 插入位置：最后 1 层 / 最后 2 层 / 最后 4 层 FFN。分析层数与准确率/开销的 trade-off。",
+      "type": "ablation",
+      "depends_on": ["task_5a"],
+      "expected_output": "exp/results/ablation/lora_layers.json",
+      "gpu_count": 1,
+      "estimated_minutes": 90,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "3 个配置全部成功运行"
+      }
+    },
+    {
+      "id": "task_8a",
+      "name": "LLaDA-8B 跨模型验证",
+      "description": "将 DTA 和 DTA+ReMDM 迁移到 LLaDA-8B-Base 上。在 Countdown 200 题和 GSM8K 200 题子集上验证。确认 DTA 的跨模型泛化性。",
+      "type": "experiment",
+      "depends_on": ["task_5a"],
+      "expected_output": "exp/results/cross_model/llada_results.json",
+      "gpu_count": 1,
+      "estimated_minutes": 120,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "LLaDA 上 DTA 准确率改善方向与 Dream 一致"
+      }
+    },
+    {
+      "id": "task_8b",
+      "name": "Token 级诊断分析",
+      "description": "在 Countdown 200 题上记录每步去噪的 token 变化轨迹。计算 ReMDM-conf 和 DTA 的 Correction Precision/Recall。验证 H9（ReMDM-conf 的 Correction Precision < 50%）。对比 SCP 与 ReMDM-conf 的 Correction Precision（H6）。",
+      "type": "analysis",
+      "depends_on": ["task_5a"],
+      "expected_output": "exp/results/analysis/token_diagnostics.json",
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "成功记录 token 轨迹，Correction Precision/Recall 计算无报错"
+      }
+    },
+    {
+      "id": "task_8c",
+      "name": "退化检测与 LoRA 轨迹分析",
+      "description": "验证 H10（DTA 不引入退化）：对比 DTA 和 vanilla 生成文本的 distinct-1/2/3 和 rep-2/3。可视化 LoRA 参数范数 ||Δθ||_F 随去噪步的变化轨迹。分析正确/错误样本的 LoRA 行为差异。验证 H7（信息积累单调性）的替代检验：DTA 对未来 token 的预测准确率是否随步数提升。",
+      "type": "analysis",
+      "depends_on": ["task_5a"],
+      "expected_output": "exp/results/analysis/degradation_and_lora_trajectory.json",
+      "gpu_count": 1,
+      "estimated_minutes": 45,
+      "pilot": {
+        "samples": 16,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "DTA 的 rep-3 不超过 vanilla + 20%，||Δθ||_F 轨迹呈收敛趋势"
+      }
+    }
+  ]
+}

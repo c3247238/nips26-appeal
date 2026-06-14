@@ -1,0 +1,534 @@
+{
+  "candidate_id": "absorption_tax_crossdomain",
+  "version": "4.0",
+  "round": 4,
+  "seed": 42,
+  "notes": "Iteration 10 FULL MODE: Addresses score regression 7.0->6.5 from iter-9 review. THREE priorities: (1) Phase 0 zero-GPU paper integrity fixes (BLOCKING), (2) Phase 1 probe degradation ablation (H10 -- HIGHEST PRIORITY new experiment), (3) Phase 2 remaining experiments (H8 first-letter decoder magnitude, H9 rate-distortion with more pairs). Builds on corrected FULL-mode data: activation patching city-continent d=1.50, city-language d=0.75 (bugfix from d=-0.91 pilot). Total: ~3.5 GPU-hours, ~10 wall-clock hours with 1 GPU.",
+  "completed_tasks": [],
+  "tasks": [
+    {
+      "id": "phase0_data_integrity",
+      "name": "Phase 0.1: Data Integrity Overhaul + validate_integration.py",
+      "description": "Create data provenance infrastructure. (1) Build exp/results/data_manifest.json mapping every numerical claim in the paper to its source JSON file + field path. Cover: absorption rates (H1), patching effect sizes (H7), hedging percentages (H3), probe F1s, architecture comparison, benign/pathological logit changes. (2) Resolve known discrepancies: F1=0.97 vs 1.0 for first-letter probes (sae_spelling binary probe vs sklearn logistic regression); benign count 1471 vs 1464; aggregation method (per-unique-word vs per-token). (3) Implement exp/code/validate_integration.py: reads data_manifest.json + paper LaTeX, extracts claims, cross-checks against source JSON, reports mismatches. Exit 0 if all match. (4) Run validation and fix any discovered mismatches. Source data: iter_009/exp/results/full/consolidation_summary.json, iter_009/exp/results/full/activation_patching_crossdomain_full.json, iter_009/exp/results/phase1/*.json, iter_009/exp/results/phase2/*.json.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [],
+      "expected_output": "exp/results/phase0/data_manifest.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {
+          "type": "result",
+          "name": "iter009_consolidation",
+          "path": "iter_009/exp/results/full/consolidation_summary.json"
+        },
+        {
+          "type": "result",
+          "name": "iter009_patching_full",
+          "path": "iter_009/exp/results/full/activation_patching_crossdomain_full.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "data_manifest.json created with >= 20 claim mappings. validate_integration.py runs successfully. All known discrepancies documented with resolution."
+      },
+      "visualizations": []
+    },
+    {
+      "id": "phase0_paper_corrections",
+      "name": "Phase 0.2-0.4: Propagate Corrected Data + Reframe Claims",
+      "description": "Three blocking paper corrections combined into one task. (A) Step 0.2: Update Section 5.2 with corrected FULL-mode cross-domain patching: city-continent d=1.50 (from iter_009/exp/results/full/activation_patching_crossdomain_full.json), city-language d=0.75. Remove concentrated vs. distributed absorption dichotomy. Update abstract with universal mechanism claim. Verify: grep for 'd=-0.91' and '0.05% recovery' returns 0 hits. (B) Step 0.3: Reframe benign/pathological in Section 5.3. Acknowledge circularity: diagnostic measures decoder geometry, not computational redundancy. Reframe from '100% pathological' to 'child decoders carry large-magnitude parent information (3.98 nats vs 0.12 control)'. Describe genuine test requirements. Scope to city-continent L24 only. (C) Step 0.4: Reframe headline claims. '4x range' qualified as descriptive. '100% pathological' scoped. 'No architecture effect' reframed as underpowered. Kruskal-Wallis scope clarified (3 RAVEL hierarchies). Separate descriptive from inferential claims.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [
+        "phase0_data_integrity"
+      ],
+      "expected_output": "exp/results/phase0/paper_corrections_log.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 60,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {
+          "type": "result",
+          "name": "iter009_patching_full",
+          "path": "iter_009/exp/results/full/activation_patching_crossdomain_full.json"
+        },
+        {
+          "type": "result",
+          "name": "iter009_benign_pathological",
+          "path": "iter_009/exp/results/phase2/benign_pathological.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Paper sections updated. grep for 'd=-0.91' returns 0. Circularity acknowledged in Section 5.3. Headline claims scoped with qualifiers. Correction log JSON documenting all changes."
+      },
+      "visualizations": []
+    },
+    {
+      "id": "phase0_figures",
+      "name": "Phase 0.5: Generate Missing Figures 4-6",
+      "description": "Generate three missing PDF figures from existing JSON data. (1) fig4_patching_comparison.pdf: paired dot plot showing recovery rates by hierarchy type (first-letter d=1.33, city-continent d=1.50, city-language d=0.75). Each pair = child-zeroed vs control recovery. Source: iter_009/exp/results/full/activation_patching_crossdomain_full.json + iter_008 first-letter patching. (2) fig5_pathological_histogram.pdf: histogram of |logit change| values from decoder direction ablation with random-direction control overlay. Source: iter_009/exp/results/phase2/benign_pathological.json. (3) fig6_architecture_comparison.pdf: grouped bar chart of absorption rates by architecture (JumpReLU, BatchTopK, Matryoshka) x hierarchy (first-letter, city-continent, city-country, city-language). Source: iter_009/exp/results/phase1/architecture_comparison.json or iter_008/exp/results/phase4/architecture_comparison.json. Use matplotlib with publication-quality settings (300 DPI, tight layout, no gridlines, seaborn palette).",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [],
+      "expected_output": "exp/results/figures/fig4_patching_comparison.pdf",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 45,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {
+          "type": "result",
+          "name": "iter009_patching_full",
+          "path": "iter_009/exp/results/full/activation_patching_crossdomain_full.json"
+        },
+        {
+          "type": "result",
+          "name": "iter009_benign_pathological",
+          "path": "iter_009/exp/results/phase2/benign_pathological.json"
+        },
+        {
+          "type": "result",
+          "name": "architecture_comparison",
+          "path": "iter_009/exp/results/phase1/architecture_comparison.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "All 3 PDF figures generated. Each figure renders correctly with axes labels, legend, and title. File sizes > 10KB (not empty)."
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Activation patching recovery: child-zeroed vs control by hierarchy",
+          "x": "hierarchy",
+          "y": "recovery_rate",
+          "paper_section": "section5_mechanism"
+        },
+        {
+          "type": "histogram",
+          "description": "Decoder direction magnitude |logit change| distribution",
+          "x": "abs_logit_change",
+          "paper_section": "section5_mechanism"
+        },
+        {
+          "type": "grouped_bar",
+          "description": "Architecture x hierarchy absorption comparison",
+          "x": "hierarchy",
+          "y": "absorption_rate",
+          "hue": "architecture",
+          "paper_section": "section6_architecture"
+        }
+      ]
+    },
+    {
+      "id": "setup_env_check",
+      "name": "Environment Verification for GPU Tasks",
+      "description": "Quick sanity check that environment is functional for GPU experiments. Verify: (1) SAELens >=6.39 importable, (2) TransformerLens importable, (3) GPU available with >=24GB VRAM, (4) Gemma 2 2B model loadable (test tokenizer only for speed), (5) Gemma Scope SAE L24-16k loadable, (6) RAVEL dataset accessible (hij/ravel), (7) sae_spelling importable, (8) scipy, sklearn, numpy, matplotlib importable. (9) Verify iter_009 probe files exist: iter_009/exp/results/phase1/sae_spelling_probes/layer_24/. All confirmed working in iter_009 -- this is fast verification. Output: setup_check.json with versions and GPU info.",
+      "type": "setup",
+      "candidate_id": "shared",
+      "depends_on": [],
+      "expected_output": "exp/results/setup_check.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 5,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        },
+        {
+          "type": "result",
+          "name": "iter009_probes",
+          "path": "iter_009/exp/results/phase1/sae_spelling_probes/layer_24/"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All packages importable. GPU detected with >=24GB VRAM. Iter_009 probe files found."
+      },
+      "visualizations": []
+    },
+    {
+      "id": "phase1_probe_degradation",
+      "name": "Phase 1.1: Probe Degradation Ablation (H10 -- HIGHEST PRIORITY)",
+      "description": "THE SINGLE MOST IMPORTANT EXPERIMENT. Resolves whether cross-domain variation is genuine or a probe artifact. Method: (1) Load trained first-letter probes at L24 from iter_009/exp/results/phase1/sae_spelling_probes/layer_24/. These have F1=1.0 (sae_spelling binary probes). (2) For each target F1 level in {0.70, 0.80, 0.85, 0.90}: inject label noise into the TEST SET to degrade probe test-set F1 to the target. Use seed=42. Strategy: randomly flip labels for N randomly selected test examples until measured F1 drops to target (binary search on N). Verify degradation by re-evaluating probe F1 on corrupted test set. (3) For each degradation level: re-run the full absorption measurement pipeline at L24 with JumpReLU 16k SAE. Use the SAME absorption measurement code as iter_009 phase1_absorption_firstletter but with the degraded probes. Measure: absorption_rate, n_false_negatives, n_absorbed, bootstrap 95% CI (10k resamples). (4) Also run at ORIGINAL F1=1.0 as internal control -- must match iter_009 results within CI (27.1% +/- CI). (5) Create absorption_rate vs probe_F1 plot with RAVEL hierarchy points overlaid at their F1 levels: city-continent (42.9% at F1=0.84), city-country (45.1% at F1=0.79), city-language (11.6% at F1=0.82). (6) Statistical analysis: linear regression of absorption_rate ~ probe_F1, extrapolation to RAVEL F1 levels, comparison with actual RAVEL rates. (7) Key test: at F1=0.80, does first-letter absorption rate fall within 5 pp of RAVEL rates? If yes: variation is probe-driven. If no: hierarchy effect is genuine. BOTH outcomes publishable. Report in new Section 4.6 or appendix.",
+      "type": "experiment",
+      "candidate_id": "shared",
+      "depends_on": [
+        "setup_env_check"
+      ],
+      "expected_output": "exp/results/phase1/probe_degradation.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 55,
+      "max_batch_size_hint": "auto-detect",
+      "comment_on_duration": "4 degradation levels + 1 control x ~10 min each for absorption measurement at L24 16k. Conservative estimate includes model + SAE loading time.",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        },
+        {
+          "type": "checkpoint",
+          "name": "gemma-scope-2b-pt-res-canonical L24-16k",
+          "path": "shared/checkpoints/gemma-scope"
+        },
+        {
+          "type": "result",
+          "name": "iter009_probes",
+          "path": "iter_009/exp/results/phase1/sae_spelling_probes/layer_24/"
+        },
+        {
+          "type": "result",
+          "name": "iter009_absorption_crossdomain",
+          "path": "iter_009/exp/results/phase1/absorption_crossdomain.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Absorption rates computed at all 5 F1 levels (0.70, 0.80, 0.85, 0.90, 1.0). F1=1.0 control within CI of iter_009 result (27.1%). Clear monotonic trend in absorption_rate vs probe_F1. Comparison with RAVEL rates documented."
+      },
+      "visualizations": [
+        {
+          "type": "line_plot",
+          "description": "Absorption rate vs probe F1 for first-letter, with RAVEL hierarchy points overlaid",
+          "x": "probe_f1",
+          "y": "absorption_rate",
+          "hue": "hierarchy_type",
+          "paper_section": "section4_crossdomain"
+        },
+        {
+          "type": "table",
+          "description": "Probe degradation ablation results",
+          "columns": [
+            "probe_f1",
+            "absorption_rate",
+            "ci_lower",
+            "ci_upper",
+            "n_fn",
+            "n_absorbed",
+            "delta_from_ravel_matched"
+          ],
+          "paper_section": "section4_crossdomain"
+        }
+      ]
+    },
+    {
+      "id": "phase2_decoder_magnitude_firstletter",
+      "name": "Phase 2.1: Decoder Direction Magnitude on First-Letter (H8 Cross-Domain Consistency)",
+      "description": "Replicate the decoder direction ablation diagnostic on FIRST-LETTER at L24 16k, extending the city-continent-only result (3.98 nats, 0% benign). Method: (1) Load Gemma 2B + Gemma Scope L24 16k SAE. (2) Identify all first-letter absorption instances from iter_009 data (or re-identify using probes). (3) For each absorbed token context: (a) Get SAE reconstruction. (b) Ablate parent direction component from child latent's decoder vector: d_child_modified = d_child - (d_child . d_parent / ||d_parent||^2) * d_parent. (c) Run model with modified SAE decoder. (d) Measure logit change for correct letter tokens. (4) Classify: benign (|logit_change| <= 0.1), pathological (|logit_change| > 0.1). Also test at 0.05 and 0.2. (5) Control: ablate random direction of same norm. (6) Compare distribution with city-continent result (3.98 nats mean). (7) Report: is pathological severity consistent across hierarchy types? Does first-letter (F1=1.0, concentrated mechanism) show different magnitude than city-continent (F1=0.84, distributed)? This addresses the reframing: the diagnostic measures decoder information magnitude, not computational redundancy.",
+      "type": "experiment",
+      "candidate_id": "shared",
+      "depends_on": [
+        "setup_env_check"
+      ],
+      "expected_output": "exp/results/phase2/decoder_magnitude_firstletter.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-2-2b",
+          "path": "shared/checkpoints/gemma-2-2b"
+        },
+        {
+          "type": "checkpoint",
+          "name": "gemma-scope-2b-pt-res-canonical L24-16k",
+          "path": "shared/checkpoints/gemma-scope"
+        },
+        {
+          "type": "result",
+          "name": "iter009_benign_pathological",
+          "path": "iter_009/exp/results/phase2/benign_pathological.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Logit changes computed for first-letter absorption instances. Distribution comparable or different from city-continent (3.98 nats). Random direction control shows near-zero logit change. Classification at 3 thresholds (0.05, 0.1, 0.2)."
+      },
+      "visualizations": [
+        {
+          "type": "histogram",
+          "description": "Decoder direction magnitude: first-letter vs city-continent comparison",
+          "x": "abs_logit_change",
+          "hue": "hierarchy",
+          "paper_section": "section5_mechanism"
+        },
+        {
+          "type": "table",
+          "description": "Cross-hierarchy decoder direction magnitude comparison",
+          "columns": [
+            "hierarchy",
+            "n_instances",
+            "mean_logit_change",
+            "median_logit_change",
+            "control_mean",
+            "benign_pct_01",
+            "benign_pct_02"
+          ],
+          "paper_section": "section5_mechanism"
+        }
+      ]
+    },
+    {
+      "id": "phase2_rate_distortion_pooled",
+      "name": "Phase 2.2: Rate-Distortion Predictor Validation (Pooled Cross-Domain, H9)",
+      "description": "Re-test the three-factor predictor model with more parent-child pairs pooled across all hierarchies and corrected data. Iter-9 tested 20 pairs, found rho=0.261 (p=0.266). Method: (1) Pool ALL identified parent-child pairs from iter_009 experiments: first-letter absorption pairs + city-continent pairs + city-language pairs. Target: >=40 pairs (up from 20). (2) For each pair, compute: cos_sim = cosine(d_parent, d_child) from SAE decoder vectors at L24 16k, co_occur = P(child active | parent active) from activation statistics over 10k+ sequences, R_parent = MSE increase when parent direction ablated from SAE decoder (or proxy: mean parent activation magnitude). (3) Fit linear model: absorption_prob ~ beta_1*cos_sim^2 + beta_2*co_occur - beta_3*R_parent. (4) Evaluate: Spearman rho between predicted and observed. Also test each predictor individually. (5) Cross-domain analysis: do cos_sim / co_occur distributions differ between hierarchies? Does this explain absorption rate differences? (6) If rho < 0.3 or p > 0.05: report as definitive negative result alongside GAS and CMI. The cross-domain characterization stands independently of predictive models. Source pairs: iter_009/exp/results/phase2/activation_patching_crossdomain.json (cross-domain pairs), iter_009/exp/results/phase1/absorption_firstletter.json (first-letter pairs).",
+      "type": "experiment",
+      "candidate_id": "shared",
+      "depends_on": [
+        "setup_env_check"
+      ],
+      "expected_output": "exp/results/phase2/rate_distortion_pooled.json",
+      "gpu_count": 1,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "auto-detect",
+      "shared_resources": [
+        {
+          "type": "checkpoint",
+          "name": "gemma-scope-2b-pt-res-canonical L24-16k",
+          "path": "shared/checkpoints/gemma-scope"
+        },
+        {
+          "type": "result",
+          "name": "iter009_absorption_pairs",
+          "path": "iter_009/exp/results/phase2/activation_patching_crossdomain.json"
+        },
+        {
+          "type": "result",
+          "name": "iter009_rate_distortion",
+          "path": "iter_009/exp/results/phase3/rate_distortion_predictors.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 900,
+        "pass_criteria": "Per-pair predictors computed for >= 30 pairs across hierarchies. Spearman rho computed with p-value. Individual predictor correlations reported. Cross-domain predictor distribution analysis."
+      },
+      "visualizations": [
+        {
+          "type": "scatter",
+          "description": "Three-factor model: predicted vs observed absorption (pooled cross-domain)",
+          "x": "predicted_absorption",
+          "y": "observed_absorption",
+          "hue": "hierarchy",
+          "paper_section": "appendix"
+        },
+        {
+          "type": "table",
+          "description": "Individual and combined predictor correlations with absorption",
+          "columns": [
+            "predictor",
+            "spearman_rho",
+            "p_value",
+            "n_pairs",
+            "hierarchy_breakdown"
+          ],
+          "paper_section": "appendix"
+        }
+      ]
+    },
+    {
+      "id": "phase3_appendix_writing",
+      "name": "Phase 3.1: Write Appendix Sections (Negative Results + Threshold Sensitivity)",
+      "description": "CPU-only compilation of appendix content from existing data. (1) GAS negative result appendix: rho=0.116, AUROC=0.571. Explain failure: GAS captures decoder geometry but not encoder competitive exclusion. Source: iter_008/exp/results/phase2/gas_full.json or iter_009/exp/results/phase4/negative_results.json. (2) CMI negative result: rho=0.044, p=0.83 at L0=22. Explain: information-theoretic approach does not capture absorption. (3) Absorption Tax appendix: T(G)=0.414, ranking rho=-0.20, concordance 50%. Retained as qualitative framework. (4) Threshold sensitivity: CV=0.077, 20/20 cells robust. Source: iter_001/exp/results/full/ablation_threshold_sensitivity.json. (5) Rate-distortion predictor (from Phase 2.2, or iter_009 if Phase 2.2 confirms negative). Output: structured JSON summaries per appendix section, suitable for writing agent.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [
+        "phase2_rate_distortion_pooled"
+      ],
+      "expected_output": "exp/results/phase3/appendix_sections.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 30,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [
+        {
+          "type": "result",
+          "name": "iter009_negative_results",
+          "path": "iter_009/exp/results/phase4/negative_results.json"
+        },
+        {
+          "type": "result",
+          "name": "iter001_threshold",
+          "path": "iter_001/exp/results/full/ablation_threshold_sensitivity.json"
+        }
+      ],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "All 5 appendix section summaries generated with specific metrics, failure analysis, and paper section assignments."
+      },
+      "visualizations": []
+    },
+    {
+      "id": "phase3_methodology_docs",
+      "name": "Phase 3.2: Document Methodological Details",
+      "description": "CPU-only documentation task. (1) Document per-unique-word aggregation method used in absorption measurement: each word contributes one absorption rate (average over contexts), not one per token occurrence. Explain why: prevents high-frequency words from dominating statistics. (2) Document token position asymmetry: first-letter uses position -6 (sae_spelling convention, word positioned 6 tokens from end), RAVEL uses position -2 (entity at second-to-last position). Explain why different and assess impact. (3) Document single-model limitation: Gemma 2 2B only. No cross-model validation. Future work would test on GPT-2, Pythia, Llama. (4) Document probe quality confound: F1 correlation with absorption (rho=-0.756). This motivates H10. (5) Add reproducibility section: list all seeds, library versions, SAE IDs. Output: methodology_supplements.json suitable for writing agent.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [],
+      "expected_output": "exp/results/phase3/methodology_supplements.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 20,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 300,
+        "pass_criteria": "All 5 methodological notes documented with clear explanations and paper section assignments."
+      },
+      "visualizations": []
+    },
+    {
+      "id": "phase4_consolidation",
+      "name": "Phase 4: Final Consolidation and Writing Gate",
+      "description": "Aggregate ALL iter_010 experimental results into comprehensive summary. (1) Compile probe degradation ablation results (H10 verdict: genuine hierarchy effect OR probe artifact). (2) Compile decoder direction magnitude on first-letter (H8 cross-domain consistency). (3) Compile rate-distortion pooled results (H9 verdict: confirmed NOT_SUPPORTED or upgraded). (4) Update ALL hypothesis verdicts: H1-H10. Include H10 for the first time. (5) Cross-reference with iter_009 consolidation for consistency. (6) Writing gate: go_write=true if: (a) H10 provides clear answer (either direction), (b) corrected FULL-mode data propagated to paper, (c) all figures generated. (7) Generate per-paper-section result summaries for writing agent. (8) List remaining open issues for next iteration (if any). (9) Compile data_manifest verification results from Phase 0.",
+      "type": "analysis",
+      "candidate_id": "shared",
+      "depends_on": [
+        "phase0_data_integrity",
+        "phase0_paper_corrections",
+        "phase0_figures",
+        "phase1_probe_degradation",
+        "phase2_decoder_magnitude_firstletter",
+        "phase2_rate_distortion_pooled",
+        "phase3_appendix_writing",
+        "phase3_methodology_docs"
+      ],
+      "expected_output": "exp/results/consolidation_summary.json",
+      "gpu_count": 0,
+      "multi_gpu_strategy": "single",
+      "estimated_minutes": 25,
+      "max_batch_size_hint": "N/A",
+      "shared_resources": [],
+      "pilot": {
+        "samples": 100,
+        "seed": 42,
+        "timeout": 600,
+        "pass_criteria": "consolidation_summary.json with all 10 hypothesis verdicts (H1-H10), writing gate decision, per-section result summaries, data integrity verification, and open issues list."
+      },
+      "visualizations": [
+        {
+          "type": "table",
+          "description": "Final hypothesis verdicts (H1-H10)",
+          "columns": [
+            "hypothesis",
+            "name",
+            "verdict",
+            "key_evidence",
+            "confidence",
+            "paper_section"
+          ],
+          "paper_section": "introduction"
+        }
+      ]
+    }
+  ],
+  "execution_order": [
+    [
+      "phase0_data_integrity",
+      "phase0_figures",
+      "setup_env_check",
+      "phase3_methodology_docs"
+    ],
+    [
+      "phase0_paper_corrections",
+      "phase1_probe_degradation",
+      "phase2_decoder_magnitude_firstletter",
+      "phase2_rate_distortion_pooled"
+    ],
+    [
+      "phase3_appendix_writing"
+    ],
+    [
+      "phase4_consolidation"
+    ]
+  ],
+  "total_gpu_hours_estimate": 3.5,
+  "parallelization_note": "Wave 1: data integrity + figures + env check + methodology docs (1 GPU + 3 CPU tasks, 45 min). Wave 2: paper corrections + probe degradation + decoder magnitude + rate-distortion (1 GPU for experiments, CPU for corrections; 55 min serial or 55 min with 3 GPUs parallel). Wave 3: appendix writing (CPU, 30 min). Wave 4: consolidation (CPU, 25 min). Total wall-clock: ~2.5 hours with 3 GPUs, ~4 hours with 1 GPU.",
+  "priority_order": {
+    "CRITICAL_BLOCKING": [
+      "phase0_data_integrity",
+      "phase0_paper_corrections",
+      "setup_env_check"
+    ],
+    "HIGHEST_PRIORITY_EXPERIMENT": [
+      "phase1_probe_degradation"
+    ],
+    "HIGH": [
+      "phase0_figures",
+      "phase2_decoder_magnitude_firstletter"
+    ],
+    "MEDIUM": [
+      "phase2_rate_distortion_pooled",
+      "phase3_appendix_writing",
+      "phase3_methodology_docs"
+    ],
+    "GATE": [
+      "phase4_consolidation"
+    ]
+  },
+  "fallback_decisions": {
+    "if_probe_degradation_shows_artifact": "Rewrite cross-domain finding as probe-quality-dependent. Add probe-quality-matched comparison as the corrected metric. This is an important methodological contribution regardless.",
+    "if_probe_degradation_noise_injection_fails": "Try alternative degradation strategies: (1) subsample training data to degrade probe, (2) add Gaussian noise to probe weights, (3) use probes trained with fewer epochs. At least one method should achieve target F1 levels.",
+    "if_decoder_magnitude_differs_on_firstletter": "Report as hierarchy-dependent decoder information content. Both consistent and different outcomes are informative about absorption mechanics.",
+    "if_rate_distortion_still_fails_with_more_data": "Report as definitive 3rd negative result (alongside GAS, CMI). The triple failure strengthens the case that interventional methods (activation patching) are necessary for absorption detection.",
+    "if_data_integrity_reveals_more_errors": "Fix all errors using validate_integration.py as regression test. Document corrections in paper_corrections_log.json. Do NOT proceed to writing gate until all claims verified.",
+    "if_env_setup_fails": "Reinstall: pip install sae-lens transformer-lens. If VRAM insufficient, reduce batch sizes. If Gemma Scope SAE unavailable, try alternative SAE release."
+  },
+  "paper_framing": {
+    "framing": "THREE_TIER_WITH_PROBE_ABLATION",
+    "contribution_1": "First cross-domain absorption characterization + probe degradation ablation (strengthens or corrects the finding)",
+    "contribution_2": "Universal causal mechanism via activation patching (corrected FULL-mode d=0.75-1.50). Tightened hedging (strict 0-22.6% vs loose 92.6%).",
+    "contribution_3": "Decoder direction magnitude analysis with acknowledged circularity. Cross-hierarchy consistency (new from Phase 2.1).",
+    "appendix_material": [
+      "GAS unsupervised detector (negative, rho=0.116)",
+      "CMI theoretical pillar (negative, rho=0.044)",
+      "Absorption Tax quantitative (not supported, rho=-0.20)",
+      "Threshold sensitivity (structural, CV=0.077)",
+      "Rate-distortion predictor (negative if confirmed)",
+      "Architecture comparison (hierarchy >> architecture)"
+    ],
+    "key_new_element_iter10": "H10 probe degradation ablation resolves the core ambiguity. Either outcome is a significant contribution."
+  },
+  "reusable_from_prior_iterations": {
+    "iter_009_consolidation": "iter_009/exp/results/full/consolidation_summary.json",
+    "iter_009_activation_patching_full": "iter_009/exp/results/full/activation_patching_crossdomain_full.json",
+    "iter_009_probes": "iter_009/exp/results/phase1/sae_spelling_probes/layer_24/",
+    "iter_009_absorption_crossdomain": "iter_009/exp/results/phase1/absorption_crossdomain.json",
+    "iter_009_benign_pathological": "iter_009/exp/results/phase2/benign_pathological.json",
+    "iter_009_rate_distortion": "iter_009/exp/results/phase3/rate_distortion_predictors.json",
+    "iter_009_hedging": "iter_009/exp/results/phase1/hedging_crossdomain.json",
+    "iter_009_negative_results": "iter_009/exp/results/phase4/negative_results.json",
+    "iter_008_gas": "iter_008/exp/results/phase2/gas_full.json",
+    "iter_001_threshold": "iter_001/exp/results/full/ablation_threshold_sensitivity.json"
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "overall_recommendation": "GO",
+  "selected_candidate_id": "cand_p1",
+  "candidates": [
+    {
+      "candidate_id": "cand_p1",
+      "go_no_go": "GO",
+      "confidence": 0.85,
+      "supported_hypotheses": ["H1", "H3_fixed"],
+      "failed_assumptions": ["H2", "H_Safe"],
+      "key_metrics": {
+        "h1_trained_sae_absorption": 0.50,
+        "h1_random_baseline_absorption": 0.147,
+        "h1_multi_seed_variance": 0.0,
+        "h3_steering_verified": true,
+        "h3_absorbed_sensitivity_ratio": 1.62,
+        "h_mech_encoder_effect": 0.191,
+        "h_mech_decoder_effect": 0.0,
+        "h_safe_p_value": 0.665,
+        "h_safe_safety_absorption": 0.907,
+        "h_safe_non_safety_absorption": 0.906
+      },
+      "notes": "H1 strongly supported (d=8.94). H3 steering implementation fixed - absorbed features show 1.62x more sensitivity. H_Mech reveals ABSORPTION IS ENCODER-DRIVEN, not decoder geometry. Decoder geometry effect is ZERO. H_Safe: NULL RESULT on real Gemma Scope SAE - both groups show ~90.7% absorption (p=0.665)."
+    }
+  ],
+  "pilot_summary": {
+    "h_safe_pilot": {
+      "status": "NULL_RESULT",
+      "release": "gemma-2b-res-jb",
+      "sae_id": "blocks.12.hook_resid_post",
+      "p_value": 0.665,
+      "safety_absorption": 0.907,
+      "non_safety_absorption": 0.906,
+      "interpretation": "No significant difference between safety and non-safety feature absorption on real Gemma Scope SAE. Both groups show very high absorption (~90.7%). H_Safe hypothesis NOT supported with these feature selections."
+    },
+    "h3_fix_pilot": {
+      "status": "PASS",
+      "steering_verified": true,
+      "absorbed_sensitivity_ratio": 1.62,
+      "interpretation": "Steering implementation now working. Absorbed features show 62% higher sensitivity to steering toward parent direction."
+    },
+    "multiseed_pilot": {
+      "status": "PARTIAL",
+      "trained_variance": 0.0,
+      "interpretation": "Trained SAE absorption is DETERMINISTIC at 0.5 across all seeds. This is a geometric property, not stochastic. Random baselines show variance (0.147 +/- 0.065)."
+    },
+    "h_mech_factorial": {
+      "status": "REVEALING",
+      "encoder_effect": 0.191,
+      "decoder_effect": 0.0,
+      "interpretation": "MAJOR FINDING: Absorption is driven by ENCODER alignment, NOT decoder geometry. Condition A=C (random vs trained decoder = same absorption), but B=D (trained encoder dominates regardless of decoder). This contradicts the original pilot interpretation."
+    }
+  },
+  "key_findings": [
+    {
+      "finding": "Absorption is encoder-driven, not decoder-geometry",
+      "evidence": "H_Mech: A=C (0.299=0.299), B=D (0.490=0.484). Decoder contribution = 0.",
+      "implication": "Must revise paper narrative: absorption comes from encoder learning hierarchical feature representations"
+    },
+    {
+      "finding": "Trained SAE absorption is deterministic",
+      "evidence": "Multi-seed: all 3 seeds show exactly 0.5 absorption",
+      "implication": "Absorption is a fixed property of trained SAE geometry, not stochastic"
+    },
+    {
+      "finding": "Steering now works correctly",
+      "evidence": "H3_fix: ||steered - baseline|| > 0, absorbed features 1.62x more sensitive",
+      "implication": "Can now make causal claims about absorption impact via steering"
+    },
+    {
+      "finding": "H_Safe: NULL RESULT on real Gemma Scope SAE",
+      "evidence": "Safety: 0.907, Non-safety: 0.906, p=0.665. Both groups show very high absorption.",
+      "implication": "H_Safe hypothesis NOT supported. Document as negative result. Note: feature selection was heuristic, not based on actual Neuronpedia annotations."
+    }
+  ],
+  "revised_narrative": {
+    "title": "Feature Absorption in SAEs: Encoder-Driven, Not Decoder Geometry",
+    "key_message": "Multi-child proportional ablation reveals absorption is primarily determined by encoder alignment with hierarchical feature structure, NOT decoder geometry as originally hypothesized. Training refines encoder weights to better capture parent-child relationships.",
+    "evidence_summary": {
+      "H_Mech_factorial": "Encoder effect = 0.191, Decoder effect = 0.0. Only trained encoder increases absorption above random baseline.",
+      "Multi_seed": "Trained SAE absorption is deterministic (0.5) across seeds - geometric property of trained encoder.",
+      "H3_steering": "Absorbed features show 1.62x more sensitivity to steering, confirming causal relationship.",
+      "H_Safe": "NULL RESULT - no difference in absorption between safety and non-safety features."
+    }
+  },
+  "next_steps": [
+    "Update paper narrative: absorption = encoder alignment, not decoder geometry",
+    "Document H_Safe as negative result (null finding)",
+    "Run full H3 steering validation with proper logit-level metrics",
+    "Consider extending H_Safe with actual Neuronpedia-annotated safety features if available"
+  ]
+}

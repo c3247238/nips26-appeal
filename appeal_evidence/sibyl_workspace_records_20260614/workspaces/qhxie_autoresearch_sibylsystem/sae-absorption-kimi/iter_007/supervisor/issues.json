@@ -1,0 +1,100 @@
+[
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Feature recovery MCC is ~0.22 across ALL variants including the untrained Random control (0.222 +/- 0.0004). Random SAE MCC is statistically indistinguishable from trained variants. If MCC cannot discriminate a trained SAE from a random dictionary, it is not a valid downstream interpretability metric. The 'null causal result' is therefore uninterpretable---it reflects metric insensitivity, not a genuine null effect.",
+    "suggestion": "Either (a) demonstrate MCC validity by showing it discriminates trained from random on some dimension, or (b) replace with a metric that shows cross-condition variance (e.g., reconstruction MSE shows 100x variance: 0.01 for Baseline vs. 0.67 for Random). Report MCC ceiling/floor analysis. Do not claim 'falsification' of the causal link."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Table 1 reports 'Dead Latents: 0.0%' for all variants. Raw data directly contradicts this: TopK has 1677/2048 = 82% dead latents (mean across seeds), Matryoshka has 1151/2048 = 56% dead latents, OrtSAE has 11/2048 = 0.5% dead latents. Only Baseline and Gated genuinely have 0% dead latents. This is either a data reporting error or a fundamental misunderstanding of the metric.",
+    "suggestion": "Correct Table 1 immediately with actual dead latent percentages. Analyze whether absorption rates are computed on the full dictionary or only active latents. Consider whether dead latents artificially suppress absorption (fewer active features = fewer opportunities for parent-child overlap). Recompute absorption using only non-dead latents."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "critical",
+    "description": "Explained variance shows an implausible 1.8-unit gap: Baseline (-0.88), Gated (-0.49), TopK (-0.39), Matryoshka (-0.28) are all NEGATIVE, while OrtSAE is POSITIVE (+0.994). Negative explained variance means the model performs worse than predicting the mean. This suggests a bug in the explained_variance computation or data preprocessing. The 1.8-unit gap between variants trained on identical data is not physically possible without a computational error.",
+    "suggestion": "Debug the explained_variance calculation immediately. Verify against an independent implementation (e.g., sklearn.metrics.explained_variance_score). Do not report this metric until the discrepancy is resolved."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The paper claims 'Baseline L1 cannot achieve the low L0 values (approx 50) enforced by TopK and Matryoshka.' The pilot lambda sweep tested up to lambda=0.02, which achieved L0=963---still 19x higher than the target of 50. The full experiment only tested up to lambda=0.002 (L0=995). The claim that L0=50 is unachievable is consistent with available data, but the paper should report the complete pilot lambda sweep (including lambda=0.02 at L0=963) to strengthen the claim. A stronger claim would test even higher lambda values to find the true floor of L1-induced sparsity.",
+    "suggestion": "Report the complete pilot lambda sweep in the paper (including lambda=0.02 at L0=963). Consider testing higher lambda values (0.05, 0.1) to definitively establish the L1 sparsity floor. The current claim is supported but underpowered---only 5 lambda values were tested."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "No statistical tests are reported despite explicit promises in the methodology (Welch's t-test, Cohen's d, Bonferroni correction). Claims like 'falsifies the hypothesis,' 'statistically indistinguishable,' and 'overlapping substantially' have no statistical basis. The paper uses descriptive language to make inferential claims.",
+    "suggestion": "Add statistical testing for all key claims: (1) Welch's t-test for each architecture vs. Baseline, (2) Pearson correlation with CI for absorption-MCC relationship across dose-response data, (3) Report exact p-values and confidence intervals. Without these, claims of 'falsification' are unsupported."
+  },
+  {
+    "stage": "review",
+    "category": "analysis",
+    "severity": "major",
+    "description": "The OrtSAE ablation (without penalty: 0.230 +/- 0.052 at L0~920) is compared against OrtSAE with penalty (0.247 +/- 0.048 at L0~550) to conclude 'the orthogonality penalty does not appear to reduce absorption.' This comparison is at UNMATCHED L0---the very confound the paper criticizes. The ablation conclusion is self-contradictory.",
+    "suggestion": "Either match L0 between OrtSAE with/without penalty before comparing, or remove the claim that the penalty 'does not reduce absorption.' Acknowledge that the ablation is confounded by L0 differences."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "major",
+    "description": "The paper lists both 'Matryoshka' and 'MultiScale' as separate variants, but analysis_statistics.json shows identical values for both (absorption_mean=0.05741566574862341, l0_mean=50.0). The raw data files full_matryoshka_results.json and full_multiscale_results.json are byte-for-byte identical (same seed-42 absorption_rate=0.056937857978690644, same dead_latents=1214, etc.). These are duplicate experiments reported as distinct variants.",
+    "suggestion": "Remove the MultiScale duplicate from Table 1 and all analysis. If MultiScale and Matryoshka are intended to be different, explain the difference and provide distinct data."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "major",
+    "description": "Training time is reported as 2-3 seconds per variant (full_baseline timing: 13.98s for 5 seeds = 2.8s/seed). This is implausibly fast for 2M tokens on GPU. The methodology promises convergence diagnostics (loss curves) but none are provided. The extremely fast training raises concerns about whether models actually trained or loaded cached weights.",
+    "suggestion": "Provide training loss curves for at least one seed per variant. Verify that training actually occurred (check weight initialization randomness, loss progression from random to converged). Report whether models were trained from scratch or loaded from checkpoints."
+  },
+  {
+    "stage": "review",
+    "category": "reproducibility",
+    "severity": "major",
+    "description": "The 'Data Integrity Pipeline' (Section 3.4) promises five validation checks but there is no evidence these checks were actually performed. No MD5 hashes, no convergence verification output, no numerical audit trail is provided. The paper claims 'All experiments use 5 random seeds' but the Random control was not trained---it's an untrained dictionary---so 'seeds' for Random are meaningless.",
+    "suggestion": "Provide the data integrity check output as supplementary material. Clarify that Random control seeds refer to random initialization only (no training). Add a note explaining why Random MCC matches trained MCC."
+  },
+  {
+    "stage": "review",
+    "category": "novelty",
+    "severity": "major",
+    "description": "The core novelty claim---that L0 confounds architecture comparisons---is important but may be considered a methodological observation rather than a research contribution. SAEBench (Karvonen et al., 2025) already compares architectures and notes sparsity differences. The contribution is quantifying the magnitude, not discovering the confound. The paper does not adequately acknowledge this prior observation.",
+    "suggestion": "Frame the contribution more precisely: 'We quantify the magnitude of the L0 confound and demonstrate that it entirely explains apparent architectural differences in absorption rates.' Cite SAEBench's prior observation explicitly."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "The dose-response study uses only Manipulation B (sparsity-induced via lambda sweep). Manipulation A (architectural, using variants with naturally different absorption rates) is mentioned in the methodology but not reported in the results. The causal inference design requires both manipulations.",
+    "suggestion": "Either report Manipulation A results (absorption vs. MCC across architectures) or remove the claim about 'two independent manipulations' from the methodology. If Manipulation A was not performed, state this explicitly as a limitation."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "Mutual coherence (RQ3) is reported as 'showing no systematic relationship with absorption rate' but no actual correlation coefficient or statistical test is provided. The data shows max coherence ~0.31 and mean ~0.05 across all seeds, but without absorption rates per seed, no correlation can be computed.",
+    "suggestion": "Compute and report the Pearson correlation between mutual coherence and absorption rate per seed. If the correlation is near zero, report the exact r value and p-value."
+  },
+  {
+    "stage": "review",
+    "category": "writing",
+    "severity": "minor",
+    "description": "The limitations section mentions 'All experiments use 1024 features, not the planned 16k' but the proposal specifies 1024 features for pilots and 16k for full experiments. The full experiments also use 1024 features, which is a scope reduction not acknowledged as a deviation from the plan.",
+    "suggestion": "Explicitly state that the full experiments used 1024 features instead of the planned 16k, and explain why (e.g., time constraints, computational budget). Discuss the generalizability implications."
+  },
+  {
+    "stage": "review",
+    "category": "experiment",
+    "severity": "minor",
+    "description": "The true_l0 metric (mean active features per token after removing dead latents) is ~1.58 across all variants, while l0_sparsity ranges from 50 to 1029. This suggests true_l0 is computed differently from l0_sparsity, but the relationship is not explained. If true_l0 is the meaningful sparsity metric, the L0-matching discussion should use it.",
+    "suggestion": "Explain the difference between l0_sparsity and true_l0 in the methods. Clarify which metric is used for L0-matching and why. The ~1.58 value suggests true_l0 may be counting features per unique token rather than per batch position."
+  }
+]

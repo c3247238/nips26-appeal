@@ -1,0 +1,96 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "UAD + DFDA with Dead Feature Analysis",
+      "status": "front_runner",
+      "summary": "Validate UAD+DFDA on pretrained SAEs with varying dead feature ratios. Quantify how dead features confound absorption detection and confirm the pipeline generalizes to healthier dictionaries.",
+      "hypotheses": [
+        "H1: Dead features reduce UAD precision but recall remains robust",
+        "H2: Collision rates converge across architectures when dead feature ratios are matched",
+        "H3: UAD achieves F1 >= 0.55 on pretrained SAEs with dead_feature_ratio < 50%",
+        "H4: DFDA achieves >=10% improvement on pretrained absorbed pairs"
+      ],
+      "pilot_focus": "UAD on 2-3 pretrained SAEs with known dead feature ratios; dead feature filtering ablation",
+      "evidence_from_iter1": {
+        "uad_f1": 0.704,
+        "uad_recall": 1.0,
+        "uad_precision": 0.543,
+        "dfda_mean_improvement": 0.1114,
+        "dfda_positive_pairs": "3/4",
+        "trained_sae_dead_feature_ratio": "94-99%",
+        "pretrained_jumprelu_dead_feature_ratio": 0.944
+      },
+      "key_risks": [
+        "UAD F1 may drop below 0.5 on healthier dictionaries if precision was artificially inflated by dead feature sparsity",
+        "Pretrained SAEs may have different feature distributions than trained SAEs",
+        "Chanin labels may not be available for all pretrained SAEs"
+      ],
+      "novelty_claim": "First systematic quantification of dead feature confound on absorption detection; validation of unsupervised detection on healthy dictionaries"
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Co-Occurrence as General SAE Analysis Tool",
+      "status": "backup",
+      "summary": "Generalize UAD's co-occurrence clustering beyond absorption to comprehensive unsupervised SAE analysis: hierarchy discovery, redundancy detection, community detection.",
+      "hypotheses": [
+        "Co-occurrence clustering reveals semantic hierarchies without supervision",
+        "Network centrality metrics identify functionally important features",
+        "Community detection on co-occurrence graphs recovers semantic categories"
+      ],
+      "pilot_focus": "Validate co-occurrence clustering on known semantic categories across multiple pretrained SAEs",
+      "evidence_from_iter1": "UAD clustering works on first-letter features; generalization to semantic hierarchies and healthier dictionaries untested",
+      "key_risks": [
+        "Semantic hierarchies may not form clean clusters in co-occurrence space",
+        "Dead features may still confound community detection"
+      ],
+      "novelty_claim": "General-purpose co-occurrence analysis toolkit for SAEs",
+      "pivot_trigger": "UAD F1 < 0.5 on pretrained SAEs but co-occurrence structure is still informative"
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Absorption as SAE Quality Diagnostic",
+      "status": "backup",
+      "summary": "Treat absorption rate and dead feature ratio as joint diagnostic signals for SAE quality. Propose a composite 'SAE Health Index'.",
+      "hypotheses": [
+        "Composite quality score (absorption * dead_feature_ratio) predicts interpretability better than either alone",
+        "Absorption rate negatively correlates with seed consistency",
+        "Dead feature ratio is a leading indicator of absorption susceptibility"
+      ],
+      "pilot_focus": "Collect 10+ pretrained SAEs, measure absorption vs quality metrics",
+      "evidence_from_iter1": "Dead feature ratios were extremely high (94-99%) in trained SAEs; relationship to absorption untested across diverse SAEs",
+      "key_risks": [
+        "Correlations may be weak or confounded by model architecture",
+        "Quality metrics themselves may be unreliable"
+      ],
+      "novelty_claim": "Reframes absorption from 'problem to fix' to 'signal to monitor'; first joint diagnostic framework",
+      "pivot_trigger": "UAD fails but absorption/dead-feature relationship is still meaningful"
+    },
+    {
+      "candidate_id": "cand_d",
+      "title": "Absorption as Consequence of SAE Nonidentifiability",
+      "status": "backup",
+      "summary": "Challenge the field's framing by showing absorption patterns vary across SAEs with different dead feature ratios, suggesting absorption is an artifact of training configuration rather than a real feature property.",
+      "hypotheses": [
+        "Absorption patterns vary significantly across SAEs for the same concept",
+        "Feature overlap across SAEs correlates negatively with absorption stability",
+        "The absorption classification is not reproducible across SAE configurations"
+      ],
+      "pilot_focus": "Compare absorption patterns across 3-5 pretrained SAEs for same model layer",
+      "evidence_from_iter1": "EleutherAI found ~30% feature overlap across seeds; absorption stability across SAE configurations untested",
+      "key_risks": [
+        "May be dismissed as 'gotcha' paper without constructive recommendations",
+        "If absorption IS stable across SAEs, hypothesis is falsified"
+      ],
+      "novelty_claim": "First systematic study of absorption stability across SAE configurations",
+      "pivot_trigger": "UAD detects wildly different absorption patterns across SAEs with different dead feature ratios"
+    }
+  ],
+  "front_runner": "cand_a",
+  "pivot_criteria": {
+    "if_uad_f1_below_0.5": "Pivot to cand_b, cand_c, or cand_d based on observed failure mode",
+    "if_uad_f1_0.5_to_0.55": "Proceed with cand_a but add cand_c as secondary contribution",
+    "if_uad_f1_above_0.55": "Full steam ahead on cand_a"
+  },
+  "synthesis_notes": "Iteration 2 perspectives debated whether to fix dead features via AuxK training (innovator/pragmatist) or treat them as a confound to analyze (theoretical/contrarian). The synthesis rejects AuxK training because (1) it violates the project spec's training-free constraint, (2) it distracts from the already-validated UAD contribution, and (3) pretrained SAEs with varying dead feature ratios already provide sufficient variation for analysis. The front-runner maintains UAD+DFDA as core while incorporating dead feature insights as a confound analysis rather than a problem to fix."
+}

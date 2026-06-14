@@ -1,0 +1,496 @@
+{
+  "iteration": 5,
+  "created_at": "2026-03-18",
+  "planner": "sibyl-planner (Opus 4.6)",
+  "description": "Iteration 5 实验任务定义。核心目标：ImageNet/ResNet-50 + CIFAR 消融实验全部完成。P0 完成前禁止进入 writing 阶段。",
+  "quality_gate_focus": "ImageNet/ResNet-50: 4 methods × 3 seeds × 90 epochs",
+  "compute": {
+    "backend": "local",
+    "gpus": "8x RTX PRO 6000 Blackwell (98GB each)",
+    "max_gpus": 4,
+    "gpus_per_task": 1,
+    "imagenet_gpus_per_task": 2,
+    "scheduling": "gpu_poll with aggressive mode"
+  },
+  "seeds": [42, 123, 456],
+  "reused_data": [
+    {
+      "source": "iter_003/exp/results/full/cifar10/resnet20/",
+      "description": "ResNet-20/CIFAR-10/AdamW, 7 methods × 3 seeds = 21 runs, 200 epochs",
+      "status": "complete"
+    },
+    {
+      "source": "iter_003/exp/results/full/cifar100/resnet20/",
+      "description": "ResNet-20/CIFAR-100/AdamW, 7 methods × 3 seeds = 21 runs, 200 epochs",
+      "status": "complete"
+    },
+    {
+      "source": "iter_003/exp/results/sgd_baseline/",
+      "description": "ResNet-20/SGD, 7 methods × 3 seeds × 2 datasets = 42 runs (ρ confound exists)",
+      "status": "complete"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "pilot_nobn",
+      "name": "NoBN ResNet-20 CIFAR-10 Pilot",
+      "priority": "P0",
+      "type": "pilot",
+      "depends_on": [],
+      "config": {
+        "arch": "resnet20_nobn",
+        "dataset": "cifar10",
+        "optimizer": "adamw",
+        "lr": 5e-4,
+        "wd": 5e-4,
+        "wd_methods": ["constant", "cwd_hard", "no_wd"],
+        "seeds": [42],
+        "epochs": 5,
+        "batch_size": 128,
+        "lr_schedule": "cosine",
+        "grad_clip_norm": 1.0,
+        "warmup_epochs": 0
+      },
+      "gpu_count": 1,
+      "estimated_minutes": 15,
+      "pass_criteria": "Training does not diverge (loss < 5.0 at epoch 5). No OOM. All 3 methods complete.",
+      "code_changes": ["models.py: add resnet20_nobn() with BatchNorm2d → Identity"],
+      "output_dir": "exp/results/pilots/nobn/"
+    },
+    {
+      "id": "pilot_rho_sweep",
+      "name": "ρ Sweep CIFAR-10 Pilot",
+      "priority": "P0",
+      "type": "pilot",
+      "depends_on": [],
+      "config": {
+        "arch": "resnet20",
+        "dataset": "cifar10",
+        "optimizer": "adamw",
+        "lr": 1e-3,
+        "runs": [
+          {"wd": 5e-5, "label": "rho_0.05", "methods": ["constant"]},
+          {"wd": 5e-3, "label": "rho_5.0", "methods": ["constant"], "grad_clip_norm": 5.0}
+        ],
+        "seeds": [42],
+        "epochs": 5,
+        "batch_size": 128
+      },
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "pass_criteria": "ρ=0.05 stable. ρ=5.0 stable OR fallback to ρ=2.0 (wd=2e-3).",
+      "fallback": {"rho_high_wd": 2e-3, "rho_high_label": "rho_2.0"},
+      "output_dir": "exp/results/pilots/rho_sweep/"
+    },
+    {
+      "id": "pilot_imagenet",
+      "name": "ImageNet ResNet-50 基础设施 Pilot",
+      "priority": "P0",
+      "type": "pilot",
+      "depends_on": [],
+      "config": {
+        "arch": "resnet50",
+        "dataset": "imagenet",
+        "optimizer": "adamw",
+        "lr": 1e-3,
+        "wd": 1e-4,
+        "wd_methods": ["constant"],
+        "seeds": [42],
+        "epochs": 1,
+        "batch_size": 256,
+        "lr_schedule": "cosine",
+        "warmup_epochs": 0,
+        "precision": "bf16",
+        "multi_gpu": true,
+        "gpu_count": 2,
+        "num_workers": 8
+      },
+      "gpu_count": 2,
+      "estimated_minutes": 25,
+      "pass_criteria": "1 epoch completes. top-1 > 10%. Per-layer diagnostics recorded. No OOM on 2 GPUs.",
+      "code_changes": [
+        "models.py: add resnet50() factory (torchvision)",
+        "data.py: add get_imagenet_dataloaders()",
+        "train_unified.py: add bf16, DataParallel, top-5 acc, per-layer rho, warmup"
+      ],
+      "output_dir": "exp/results/pilots/imagenet/"
+    },
+    {
+      "id": "full_nobn",
+      "name": "NoBN ResNet-20 CIFAR-10 完整实验",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": ["pilot_nobn"],
+      "config": {
+        "arch": "resnet20_nobn",
+        "dataset": "cifar10",
+        "optimizer": "adamw",
+        "lr": 5e-4,
+        "wd": 5e-4,
+        "wd_methods": ["constant", "cwd_hard", "no_wd"],
+        "seeds": [42, 123, 456],
+        "epochs": 200,
+        "batch_size": 128,
+        "lr_schedule": "cosine",
+        "grad_clip_norm": 1.0,
+        "warmup_epochs": 10
+      },
+      "gpu_count": 1,
+      "total_runs": 9,
+      "estimated_minutes_per_run": 35,
+      "estimated_total_gpu_hours": 5.25,
+      "output_dir": "exp/results/full/nobn/cifar10/resnet20_nobn/",
+      "theoretical_predictions": {
+        "phi_spread_lt_0.5pct": "ℓ∞ path is sufficient mechanism (strong conclusion)",
+        "phi_spread_gt_1pct": "BN is necessary condition for Phi invariance"
+      },
+      "visualizations": [
+        {"type": "bar_chart", "desc": "NoBN vs BN Phi Spread (Cohen's d)", "section": "ablation"}
+      ]
+    },
+    {
+      "id": "full_rho_low",
+      "name": "ρ=0.05 Sweep CIFAR-10 完整实验",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": ["pilot_rho_sweep"],
+      "config": {
+        "arch": "resnet20",
+        "dataset": "cifar10",
+        "optimizer": "adamw",
+        "lr": 1e-3,
+        "wd": 5e-5,
+        "wd_methods": ["constant", "cwd_hard", "half_lambda", "no_wd"],
+        "seeds": [42, 123, 456],
+        "epochs": 200,
+        "batch_size": 128,
+        "lr_schedule": "cosine"
+      },
+      "gpu_count": 1,
+      "total_runs": 12,
+      "estimated_minutes_per_run": 18,
+      "estimated_total_gpu_hours": 3.6,
+      "output_dir": "exp/results/full/rho_sweep/rho_0.05/",
+      "theoretical_predictions": {
+        "phi_spread": "< 0.1% (deep Regime I, WD methods nearly indistinguishable)"
+      }
+    },
+    {
+      "id": "full_rho_high",
+      "name": "ρ=5.0 (或 fallback ρ=2.0) Sweep CIFAR-10 完整实验",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": ["pilot_rho_sweep"],
+      "config": {
+        "arch": "resnet20",
+        "dataset": "cifar10",
+        "optimizer": "adamw",
+        "lr": 1e-3,
+        "wd": 5e-3,
+        "wd_methods": ["constant", "cwd_hard", "half_lambda", "no_wd"],
+        "seeds": [42, 123, 456],
+        "epochs": 200,
+        "batch_size": 128,
+        "lr_schedule": "cosine",
+        "grad_clip_norm": 5.0,
+        "early_stopping": {"condition": "train_loss > 5.0", "after_epoch": 20}
+      },
+      "gpu_count": 1,
+      "total_runs": 12,
+      "estimated_minutes_per_run": 25,
+      "estimated_total_gpu_hours": 5.0,
+      "output_dir": "exp/results/full/rho_sweep/rho_5.0/",
+      "fallback": {
+        "trigger": "pilot diverges at ρ=5.0",
+        "new_wd": 2e-3,
+        "new_output_dir": "exp/results/full/rho_sweep/rho_2.0/"
+      },
+      "theoretical_predictions": {
+        "phi_spread": "1-3% (Regime I-II boundary, methods differentiated)"
+      }
+    },
+    {
+      "id": "full_matched_sgd_cifar10",
+      "name": "Matched-ρ SGD CIFAR-10 完整实验",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": [],
+      "config": {
+        "arch": "resnet20",
+        "dataset": "cifar10",
+        "optimizer": "sgdw",
+        "lr": 0.01,
+        "momentum": 0.9,
+        "wd": 5e-3,
+        "wd_methods": ["constant", "cwd_hard", "no_wd"],
+        "seeds": [42, 123, 456],
+        "epochs": 200,
+        "batch_size": 128,
+        "lr_schedule": "cosine"
+      },
+      "gpu_count": 1,
+      "total_runs": 9,
+      "estimated_minutes_per_run": 25,
+      "estimated_total_gpu_hours": 3.75,
+      "output_dir": "exp/results/full/matched_rho_sgd/cifar10/",
+      "code_changes": ["train_unified.py: add --optimizer sgdw argument"],
+      "purpose": "Eliminate ρ confound in 18.3× SGD/AdamW effect size ratio"
+    },
+    {
+      "id": "full_matched_sgd_cifar100",
+      "name": "Matched-ρ SGD CIFAR-100 完整实验",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": ["full_matched_sgd_cifar10"],
+      "config": {
+        "arch": "resnet20",
+        "dataset": "cifar100",
+        "optimizer": "sgdw",
+        "lr": 0.01,
+        "momentum": 0.9,
+        "wd": 5e-3,
+        "wd_methods": ["constant", "cwd_hard", "no_wd"],
+        "seeds": [42, 123, 456],
+        "epochs": 200,
+        "batch_size": 128,
+        "lr_schedule": "cosine"
+      },
+      "gpu_count": 1,
+      "total_runs": 9,
+      "estimated_minutes_per_run": 30,
+      "estimated_total_gpu_hours": 4.5,
+      "output_dir": "exp/results/full/matched_rho_sgd/cifar100/"
+    },
+    {
+      "id": "full_vgg16bn",
+      "name": "VGG-16-BN CIFAR-10 完整实验",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": [],
+      "config": {
+        "arch": "vgg16_bn",
+        "dataset": "cifar10",
+        "optimizer": "adamw",
+        "lr": 1e-3,
+        "wd": 5e-4,
+        "wd_methods": ["constant", "cwd_hard", "half_lambda", "cosine_schedule", "swd", "random_mask", "no_wd"],
+        "seeds": [42, 123, 456],
+        "epochs": 200,
+        "batch_size": 128,
+        "lr_schedule": "cosine"
+      },
+      "gpu_count": 1,
+      "total_runs": 21,
+      "estimated_minutes_per_run": "70 (constant) / 170 (cwd_hard)",
+      "estimated_total_gpu_hours": 35,
+      "output_dir": "exp/results/full/vgg16_bn/cifar10/",
+      "scheduling_hint": "Dispatch non-cwd_hard methods first; cwd_hard seeds last",
+      "visualizations": [
+        {"type": "table", "desc": "VGG-16-BN 7 methods × 3 seeds results", "section": "experiments"}
+      ]
+    },
+    {
+      "id": "full_imagenet_seed42",
+      "name": "ImageNet ResNet-50 Seed=42",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": ["pilot_imagenet"],
+      "config": {
+        "arch": "resnet50",
+        "dataset": "imagenet",
+        "optimizer": "adamw",
+        "lr": 1e-3,
+        "betas": [0.9, 0.999],
+        "wd": 1e-4,
+        "wd_methods": ["constant", "cwd_hard", "cosine_schedule", "no_wd"],
+        "seeds": [42],
+        "epochs": 90,
+        "batch_size": 256,
+        "lr_schedule": "cosine",
+        "warmup_epochs": 5,
+        "precision": "bf16",
+        "multi_gpu": true,
+        "num_workers": 8
+      },
+      "gpu_count": 2,
+      "total_runs": 4,
+      "estimated_minutes_per_run": 150,
+      "estimated_total_gpu_hours": 20,
+      "output_dir": "exp/results/full/imagenet/resnet50/seed_42/",
+      "diagnostics": [
+        "test_top1_acc", "test_top5_acc", "train_loss",
+        "per_layer_weight_norm", "per_layer_gradient_norm", "per_layer_rho",
+        "per_layer_alignment_cosine", "BEM", "CSI", "AIS", "sign_flip_rate"
+      ],
+      "visualizations": [
+        {"type": "heatmap", "desc": "Per-layer ρ heatmap: 50 layers × 90 epochs × 4 methods", "section": "novel_contribution"},
+        {"type": "table", "desc": "ImageNet top-1/top-5: 4 methods", "section": "experiments"}
+      ]
+    },
+    {
+      "id": "full_imagenet_seed123",
+      "name": "ImageNet ResNet-50 Seed=123",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": ["full_imagenet_seed42"],
+      "config": {
+        "arch": "resnet50",
+        "dataset": "imagenet",
+        "optimizer": "adamw",
+        "lr": 1e-3,
+        "betas": [0.9, 0.999],
+        "wd": 1e-4,
+        "wd_methods": ["constant", "cwd_hard", "cosine_schedule", "no_wd"],
+        "seeds": [123],
+        "epochs": 90,
+        "batch_size": 256,
+        "lr_schedule": "cosine",
+        "warmup_epochs": 5,
+        "precision": "bf16",
+        "multi_gpu": true,
+        "num_workers": 8
+      },
+      "gpu_count": 2,
+      "total_runs": 4,
+      "estimated_minutes_per_run": 150,
+      "estimated_total_gpu_hours": 20,
+      "output_dir": "exp/results/full/imagenet/resnet50/seed_123/"
+    },
+    {
+      "id": "full_imagenet_seed456",
+      "name": "ImageNet ResNet-50 Seed=456",
+      "priority": "P0",
+      "type": "experiment",
+      "depends_on": ["full_imagenet_seed123"],
+      "config": {
+        "arch": "resnet50",
+        "dataset": "imagenet",
+        "optimizer": "adamw",
+        "lr": 1e-3,
+        "betas": [0.9, 0.999],
+        "wd": 1e-4,
+        "wd_methods": ["constant", "cwd_hard", "cosine_schedule", "no_wd"],
+        "seeds": [456],
+        "epochs": 90,
+        "batch_size": 256,
+        "lr_schedule": "cosine",
+        "warmup_epochs": 5,
+        "precision": "bf16",
+        "multi_gpu": true,
+        "num_workers": 8
+      },
+      "gpu_count": 2,
+      "total_runs": 4,
+      "estimated_minutes_per_run": 150,
+      "estimated_total_gpu_hours": 20,
+      "output_dir": "exp/results/full/imagenet/resnet50/seed_456/"
+    },
+    {
+      "id": "analysis_cross_arch",
+      "name": "跨架构综合分析与图表生成",
+      "priority": "P1",
+      "type": "analysis",
+      "depends_on": [
+        "full_nobn", "full_rho_low", "full_rho_high",
+        "full_matched_sgd_cifar10", "full_matched_sgd_cifar100",
+        "full_vgg16bn", "full_imagenet_seed42"
+      ],
+      "tasks": [
+        "Compute Phi spread per architecture/dataset",
+        "Cohen's d for NoBN vs BN",
+        "Rho-Spread curve (0.05, 0.5, 5.0)",
+        "SGD/AdamW ratio at original vs matched rho",
+        "Cross-scale comparison table",
+        "Generate all figures",
+        "Run verify_figures.py consistency check"
+      ],
+      "gpu_count": 0,
+      "estimated_minutes": 30,
+      "output_dir": "exp/results/analysis/iter5/",
+      "visualizations": [
+        {"type": "heatmap", "desc": "ImageNet per-layer ρ heatmap", "section": "novel_contribution"},
+        {"type": "bar_chart", "desc": "NoBN vs BN effect size comparison", "section": "ablation"},
+        {"type": "line_plot", "desc": "Phi Spread vs ρ curve (trichotomy)", "section": "core_analysis"},
+        {"type": "bar_chart", "desc": "Cross-scale Phi Spread (ResNet-20 vs ResNet-50)", "section": "generalization"},
+        {"type": "bar_chart", "desc": "Matched-ρ SGD vs AdamW effect size", "section": "core_analysis"},
+        {"type": "table", "desc": "Master results table: all experiments", "section": "experiments"}
+      ]
+    }
+  ],
+  "execution_waves": {
+    "wave0_pilots": {
+      "wall_clock": "T+0h ~ T+0.5h",
+      "tasks": ["pilot_nobn", "pilot_rho_sweep", "pilot_imagenet"],
+      "parallel": true,
+      "notes": "All pilots run in parallel on available GPUs"
+    },
+    "wave1_cifar_ablations": {
+      "wall_clock": "T+0.5h ~ T+2.5h",
+      "tasks": ["full_nobn", "full_rho_low", "full_rho_high", "full_matched_sgd_cifar10"],
+      "parallel": true,
+      "notes": "Launch after pilots pass. full_matched_sgd_cifar100 follows cifar10."
+    },
+    "wave2_vgg": {
+      "wall_clock": "T+2h ~ T+8h",
+      "tasks": ["full_vgg16bn"],
+      "parallel": true,
+      "notes": "21 runs across available GPUs. Non-cwd_hard first."
+    },
+    "wave3_imagenet_phase1": {
+      "wall_clock": "after pilot_imagenet passes",
+      "tasks": ["full_imagenet_seed42"],
+      "notes": "4 runs on 4 GPUs (2 per run × 2 parallel). ~2-3h."
+    },
+    "wave4_imagenet_phase2": {
+      "wall_clock": "after seed42 completes",
+      "tasks": ["full_imagenet_seed123"],
+      "notes": "Same config as seed42."
+    },
+    "wave5_imagenet_phase3_analysis": {
+      "wall_clock": "after seed123 completes",
+      "tasks": ["full_imagenet_seed456", "analysis_cross_arch"],
+      "parallel": true,
+      "notes": "seed456 runs while analysis pipeline works on available data."
+    }
+  },
+  "gate_decisions": {
+    "gate1": {
+      "trigger": "full_nobn + full_rho_low + full_rho_high + full_matched_sgd_cifar10",
+      "decisions": [
+        "Trichotomy claim strength (Conjecture vs Empirical Finding)",
+        "SGD/AdamW ratio: confirm ρ as primary confounder",
+        "NoBN mechanism: ℓ∞ path sufficient OR BN required"
+      ]
+    },
+    "gate2": {
+      "trigger": "full_vgg16bn",
+      "decisions": [
+        "Cross-architecture Phi spread confirmation",
+        "Begin preliminary figure generation"
+      ]
+    },
+    "gate3": {
+      "trigger": "full_imagenet_seed42",
+      "decisions": [
+        "Paper claim scope (Scenario A/B/C/D)",
+        "Per-layer ρ heatmap quality",
+        "Proceed with seeds 123+456?"
+      ]
+    },
+    "writing_gate": {
+      "minimum": "gate1 + gate2",
+      "recommended": "gate1 + gate2 + gate3",
+      "hard_block": "Writing stage BLOCKED until gate1 passes"
+    }
+  },
+  "total_summary": {
+    "total_runs": 84,
+    "total_gpu_hours_estimate": "60-80",
+    "wall_clock_estimate_hours": "15-18",
+    "new_code_files": 0,
+    "code_modifications": ["models.py", "data.py", "train_unified.py"],
+    "new_architectures": ["resnet20_nobn", "resnet50"],
+    "new_datasets": ["imagenet"],
+    "new_features": ["bf16", "DataParallel", "top-5 acc", "per-layer rho", "warmup", "grad clip", "SGD optimizer arg"]
+  }
+}

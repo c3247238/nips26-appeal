@@ -1,0 +1,58 @@
+{
+  "overall_recommendation": "GO",
+  "task_id": "h5_layer_fixedpoint",
+  "go_no_go": "GO",
+  "confidence": 0.72,
+  "key_findings": [
+    {
+      "finding": "CV(r*) under FixedWD is very high (2.36-3.49) across all architectures, strongly refuting the prediction that r* is uniform (CV < 0.15) under FixedWD. Even with constant WD, per-layer r* varies enormously.",
+      "implication": "The prediction that FixedWD produces uniform r* is wrong — even at 2 epochs, different layers have very different gradient-to-weight ratios due to architecture effects."
+    },
+    {
+      "finding": "For ResNet-50, original UDWDC shows strong anti-correlation (Spearman=-0.61, p<0.001) but UDWDC-v2 does NOT (Spearman=-0.16, p=0.25). The EMA smoothing + floor clipping in v2 may be reducing the differentiation effect.",
+      "implication": "The stability fix (v2) trades off fixed-point differentiation for training stability. This is an important design tension to document."
+    },
+    {
+      "finding": "ResNet-101 with UDWDC-v2 shows the STRONGEST anti-correlation (Spearman=-0.79, p<0.001), contradicting the earlier pilot that reported failure for ResNet-101.",
+      "implication": "Earlier pilot may have used corrupted data or different UDWDC version. Full training with more epochs may clarify."
+    },
+    {
+      "finding": "ViT-S/16 with UDWDC-v2 shows marginal anti-correlation (Spearman=-0.32, p=0.025), barely passing the threshold.",
+      "implication": "H5 holds weakly for LayerNorm architectures, consistent with the hypothesis that BN layers show stronger differentiation."
+    },
+    {
+      "finding": "Pearson correlations are very high for ResNet models (|r|>0.94) even under FixedWD, but Spearman is moderate. This suggests outlier layers (fc.weight has extreme r*) dominate Pearson but not Spearman.",
+      "implication": "Rank-based Spearman is the correct metric; Pearson is misleading due to fc.weight outlier."
+    }
+  ],
+  "pass_criteria": {
+    "r_star_and_delta_star_computable": true,
+    "spearman_computable": true,
+    "at_least_10_layers_non_degenerate": true
+  },
+  "metrics_summary": {
+    "resnet50": {
+      "fixedwd_cv_r_star": 2.356,
+      "udwdc_spearman": -0.613,
+      "udwdc_v2_spearman": -0.161,
+      "h5_pass_udwdc": true,
+      "h5_pass_udwdc_v2": false
+    },
+    "resnet101": {
+      "fixedwd_cv_r_star": 3.485,
+      "udwdc_v2_spearman": -0.785,
+      "h5_pass_udwdc_v2": true
+    },
+    "vit_s_16": {
+      "fixedwd_cv_r_star": 2.615,
+      "udwdc_v2_spearman": -0.318,
+      "h5_pass_udwdc_v2": true
+    }
+  },
+  "risks": [
+    "Only 2 pilot epochs — fixed-point equilibria not yet reached. Full 200/90-epoch results may differ significantly.",
+    "UDWDC-v2 Spearman failure on ResNet-50 may be a pilot artifact or a genuine design flaw of the floor clipping.",
+    "High CV(r*) under FixedWD contradicts theoretical prediction — need to investigate whether this is a training-start transient."
+  ],
+  "notes": "Pilot data uses 2 epochs only. H5 analysis is primarily about steady-state behavior (last 10 epochs of full training). Pilot results should be interpreted cautiously."
+}

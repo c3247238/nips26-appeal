@@ -1,0 +1,120 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "cand_a",
+      "title": "Negative Result: Limits of Consistency-Based Activation Energy for Problem-Level Routing",
+      "status": "front_runner",
+      "summary": "Systematic falsification that consistency-derived Ea cannot predict single-pass correctness (AUC=0.436). Includes diagnostic analysis (H4) of why Ea fails, decoupling evidence (H5: Ea vs k_0 unrelated), and explicit boundary map of the Activation Energy framework. Cross-validates ACAR's agreement-but-wrong ceiling with a larger ~25pp quantification.",
+      "hypotheses": [
+        "H1: Aggregate Arrhenius saturation - CONFIRMED (R^2=0.924)",
+        "H2: Ea correlates with difficulty - CONFIRMED (Spearman=0.448)",
+        "H3: Ea predicts single-pass solveability - FALSIFIED (AUC=0.436)",
+        "H4: Ea measures stability not correctness - PENDING (error classification)",
+        "H5: Ea and k_0 are related - FALSIFIED (Spearman=-0.219)"
+      ],
+      "pilot_focus": "H4 error classification on low-Ea failures; P1 pre-registered threshold validation",
+      "key_reference": "Yang et al. 2025 (2508.16456) - COLLISION on exponential formula; ACAR 2026 (2602.21231) - cross-validates agreement-but-wong; Li 2026 (2601.00828) - supports error depth framing",
+      "novelty_flags": [
+        "Novel: First systematic falsification of Ea-based routing on MATH benchmark",
+        "Novel: ~25pp ceiling quantification for convergence-rate-based routing (vs ACAR's 8pp)",
+        "Novel: Ea-k_0 decoupling evidence reveals two unrelated 'difficulty' constructs",
+        "Novel: Diagnostic analysis linking routing failure to stability-vs-correctness distinction"
+      ],
+      "ablation_groups": [
+        {"id": "H4_error_analysis", "description": "Classify low-Ea failures: execution vs conceptual vs extraction errors"},
+        {"id": "P1_preregistered_threshold", "description": "Re-run H3 with pre-registered threshold to eliminate data leakage concern"}
+      ],
+      "estimated_pilot_time_min": 50,
+      "estimated_full_time_min": 120,
+      "pilot_criteria": {
+        "H4": "Any error mix supports narrative; execution errors >50% strongly supports",
+        "P1": "AUC <0.5 with pre-registered threshold confirms falsification"
+      },
+      "status_reason": "Front-runner - honest negative result with clear diagnostic path; strongest literature positioning"
+    },
+    {
+      "candidate_id": "cand_b",
+      "title": "Expanded Negative Result (n=250)",
+      "status": "backup",
+      "summary": "Same negative-result framing as cand_a but with expanded sample size (n=250 or full MATH n=500) to address sample size criticism. Expected to replicate all findings with stronger statistical power.",
+      "hypotheses": [
+        "H_B1: All Round 4 findings replicate at n=250",
+        "H_B2: Per-problem fit failure rate remains >70%",
+        "H_B3: AUC remains <0.5 with pre-registered threshold"
+      ],
+      "pilot_focus": "Re-run G0-G3 on stratified n=250 sample (50 per MATH level)",
+      "key_reference": "Same as cand_a",
+      "novelty_flags": [
+        "Same as cand_a but with stronger statistical power",
+        "Novel: Cross-validation with train/test threshold split"
+      ],
+      "estimated_pilot_time_min": 120,
+      "estimated_full_time_min": 240,
+      "status_reason": "Backup - execute if cand_a receives sample size criticism from reviewers"
+    },
+    {
+      "candidate_id": "cand_c",
+      "title": "Cross-Model Validation",
+      "status": "backup",
+      "summary": "Test whether Ea-routing failure generalizes across model families (DeepSeek-Math-7B, Qwen2.5-Math-1.5B, Qwen2.5-Math-7B). Compare saturation parameters and routing AUC across models.",
+      "hypotheses": [
+        "H_C1: Ea-routing failure replicates across model families",
+        "H_C2: Aggregate Arrhenius saturation holds across models",
+        "H_C3: Ea-difficulty correlation holds across models"
+      ],
+      "pilot_focus": "Run G0-G3 on DeepSeek-Math-7B and Qwen2.5-Math-1.5B",
+      "key_reference": "Yang et al. 2025 (cross-model saturation); ACAR 2026 (model-agnostic routing)",
+      "novelty_flags": [
+        "Novel: First cross-model validation of Ea-routing failure",
+        "Novel: Model-specific saturation parameter comparison"
+      ],
+      "estimated_pilot_time_min": 180,
+      "estimated_full_time_min": 360,
+      "status_reason": "Backup - execute if cand_a receives model-specificity criticism"
+    },
+    {
+      "candidate_id": "cand_d",
+      "title": "Error Depth Targeted Training (EDTT)",
+      "status": "backup",
+      "summary": "If negative result paper is rejected, pivot to training-based approach. Classify errors by depth (L1/L2/L3) and train GRPO with depth-aware rewards. GPU now available via PyTorch 2.11.0.",
+      "hypotheses": [
+        "H_D1: EDTT reduces L3 error rate more than standard GRPO",
+        "H_D2: Error depth targeting improves over generic training by >5%"
+      ],
+      "pilot_focus": "Classify errors by depth; train GRPO with depth-aware rewards on small subset",
+      "key_reference": "Li 2026 (2601.00828) - Error Depth Hypothesis; S-GRPO (2504.20834); SwS (2506.08989)",
+      "novelty_flags": [
+        "Novel: First error-depth-targeted training for LLM reasoning",
+        "Novel: Depth-aware reward shaping in GRPO"
+      ],
+      "estimated_pilot_time_min": 120,
+      "estimated_full_time_min": 240,
+      "status_reason": "Backup - higher complexity; only if cand_a is rejected and GPU training is viable"
+    },
+    {
+      "candidate_id": "cand_e",
+      "title": "H1-H2 Validation Paper (Minimalist Fallback)",
+      "status": "dropped",
+      "summary": "If all routing analysis fails, publish H1-H2 validation + H3 negative result as minimalist paper. Acknowledge Yang et al. collision explicitly. Lowest novelty but safest fallback.",
+      "hypotheses": [
+        "H_E1: Arrhenius kinetics generalizes across models",
+        "H_E2: Ea-difficulty correlation holds for multiple model families"
+      ],
+      "status_reason": "Fallback - used if cand_a, cand_b, cand_c all fail. Requires acknowledging Yang et al. collision."
+    }
+  ],
+  "pivot_summary": {
+    "round_5_results": "H1+H2 confirmed (aggregate patterns), H3 falsified (AUC=0.436), H5 falsified (Ea vs k_0 unrelated)",
+    "direction_change": "Shift from theoretical framework to empirical boundary-delineation and negative-result paper",
+    "novelty_claim": "First systematic falsification of Ea-based routing + ~25pp ceiling quantification + diagnostic analysis",
+    "critical_collision": "Yang et al. 2025 (2508.16456) - exponential saturation formula; acknowledged, not claimed as novel"
+  },
+  "execution_plan": {
+    "immediate": "H4 error classification + P1 pre-registered threshold validation",
+    "if_H4_supports": "Proceed to paper writing with negative-result framing",
+    "if_H4_inconclusive": "Expand to n=250 (cand_b)",
+    "if_P1_confirms": "H3 falsification is robust; proceed with paper",
+    "if_P1_reverses": "Re-evaluate H3; consider signal comparison (Alt D)",
+    "if_paper_rejected": "Pivot to cand_c (cross-model) or cand_d (EDTT training)"
+  }
+}
